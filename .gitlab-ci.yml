@@ -1,0 +1,15 @@
+image: golang:1.13
+
+stages:
+  - build
+  - test
+
+test:
+  stage: test
+  script:
+    - /usr/local/go/bin/go test -v ./hacloud
+  
+build:
+  stage: build
+  script:
+    - /usr/local/go/bin/go build -mod=vendor gitlab.eng.vmware.com/orion/mcc/cmd/hacloud-main
