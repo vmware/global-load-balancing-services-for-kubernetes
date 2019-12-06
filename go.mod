@@ -3,7 +3,7 @@ module gitlab.eng.vmware.com/orion/mcc
 go 1.13
 
 require (
-	github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5 // indirect
+	github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5
 	github.com/avinetworks/servicemesh v0.0.0-20190925185306-4b4864e1327f // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/openshift/api v3.9.0+incompatible
