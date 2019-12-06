@@ -8,8 +8,10 @@ test:
   stage: test
   script:
     - /usr/local/go/bin/go test -v ./hacloud
+    - /usr/local/go/bin/go test -v ./gslb
   
 build:
   stage: build
   script:
     - /usr/local/go/bin/go build -mod=vendor gitlab.eng.vmware.com/orion/mcc/cmd/hacloud-main
+    - /usr/local/go/bin/go build -mod=vendor -o gslb-out gitlab.eng.vmware.com/orion/mcc/cmd/gslb
