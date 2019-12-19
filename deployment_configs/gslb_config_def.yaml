@@ -1,0 +1,43 @@
+apiVersion: "apiextensions.k8s.io/v1beta1"
+kind: "CustomResourceDefinition"
+metadata:
+  name: "gslbconfigs.avilb.k8s.io"
+spec:
+  group: "avilb.k8s.io"
+  version: "v1"
+  scope: "Namespaced"
+  names:
+    plural: "gslbconfigs"
+    singular: "gslbconfig"
+    kind: "GSLBConfig"
+    shortNames:
+    - "gcc"
+  validation:
+    openAPIV3Schema:
+      required: ["spec"]
+      properties:
+        spec:
+          properties:
+            gslbLeader:
+              properties:
+                credentials:
+                  type: "string"
+                controllerVersion:
+                  type: "string"
+                controllerIP:
+                  type: "string"
+            memberClusters:
+              type: "array"
+              items:
+                properties:
+                  clusterContext:
+                    type: "string"
+            globalServiceNameSource:
+              type: "string"
+              enum: [HOSTNAME]
+            domainNames:
+              type: "array"
+              items:
+                type: "string"
+  subresources:
+    status: {}
