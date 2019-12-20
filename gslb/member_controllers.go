@@ -157,14 +157,12 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 	}
 
 	if c.informers.RouteInformer != nil {
-		containerutils.AviLog.Info.Printf("adding route informer...")
 		c.informers.RouteInformer.Informer().AddEventHandler(routeEventHandler)
 	}
 }
 
 func (c *AviController) Start(stopCh <-chan struct{}) {
 	var cacheSyncParam []cache.InformerSynced
-	containerutils.AviLog.Info.Printf("informers: %v", c.informers)
 	if c.informers.IngressInformer != nil {
 		go c.informers.IngressInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, c.informers.IngressInformer.Informer().HasSynced)
@@ -186,8 +184,8 @@ func (c *AviController) Start(stopCh <-chan struct{}) {
 func (c *AviController) Run(stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 
-	containerutils.AviLog.Info.Print("Started the Kubernetes Controller")
+	containerutils.AviLog.Info.Printf("Started the Kubernetes Controller %s", c.name)
 	<-stopCh
-	containerutils.AviLog.Info.Print("Shutting down the Kubernetes Controller")
+	containerutils.AviLog.Info.Printf("Shutting down the Kubernetes Controller: %s", c.name)
 	return nil
 }

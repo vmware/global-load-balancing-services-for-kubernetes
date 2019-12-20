@@ -4,14 +4,14 @@ metadata:
   name: "gslbconfigs.avilb.k8s.io"
 spec:
   group: "avilb.k8s.io"
-  version: "v1"
+  version: "v1alpha1"
   scope: "Namespaced"
   names:
     plural: "gslbconfigs"
     singular: "gslbconfig"
     kind: "GSLBConfig"
     shortNames:
-    - "gcc"
+    - "gc"
   validation:
     openAPIV3Schema:
       required: ["spec"]
