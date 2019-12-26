@@ -268,7 +268,9 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			containerutils.AviLog.Info.Printf("Error in creating openshift clientset %v", err.Error())
 			continue
 		}
+
 		informersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
+		informersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 		informerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{
 			ClientSet: kubeClient},
 			registeredInformers,
@@ -277,7 +279,6 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 		aviCtrl := GetAviController(cluster.clusterName, informerInstance)
 		aviCtrl.SetupEventHandlers(K8SInformers{cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)
-		// aviCtrl.Start(stopCh)
 	}
 	return aviCtrlList
 }
