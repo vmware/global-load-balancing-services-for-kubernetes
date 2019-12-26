@@ -1,0 +1,18 @@
+apiVersion: "avilb.k8s.io/v1alpha1"
+kind: "GSLBConfig"
+metadata:
+  name: "gslb-policy-1"
+  namespace: "avi-system"
+spec:
+  gslbLeader:
+    credentials: avi-secret
+    controllerVersion: 18.2.5
+    controller_ip: 10.10.10.10
+  memberClusters:
+    - clusterContext: dev-default
+    - clusterContext: exp-scratch
+  globalServiceNameSource: HOSTNAME
+  domainNames:
+    - avi.com
+    - foo.com
+status:
