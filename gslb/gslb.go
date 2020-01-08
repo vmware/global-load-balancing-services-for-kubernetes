@@ -14,7 +14,6 @@ import (
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	gslbcs "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
@@ -98,10 +97,9 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 	AddGSLBConfigFunc GSLBConfigAddfn) *GSLBConfigController {
 
 	gslbInformer := gslbInformerFactory.Avilb().V1alpha1().GSLBConfigs()
-
 	// Create event broadcaster
 	gslbscheme.AddToScheme(scheme.Scheme)
-	utils.AviLog.Info.Print("Creating event broadcaster")
+	utils.AviLog.Info.Print("Creating event broadcaster for GSLB config controller")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
@@ -125,7 +123,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 			gslbController.Cleanup()
 		},
 	})
-
+	go gslbInformer.Informer().Run(stopCh)
 	return gslbController
 }
 
@@ -187,6 +185,8 @@ func AddGSLBConfigObject(obj interface{}) {
 	}
 }
 
+// func GetKubernetesClient() (kubernetes.Interface, gslbcs.Clientset)
+
 // Initialize initializes the first controller which looks for GSLB Config
 func Initialize() {
 	initFlags()
@@ -217,14 +217,17 @@ func Initialize() {
 		utils.AviLog.Error.Fatalf("Error building gslb config clientset: %s", err.Error())
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)
 
 	gslbController := GetNewController(kubeClient, gslbClient, gslbInformerFactory,
 		AddGSLBConfigObject)
 
-	go kubeInformerFactory.Start(stopCh)
-	go gslbInformerFactory.Start(stopCh)
+	InitializeGDPController(kubeClient, gslbClient, gslbInformerFactory, AddGDPObj,
+		UpdateGDPObj, DeleteGDPObj)
+
+	// go kubeInformerFactory.Start(stopCh)
+	// go gslbInformerFactory.Start(stopCh)
 
 	if err = gslbController.Run(stopCh); err != nil {
 		utils.AviLog.Error.Fatalf("Error running controller: %s\n", err.Error())

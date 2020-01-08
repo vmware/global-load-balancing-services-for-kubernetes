@@ -55,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=avilb, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("gslbconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Avilb().V1alpha1().GSLBConfigs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("globaldeploymentpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Avilb().V1alpha1().GlobalDeploymentPolicies().Informer()}, nil
 
 	}
 

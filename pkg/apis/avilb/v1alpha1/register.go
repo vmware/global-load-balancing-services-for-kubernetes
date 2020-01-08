@@ -36,6 +36,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		SchemeGroupVersion,
 		&GSLBConfig{},
 		&GSLBConfigList{},
+		&GlobalDeploymentPolicy{},
+		&GlobalDeploymentPolicyList{},
 	)
 
 	scheme.AddKnownTypes(

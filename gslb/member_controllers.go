@@ -15,6 +15,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+var (
+	// Cluster Routes store for all the route objects.
+	acceptedRouteStore *gslbutils.ClusterStore
+	rejectedRouteStore *gslbutils.ClusterStore
+)
+
 // AviController is actually kubernetes cluster which is added to an AVI controller
 // here which is added to an AVI controller
 type AviController struct {
@@ -62,6 +68,34 @@ func rejectRoute(route *routev1.Route) bool {
 	return true
 }
 
+func initializeClusterRouteStore() *gslbutils.ClusterStore {
+	return gslbutils.NewClusterStore()
+}
+
+// AddOrUpdateRouteStore traverses through the cluster store for cluster name cname,
+// and then to ns store for the route's namespace and then adds/updates the route obj
+// in the object map store.
+func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
+	route *routev1.Route, cname string) {
+	clusterRouteStore.AddOrUpdate(route, cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
+}
+
+// DeleteFromRouteStore traverses through the cluster store for cluster name cname,
+// and then ns store for the route's namespace and then deletes the route key from
+// the object map store.
+func DeleteFromRouteStore(clusterRouteStore *gslbutils.ClusterStore,
+	route *routev1.Route, cname string) {
+	if clusterRouteStore == nil {
+		// Store is empty, so, noop
+		return
+	}
+	ns := route.ObjectMeta.Namespace
+	routeName := route.ObjectMeta.Name
+	clusterRouteStore.DeleteClusterNSObj(cname, ns, routeName)
+}
+
+// SetupEventHandlers sets up event handlers for the controllers of the member clusters.
+// They define the ingress/route event handlers and start the informers as well.
 func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 	cs := k8sinfo.cs
 	containerutils.AviLog.Info.Printf("Creating event broadcaster for %v", c.name)
@@ -69,11 +103,9 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 	eventBroadcaster.StartLogging(containerutils.AviLog.Info.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: cs.CoreV1().Events("")})
 
-	containerutils.AviLog.Info.Printf("c.informers: %v", c.informers)
 	k8sQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	c.workqueue = k8sQueue.Workqueue
 	numWorkers := k8sQueue.NumWorkers
-
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ingr := obj.(*extensionv1beta1.Ingress)
@@ -113,26 +145,47 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 		},
 	}
 
+	if acceptedRouteStore == nil {
+		containerutils.AviLog.Info.Print("Initializing accepted route store")
+		acceptedRouteStore = initializeClusterRouteStore()
+	}
+	if rejectedRouteStore == nil {
+		containerutils.AviLog.Info.Print("Initializing rejected route store")
+		rejectedRouteStore = initializeClusterRouteStore()
+	}
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			route := obj.(*routev1.Route)
 			// Don't add this route if there's no status field present or no IP is allocated in this
 			// status field
 			if rejectRoute(route) {
-				containerutils.AviLog.Info.Printf("Rejecting ADD route: %v", route)
+				containerutils.AviLog.Info.Printf("Rejecting ADD route: %s, cluster: %s",
+					route.ObjectMeta.Name, c.name)
 				return
 			}
+			if gf == nil || !gf.ApplyFilter(route, c.name) {
+				containerutils.AviLog.Info.Printf("Rejecting ADD route: %s, cluster: %s",
+					route.ObjectMeta.Name, c.name)
+				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+				return
+			}
+			AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
 			key := gslbutils.MultiClusterKey("Route/", c.name, route)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added ADD Route key from the controller: %v", route)
+			containerutils.AviLog.Info.Printf("Added ADD Route key from the controller: %s, cluster: %s",
+				route.ObjectMeta.Name, c.name)
 		},
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
 			if !ok {
 				containerutils.AviLog.Error.Printf("object type is not route")
+				return
 			}
+			// Delete from all route stores
+			DeleteFromRouteStore(acceptedRouteStore, route, c.name)
+			DeleteFromRouteStore(rejectedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
 			key := gslbutils.MultiClusterKey("Route/", c.name, route)
 			bkt := containerutils.Bkt(namespace, numWorkers)
@@ -143,6 +196,11 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 			oldRoute := old.(*routev1.Route)
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
+				if gf == nil || !gf.ApplyFilter(route, c.name) {
+					AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+					return
+				}
+				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
 				key := gslbutils.MultiClusterKey("Route/", c.name, route)
 				bkt := containerutils.Bkt(namespace, numWorkers)
@@ -169,7 +227,8 @@ func (c *AviController) Start(stopCh <-chan struct{}) {
 	}
 
 	if c.informers.RouteInformer != nil {
-		containerutils.AviLog.Info.Print("starting the route informer")
+		containerutils.AviLog.Info.Printf("starting route informer for cluster %s\n",
+			c.name)
 		go c.informers.RouteInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, c.informers.RouteInformer.Informer().HasSynced)
 	}

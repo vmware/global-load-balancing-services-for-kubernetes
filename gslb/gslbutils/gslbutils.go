@@ -1,6 +1,7 @@
 package gslbutils
 
 import (
+	"errors"
 	"strings"
 
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
@@ -39,4 +40,16 @@ func ExtractMultiClusterKey(key string) (string, string, string, string) {
 		objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3]
 	}
 	return objType, cluster, ns, name
+}
+
+func SplitMultiClusterRouteName(name string) (string, string, string, error) {
+	if name == "" {
+		return "", "", "", errors.New("multi-cluster route name is empty")
+	}
+	reqList := strings.Split(name, "/")
+
+	if len(reqList) != 3 {
+		return "", "", "", errors.New("multi-cluster route name format is unexpected")
+	}
+	return reqList[0], reqList[1], reqList[2], nil
 }

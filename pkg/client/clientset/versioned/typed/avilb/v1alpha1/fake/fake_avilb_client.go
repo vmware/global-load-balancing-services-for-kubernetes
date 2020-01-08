@@ -32,6 +32,10 @@ func (c *FakeAvilbV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInt
 	return &FakeGSLBConfigs{c, namespace}
 }
 
+func (c *FakeAvilbV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {
+	return &FakeGlobalDeploymentPolicies{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeAvilbV1alpha1) RESTClient() rest.Interface {
