@@ -27,6 +27,7 @@ import (
 type AvilbV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	GSLBConfigsGetter
+	GlobalDeploymentPoliciesGetter
 }
 
 // AvilbV1alpha1Client is used to interact with features provided by the avilb group.
@@ -36,6 +37,10 @@ type AvilbV1alpha1Client struct {
 
 func (c *AvilbV1alpha1Client) GSLBConfigs(namespace string) GSLBConfigInterface {
 	return newGSLBConfigs(c, namespace)
+}
+
+func (c *AvilbV1alpha1Client) GlobalDeploymentPolicies(namespace string) GlobalDeploymentPolicyInterface {
+	return newGlobalDeploymentPolicies(c, namespace)
 }
 
 // NewForConfig creates a new AvilbV1alpha1Client for the given config.

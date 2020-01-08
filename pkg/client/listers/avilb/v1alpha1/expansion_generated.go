@@ -25,3 +25,11 @@ type GSLBConfigListerExpansion interface{}
 // GSLBConfigNamespaceListerExpansion allows custom methods to be added to
 // GSLBConfigNamespaceLister.
 type GSLBConfigNamespaceListerExpansion interface{}
+
+// GlobalDeploymentPolicyListerExpansion allows custom methods to be added to
+// GlobalDeploymentPolicyLister.
+type GlobalDeploymentPolicyListerExpansion interface{}
+
+// GlobalDeploymentPolicyNamespaceListerExpansion allows custom methods to be added to
+// GlobalDeploymentPolicyNamespaceLister.
+type GlobalDeploymentPolicyNamespaceListerExpansion interface{}
