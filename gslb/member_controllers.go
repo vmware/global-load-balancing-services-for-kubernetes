@@ -21,9 +21,9 @@ var (
 	rejectedRouteStore *gslbutils.ClusterStore
 )
 
-// AviController is actually kubernetes cluster which is added to an AVI controller
+// GSLBMemberController is actually kubernetes cluster which is added to an AVI controller
 // here which is added to an AVI controller
-type AviController struct {
+type GSLBMemberController struct {
 	name            string
 	worker_id       uint32
 	worker_id_mutex sync.Mutex
@@ -32,8 +32,8 @@ type AviController struct {
 }
 
 // GetAviController sets config for an AviController
-func GetAviController(clusterName string, informersInstance *containerutils.Informers) AviController {
-	return AviController{
+func GetGSLBMemberController(clusterName string, informersInstance *containerutils.Informers) GSLBMemberController {
+	return GSLBMemberController{
 		name:      clusterName,
 		worker_id: (uint32(1) << containerutils.NumWorkersIngestion) - 1,
 		informers: informersInstance,
@@ -96,7 +96,7 @@ func DeleteFromRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 
 // SetupEventHandlers sets up event handlers for the controllers of the member clusters.
 // They define the ingress/route event handlers and start the informers as well.
-func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
+func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	cs := k8sinfo.cs
 	containerutils.AviLog.Info.Printf("Creating event broadcaster for %v", c.name)
 	eventBroadcaster := record.NewBroadcaster()
@@ -116,7 +116,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 				return
 			}
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
-			key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr)
+			key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
 			containerutils.AviLog.Info.Printf("Added ADD Ingress key from the kubernetes controller %s", key)
@@ -127,7 +127,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 				containerutils.AviLog.Error.Printf("object type is not Ingress")
 			}
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
-			key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr)
+			key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
 			containerutils.AviLog.Info.Printf("Added DELETE Ingress key from the kubernetes controller %s", key)
@@ -137,7 +137,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 			ingr := curr.(*extensionv1beta1.Ingress)
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
-				key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr)
+				key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
 				containerutils.AviLog.Info.Printf("UPDATE Ingress key: %s", key)
@@ -158,6 +158,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 			route := obj.(*routev1.Route)
 			// Don't add this route if there's no status field present or no IP is allocated in this
 			// status field
+			// TODO: See if we can change rejectRoute to Graph layer.
 			if rejectRoute(route) {
 				containerutils.AviLog.Info.Printf("Rejecting ADD route: %s, cluster: %s",
 					route.ObjectMeta.Name, c.name)
@@ -169,13 +170,14 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 				return
 			}
+			containerutils.AviLog.Info.Printf("route %s being added", route.ObjectMeta.Name)
 			AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
-			key := gslbutils.MultiClusterKey("Route/", c.name, route)
+			key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
 			containerutils.AviLog.Info.Printf("Added ADD Route key from the controller: %s, cluster: %s",
-				route.ObjectMeta.Name, c.name)
+				key, c.name)
 		},
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
@@ -187,7 +189,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 			DeleteFromRouteStore(acceptedRouteStore, route, c.name)
 			DeleteFromRouteStore(rejectedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
-			key := gslbutils.MultiClusterKey("Route/", c.name, route)
+			key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
 			containerutils.AviLog.Info.Printf("Added DELETE Route key from the kubernetes controller %s", key)
@@ -198,11 +200,25 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 			if oldRoute.ResourceVersion != route.ResourceVersion {
 				if gf == nil || !gf.ApplyFilter(route, c.name) {
 					AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+					// See if the route was already accepted, if yes, need to delete the key
+					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
+						oldRoute.ObjectMeta.Namespace, oldRoute.ObjectMeta.Name)
+					if ok {
+						multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
+						MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
+					}
+					fetchedRoute := fetchedObj.(*routev1.Route)
+					// Add a DELETE key for this route
+					key := gslbutils.MultiClusterKey("Route/", c.name, fetchedRoute.ObjectMeta.Namespace,
+						fetchedRoute.ObjectMeta.Name)
+					bkt := containerutils.Bkt(fetchedRoute.ObjectMeta.Namespace, numWorkers)
+					c.workqueue[bkt].AddRateLimited(key)
+					containerutils.AviLog.Info.Printf("Added DELETE Route key: %s", key)
 					return
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
-				key := gslbutils.MultiClusterKey("Route/", c.name, route)
+				key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
 				containerutils.AviLog.Info.Printf("UPDATE Route key: %s", key)
@@ -219,7 +235,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8SInformers) {
 	}
 }
 
-func (c *AviController) Start(stopCh <-chan struct{}) {
+func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 	var cacheSyncParam []cache.InformerSynced
 	if c.informers.IngressInformer != nil {
 		go c.informers.IngressInformer.Informer().Run(stopCh)
@@ -240,7 +256,7 @@ func (c *AviController) Start(stopCh <-chan struct{}) {
 	}
 }
 
-func (c *AviController) Run(stopCh <-chan struct{}) error {
+func (c *GSLBMemberController) Run(stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 
 	containerutils.AviLog.Info.Printf("Started the Kubernetes Controller %s", c.name)

@@ -127,6 +127,15 @@ func (clusterStore *ClusterStore) DeleteClusterNSObj(cname, ns, objName string) 
 	return obj, ok
 }
 
+// GetClusterNSObjectByName returns the object objName by looking into the ns Object map.
+func (clusterStore *ClusterStore) GetClusterNSObjectByName(cname, ns, objName string) (interface{}, bool) {
+	clusterStoreMap := clusterStore.GetClusterStore(cname)
+	clusterStore.ClusterLock.RLock()
+	defer clusterStore.ClusterLock.RUnlock()
+	obj, ok := clusterStoreMap.GetNSObjectByName(ns, objName)
+	return obj, ok
+}
+
 // ObjectStore consists of a map of string and ObjectMapStore and a lock.
 type ObjectStore struct {
 	NSObjectMap map[string]*ObjectMapStore
@@ -228,6 +237,16 @@ func (store *ObjectStore) DeleteNSObj(ns, objName string) (interface{}, bool) {
 	if len(objList) == 0 {
 		store.DeleteNSStore(ns)
 	}
+	return obj, ok
+}
+
+// GetNSObjectByName gets the object with name objName in the ns store keyed on ns namespace.
+// Returns the object and true if found.
+func (store *ObjectStore) GetNSObjectByName(ns, objName string) (interface{}, bool) {
+	nsStore := store.GetNSStore(ns)
+	store.NSLock.RLock()
+	defer store.NSLock.RUnlock()
+	ok, obj := nsStore.Get(objName)
 	return obj, ok
 }
 

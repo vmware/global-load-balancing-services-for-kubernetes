@@ -123,14 +123,13 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 			gslbController.Cleanup()
 		},
 	})
-	go gslbInformer.Informer().Run(stopCh)
 	return gslbController
 }
 
-// IfGSLBConfigValid returns true if the the GSLB Config object was created
+// IsGSLBConfigValid returns true if the the GSLB Config object was created
 // in "avi-system" namespace.
 // TODO: Validate the controllers inside the config object
-func IfGSLBConfigValid(obj interface{}) *gslbalphav1.GSLBConfig {
+func IsGSLBConfigValid(obj interface{}) *gslbalphav1.GSLBConfig {
 	config := obj.(*gslbalphav1.GSLBConfig)
 	if config.ObjectMeta.Namespace == AVISystem {
 		return config
@@ -167,7 +166,7 @@ func GenerateKubeConfig() error {
 // for the member clusters.
 func AddGSLBConfigObject(obj interface{}) {
 	utils.AviLog.Info.Print("adding gslb config object")
-	gc := IfGSLBConfigValid(obj)
+	gc := IsGSLBConfigValid(obj)
 	if gc == nil {
 		utils.AviLog.Warning.Printf("GSLB object not recognised, ignoring...")
 		return
@@ -223,15 +222,25 @@ func Initialize() {
 	gslbController := GetNewController(kubeClient, gslbClient, gslbInformerFactory,
 		AddGSLBConfigObject)
 
-	InitializeGDPController(kubeClient, gslbClient, gslbInformerFactory, AddGDPObj,
+	// Start the informer for the GDP controller
+	gslbInformer := gslbInformerFactory.Avilb().V1alpha1().GSLBConfigs()
+	go gslbInformer.Informer().Run(stopCh)
+
+	gdpCtrl := InitializeGDPController(kubeClient, gslbClient, gslbInformerFactory, AddGDPObj,
 		UpdateGDPObj, DeleteGDPObj)
 
-	// go kubeInformerFactory.Start(stopCh)
-	// go gslbInformerFactory.Start(stopCh)
+	// Start the informer for the GDP controller
+	gdpInformer := gslbInformerFactory.Avilb().V1alpha1().GlobalDeploymentPolicies()
+	go gdpInformer.Informer().Run(stopCh)
 
 	if err = gslbController.Run(stopCh); err != nil {
-		utils.AviLog.Error.Fatalf("Error running controller: %s\n", err.Error())
+		utils.AviLog.Error.Fatalf("Error running GSLB controller: %s\n", err.Error())
 	}
+
+	if err := gdpCtrl.Run(stopCh); err != nil {
+		utils.AviLog.Error.Fatalf("Error running GDP controller: %s\n", err)
+	}
+
 }
 
 // BuildContextConfig builds the kubernetes/openshift context config
@@ -244,14 +253,14 @@ func BuildContextConfig(kubeconfigPath, context string) (*restclient.Config, err
 }
 
 // InitializeGSLBClusters initializes the GSLB member clusters
-func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalphav1.MemberCluster) []*AviController {
+func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalphav1.MemberCluster) []*GSLBMemberController {
 	clusterDetails := loadClusterAccess(membersKubeConfig, memberClusters)
 	clients := make(map[string]*kubernetes.Clientset)
 
 	registeredInformers := []string{containerutils.IngressInformer, containerutils.RouteInformer}
 	informersArg := make(map[string]interface{})
 
-	aviCtrlList := make([]*AviController, 0)
+	aviCtrlList := make([]*GSLBMemberController, 0)
 	for _, cluster := range clusterDetails {
 		utils.AviLog.Info.Printf("Initializing for cluster context: %s", cluster.clusterName)
 		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clusterName)
@@ -279,7 +288,7 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			registeredInformers,
 			informersArg)
 		clients[cluster.clusterName] = kubeClient
-		aviCtrl := GetAviController(cluster.clusterName, informerInstance)
+		aviCtrl := GetGSLBMemberController(cluster.clusterName, informerInstance)
 		aviCtrl.SetupEventHandlers(K8SInformers{cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)
 	}

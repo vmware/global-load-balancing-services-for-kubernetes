@@ -67,6 +67,7 @@ func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *
 }
 
 func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+	utils.AviLog.Info.Println("writing changed routes to queue")
 	if acceptedRouteStore != nil {
 		// If we have routes in the accepted store, each one has to be passed through
 		// the filter again. If any route fails to pass through the filter, we need to
@@ -78,14 +79,16 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 			// the rejected list.
 			MoveRoutes(rejectedList, acceptedRouteStore, rejectedRouteStore)
 			for _, routeName := range rejectedList {
-				_, ns, _, err := gslbutils.SplitMultiClusterRouteName(routeName)
+				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
 				if err != nil {
 					utils.AviLog.Error.Printf("Error processing the route %s: %s", routeName, err.Error())
 					continue
 				}
+
 				bkt := utils.Bkt(ns, numWorkers)
-				k8swq[bkt].AddRateLimited(routeName)
-				utils.AviLog.Info.Printf("Added DELETE Route key from the cache %s", routeName)
+				key := gslbutils.MultiClusterKey("Route/", cname, ns, rname)
+				k8swq[bkt].AddRateLimited(key)
+				utils.AviLog.Info.Printf("Added DELETE Route key from the cache %s", key)
 			}
 		}
 	}
@@ -98,14 +101,15 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 			utils.AviLog.Info.Printf("These routes will be added: %v\n", acceptedList)
 			MoveRoutes(acceptedList, rejectedRouteStore, acceptedRouteStore)
 			for _, routeName := range acceptedList {
-				_, ns, _, err := gslbutils.SplitMultiClusterRouteName(routeName)
+				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
 				if err != nil {
 					utils.AviLog.Error.Printf("Error processing the route %s: %s", routeName, err.Error())
 					continue
 				}
 				bkt := utils.Bkt(ns, numWorkers)
-				k8swq[bkt].AddRateLimited(routeName)
-				utils.AviLog.Info.Printf("Added ADD Route key from the cache %s", routeName)
+				key := gslbutils.MultiClusterKey("Route/", cname, ns, rname)
+				k8swq[bkt].AddRateLimited(key)
+				utils.AviLog.Info.Printf("Added ADD Route key from the cache %s", key)
 			}
 		}
 	}
@@ -165,11 +169,11 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 
 // InitializeGDPController handles initialization of a controller which handles
 // GDP object events. Also, starts the required informers for this.
-func InitializeGDPController(kubeclientset *kubernetes.Clientset,
+func InitializeGDPController(kubeclientset kubernetes.Interface,
 	gdpclientset gslbcs.Interface,
 	gslbInformerFactory gslbinformers.SharedInformerFactory,
 	AddGDPFunc GDPAddDelfn, UpdateGDPFunc GDPUpdfn,
-	DeleteGDPFunc GDPAddDelfn) {
+	DeleteGDPFunc GDPAddDelfn) *GDPController {
 
 	gdpInformer := gslbInformerFactory.Avilb().V1alpha1().GlobalDeploymentPolicies()
 	gdpscheme.AddToScheme(scheme.Scheme)
@@ -204,10 +208,5 @@ func InitializeGDPController(kubeclientset *kubernetes.Clientset,
 		},
 	})
 
-	// Start the informer for the GDP controller
-	go gdpInformer.Informer().Run(stopCh)
-
-	if err := gdpController.Run(stopCh); err != nil {
-		utils.AviLog.Error.Fatalf("Error running controller: %s\n", err.Error())
-	}
+	return gdpController
 }

@@ -28,8 +28,8 @@ func GetInformersPerCluster(clusterName string) *containerutils.Informers {
 	return info.(*containerutils.Informers)
 }
 
-func MultiClusterKey(objType string, clusterName string, objName interface{}) string {
-	key := objType + clusterName + "/" + containerutils.ObjKey(objName)
+func MultiClusterKey(objType, clusterName, ns, routeName string) string {
+	key := objType + clusterName + "/" + ns + "/" + routeName
 	return key
 }
 
