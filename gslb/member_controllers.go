@@ -199,14 +199,18 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
 				if gf == nil || !gf.ApplyFilter(route, c.name) {
-					AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 					// See if the route was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
 						oldRoute.ObjectMeta.Namespace, oldRoute.ObjectMeta.Name)
-					if ok {
-						multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
-						MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
+					if !ok {
+						// Nothing to be done, just add to the rejected route store
+						AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+						return
 					}
+					// Else, move this route from accepted to rejected store, and add
+					// a key for this route to the queue
+					multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
+					MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
 					fetchedRoute := fetchedObj.(*routev1.Route)
 					// Add a DELETE key for this route
 					key := gslbutils.MultiClusterKey("Route/", c.name, fetchedRoute.ObjectMeta.Namespace,
@@ -217,6 +221,10 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					return
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
+				// If the route was already part of rejected store, we need to remove from
+				// this route from the rejected store.
+				rejectedRouteStore.DeleteClusterNSObj(c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
+				// Add the key for this route to the queue.
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
 				key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				bkt := containerutils.Bkt(namespace, numWorkers)
