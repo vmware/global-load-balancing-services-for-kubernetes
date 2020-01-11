@@ -1,4 +1,4 @@
-package gslb
+package ingestion
 
 import (
 	"fmt"
@@ -340,11 +340,11 @@ func TestGSLBAndGDPWithRoutes(t *testing.T) {
 	AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()
-	addGSLBTestConfigObject(gslbObj)
-	gc := IsGSLBConfigValid(gslbObj)
-	if gc == nil {
+	gc, err := IsGSLBConfigValid(gslbObj)
+	if err != nil {
 		t.Fatal("GSLB object invalid")
 	}
+	addGSLBTestConfigObject(gc)
 	// Add and test routes
 	fmt.Println("adding and testing routes")
 	// We expect a success for these routes.

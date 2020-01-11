@@ -1,11 +1,13 @@
-package gslb
+package ingestion
 
 import (
+	"sync"
+
 	"github.com/gobwas/glob"
 	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
+	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	gdpv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
-	"sync"
 )
 
 // GlobalFilter is all the filters at one place. It also holds a list of ApplicableClusters
@@ -26,9 +28,10 @@ type GlobalFilter struct {
 func (gf *GlobalFilter) ApplyFilter(obj interface{}, cname string) bool {
 	route := obj.(*routev1.Route)
 	ns := route.ObjectMeta.Namespace
-	if ns == AVISystem {
+	if ns == gslbutils.AVISystem {
 		// routes in AVISystem are ignored
-		utils.AviLog.Error.Print("Routes in avi-system namespace are ignored, returning...")
+		gslbutils.Errf("cname: %s, ns: %s, route: %s, msg: routes in avi-system are ignored",
+			cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 		return false
 	}
 	// First see, if there's a namespace filter set for this route's namespace, if not, apply
@@ -64,9 +67,9 @@ func (gf *GlobalFilter) AddToGlobalFilter(gdp *gdpv1alpha1.GlobalDeploymentPolic
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
 	gf.NSFilterMap[gdp.ObjectMeta.Namespace] = nsFilter
-	utils.AviLog.Info.Printf("Added a new filter for ns: %s\n", nsFilter.ApplicableNamespace)
+	gslbutils.Logf("ns: %s, object: NSFilter, msg: added a new filter", nsFilter.ApplicableNamespace)
 	// Check if cluster filter needs to be set
-	if gdp.ObjectMeta.Namespace == AVISystem {
+	if gdp.ObjectMeta.Namespace == gslbutils.AVISystem {
 		gf.ClusterFilter = nsFilter
 	}
 }
@@ -87,17 +90,20 @@ func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymen
 	// Need to check for the NSFilterMap
 	nf := GetNewNSFilter(new)
 
+	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", old.ObjectMeta.Namespace, old.ObjectMeta.Name,
+		"got an update event")
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
 	if gf.NSFilterMap[old.ObjectMeta.Namespace].GetChecksum() == nf.Checksum {
 		// No updates needed, just return
 		return false
 	}
-	utils.AviLog.Info.Printf("Namespace %s's filter just changed, need to update the filter and re-evaluate the routes.", nf.ApplicableNamespace)
+	gslbutils.Logf("ns: %s, gdp: %s, object: filter, msg: %s", old.ObjectMeta.Namespace, old.ObjectMeta.Name,
+		"filter changed, will update filter and re-evaluate routes")
 	// Just replace the namespace filter with a new one.
 	gf.NSFilterMap[old.ObjectMeta.Namespace] = nf
 	// Also, see if the cluster filter needs to be updated
-	if old.ObjectMeta.Namespace == AVISystem {
+	if old.ObjectMeta.Namespace == gslbutils.AVISystem {
 		gf.ClusterFilter = nf
 	}
 	return true
@@ -107,7 +113,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymen
 func (gf *GlobalFilter) DeleteFromGlobalFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) {
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
-	if gdp.ObjectMeta.Namespace == "AVISystem" {
+	if gdp.ObjectMeta.Namespace == gslbutils.AVISystem {
 		gf.ClusterFilter = nil
 	} else {
 		delete(gf.NSFilterMap, gdp.ObjectMeta.Namespace)
@@ -128,7 +134,7 @@ func GetNewGlobalFilter(obj interface{}) *GlobalFilter {
 	gf := &GlobalFilter{
 		NSFilterMap: nsFilterMap,
 	}
-	if gdp.ObjectMeta.Namespace == AVISystem {
+	if gdp.ObjectMeta.Namespace == gslbutils.AVISystem {
 		gf.ClusterFilter = filter
 	}
 	return gf
@@ -210,7 +216,8 @@ func (gr *GDPRule) Apply(obj interface{}) bool {
 	mr := gr.MatchRule
 	// Basic sanity checks
 	if len(mr.Hosts) == 0 && mr.Label.Key == "" {
-		utils.AviLog.Error.Printf("Rule object doesn't have either hosts set or label key-value pair")
+		gslbutils.Errf("object: GDPRule, route: %s, msg: %s", route.ObjectMeta.Name,
+			"GDPRule doesn't have either hosts set or label key-value pair")
 		return false
 	}
 	if len(mr.Hosts) > 0 && route.Spec.Host == "" {
@@ -224,8 +231,8 @@ func (gr *GDPRule) Apply(obj interface{}) bool {
 	case gdpv1alpha1.NotequalsOp:
 		return gr.NotEqualOperate(route)
 	default:
-		utils.AviLog.Error.Printf("Operation %s is invalid for route %s\n",
-			gr.MatchRule.Op, route.ObjectMeta.Name)
+		gslbutils.Errf("object: GDPRule, route: %s, operation: %s, msg: %s",
+			route.ObjectMeta.Name, gr.MatchRule.Op, "operation is invalid")
 	}
 	return false
 }
@@ -283,7 +290,7 @@ func (nf *NSFilter) ApplyFilter(obj interface{}, cname string) bool {
 
 	for _, gdpRule := range nf.NSRules {
 		if !gdpRule.Apply(route) {
-			utils.AviLog.Info.Printf("route %s/%s/%s rejected because of gdprule: %v",
+			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: route rejected because of GDPRule: %s",
 				cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name, gdpRule)
 			return false
 		}

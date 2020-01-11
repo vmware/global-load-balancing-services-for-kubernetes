@@ -1,4 +1,4 @@
-package gslb
+package ingestion
 
 import (
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
@@ -42,9 +42,9 @@ type GDPController struct {
 
 func (gdpController *GDPController) Run(stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
-	utils.AviLog.Info.Print("Starting the workers for GDP controller...")
+	gslbutils.Logf("object: GDPController, msg: %s", "starting the workers")
 	<-stopCh
-	utils.AviLog.Info.Print("Shutting down the workers for GDP controller...")
+	gslbutils.Logf("object: GDPController, msg: %s", "shutting down the workers")
 	return nil
 }
 
@@ -55,7 +55,7 @@ func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *
 		// routeName consists of cluster name, namespace and the route name
 		cname, ns, route, err := gslbutils.SplitMultiClusterRouteName(routeName)
 		if err != nil {
-			utils.AviLog.Error.Printf("Error processing the route name %s: %s", routeName, err.Error())
+			gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
 			continue
 		}
 		routeObj, ok := fromStore.DeleteClusterNSObj(cname, ns, route)
@@ -67,28 +67,28 @@ func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *
 }
 
 func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
-	utils.AviLog.Info.Println("writing changed routes to queue")
 	if acceptedRouteStore != nil {
 		// If we have routes in the accepted store, each one has to be passed through
 		// the filter again. If any route fails to pass through the filter, we need to
 		// add DELETE keys for them.
 		_, rejectedList := acceptedRouteStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
 		if len(rejectedList) != 0 {
-			utils.AviLog.Info.Printf("These routes will be deleted: %v\n", rejectedList)
+			gslbutils.Logf("routeList: %v, msg: %s", rejectedList, "route list will be deleted")
 			// Since, these routes are now rejected, they have to be moved to
 			// the rejected list.
 			MoveRoutes(rejectedList, acceptedRouteStore, rejectedRouteStore)
 			for _, routeName := range rejectedList {
 				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
 				if err != nil {
-					utils.AviLog.Error.Printf("Error processing the route %s: %s", routeName, err.Error())
+					gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
 					continue
 				}
 
 				bkt := utils.Bkt(ns, numWorkers)
 				key := gslbutils.MultiClusterKey("Route/", cname, ns, rname)
 				k8swq[bkt].AddRateLimited(key)
-				utils.AviLog.Info.Printf("Added DELETE Route key from the cache %s", key)
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", cname, ns, rname,
+					"added DELETE route key")
 			}
 		}
 	}
@@ -98,18 +98,19 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 		// keys for them.
 		acceptedList, _ := rejectedRouteStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
 		if len(acceptedList) != 0 {
-			utils.AviLog.Info.Printf("These routes will be added: %v\n", acceptedList)
+			gslbutils.Logf("routeList: %v, msg: %s", acceptedList, "route list will be added")
 			MoveRoutes(acceptedList, rejectedRouteStore, acceptedRouteStore)
 			for _, routeName := range acceptedList {
 				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
 				if err != nil {
-					utils.AviLog.Error.Printf("Error processing the route %s: %s", routeName, err.Error())
+					gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
 					continue
 				}
 				bkt := utils.Bkt(ns, numWorkers)
 				key := gslbutils.MultiClusterKey("Route/", cname, ns, rname)
 				k8swq[bkt].AddRateLimited(key)
-				utils.AviLog.Info.Printf("Added ADD Route key from the cache %s", key)
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", cname, ns, rname,
+					"added ADD route key")
 			}
 		}
 	}
@@ -122,8 +123,8 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 // only one filter object.
 func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
-	utils.AviLog.Info.Printf("gdp object %s in namespace %s added\n",
-		gdp.ObjectMeta.Name, gdp.ObjectMeta.Namespace)
+	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
+		"GDP object added")
 	if gf == nil {
 		// Create a new GlobalFilter
 		gf = GetNewGlobalFilter(obj)
@@ -147,7 +148,7 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 	// utils.AviLog.Info.Printf("old: %v, new: %v", oldGdp, newGdp)
 	if gf == nil {
 		// global filter not initialized, return
-		utils.AviLog.Error.Print("Can't update the global filter if its not initialized... returning")
+		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't update")
 		return
 	}
 	if changed := gf.UpdateGlobalFilter(oldGdp, newGdp); changed {
@@ -161,7 +162,8 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 // local one.
 func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
-	utils.AviLog.Info.Printf("deleted GDP Object: %v", gdp)
+	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
+		"deleted GDP object")
 	gf.DeleteFromGlobalFilter(gdp)
 	// Need to re-evaluate the routes again according to the deleted filter
 	writeChangedRoutesToQueue(k8swq, numWorkers)
@@ -177,7 +179,7 @@ func InitializeGDPController(kubeclientset kubernetes.Interface,
 
 	gdpInformer := gslbInformerFactory.Avilb().V1alpha1().GlobalDeploymentPolicies()
 	gdpscheme.AddToScheme(scheme.Scheme)
-	utils.AviLog.Info.Print("Creating event broadcaster for GDP controller")
+	gslbutils.Logf("object: GDPController, msg: %s", "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(utils.AviLog.Info.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
@@ -194,7 +196,7 @@ func InitializeGDPController(kubeclientset kubernetes.Interface,
 		// workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gdps"),
 		//recorder:      recorder,
 	}
-	utils.AviLog.Info.Printf("Setting up event handlers for GDP controller")
+	gslbutils.Logf("object: GDPController, msg: %s", "setting up event handlers")
 	// Event handlers for GDP change
 	gdpInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

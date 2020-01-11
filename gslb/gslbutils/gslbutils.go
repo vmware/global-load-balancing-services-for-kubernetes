@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 )
 
@@ -53,3 +54,19 @@ func SplitMultiClusterRouteName(name string) (string, string, string, error) {
 	}
 	return reqList[0], reqList[1], reqList[2], nil
 }
+
+const (
+	// GSLBKubePath is a temporary path to put the kubeconfig
+	GSLBKubePath = "/tmp/gslb-kubeconfig"
+	//AVISystem is the namespace where everything AVI related is created
+	AVISystem = "avi-system"
+)
+
+// Logf is aliased to utils' Info.Printf
+var Logf = utils.AviLog.Info.Printf
+
+// Errf is aliased to utils' Error.Printf
+var Errf = utils.AviLog.Error.Printf
+
+// Warnf is aliased to utils' Warning.Printf
+var Warnf = utils.AviLog.Warning.Printf

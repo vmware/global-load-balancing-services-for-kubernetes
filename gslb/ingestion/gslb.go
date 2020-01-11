@@ -1,4 +1,4 @@
-package gslb
+package ingestion
 
 import (
 	"encoding/base64"
@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
+	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	gslbcs "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -55,13 +56,6 @@ var (
 	stopCh            <-chan struct{}
 )
 
-const (
-	// GSLBKubePath is a temporary path to put the kubeconfig
-	GSLBKubePath = "/tmp/gslb-kubeconfig"
-	//AVISystem is the namespace where everything AVI related is created
-	AVISystem = "avi-system"
-)
-
 type GSLBConfigController struct {
 	kubeclientset kubernetes.Interface
 	gslbclientset gslbcs.Interface
@@ -72,23 +66,23 @@ type GSLBConfigController struct {
 }
 
 func (gslbController *GSLBConfigController) Cleanup() {
-	utils.AviLog.Warning.Print("Cleaning up the entire GSLB configuration...")
+	gslbutils.Logf("object: GSLBConfigController, msg: %s", "cleaning up the entire GSLB configuration")
 }
 
 func (gslbController *GSLBConfigController) Run(stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
-	containerutils.AviLog.Info.Print("Starting the workers for gslb controller...")
+	gslbutils.Logf("object: GSLBConfigController, msg: %s", "starting the workers")
 	<-stopCh
-	containerutils.AviLog.Info.Print("Shutting down the workers for gslb controller")
+	gslbutils.Logf("object: GSLBConfigController, msg: %s", "shutting down the workers")
 	return nil
 }
 
 func initFlags() {
-	utils.AviLog.Info.Print("initializing the flags...")
+	gslbutils.Logf("object: main, msg: %s", "initializing the flags")
 	defKubeConfig := os.Getenv("HOME") + "/.kube/config"
 	flag.StringVar(&kubeConfig, "kubeconfig", defKubeConfig, "Path to kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the kubernetes API server. Overrides any value in kubeconfig. Overrides any value in kubeconfig, only required if out-of-cluster.")
-	utils.AviLog.Info.Printf("Master: %s, kubeconfig: %s", masterURL, kubeConfig)
+	gslbutils.Logf("master: %s, kubeconfig: %s, msg: %s", masterURL, kubeConfig, "fetched from cmd")
 }
 
 // GetNewController builds the GSLB Controller which has an informer for GSLB Config object
@@ -99,7 +93,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 	gslbInformer := gslbInformerFactory.Avilb().V1alpha1().GSLBConfigs()
 	// Create event broadcaster
 	gslbscheme.AddToScheme(scheme.Scheme)
-	utils.AviLog.Info.Print("Creating event broadcaster for GSLB config controller")
+	gslbutils.Logf("object: GSLBConfigController, msg: %s", "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
@@ -113,7 +107,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gslb-configs"),
 		recorder:      recorder,
 	}
-	utils.AviLog.Info.Print("Setting up event handlers for GSLB Config controller")
+	gslbutils.Logf("object: GSLBConfigController, msg: %s", "setting up event handlers")
 	// Event handler for when GSLB Config change
 	gslbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: AddGSLBConfigFunc,
@@ -129,12 +123,12 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 // IsGSLBConfigValid returns true if the the GSLB Config object was created
 // in "avi-system" namespace.
 // TODO: Validate the controllers inside the config object
-func IsGSLBConfigValid(obj interface{}) *gslbalphav1.GSLBConfig {
+func IsGSLBConfigValid(obj interface{}) (*gslbalphav1.GSLBConfig, error) {
 	config := obj.(*gslbalphav1.GSLBConfig)
-	if config.ObjectMeta.Namespace == AVISystem {
-		return config
+	if config.ObjectMeta.Namespace == gslbutils.AVISystem {
+		return config, nil
 	}
-	return nil
+	return nil, errors.New("invalid gslb config, namespace can only be avi-system")
 }
 
 // GenerateKubeConfig reads the kubeconfig given through the environment variable
@@ -150,7 +144,7 @@ func GenerateKubeConfig() error {
 		utils.AviLog.Error.Fatalf("Error in decoding the GSLB config data: %s", err)
 		return errors.New("Error in decoding the GSLB config data: " + err.Error())
 	}
-	f, err := os.Create(GSLBKubePath)
+	f, err := os.Create(gslbutils.GSLBKubePath)
 	if err != nil {
 		return errors.New("Error in creating file: " + err.Error())
 	}
@@ -166,19 +160,21 @@ func GenerateKubeConfig() error {
 // for the member clusters.
 func AddGSLBConfigObject(obj interface{}) {
 	utils.AviLog.Info.Print("adding gslb config object")
-	gc := IsGSLBConfigValid(obj)
-	if gc == nil {
-		utils.AviLog.Warning.Printf("GSLB object not recognised, ignoring...")
+	gc, err := IsGSLBConfigValid(obj)
+	if err != nil {
+		gslbutils.Warnf("ns: %s, gslbConfig: %s, msg: %s, %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
+			"invalid format", err)
 		return
 	}
-
+	gslbutils.Logf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
+		"got an add event")
 	// Secret created with name: "gslb-config-secret" and environment variable to set is
 	// GSLB_CONFIG.
-	err := GenerateKubeConfig()
+	err = GenerateKubeConfig()
 	if err != nil {
 		utils.AviLog.Error.Fatalf("Error in generating the kubeconfig file: %s", err.Error())
 	}
-	aviCtrlList := InitializeGSLBClusters(GSLBKubePath, gc.Spec.MemberClusters)
+	aviCtrlList := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
 	for _, aviCtrl := range aviCtrlList {
 		aviCtrl.Start(stopCh)
 	}
@@ -194,16 +190,17 @@ func Initialize() {
 	// Check if we are running inside kubernetes
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		utils.AviLog.Warning.Printf("We are not running inside kubernetes cluster: %s", err.Error())
+		gslbutils.Warnf("object: main, msg: %s, %s", "not running inside kubernetes cluster", err)
 	} else {
-		utils.AviLog.Info.Printf("We are running inside a kubernetes cluster, won't use config files.")
+		gslbutils.Logf("object: main, msg: %s", "running inside kubernetes cluster, won't use config files")
 		insideCluster = true
 	}
 	if insideCluster == false {
 		cfg, err = clientcmd.BuildConfigFromFlags(masterURL, kubeConfig)
-		utils.AviLog.Info.Printf("master: %s, kubeconfig: %s", masterURL, kubeConfig)
+		gslbutils.Logf("masterURL: %s, kubeconfigPath: %s, msg=%s", masterURL, kubeConfig,
+			"built from flags")
 		if err != nil {
-			utils.AviLog.Error.Fatalf("Error building kubeconfig: %s", err.Error())
+			gslbutils.Logf("object: main, msg: %s, %s", "error building kubeconfig", err)
 		}
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
@@ -262,22 +259,24 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 
 	aviCtrlList := make([]*GSLBMemberController, 0)
 	for _, cluster := range clusterDetails {
-		utils.AviLog.Info.Printf("Initializing for cluster context: %s", cluster.clusterName)
+		gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "initializing")
 		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clusterName)
 		if err != nil {
-			containerutils.AviLog.Warning.Printf("Error in connecting to kubernetes API %v", err.Error())
+			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in connecting to kubernetes API",
+				err)
 			continue
 		} else {
-			containerutils.AviLog.Info.Printf("Successfully connected to kubernetes API for cluster context: %s", cluster.clusterName)
+			gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
 		}
 		kubeClient, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
-			containerutils.AviLog.Warning.Printf("Error in creating kubernetes clientset %v", err.Error())
+			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in creating kubernetes clientset",
+				err)
 			continue
 		}
 		oshiftClient, err := oshiftclient.NewForConfig(cfg)
 		if err != nil {
-			containerutils.AviLog.Info.Printf("Error in creating openshift clientset %v", err.Error())
+			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in creating openshift clientset")
 			continue
 		}
 
@@ -300,7 +299,7 @@ func loadClusterAccess(membersKubeConfig string, memberClusters []gslbalphav1.Me
 	for _, memberCluster := range memberClusters {
 		clusterDetails = append(clusterDetails, kubeClusterDetails{memberCluster.ClusterContext,
 			membersKubeConfig, "", nil})
-		containerutils.AviLog.Info.Printf("Loaded cluster access for %s", memberCluster.ClusterContext)
+		gslbutils.Logf("cluster: %s, msg: %s", memberCluster.ClusterContext, "loaded cluster access")
 	}
 	return clusterDetails
 }

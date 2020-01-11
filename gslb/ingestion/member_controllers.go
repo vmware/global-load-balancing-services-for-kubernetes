@@ -1,4 +1,4 @@
-package gslb
+package ingestion
 
 import (
 	"fmt"
@@ -98,7 +98,7 @@ func DeleteFromRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 // They define the ingress/route event handlers and start the informers as well.
 func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	cs := k8sinfo.cs
-	containerutils.AviLog.Info.Printf("Creating event broadcaster for %v", c.name)
+	gslbutils.Logf("k8scontroller: %s, msg: %s", c.name, "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(containerutils.AviLog.Info.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: cs.CoreV1().Events("")})
@@ -146,12 +146,12 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	}
 
 	if acceptedRouteStore == nil {
-		containerutils.AviLog.Info.Print("Initializing accepted route store")
 		acceptedRouteStore = initializeClusterRouteStore()
+		gslbutils.Logf("object: acceptedRouteStore, msg: %s", "initialized")
 	}
 	if rejectedRouteStore == nil {
-		containerutils.AviLog.Info.Print("Initializing rejected route store")
 		rejectedRouteStore = initializeClusterRouteStore()
+		gslbutils.Logf("object: rejectedRouteStore, msg: %s", "initialized")
 	}
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -160,24 +160,23 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			// status field
 			// TODO: See if we can change rejectRoute to Graph layer.
 			if rejectRoute(route) {
-				containerutils.AviLog.Info.Printf("Rejecting ADD route: %s, cluster: %s",
-					route.ObjectMeta.Name, c.name)
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
+					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "Rejected ADD route key")
 				return
 			}
 			if gf == nil || !gf.ApplyFilter(route, c.name) {
-				containerutils.AviLog.Info.Printf("Rejecting ADD route: %s, cluster: %s",
-					route.ObjectMeta.Name, c.name)
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
+					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "Rejected ADD route key")
 				return
 			}
-			containerutils.AviLog.Info.Printf("route %s being added", route.ObjectMeta.Name)
 			AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
 			key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added ADD Route key from the controller: %s, cluster: %s",
-				key, c.name)
+			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name, namespace,
+				route.ObjectMeta.Namespace, "added ADD route key")
 		},
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
@@ -192,7 +191,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added DELETE Route key from the kubernetes controller %s", key)
+			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, namespace,
+				route.ObjectMeta.Namespace, "added DELETE route key")
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldRoute := old.(*routev1.Route)
@@ -217,7 +217,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 						fetchedRoute.ObjectMeta.Name)
 					bkt := containerutils.Bkt(fetchedRoute.ObjectMeta.Namespace, numWorkers)
 					c.workqueue[bkt].AddRateLimited(key)
-					containerutils.AviLog.Info.Printf("Added DELETE Route key: %s", key)
+					gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, fetchedRoute.ObjectMeta.Namespace,
+						fetchedRoute.ObjectMeta.Name, "added DELETE route key")
 					return
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
@@ -229,7 +230,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 				key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
-				containerutils.AviLog.Info.Printf("UPDATE Route key: %s", key)
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, namespace,
+					route.ObjectMeta.Name, "added UPDATE route key")
 			}
 		},
 	}
@@ -251,8 +253,7 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 	}
 
 	if c.informers.RouteInformer != nil {
-		containerutils.AviLog.Info.Printf("starting route informer for cluster %s\n",
-			c.name)
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting route informer")
 		go c.informers.RouteInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, c.informers.RouteInformer.Informer().HasSynced)
 	}
@@ -260,15 +261,15 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 	} else {
-		containerutils.AviLog.Info.Print("Caches synced")
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "caches synced")
 	}
 }
 
 func (c *GSLBMemberController) Run(stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 
-	containerutils.AviLog.Info.Printf("Started the Kubernetes Controller %s", c.name)
+	gslbutils.Logf("cluster: %s, msg: %s", c.name, "started the kubernetes controller")
 	<-stopCh
-	containerutils.AviLog.Info.Printf("Shutting down the Kubernetes Controller: %s", c.name)
+	gslbutils.Logf("cluster: %s, msg: %s", c.name, "shutting down the kubernetes controller")
 	return nil
 }

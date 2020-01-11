@@ -8,7 +8,7 @@ test:
   stage: test
   script:
     - /usr/local/go/bin/go test -v ./hacloud
-    - /usr/local/go/bin/go test -v ./gslb
+    - /usr/local/go/bin/go test -v ./gslb/ingestion
   
 build:
   stage: build
