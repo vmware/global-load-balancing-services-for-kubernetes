@@ -2,10 +2,13 @@ package gslbutils
 
 import (
 	"errors"
+	"net"
 	"strings"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
+	gslbalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
 )
 
 const (
@@ -29,18 +32,18 @@ func GetInformersPerCluster(clusterName string) *containerutils.Informers {
 	return info.(*containerutils.Informers)
 }
 
-func MultiClusterKey(objType, clusterName, ns, routeName string) string {
-	key := objType + clusterName + "/" + ns + "/" + routeName
+func MultiClusterKey(operation, objType, clusterName, ns, routeName string) string {
+	key := operation + "/" + objType + clusterName + "/" + ns + "/" + routeName
 	return key
 }
 
-func ExtractMultiClusterKey(key string) (string, string, string, string) {
+func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
 	segments := strings.Split(key, "/")
-	var objType, cluster, ns, name string
-	if len(segments) == 4 {
-		objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3]
+	var operation, objType, cluster, ns, name string
+	if len(segments) == 5 {
+		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
 	}
-	return objType, cluster, ns, name
+	return operation, objType, cluster, ns, name
 }
 
 func SplitMultiClusterRouteName(name string) (string, string, string, error) {
@@ -53,6 +56,27 @@ func SplitMultiClusterRouteName(name string) (string, string, string, error) {
 		return "", "", "", errors.New("multi-cluster route name format is unexpected")
 	}
 	return reqList[0], reqList[1], reqList[2], nil
+}
+
+func RouteGetIPAddr(route *routev1.Route) (string, bool) {
+	// Return true if the IP address is present in an route's status field, else return false
+	routeStatus := route.Status
+	for _, ingr := range routeStatus.Ingress {
+		conditions := ingr.Conditions
+		for _, condition := range conditions {
+			// TODO: Check if the message field contains an IP address
+			if condition.Message == "" {
+				continue
+			}
+			// Check if this is a IP address
+			addr := net.ParseIP(condition.Message)
+			if addr != nil {
+				// Found an IP address, return
+				return condition.Message, true
+			}
+		}
+	}
+	return "", false
 }
 
 const (
@@ -70,3 +94,24 @@ var Errf = utils.AviLog.Error.Printf
 
 // Warnf is aliased to utils' Warning.Printf
 var Warnf = utils.AviLog.Warning.Printf
+
+// Key operations
+const (
+	ObjectAdd    = "ADD"
+	ObjectDelete = "DELETE"
+	ObjectUpdate = "UPDATE"
+)
+
+// Cluster Routes store for all the route objects.
+var (
+	AcceptedRouteStore *ClusterStore
+	RejectedRouteStore *ClusterStore
+)
+
+// Constants for object types
+const (
+	RouteType = "Route"
+)
+
+// GSLBConfigObj is global and is initialized only once
+var GSLBConfigObj *gslbalphav1.GSLBConfig

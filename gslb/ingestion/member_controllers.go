@@ -15,12 +15,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var (
-	// Cluster Routes store for all the route objects.
-	acceptedRouteStore *gslbutils.ClusterStore
-	rejectedRouteStore *gslbutils.ClusterStore
-)
-
 // GSLBMemberController is actually kubernetes cluster which is added to an AVI controller
 // here which is added to an AVI controller
 type GSLBMemberController struct {
@@ -48,21 +42,6 @@ func rejectIngress(ingr *extensionv1beta1.Ingress) bool {
 		ip := lbf.IP
 		if ip != "" {
 			return false
-		}
-	}
-	return true
-}
-
-func rejectRoute(route *routev1.Route) bool {
-	// Return true if the IP address is present in an route's status field, else return false
-	routeStatus := route.Status
-	for _, ingr := range routeStatus.Ingress {
-		conditions := ingr.Conditions
-		for _, condition := range conditions {
-			// TODO: Check if the message field contains an IP address
-			if condition.Message != "" {
-				return false
-			}
 		}
 	}
 	return true
@@ -116,7 +95,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 				return
 			}
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
-			key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, "Ingress/", c.name, ingr.ObjectMeta.Namespace,
+				ingr.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
 			containerutils.AviLog.Info.Printf("Added ADD Ingress key from the kubernetes controller %s", key)
@@ -127,7 +107,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 				containerutils.AviLog.Error.Printf("object type is not Ingress")
 			}
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
-			key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Ingress/", c.name, ingr.ObjectMeta.Namespace,
+				ingr.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
 			containerutils.AviLog.Info.Printf("Added DELETE Ingress key from the kubernetes controller %s", key)
@@ -137,7 +118,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			ingr := curr.(*extensionv1beta1.Ingress)
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
-				key := gslbutils.MultiClusterKey("Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, "Ingress/", c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
 				containerutils.AviLog.Info.Printf("UPDATE Ingress key: %s", key)
@@ -145,13 +126,19 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		},
 	}
 
+	acceptedRouteStore := gslbutils.AcceptedRouteStore
+	rejectedRouteStore := gslbutils.RejectedRouteStore
 	if acceptedRouteStore == nil {
 		acceptedRouteStore = initializeClusterRouteStore()
 		gslbutils.Logf("object: acceptedRouteStore, msg: %s", "initialized")
+		// update the global accepted route store
+		gslbutils.AcceptedRouteStore = acceptedRouteStore
 	}
 	if rejectedRouteStore == nil {
 		rejectedRouteStore = initializeClusterRouteStore()
 		gslbutils.Logf("object: rejectedRouteStore, msg: %s", "initialized")
+		// update the global rejected route store
+		gslbutils.RejectedRouteStore = rejectedRouteStore
 	}
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -159,24 +146,24 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			// Don't add this route if there's no status field present or no IP is allocated in this
 			// status field
 			// TODO: See if we can change rejectRoute to Graph layer.
-			if rejectRoute(route) {
+			if _, ok := gslbutils.RouteGetIPAddr(route); !ok {
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
-					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "Rejected ADD route key")
+					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because IP address not found")
 				return
 			}
 			if gf == nil || !gf.ApplyFilter(route, c.name) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
-					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "Rejected ADD route key")
+					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because it couldn't pass through filter")
 				return
 			}
 			AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
-			key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, "Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name, namespace,
-				route.ObjectMeta.Namespace, "added ADD route key")
+			gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s\n", c.name, namespace,
+				route.ObjectMeta.Namespace, key, "added ADD route key")
 		},
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
@@ -188,11 +175,11 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			DeleteFromRouteStore(acceptedRouteStore, route, c.name)
 			DeleteFromRouteStore(rejectedRouteStore, route, c.name)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
-			key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, namespace,
-				route.ObjectMeta.Namespace, "added DELETE route key")
+			gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", c.name, namespace,
+				route.ObjectMeta.Namespace, key, "added DELETE route key")
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldRoute := old.(*routev1.Route)
@@ -213,12 +200,12 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
 					fetchedRoute := fetchedObj.(*routev1.Route)
 					// Add a DELETE key for this route
-					key := gslbutils.MultiClusterKey("Route/", c.name, fetchedRoute.ObjectMeta.Namespace,
+					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", c.name, fetchedRoute.ObjectMeta.Namespace,
 						fetchedRoute.ObjectMeta.Name)
 					bkt := containerutils.Bkt(fetchedRoute.ObjectMeta.Namespace, numWorkers)
 					c.workqueue[bkt].AddRateLimited(key)
-					gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, fetchedRoute.ObjectMeta.Namespace,
-						fetchedRoute.ObjectMeta.Name, "added DELETE route key")
+					gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", c.name, fetchedRoute.ObjectMeta.Namespace,
+						fetchedRoute.ObjectMeta.Name, key, "added DELETE route key")
 					return
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
@@ -227,11 +214,11 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 				rejectedRouteStore.DeleteClusterNSObj(c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				// Add the key for this route to the queue.
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
-				key := gslbutils.MultiClusterKey("Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, "Route/", c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
-				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, namespace,
-					route.ObjectMeta.Name, "added UPDATE route key")
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", c.name, namespace,
+					route.ObjectMeta.Name, key, "added UPDATE route key")
 			}
 		},
 	}

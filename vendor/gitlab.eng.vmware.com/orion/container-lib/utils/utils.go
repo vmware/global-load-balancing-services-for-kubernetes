@@ -26,11 +26,11 @@ import (
 	"sync"
 	"time"
 
+	oshiftclientset "github.com/openshift/client-go/route/clientset/versioned"
+	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	kubeinformers "k8s.io/client-go/informers"
-	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions"
-	oshiftclientset "github.com/openshift/client-go/route/clientset/versioned"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -149,16 +149,21 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 	cs := kubeClient.ClientSet
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(cs, time.Second*30)
 	informers := &Informers{}
+	informers.KubeClientIntf = kubeClient
 	for _, informer := range registeredInformers {
 		switch informer {
 		case ServiceInformer:
 			informers.ServiceInformer = kubeInformerFactory.Core().V1().Services()
+		case NSInformer:
+			informers.NSInformer = kubeInformerFactory.Core().V1().Namespaces()
 		case PodInformer:
 			informers.PodInformer = kubeInformerFactory.Core().V1().Pods()
 		case EndpointInformer:
 			informers.EpInformer = kubeInformerFactory.Core().V1().Endpoints()
 		case SecretInformer:
 			informers.SecretInformer = kubeInformerFactory.Core().V1().Secrets()
+		case NodeInformer:
+			informers.NodeInformer = kubeInformerFactory.Core().V1().Nodes()
 		case IngressInformer:
 			informers.IngressInformer = kubeInformerFactory.Extensions().V1beta1().Ingresses()
 		case RouteInformer:
@@ -221,7 +226,7 @@ func Stringify(serialize interface{}) string {
 	return string(json_marshalled)
 }
 
-func ExtractGatewayNamespace(key string) (string, string) {
+func ExtractNamespaceObjectName(key string) (string, string) {
 	segments := strings.Split(key, "/")
 	if len(segments) == 2 {
 		return segments[0], segments[1]

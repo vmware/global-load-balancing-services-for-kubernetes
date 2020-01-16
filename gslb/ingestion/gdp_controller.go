@@ -67,6 +67,8 @@ func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *
 }
 
 func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+	acceptedRouteStore := gslbutils.AcceptedRouteStore
+	rejectedRouteStore := gslbutils.RejectedRouteStore
 	if acceptedRouteStore != nil {
 		// If we have routes in the accepted store, each one has to be passed through
 		// the filter again. If any route fails to pass through the filter, we need to
@@ -85,10 +87,10 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 				}
 
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey("Route/", cname, ns, rname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", cname, ns, rname)
 				k8swq[bkt].AddRateLimited(key)
-				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", cname, ns, rname,
-					"added DELETE route key")
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s\n", cname, ns, rname,
+					key, "added DELETE route key")
 			}
 		}
 	}
@@ -107,9 +109,9 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 					continue
 				}
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey("Route/", cname, ns, rname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, "Route/", cname, ns, rname)
 				k8swq[bkt].AddRateLimited(key)
-				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s", cname, ns, rname,
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", cname, ns, rname, key,
 					"added ADD route key")
 			}
 		}
@@ -145,6 +147,9 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	oldGdp := old.(*gdpalphav1.GlobalDeploymentPolicy)
 	newGdp := new.(*gdpalphav1.GlobalDeploymentPolicy)
+	if oldGdp.ObjectMeta.ResourceVersion == newGdp.ObjectMeta.ResourceVersion {
+		return
+	}
 	// utils.AviLog.Info.Printf("old: %v, new: %v", oldGdp, newGdp)
 	if gf == nil {
 		// global filter not initialized, return

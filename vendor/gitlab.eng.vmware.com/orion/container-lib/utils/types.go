@@ -19,9 +19,9 @@ import (
 	"os"
 
 	avimodels "github.com/avinetworks/sdk/go/models"
+	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions/route/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	extensioninformers "k8s.io/client-go/informers/extensions/v1beta1"
-	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions/route/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -31,7 +31,7 @@ const (
 	CreateEv            EvType = "CREATE"
 	UpdateEv            EvType = "UPDATE"
 	DeleteEv            EvType = "DELETE"
-	NumWorkersIngestion uint32 = 1
+	NumWorkersIngestion uint32 = 2
 	NumWorkersGraph     uint32 = 2
 )
 
@@ -57,9 +57,12 @@ type Informers struct {
 	ServiceInformer coreinformers.ServiceInformer
 	EpInformer      coreinformers.EndpointsInformer
 	PodInformer     coreinformers.PodInformer
+	NSInformer      coreinformers.NamespaceInformer
 	SecretInformer  coreinformers.SecretInformer
 	IngressInformer extensioninformers.IngressInformer
 	RouteInformer   oshiftinformers.RouteInformer
+	NodeInformer    coreinformers.NodeInformer
+	KubeClientIntf
 }
 
 type AviRestObjMacro struct {

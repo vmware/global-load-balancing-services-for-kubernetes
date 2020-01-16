@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -13,6 +14,7 @@ import (
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
+	"gitlab.eng.vmware.com/orion/mcc/gslb/nodes"
 	gslbcs "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -54,6 +56,7 @@ var (
 	insideCluster     bool
 	membersKubeConfig string
 	stopCh            <-chan struct{}
+	cacheOnce         sync.Once
 )
 
 type GSLBConfigController struct {
@@ -178,6 +181,9 @@ func AddGSLBConfigObject(obj interface{}) {
 	for _, aviCtrl := range aviCtrlList {
 		aviCtrl.Start(stopCh)
 	}
+	cacheOnce.Do(func() {
+		gslbutils.GSLBConfigObj = gc
+	})
 }
 
 // func GetKubernetesClient() (kubernetes.Interface, gslbcs.Clientset)
@@ -212,6 +218,11 @@ func Initialize() {
 	if err != nil {
 		utils.AviLog.Error.Fatalf("Error building gslb config clientset: %s", err.Error())
 	}
+
+	// Set workers for layer 2
+	sharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
+	sharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
+	sharedQueue.Run(stopCh)
 
 	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)

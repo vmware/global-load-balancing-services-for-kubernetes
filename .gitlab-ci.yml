@@ -9,6 +9,7 @@ test:
   script:
     - /usr/local/go/bin/go test -v ./hacloud
     - /usr/local/go/bin/go test -v ./gslb/ingestion
+    - /usr/local/go/bin/go test -v ./gslb/nodes
   
 build:
   stage: build
