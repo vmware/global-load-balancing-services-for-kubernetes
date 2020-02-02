@@ -7,9 +7,14 @@ import (
 	"sync"
 )
 
+type RouteIPHostname struct {
+	IP       string
+	Hostname string
+}
+
 // RouteHostMap stores a mapping between cluster+ns+route to it's hostname
 type RouteHostMap struct {
-	HostMap map[string]string
+	HostMap map[string]RouteIPHostname
 	Lock    sync.Mutex
 }
 
@@ -18,7 +23,7 @@ var rhMap RouteHostMap
 
 func getRouteHostMap() *RouteHostMap {
 	rhMapInit.Do(func() {
-		rhMap.HostMap = make(map[string]string)
+		rhMap.HostMap = make(map[string]RouteIPHostname)
 	})
 	return &rhMap
 }
@@ -86,7 +91,10 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 	// Update the hostname in the RouteHostMap
 	routeHostMap := getRouteHostMap()
 	routeHostMap.Lock.Lock()
-	routeHostMap.HostMap[cname+"/"+ns+"/"+objName] = hostName
+	routeHostMap.HostMap[cname+"/"+ns+"/"+objName] = RouteIPHostname{
+		IP:       ipAddr,
+		Hostname: hostName,
+	}
 	routeHostMap.Lock.Unlock()
 
 	publishKeyToRestLayer(aviGS.(*AviGSObjectGraph), utils.ADMIN_NS, gsName, key, wq)
@@ -96,19 +104,46 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 	gslbutils.Logf("key: %s, msg: %s", key, "recieved delete operation for route")
 	routeHostMap := getRouteHostMap()
 	routeHostMap.Lock.Lock()
+	deleteOp := true
 	defer routeHostMap.Lock.Unlock()
 	clusterRoute := cname + "/" + ns + "/" + objName
-	hostName, ok := rhMap.HostMap[clusterRoute]
+	ipHostName, ok := rhMap.HostMap[clusterRoute]
 	if !ok {
 		gslbutils.Logf("key: %s, msg: %s", key, "no hostname for the route object")
 		return
 	}
 	// Also, now delete this route name from the host map
+	gsName := ipHostName.Hostname
+	modelName := utils.ADMIN_NS + "/" + ipHostName.Hostname
+
+	found, aviGS := SharedAviGSGraphLister().Get(modelName)
+	if found {
+		// Check the no. of members in this model, if its the last one, its a delete, else its an update
+		if len(aviGS.(*AviGSObjectGraph).GSNode.Members) > 1 {
+			deleteOp = false
+		} else {
+			deleteOp = true
+		}
+		if !aviGS.(*AviGSObjectGraph).GSNode.DeleteMember(ipHostName.IP) {
+			// No member found for this route
+			gslbutils.Warnf("key: %s, msg: no member for this route", key)
+			return
+		}
+	} else {
+		// avi graph not found, return
+		gslbutils.Warnf("key: %s, msg: no avi graph found for this key", key)
+		return
+	}
 	delete(routeHostMap.HostMap, clusterRoute)
-	gsName := ns + "/" + hostName
-	SharedAviGSGraphLister().Save(gsName, nil)
-	bkt := utils.Bkt(gsName, wq.NumWorkers)
-	wq.Workqueue[bkt].AddRateLimited(gsName)
+
+	if deleteOp {
+		// if its a model delete
+		SharedAviGSGraphLister().Save(modelName, nil)
+		bkt := utils.Bkt(modelName, wq.NumWorkers)
+		wq.Workqueue[bkt].AddRateLimited(modelName)
+	} else {
+		publishKeyToRestLayer(aviGS.(*AviGSObjectGraph), utils.ADMIN_NS, gsName, key, wq)
+	}
 	gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, gsName, "published key to rest layer")
 }
 

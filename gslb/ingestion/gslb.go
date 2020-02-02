@@ -31,6 +31,8 @@ import (
 	gslblisters "gitlab.eng.vmware.com/orion/mcc/pkg/client/listers/avilb/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	avirest "gitlab.eng.vmware.com/orion/mcc/gslb/rest"
 )
 
 type kubeClusterDetails struct {
@@ -220,9 +222,14 @@ func Initialize() {
 	}
 
 	// Set workers for layer 2
-	sharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	sharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
-	sharedQueue.Run(stopCh)
+	ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
+	ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
+	ingestionSharedQueue.Run(stopCh)
+
+	// Set workers for layer 3 (REST layer)
+	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
+	graphSharedQueue.SyncFunc = avirest.SyncFromNodesLayer
+	graphSharedQueue.Run(stopCh)
 
 	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)

@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"sort"
 	"sync"
 
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
@@ -28,6 +29,8 @@ func (gs *AviGSNode) GetChecksum() uint32 {
 
 func (gs *AviGSNode) CalculateChecksum() {
 	// A sum of fields for this GS
+	sort.Strings(gs.DomainNames)
+	sort.Strings(gs.Members)
 	checksum := utils.Hash(utils.Stringify(gs.DomainNames)) +
 		utils.Hash(utils.Stringify(gs.Members))
 	gs.CloudConfigChecksum = checksum
@@ -39,6 +42,25 @@ func (gs *AviGSNode) GetNodeType() string {
 
 func (gs *AviGSNode) UpdateMember(ipAddr string) {
 	gs.Members = append(gs.Members, ipAddr)
+}
+
+func (gs *AviGSNode) DeleteMember(ipAddr string) bool {
+	gslbutils.Logf("deleting member: %s", ipAddr)
+	idx := -1
+	for i, member := range gs.Members {
+		gslbutils.Logf("checking, %s == %s", member, ipAddr)
+		if ipAddr == member {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		// no such element
+		return false
+	}
+	gs.Members = append(gs.Members[:idx], gs.Members[idx+1:]...)
+	gslbutils.Logf("members: %v", gs.Members)
+	return true
 }
 
 var aviGSGraphInstance *AviGSGraphLister
