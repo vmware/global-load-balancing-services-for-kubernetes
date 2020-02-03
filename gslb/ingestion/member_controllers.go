@@ -6,6 +6,7 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
+	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -140,6 +141,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		// update the global rejected route store
 		gslbutils.RejectedRouteStore = rejectedRouteStore
 	}
+	gf := filter.GetGlobalFilter()
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			route := obj.(*routev1.Route)
@@ -153,6 +155,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			}
 			if gf == nil || !gf.ApplyFilter(route, c.name) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+				gslbutils.Logf("gf: %v", gf)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
 					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because it couldn't pass through filter")
 				return

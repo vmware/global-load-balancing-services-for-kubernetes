@@ -57,4 +57,8 @@ const (
 	TLS_PASSTHROUGH               = "TLS_PASSTHROUGH"
 	VS_TYPE_VH_PARENT             = "VS_TYPE_VH_PARENT"
 	VS_TYPE_VH_CHILD              = "VS_TYPE_VH_CHILD"
+	NodeObj                       = "node"
+	GlobalVRF                     = "global"
+	VRF_CONTEXT                   = "VRF_CONTEXT"
+	FULL_SYNC_INTERVAL            = "FULL_SYNC_INTERVAL"
 )

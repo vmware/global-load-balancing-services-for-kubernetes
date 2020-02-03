@@ -44,7 +44,7 @@ func RestRespArrToObjByType(operation *utils.RestOp, objType string, key string)
 }
 
 func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []avicache.GSMember, error) {
-	var ipList []string
+	var ipList, weightList []string
 	var domainList []string
 	var gsMembers []avicache.GSMember
 
@@ -87,20 +87,23 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []avicach
 				gslbutils.Warnf("couldn't parse addr: %v", member)
 				continue
 			}
+			weight, ok := member["ratio"].(int32)
 			ipList = append(ipList, ipAddr)
+			weightList = append(weightList, string(weight))
+			gsMember := avicache.GSMember{
+				IPAddr: ipAddr,
+				Weight: weight,
+			}
+			gsMembers = append(gsMembers, gsMember)
 		}
 	}
 	gslbutils.Logf("ip list: %v", ipList)
 	gslbutils.Logf("domain list: %v", domainList)
 	// Calculate the checksum
 	sort.Strings(ipList)
+	sort.Strings(weightList)
 	sort.Strings(domainList)
-	checksum := utils.Hash(utils.Stringify(ipList)) + utils.Hash(utils.Stringify((domainList)))
-	for _, ip := range ipList {
-		gsMember := avicache.GSMember{
-			IPAddr: ip,
-		}
-		gsMembers = append(gsMembers, gsMember)
-	}
+	checksum := utils.Hash(utils.Stringify(ipList)) + utils.Hash(utils.Stringify((domainList))) +
+		utils.Hash(utils.Stringify(weightList))
 	return checksum, gsMembers, nil
 }

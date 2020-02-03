@@ -3,6 +3,7 @@ package ingestion
 import (
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
+	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	gdpalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
 	gslbcs "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
@@ -23,11 +24,6 @@ type GDPAddDelfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, 
 
 // GDPUpdfn is a function type which handles an update of a GDP object.
 type GDPUpdfn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
-
-var (
-	// Need to keep this global since, it will be used across multiple layers and multiple handlers
-	gf *GlobalFilter
-)
 
 // GDPController defines the members required to hold an instance of a controller
 // handling GDP events.
@@ -66,14 +62,15 @@ func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *
 	}
 }
 
-func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
 	acceptedRouteStore := gslbutils.AcceptedRouteStore
 	rejectedRouteStore := gslbutils.RejectedRouteStore
+	gf := filter.GetGlobalFilter()
 	if acceptedRouteStore != nil {
 		// If we have routes in the accepted store, each one has to be passed through
 		// the filter again. If any route fails to pass through the filter, we need to
 		// add DELETE keys for them.
-		_, rejectedList := acceptedRouteStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
+		acceptedList, rejectedList := acceptedRouteStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
 		if len(rejectedList) != 0 {
 			gslbutils.Logf("routeList: %v, msg: %s", rejectedList, "route list will be deleted")
 			// Since, these routes are now rejected, they have to be moved to
@@ -93,7 +90,21 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 					key, "added DELETE route key")
 			}
 		}
+		// if the traffic weight changed, then the accepted list has to be sent to the nodes layer
+		for _, routeName := range acceptedList {
+			cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
+			if err != nil {
+				gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
+				continue
+			}
+			bkt := utils.Bkt(ns, numWorkers)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, "Route/", cname, ns, rname)
+			k8swq[bkt].AddRateLimited(key)
+			gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", cname, ns, rname, key,
+				"added ADD route key")
+		}
 	}
+
 	if rejectedRouteStore != nil {
 		// If we have routes in the rejected store, each one has to be passed through
 		// the filter again. If any route passes through the filter, we need to add ADD
@@ -127,16 +138,19 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"GDP object added")
+	gf := filter.GetGlobalFilter()
 	if gf == nil {
 		// Create a new GlobalFilter
-		gf = GetNewGlobalFilter(obj)
-		writeChangedRoutesToQueue(k8swq, numWorkers)
+		gslbutils.Logf("creating a new filter")
+		gf = filter.GetNewGlobalFilter(obj)
+		filter.Gfi = gf
+		writeChangedRoutesToQueue(k8swq, numWorkers, false)
 		return
 	}
 
 	// Else, add on to the existing GlobalFilter.
 	gf.AddToGlobalFilter(gdp)
-	writeChangedRoutesToQueue(k8swq, numWorkers)
+	writeChangedRoutesToQueue(k8swq, numWorkers, false)
 }
 
 // UpdateGDPObj updates the global and the namespace filters if a the GDP object
@@ -150,14 +164,15 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 	if oldGdp.ObjectMeta.ResourceVersion == newGdp.ObjectMeta.ResourceVersion {
 		return
 	}
+	gf := filter.GetGlobalFilter()
 	// utils.AviLog.Info.Printf("old: %v, new: %v", oldGdp, newGdp)
 	if gf == nil {
 		// global filter not initialized, return
 		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't update")
 		return
 	}
-	if changed := gf.UpdateGlobalFilter(oldGdp, newGdp); changed {
-		writeChangedRoutesToQueue(k8swq, numWorkers)
+	if gdpChanged, trafficWeightChanged := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
+		writeChangedRoutesToQueue(k8swq, numWorkers, trafficWeightChanged)
 	}
 }
 
@@ -169,9 +184,14 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"deleted GDP object")
+	gf := filter.GetGlobalFilter()
+	if gf == nil {
+		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't delete")
+		return
+	}
 	gf.DeleteFromGlobalFilter(gdp)
 	// Need to re-evaluate the routes again according to the deleted filter
-	writeChangedRoutesToQueue(k8swq, numWorkers)
+	writeChangedRoutesToQueue(k8swq, numWorkers, false)
 }
 
 // InitializeGDPController handles initialization of a controller which handles

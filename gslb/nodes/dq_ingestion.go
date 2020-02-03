@@ -1,10 +1,12 @@
 package nodes
 
 import (
+	"sync"
+
 	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
+	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
-	"sync"
 )
 
 type RouteIPHostname struct {
@@ -43,6 +45,21 @@ func publishKeyToRestLayer(aviGSGraph *AviGSObjectGraph, tenant, gsName, key str
 	gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "published key to rest layer")
 }
 
+func GetRouteTrafficRatio(ns, cname string) int32 {
+	globalFilter := filter.GetGlobalFilter()
+	if globalFilter == nil {
+		// return default traffic ratio
+		gslbutils.Errf("ns: %s, cname: %s, msg: global filter can't be nil at this stage", ns, cname)
+		return 1
+	}
+	val := globalFilter.GetTrafficWeight(ns, cname)
+	if val < 0 {
+		gslbutils.Warnf("ns: %s, cname: %s, msg: traffic weight wasn't defined for this object", ns, cname)
+		return 1
+	}
+	return val
+}
+
 func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue) {
 	var prevChecksum, newChecksum uint32
 	if gslbutils.AcceptedRouteStore == nil {
@@ -67,19 +84,21 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 		gslbutils.Errf("key: %s, msg: %s", key, "no IP address found for the route")
 		return
 	}
+	// get the traffic ratio for this member
+	memberWeight := GetRouteTrafficRatio(ns, cname)
 	gsName := DeriveGSLBServiceName(route)
 	modelName := utils.ADMIN_NS + "/" + gsName
 	found, aviGS := SharedAviGSGraphLister().Get(modelName)
 	if !found {
 		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "generating new model")
 		aviGS = NewAviGSObjectGraph()
-		aviGS.(*AviGSObjectGraph).ConstructAviGSNode(gsName, key, hostName, ipAddr)
+		aviGS.(*AviGSObjectGraph).ConstructAviGSNode(gsName, key, hostName, ipAddr, memberWeight)
 		aviGS.(*AviGSObjectGraph).BuildAviGSGraph(key, hostName)
 	} else {
 		// since the object was found, fetch the previous checksum
 		prevChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		// GSGraph found, so, only need to update the member of the GSGraph's GSNode
-		aviGS.(*AviGSObjectGraph).GSNode.UpdateMember(ipAddr)
+		aviGS.(*AviGSObjectGraph).GSNode.UpdateMember(ipAddr, memberWeight)
 		newChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		if prevChecksum == newChecksum {
 			// Checksums are same, return

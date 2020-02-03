@@ -11,6 +11,7 @@ var (
 
 type GSMember struct {
 	IPAddr string
+	Weight int32
 }
 
 type AviGSCache struct {

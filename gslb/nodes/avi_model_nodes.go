@@ -8,6 +8,11 @@ import (
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 )
 
+type GSMember struct {
+	IPAddr string
+	Weight int32
+}
+
 // AviGSNode is a representation of how a route gets translated into a GSLB
 // service. Only the necessary fields are part of this node, which means, only
 // the fields that get changed if a route gets added/changed/deleted.
@@ -17,7 +22,7 @@ type AviGSNode struct {
 	DomainNames []string
 	// Members is a list of IP addresses, for now. Will change when we add the traffic
 	// weights to each of these members.
-	Members             []string
+	Members             []GSMember
 	CloudConfigChecksum uint32
 }
 
@@ -29,10 +34,18 @@ func (gs *AviGSNode) GetChecksum() uint32 {
 
 func (gs *AviGSNode) CalculateChecksum() {
 	// A sum of fields for this GS
+	var memberIPs []string
+	var memberWeights []string
+
+	for _, member := range gs.Members {
+		memberIPs = append(memberIPs, member.IPAddr)
+		memberWeights = append(memberWeights, string(member.Weight))
+	}
 	sort.Strings(gs.DomainNames)
-	sort.Strings(gs.Members)
+	sort.Strings(memberIPs)
+	sort.Strings(memberWeights)
 	checksum := utils.Hash(utils.Stringify(gs.DomainNames)) +
-		utils.Hash(utils.Stringify(gs.Members))
+		utils.Hash(utils.Stringify(memberIPs)) + utils.Hash(utils.Stringify(memberWeights))
 	gs.CloudConfigChecksum = checksum
 }
 
@@ -40,8 +53,19 @@ func (gs *AviGSNode) GetNodeType() string {
 	return "GSLBServiceNode"
 }
 
-func (gs *AviGSNode) UpdateMember(ipAddr string) {
-	gs.Members = append(gs.Members, ipAddr)
+func (gs *AviGSNode) UpdateMember(ipAddr string, weight int32) {
+	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
+	for idx, member := range gs.Members {
+		if ipAddr == member.IPAddr {
+			gs.Members[idx].Weight = weight
+			return
+		}
+	}
+	gsMember := GSMember{
+		IPAddr: ipAddr,
+		Weight: weight,
+	}
+	gs.Members = append(gs.Members, gsMember)
 }
 
 func (gs *AviGSNode) DeleteMember(ipAddr string) bool {
@@ -49,7 +73,7 @@ func (gs *AviGSNode) DeleteMember(ipAddr string) bool {
 	idx := -1
 	for i, member := range gs.Members {
 		gslbutils.Logf("checking, %s == %s", member, ipAddr)
-		if ipAddr == member {
+		if ipAddr == member.IPAddr {
 			idx = i
 			break
 		}
@@ -120,10 +144,15 @@ func (v *AviGSObjectGraph) AddGSNode(node *AviGSNode) {
 	v.GSNode = node
 }
 
-func (v *AviGSObjectGraph) ConstructAviGSNode(gsName, key, hostName, ipAddr string) {
+func (v *AviGSObjectGraph) ConstructAviGSNode(gsName, key, hostName, ipAddr string, memberWeight int32) {
 	var gsNode AviGSNode
 	hosts := []string{hostName}
-	members := []string{ipAddr}
+	members := []GSMember{
+		GSMember{
+			IPAddr: ipAddr,
+			Weight: memberWeight,
+		},
+	}
 	// The GSLB service will be put into the admin tenant
 	gsNode = AviGSNode{
 		Name:        gsName,

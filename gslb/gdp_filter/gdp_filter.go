@@ -1,4 +1,4 @@
-package ingestion
+package filter
 
 import (
 	"sync"
@@ -9,6 +9,16 @@ import (
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	gdpv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
 )
+
+var (
+	// Need to keep this global since, it will be used across multiple layers and multiple handlers
+	Gfi *GlobalFilter
+)
+
+// GetGlobalFilter returns the existing global filter
+func GetGlobalFilter() *GlobalFilter {
+	return Gfi
+}
 
 // GlobalFilter is all the filters at one place. It also holds a list of ApplicableClusters
 // to which all the filters are applicable. This list cannot be empty.
@@ -74,6 +84,18 @@ func (gf *GlobalFilter) AddToGlobalFilter(gdp *gdpv1alpha1.GlobalDeploymentPolic
 	}
 }
 
+func (gf *GlobalFilter) GetTrafficWeight(ns, cname string) int32 {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+	nsFilter, ok := gf.NSFilterMap[ns]
+	if !ok {
+		gslbutils.Warnf("ns: %s, cname: %s, msg: no filter available for this namespace", ns, cname)
+		return -1
+	}
+	val := nsFilter.GetTrafficWeight(cname)
+	return val
+}
+
 func presentInList(cname string, clusterList []string) bool {
 	for _, cluster := range clusterList {
 		if cluster == cname {
@@ -83,10 +105,38 @@ func presentInList(cname string, clusterList []string) bool {
 	return false
 }
 
+func isTrafficWeightChanged(new, old *gdpv1alpha1.GlobalDeploymentPolicy) bool {
+	// There are 3 conditions when a cluster traffic ratio is different between the old
+	// and new GDP objects:
+	// 1. Length of the Traffic Split elements is different between the two.
+	// 2. Length is same, but a member from the old list is not found in the new list.
+	// 3. Length is same, but a member has different ratios across both the objects.
+
+	if len(old.Spec.TrafficSplit) != len(new.Spec.TrafficSplit) {
+		return true
+	}
+	for _, oldMember := range old.Spec.TrafficSplit {
+		found := false
+		for _, newMember := range new.Spec.TrafficSplit {
+			if oldMember.Cluster == newMember.Cluster {
+				found = true
+				if oldMember.Weight != newMember.Weight {
+					return true
+				}
+			}
+		}
+		if found == false {
+			// this member was not found in the new GDP, so return true
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
 // whether a change is required to any of the filters. If yes, it changes either the cluster
 // filter or one of the namespace filters.
-func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymentPolicy) bool {
+func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymentPolicy) (bool, bool) {
 	// Need to check for the NSFilterMap
 	nf := GetNewNSFilter(new)
 
@@ -96,7 +146,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymen
 	defer gf.GlobalLock.Unlock()
 	if gf.NSFilterMap[old.ObjectMeta.Namespace].GetChecksum() == nf.Checksum {
 		// No updates needed, just return
-		return false
+		return false, false
 	}
 	gslbutils.Logf("ns: %s, gdp: %s, object: filter, msg: %s", old.ObjectMeta.Namespace, old.ObjectMeta.Name,
 		"filter changed, will update filter and re-evaluate routes")
@@ -106,7 +156,8 @@ func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymen
 	if old.ObjectMeta.Namespace == gslbutils.AVISystem {
 		gf.ClusterFilter = nf
 	}
-	return true
+	trafficWeightChanged := isTrafficWeightChanged(new, old)
+	return true, trafficWeightChanged
 }
 
 // DeleteFromGlobalFilter deletes a filter pertaining to gdp.
@@ -262,6 +313,28 @@ func GetGDPRules(matchRules []gdpv1alpha1.MatchRule) (*[]GDPRule, uint32) {
 	return &ruleList, cksum
 }
 
+// ClusterTraffic determines the "Weight" of traffic routed to a cluster with name "ClusterName"
+type ClusterTraffic struct {
+	ClusterName string
+	Weight      int32
+}
+
+// GetTrafficSplit fetches the traffic split elements from the GDP object and returns a list of ClusterTraffic
+func getTrafficSplit(trafficSplit []gdpv1alpha1.TrafficSplitElem) ([]ClusterTraffic, uint32) {
+	var ctList []ClusterTraffic
+	var cksum uint32
+	for _, elem := range trafficSplit {
+		ct := ClusterTraffic{
+			ClusterName: elem.Cluster,
+			Weight:      int32(elem.Weight),
+		}
+		ctList = append(ctList, ct)
+		cksum += utils.Hash(ct.ClusterName) + utils.Hash(string(ct.Weight))
+	}
+	// find the checksum for this new list
+	return ctList, cksum
+}
+
 // NSFilter is kind of like the ClusterFilter but is only applicable to one namespace.
 type NSFilter struct {
 	// ApplicableClusters is the list of clusters in which this filter is applicable.
@@ -270,6 +343,8 @@ type NSFilter struct {
 	ApplicableNamespace string
 	// NSRules is the list of AND separated rules. If no rules, an object cannot pass.
 	NSRules []GDPRule
+	// TrafficSplit is the list of Cluster traffic ratio
+	TrafficSplit []ClusterTraffic
 	// Checksum is the sum of checksums of all the NSRules.
 	Checksum uint32
 	// NSLock is locked before accessing any of the fields here.
@@ -305,6 +380,17 @@ func (nf *NSFilter) GetChecksum() uint32 {
 	return nf.Checksum
 }
 
+func (nf *NSFilter) GetTrafficWeight(cname string) int32 {
+	nf.NSLock.RLock()
+	defer nf.NSLock.RUnlock()
+	for _, ct := range nf.TrafficSplit {
+		if cname == ct.ClusterName {
+			return ct.Weight
+		}
+	}
+	return -1
+}
+
 // GetNewNSFilter takes a GDP object as the input and creates a new NSFilter object
 // based on the GDP match rules and the namespace of the GDP object.
 func GetNewNSFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) *NSFilter {
@@ -315,6 +401,8 @@ func GetNewNSFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) *NSFilter {
 	}
 	ns := gdp.ObjectMeta.Namespace
 	gdpRules, cksum := GetGDPRules(gdp.Spec.MatchRules)
+	// get the traffic split list
+	trafficSplit, cksum := getTrafficSplit(gdp.Spec.TrafficSplit)
 	// Checksum should also include the cluster name list
 	cksum += utils.Hash(utils.Stringify(clusterList))
 	// Build the list of gdpRules from the match rules in the GDP object
@@ -322,6 +410,7 @@ func GetNewNSFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) *NSFilter {
 		ApplicableClusters:  clusterList,
 		ApplicableNamespace: ns,
 		NSRules:             *gdpRules,
+		TrafficSplit:        trafficSplit,
 		Checksum:            cksum,
 	}
 }

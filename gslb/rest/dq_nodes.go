@@ -40,7 +40,6 @@ func (restOp *RestOperations) DqNodes(key string) {
 	tenant, gsName := utils.ExtractNamespaceObjectName(key)
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
 	gsCacheObj := restOp.getGSCacheObj(gsKey, key)
-	gslbutils.Logf("GS cache object: %v", gsCacheObj)
 	if aviModelIntf == nil {
 		if gsCacheObj != nil {
 			gslbutils.Logf("key: %s, msg: %s", key, "no model found, this is a GS deletion case")
@@ -128,18 +127,18 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSNode, restMethod uti
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
 	var gslbSvcGroups []*avimodels.GslbPool
-	for id, ip := range gsMeta.Members {
-		if ip == "" {
+	for id, member := range gsMeta.Members {
+		if member.IPAddr == "" {
 			continue
 		}
 		enabled := true
 		// ipAddr := ip
 		ipVersion := "V4"
-		ratio := int32(1)
+		ratio := gsMeta.Members[id].Weight
 
 		gslbPoolMember := avimodels.GslbPoolMember{
 			Enabled: &enabled,
-			IP:      &avimodels.IPAddr{Addr: &gsMeta.Members[id], Type: &ipVersion},
+			IP:      &avimodels.IPAddr{Addr: &gsMeta.Members[id].IPAddr, Type: &ipVersion},
 			Ratio:   &ratio,
 		}
 		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
@@ -314,7 +313,6 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 
 func SyncFromNodesLayer(key string) error {
 	cache := avicache.NewAviCache()
-	gslbutils.Logf("cache values: %v", cache)
 	aviclient := avicache.SharedAviClients()
 	restLayerF := NewRestOperations(cache, aviclient)
 	restLayerF.DqNodes(key)
