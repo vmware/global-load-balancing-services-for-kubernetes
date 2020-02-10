@@ -172,6 +172,7 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		return
 	}
 	if gdpChanged, trafficWeightChanged := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
+		gslbutils.Logf("GDP object changed, will go through the routes again")
 		writeChangedRoutesToQueue(k8swq, numWorkers, trafficWeightChanged)
 	}
 }

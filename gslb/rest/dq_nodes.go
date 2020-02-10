@@ -88,6 +88,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSNode *no
 		gslbutils.Logf("key: %s, operation: POST, msg: GS not found in cache", key)
 		operation = restOp.AviGSBuild(aviGSNode, utils.RestPost, nil, key)
 	}
+	operation.ObjName = aviGSNode.Name
 	restOp.ExecuteRestAndPopulateCache(operation, gsKey, key)
 }
 
@@ -192,7 +193,8 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSNode, restMethod uti
 	}
 
 	path := "/api/gslbservice/"
-	operation := utils.RestOp{Path: path, Obj: aviGslbSvc, Tenant: gsMeta.Tenant, Model: "GSLBService", Version: AviVersion}
+	operation := utils.RestOp{ObjName: gsMeta.Name, Path: path, Obj: aviGslbSvc, Tenant: gsMeta.Tenant, Model: "GSLBService",
+		Version: AviVersion}
 
 	if restMethod == utils.RestPost {
 		operation.Method = utils.RestPost
@@ -220,9 +222,10 @@ func (restOp *RestOperations) getGSCacheObj(gsKey avicache.TenantName, key strin
 	return nil
 }
 
-func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string) *utils.RestOp {
+func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string, gsName string) *utils.RestOp {
 	path := "/api/gslbservice/" + uuid
-	operation := utils.RestOp{Path: path, Method: "DELETE", Tenant: tenant, Model: "GSLBService",
+	gslbutils.Logf("name of the GS to be deleted from the cache: %s", gsName)
+	operation := utils.RestOp{ObjName: gsName, Path: path, Method: "DELETE", Tenant: tenant, Model: "GSLBService",
 		Version: utils.CtrlVersion}
 	gslbutils.Logf(spew.Sprintf("GSLB Service DELETE Restop %v\n", utils.Stringify(operation)))
 	return &operation
@@ -233,7 +236,7 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 	bkt := utils.Bkt(key, utils.NumWorkersGraph)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 	if gsCacheObj != nil {
-		operation := restOp.AviGSDel(gsCacheObj.Uuid, tenant, key)
+		operation := restOp.AviGSDel(gsCacheObj.Uuid, tenant, key, gsCacheObj.Name)
 		restOps = operation
 		err := restOp.aviRestPoolClient.AviRestOperate(aviclient, []*utils.RestOp{restOps})
 		if err != nil {
@@ -244,6 +247,9 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 		}
 		// Clear all the cache objects which were deleted
 		restOp.AviGSCacheDel(restOp.cache, operation, key)
+		// delete the GS name from the layer 2 cache here
+		gslbutils.Warnf("key: %s, msg: deleting key from the layer 2 cache", key)
+		nodes.SharedAviGSGraphLister().Delete(key)
 		return true
 	}
 	return false
@@ -251,7 +257,7 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 
 func (restOp *RestOperations) AviGSCacheDel(gsCache *avicache.AviCache, op *utils.RestOp, key string) {
 	gsKey := avicache.TenantName{Tenant: op.Tenant, Name: op.ObjName}
-	gslbutils.Logf("key: %s, msg: deleting gs cache", key, gsKey)
+	gslbutils.Logf("key: %s, gsKey: %v, msg: deleting gs cache", key, gsKey)
 	gsCache.AviCacheDelete(gsKey)
 }
 

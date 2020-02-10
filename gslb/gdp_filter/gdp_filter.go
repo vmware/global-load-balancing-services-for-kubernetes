@@ -144,6 +144,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymen
 		"got an update event")
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
+	gslbutils.Logf("old checksum: %d, new checksum: %d", gf.NSFilterMap[old.ObjectMeta.Namespace].GetChecksum(), nf.Checksum)
 	if gf.NSFilterMap[old.ObjectMeta.Namespace].GetChecksum() == nf.Checksum {
 		// No updates needed, just return
 		return false, false
@@ -402,7 +403,8 @@ func GetNewNSFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) *NSFilter {
 	ns := gdp.ObjectMeta.Namespace
 	gdpRules, cksum := GetGDPRules(gdp.Spec.MatchRules)
 	// get the traffic split list
-	trafficSplit, cksum := getTrafficSplit(gdp.Spec.TrafficSplit)
+	trafficSplit, trafficCksum := getTrafficSplit(gdp.Spec.TrafficSplit)
+	cksum += trafficCksum
 	// Checksum should also include the cluster name list
 	cksum += utils.Hash(utils.Stringify(clusterList))
 	// Build the list of gdpRules from the match rules in the GDP object

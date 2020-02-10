@@ -158,6 +158,7 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 	if deleteOp {
 		// if its a model delete
 		SharedAviGSGraphLister().Save(modelName, nil)
+		// SharedAviGSGraphLister().Delete(modelName)
 		bkt := utils.Bkt(modelName, wq.NumWorkers)
 		wq.Workqueue[bkt].AddRateLimited(modelName)
 	} else {
