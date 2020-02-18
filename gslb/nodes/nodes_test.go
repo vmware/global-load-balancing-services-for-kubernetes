@@ -9,7 +9,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var testStopCh <-chan struct{}
@@ -89,23 +88,12 @@ func addAndTestRoute(t *testing.T, name string, ns string, host string, svc stri
 	routeStatus[0].Conditions = conditions
 	labelMap := make(map[string]string)
 	labelMap["key"] = "value"
-	routeExample := &routev1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       ns,
-			Name:            name,
-			ResourceVersion: "100",
-			Labels:          labelMap,
-		},
-		Spec: routev1.RouteSpec{
-			Host: host,
-			To: routev1.RouteTargetReference{
-				Kind: "Service",
-				Name: svc,
-			},
-		},
-		Status: routev1.RouteStatus{
-			Ingress: routeStatus,
-		},
+	routeExample := gslbutils.RouteMeta{
+		Name:      name,
+		Namespace: ns,
+		Labels:    labelMap,
+		Hostname:  host,
+		IPAddr:    ip,
 	}
 	acceptedRouteStore.AddOrUpdate(routeExample, cname, ns, name)
 	addKeyToIngestionQueue(ns, key)

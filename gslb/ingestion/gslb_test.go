@@ -118,7 +118,7 @@ func waitAndVerify(t *testing.T, key string, timeoutExpected bool) (bool, string
 }
 
 func addAndTestRoute(t *testing.T, oc *oshiftfake.Clientset, name string, ns string, host string, svc string, ip string, timeoutExpected bool, cname string) (bool, string) {
-	actualKey := "Route/" + cname + "/" + ns + "/" + name
+	actualKey := "ADD/Route/" + cname + "/" + ns + "/" + name
 	routeStatus := make([]routev1.RouteIngress, 2)
 	conditions := make([]routev1.RouteIngressCondition, 2)
 	conditions[0].Message = ip
@@ -151,7 +151,7 @@ func addAndTestRoute(t *testing.T, oc *oshiftfake.Clientset, name string, ns str
 }
 
 func updateAndTestRoute(t *testing.T, oc *oshiftfake.Clientset, name, ns, host, svc, ip, cname string, timeoutExpected bool) (bool, string) {
-	actualKey := "Route/" + cname + "/" + ns + "/" + name
+	actualKey := "UPDATE/Route/" + cname + "/" + ns + "/" + name
 	routeStatus := make([]routev1.RouteIngress, 2)
 	conditions := make([]routev1.RouteIngressCondition, 2)
 	conditions[0].Message = ip
@@ -355,12 +355,12 @@ func TestGSLBAndGDPWithRoutes(t *testing.T) {
 	oldGdp := gdp.DeepCopy()
 	updateTestGDPObject(gdp, clusterList, "101")
 	UpdateGDPObj(oldGdp, gdp, ingestionQueue.Workqueue, 2)
-	waitAndVerify(t, "Route/cluster2/default/bar-def-route1", false)
+	waitAndVerify(t, "DELETE/Route/cluster2/default/bar-def-route1", false)
 	// We expect a reject and deletion for the next route, because the host name is not allowed
 	updateAndTestRoute(t, fooOshiftClient, "foo-def-route1", "default", "abc.xyz.com", "test-svc", "10.10.10.10", "cluster1", false)
 
 	fooOshiftClient.RouteV1().Routes("default").Delete("foo-def-route1", nil)
-	waitAndVerify(t, "Route/cluster1/default/foo-def-route1", false)
+	waitAndVerify(t, "DELETE/Route/cluster1/default/foo-def-route1", false)
 	DeleteGDPObj(gdp, ingestionQueue.Workqueue, 2)
 	fmt.Println("done...")
 }

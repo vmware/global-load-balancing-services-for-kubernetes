@@ -203,14 +203,14 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					// a key for this route to the queue
 					multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
 					MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
-					fetchedRoute := fetchedObj.(*routev1.Route)
+					fetchedRoute := fetchedObj.(gslbutils.RouteMeta)
 					// Add a DELETE key for this route
-					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", c.name, fetchedRoute.ObjectMeta.Namespace,
-						fetchedRoute.ObjectMeta.Name)
-					bkt := containerutils.Bkt(fetchedRoute.ObjectMeta.Namespace, numWorkers)
+					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", c.name, fetchedRoute.Namespace,
+						fetchedRoute.Name)
+					bkt := containerutils.Bkt(fetchedRoute.Namespace, numWorkers)
 					c.workqueue[bkt].AddRateLimited(key)
-					gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", c.name, fetchedRoute.ObjectMeta.Namespace,
-						fetchedRoute.ObjectMeta.Name, key, "added DELETE route key")
+					gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", c.name, fetchedRoute.Namespace,
+						fetchedRoute.Name, key, "added DELETE route key")
 					return
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
