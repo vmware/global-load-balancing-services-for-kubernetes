@@ -79,7 +79,7 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 			for _, routeName := range rejectedList {
 				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
 				if err != nil {
-					gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
+					gslbutils.Errf("route: %s, msg: couldn't process route, error, %s", routeName, err)
 					continue
 				}
 
@@ -94,7 +94,7 @@ func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorke
 		for _, routeName := range acceptedList {
 			cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
 			if err != nil {
-				gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
+				gslbutils.Errf("route: %s, msg: couldn't split the key, error, %s", routeName, err)
 				continue
 			}
 			bkt := utils.Bkt(ns, numWorkers)
@@ -165,7 +165,6 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		return
 	}
 	gf := filter.GetGlobalFilter()
-	// utils.AviLog.Info.Printf("old: %v, new: %v", oldGdp, newGdp)
 	if gf == nil {
 		// global filter not initialized, return
 		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't update")

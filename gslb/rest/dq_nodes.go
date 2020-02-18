@@ -45,10 +45,6 @@ func (restOp *RestOperations) DqNodes(key string) {
 			gslbutils.Logf("key: %s, msg: %s", key, "no model found, this is a GS deletion case")
 			// Delete case can have two sub-cases:
 			// 1. Just delete the IP if present
-			// if len(gsCacheObj.Members) > 1 {
-			// 	for _, member := gsCacheObj.Members {
-			// 	}
-			// }
 			// 2. Delete the GS object only if this is the last IP present.
 			restOp.deleteGSOper(gsCacheObj, tenant, key)
 		}
@@ -57,22 +53,22 @@ func (restOp *RestOperations) DqNodes(key string) {
 	if ok && aviModelIntf != nil {
 		aviModel := aviModelIntf.(*nodes.AviGSObjectGraph)
 		gslbutils.Logf("key: %s, msg: GS create/update", key)
-		if aviModel.GSNode == nil {
+		if aviModel == nil {
 			gslbutils.Warnf("key: %s, msg: %s", key, "no gslbservice in the model")
 			return
 		}
-		restOp.RestOperation(gsName, tenant, aviModel.GSNode, gsCacheObj, key)
+		restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
 	}
 }
 
-func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSNode *nodes.AviGSNode,
+func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *nodes.AviGSObjectGraph,
 	gsCacheObj *avicache.AviGSCache, key string) {
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
 	var operation *utils.RestOp
 	if gsCacheObj != nil {
 		var restOps []*utils.RestOp
 		var cksum uint32
-		cksum = aviGSNode.GetChecksum()
+		cksum = aviGSGraph.GetChecksum()
 		if gsCacheObj.CloudConfigCksum == cksum {
 			gslbutils.Logf("key: %s, GSLBService: %s, msg: %s", key, gsName,
 				"the checksums are same for the GSLB service, ignoring")
@@ -81,14 +77,14 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSNode *no
 		gslbutils.Logf("key: %s, GSLBService: %s, oldCksum: %s, newCksum: %s, msg: %s", key, gsName,
 			gsCacheObj.CloudConfigCksum, cksum, "checksums are different for the GSLB Service")
 		// it should be a PUT call
-		operation = restOp.AviGSBuild(aviGSNode, utils.RestPut, gsCacheObj, key)
+		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key)
 		gslbutils.Logf("gsKey: %s, restOps: %v, operation: %v", gsKey, restOps, operation)
 	} else {
 		// its a post operation
 		gslbutils.Logf("key: %s, operation: POST, msg: GS not found in cache", key)
-		operation = restOp.AviGSBuild(aviGSNode, utils.RestPost, nil, key)
+		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPost, nil, key)
 	}
-	operation.ObjName = aviGSNode.Name
+	operation.ObjName = aviGSGraph.Name
 	restOp.ExecuteRestAndPopulateCache(operation, gsKey, key)
 }
 
@@ -122,7 +118,7 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	}
 }
 
-func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSNode, restMethod utils.RestMethod,
+func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
 	cacheObj *avicache.AviGSCache, key string) *utils.RestOp {
 	gslbutils.Logf("key: %s, msg: creating rest operation", key)
 	// description field needs references

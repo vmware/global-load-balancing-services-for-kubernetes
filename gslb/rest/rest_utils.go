@@ -20,12 +20,6 @@ func RestRespArrToObjByType(operation *utils.RestOp, objType string, key string)
 			return nil, errors.New("malformed response")
 		}
 
-		// resp, ok := respElem.(map[string]interface{})
-		// if !ok {
-		// 	gslbutils.Logf("key: %s, msg: response has an unknown type %T", key, respElem)
-		// 	return respElems, nil
-		// }
-
 		aviURL, ok := resp["url"].(string)
 		if !ok {
 			gslbutils.Logf("key: %s, resp: %v, msg: url not present in response", key, resp)
@@ -49,7 +43,6 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []avicach
 	var gsMembers []avicache.GSMember
 
 	domainNames, ok := gslbSvcMap["domain_names"].([]interface{})
-	gslbutils.Logf("domainNames: %v, expected: %v", domainNames, gslbSvcMap["domain_names"])
 	if !ok {
 		return 0, nil, errors.New("domain names absent in gslb service")
 	}
@@ -97,8 +90,6 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []avicach
 			gsMembers = append(gsMembers, gsMember)
 		}
 	}
-	gslbutils.Logf("ip list: %v", ipList)
-	gslbutils.Logf("domain list: %v", domainList)
 	// Calculate the checksum
 	sort.Strings(ipList)
 	sort.Strings(weightList)

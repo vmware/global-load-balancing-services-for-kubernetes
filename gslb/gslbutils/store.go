@@ -195,11 +195,16 @@ func (store *ObjectStore) GetAllNamespaces() []string {
 
 // AddOrUpdate fetches the right NS Store and then updates the object map store.
 func (store *ObjectStore) AddOrUpdate(ns string, objName string, obj interface{}) {
+	route, ok := obj.(RouteMeta)
+	if !ok {
+		Warnf("ns: %s, objName: %s, msg: object is not a route, returning...")
+	}
+	// fetch the minimal version of this route
 	nsStore := store.GetNSStore(ns)
 	// Updating an object inside the object map requires a read lock on the ns store.
 	store.NSLock.RLock()
 	store.NSLock.RUnlock()
-	nsStore.AddOrUpdate(objName, obj)
+	nsStore.AddOrUpdate(objName, route)
 }
 
 // GetAllFilteredNSObjects fetches all the objects from Object Map Store and prefixes

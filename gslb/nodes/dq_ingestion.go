@@ -3,7 +3,6 @@ package nodes
 import (
 	"sync"
 
-	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
@@ -30,8 +29,8 @@ func getRouteHostMap() *RouteHostMap {
 	return &rhMap
 }
 
-func DeriveGSLBServiceName(route *routev1.Route) string {
-	hostName := route.Spec.Host
+func DeriveGSLBServiceName(route gslbutils.RouteMeta) string {
+	hostName := route.Hostname
 	// For now, the hostname of a route is the GSLB Service name
 	return hostName
 }
@@ -72,14 +71,12 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 		gslbutils.Errf("key: %s, msg: %s", key, "error finding the object in the accepted route store")
 		return
 	}
-	route := obj.(*routev1.Route)
-	hostName := route.Spec.Host
-	if hostName == "" {
+	route := obj.(gslbutils.RouteMeta)
+	if route.Hostname == "" {
 		gslbutils.Errf("key: %s, msg: %s", key, "no hostname for route object, not supported")
 		return
 	}
-	ipAddr, ok := gslbutils.RouteGetIPAddr(route)
-	if !ok {
+	if route.IPAddr == "" {
 		// IP Address not found, no use adding this as a GS
 		gslbutils.Errf("key: %s, msg: %s", key, "no IP address found for the route")
 		return
@@ -92,13 +89,14 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 	if !found {
 		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "generating new model")
 		aviGS = NewAviGSObjectGraph()
-		aviGS.(*AviGSObjectGraph).ConstructAviGSNode(gsName, key, hostName, ipAddr, memberWeight)
-		aviGS.(*AviGSObjectGraph).BuildAviGSGraph(key, hostName)
+		// Note: For now, the hostname is used as a way to create the GSLB services. This is on the
+		// assumption that the hostnames are same for a route across all clusters.
+		aviGS.(*AviGSObjectGraph).ConstructAviGSGraph(gsName, key, route.Hostname, route.IPAddr, memberWeight)
 	} else {
 		// since the object was found, fetch the previous checksum
 		prevChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		// GSGraph found, so, only need to update the member of the GSGraph's GSNode
-		aviGS.(*AviGSObjectGraph).GSNode.UpdateMember(ipAddr, memberWeight)
+		aviGS.(*AviGSObjectGraph).UpdateMember(route.IPAddr, memberWeight)
 		newChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		if prevChecksum == newChecksum {
 			// Checksums are same, return
@@ -110,11 +108,11 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 	// Update the hostname in the RouteHostMap
 	routeHostMap := getRouteHostMap()
 	routeHostMap.Lock.Lock()
+	defer routeHostMap.Lock.Unlock()
 	routeHostMap.HostMap[cname+"/"+ns+"/"+objName] = RouteIPHostname{
-		IP:       ipAddr,
-		Hostname: hostName,
+		IP:       route.IPAddr,
+		Hostname: route.Hostname,
 	}
-	routeHostMap.Lock.Unlock()
 
 	publishKeyToRestLayer(aviGS.(*AviGSObjectGraph), utils.ADMIN_NS, gsName, key, wq)
 }
@@ -138,12 +136,12 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 	found, aviGS := SharedAviGSGraphLister().Get(modelName)
 	if found {
 		// Check the no. of members in this model, if its the last one, its a delete, else its an update
-		if len(aviGS.(*AviGSObjectGraph).GSNode.Members) > 1 {
+		if len(aviGS.(*AviGSObjectGraph).Members) > 1 {
 			deleteOp = false
 		} else {
 			deleteOp = true
 		}
-		if !aviGS.(*AviGSObjectGraph).GSNode.DeleteMember(ipHostName.IP) {
+		if !aviGS.(*AviGSObjectGraph).DeleteMember(ipHostName.IP) {
 			// No member found for this route
 			gslbutils.Warnf("key: %s, msg: no member for this route", key)
 			return

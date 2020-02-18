@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/gobwas/glob"
-	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	gdpv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
@@ -36,12 +35,16 @@ type GlobalFilter struct {
 // filter is not present or if the object is rejected by the namespace filter, apply
 // the cluster filter if present. Default action is to reject the object.
 func (gf *GlobalFilter) ApplyFilter(obj interface{}, cname string) bool {
-	route := obj.(*routev1.Route)
-	ns := route.ObjectMeta.Namespace
+	route, ok := obj.(gslbutils.RouteMeta)
+	if !ok {
+		gslbutils.Warnf("cname: %s, msg: not a route object, returning", cname)
+		return false
+	}
+	ns := route.Namespace
 	if ns == gslbutils.AVISystem {
 		// routes in AVISystem are ignored
 		gslbutils.Errf("cname: %s, ns: %s, route: %s, msg: routes in avi-system are ignored",
-			cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
+			cname, route.Namespace, route.Name)
 		return false
 	}
 	// First see, if there's a namespace filter set for this route's namespace, if not, apply
@@ -49,9 +52,8 @@ func (gf *GlobalFilter) ApplyFilter(obj interface{}, cname string) bool {
 	var passed bool
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
-	if nf, ok := gf.NSFilterMap[route.ObjectMeta.Namespace]; ok && nf != nil {
+	if nf, ok := gf.NSFilterMap[route.Namespace]; ok && nf != nil {
 		passed = nf.ApplyFilter(route, cname)
-		// utils.AviLog.Info.Printf("route %s passed: %v", route.ObjectMeta.Name, passed)
 		if passed {
 			return true
 		}
@@ -136,28 +138,28 @@ func isTrafficWeightChanged(new, old *gdpv1alpha1.GlobalDeploymentPolicy) bool {
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
 // whether a change is required to any of the filters. If yes, it changes either the cluster
 // filter or one of the namespace filters.
-func (gf *GlobalFilter) UpdateGlobalFilter(old, new *gdpv1alpha1.GlobalDeploymentPolicy) (bool, bool) {
+func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha1.GlobalDeploymentPolicy) (bool, bool) {
 	// Need to check for the NSFilterMap
-	nf := GetNewNSFilter(new)
+	nf := GetNewNSFilter(newGDP)
 
-	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", old.ObjectMeta.Namespace, old.ObjectMeta.Name,
+	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", oldGDP.ObjectMeta.Namespace, oldGDP.ObjectMeta.Name,
 		"got an update event")
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
-	gslbutils.Logf("old checksum: %d, new checksum: %d", gf.NSFilterMap[old.ObjectMeta.Namespace].GetChecksum(), nf.Checksum)
-	if gf.NSFilterMap[old.ObjectMeta.Namespace].GetChecksum() == nf.Checksum {
+	gslbutils.Logf("old checksum: %d, new checksum: %d", gf.NSFilterMap[oldGDP.ObjectMeta.Namespace].GetChecksum(), nf.Checksum)
+	if gf.NSFilterMap[oldGDP.ObjectMeta.Namespace].GetChecksum() == nf.Checksum {
 		// No updates needed, just return
 		return false, false
 	}
-	gslbutils.Logf("ns: %s, gdp: %s, object: filter, msg: %s", old.ObjectMeta.Namespace, old.ObjectMeta.Name,
+	gslbutils.Logf("ns: %s, gdp: %s, object: filter, msg: %s", oldGDP.ObjectMeta.Namespace, oldGDP.ObjectMeta.Name,
 		"filter changed, will update filter and re-evaluate routes")
 	// Just replace the namespace filter with a new one.
-	gf.NSFilterMap[old.ObjectMeta.Namespace] = nf
+	gf.NSFilterMap[oldGDP.ObjectMeta.Namespace] = nf
 	// Also, see if the cluster filter needs to be updated
-	if old.ObjectMeta.Namespace == gslbutils.AVISystem {
+	if oldGDP.ObjectMeta.Namespace == gslbutils.AVISystem {
 		gf.ClusterFilter = nf
 	}
-	trafficWeightChanged := isTrafficWeightChanged(new, old)
+	trafficWeightChanged := isTrafficWeightChanged(newGDP, oldGDP)
 	return true, trafficWeightChanged
 }
 
@@ -201,13 +203,13 @@ type GDPRule struct {
 // GlobOperate applies glob operator on the route's parameters.
 func (gr *GDPRule) GlobOperate(object interface{}) bool {
 	mr := gr.MatchRule
-	route := object.(*routev1.Route)
+	route := object.(gslbutils.RouteMeta)
 	var g glob.Glob
 	// route's hostname has to match
 	// If no hostname given, return false
 	for _, host := range mr.Hosts {
 		g = glob.MustCompile(host.HostName, '.')
-		if g.Match(route.Spec.Host) {
+		if g.Match(route.Hostname) {
 			return true
 		}
 	}
@@ -217,17 +219,17 @@ func (gr *GDPRule) GlobOperate(object interface{}) bool {
 // EqualOperate applies the Equals operator on the object's fields.
 func (gr *GDPRule) EqualOperate(object interface{}) bool {
 	mr := gr.MatchRule
-	route := object.(*routev1.Route)
+	route := object.(gslbutils.RouteMeta)
 	if len(mr.Hosts) != 0 {
 		// Host list is of non-zero length, which means has to be a host match expression
 		for _, h := range mr.Hosts {
-			if h.HostName == route.Spec.Host {
+			if h.HostName == route.Hostname {
 				return true
 			}
 		}
 	} else {
 		// Its a label key-value match
-		routeLabels := route.ObjectMeta.Labels
+		routeLabels := route.Labels
 		if value, ok := routeLabels[mr.Label.Key]; ok {
 			if value == mr.Label.Value {
 				return true
@@ -240,11 +242,11 @@ func (gr *GDPRule) EqualOperate(object interface{}) bool {
 // NotEqualOperate applies the NotEquals operator on the object's fields.
 func (gr *GDPRule) NotEqualOperate(object interface{}) bool {
 	mr := gr.MatchRule
-	route := object.(*routev1.Route)
+	route := object.(gslbutils.RouteMeta)
 	if len(mr.Hosts) != 0 {
 		// Host list is of non-zero length, which means it has to be a host match expression
 		for _, h := range mr.Hosts {
-			if h.HostName == route.Spec.Host {
+			if h.HostName == route.Hostname {
 				return false
 			}
 		}
@@ -252,7 +254,7 @@ func (gr *GDPRule) NotEqualOperate(object interface{}) bool {
 		return true
 	}
 	// Its a label key-value match
-	routeLabels := route.ObjectMeta.Labels
+	routeLabels := route.Labels
 	if value, ok := routeLabels[mr.Label.Key]; ok {
 		if value == mr.Label.Value {
 			return false
@@ -264,15 +266,15 @@ func (gr *GDPRule) NotEqualOperate(object interface{}) bool {
 // Apply operates on the obj object's fields and returns true/false depending on whether the
 // operation worked.
 func (gr *GDPRule) Apply(obj interface{}) bool {
-	route := obj.(*routev1.Route)
+	route := obj.(gslbutils.RouteMeta)
 	mr := gr.MatchRule
 	// Basic sanity checks
 	if len(mr.Hosts) == 0 && mr.Label.Key == "" {
-		gslbutils.Errf("object: GDPRule, route: %s, msg: %s", route.ObjectMeta.Name,
+		gslbutils.Errf("object: GDPRule, route: %s, msg: %s", route.Name,
 			"GDPRule doesn't have either hosts set or label key-value pair")
 		return false
 	}
-	if len(mr.Hosts) > 0 && route.Spec.Host == "" {
+	if len(mr.Hosts) > 0 && route.Hostname == "" {
 		return false
 	}
 	switch mr.Op {
@@ -284,7 +286,7 @@ func (gr *GDPRule) Apply(obj interface{}) bool {
 		return gr.NotEqualOperate(route)
 	default:
 		gslbutils.Errf("object: GDPRule, route: %s, operation: %s, msg: %s",
-			route.ObjectMeta.Name, gr.MatchRule.Op, "operation is invalid")
+			route.Name, gr.MatchRule.Op, "operation is invalid")
 	}
 	return false
 }
@@ -355,19 +357,17 @@ type NSFilter struct {
 // ApplyFilter applies the gdp rules in this NS filter on the route object "obj" in cluster "cname".
 // Returns true/false depending on whether this route passes the filter or not.
 func (nf *NSFilter) ApplyFilter(obj interface{}, cname string) bool {
-	route := obj.(*routev1.Route)
+	route := obj.(gslbutils.RouteMeta)
 	nf.NSLock.RLock()
 	defer nf.NSLock.RUnlock()
 	if !presentInList(cname, nf.ApplicableClusters) {
-		// utils.AviLog.Error.Printf("Cluster name %s is not present in the list of applicable clusters, rejecting the route %s",
-		// 	cname, route.ObjectMeta.Name)
 		return false
 	}
 
 	for _, gdpRule := range nf.NSRules {
 		if !gdpRule.Apply(route) {
 			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: route rejected because of GDPRule: %s",
-				cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name, gdpRule)
+				cname, route.Namespace, route.Name, gdpRule)
 			return false
 		}
 	}
