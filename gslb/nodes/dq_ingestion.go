@@ -91,12 +91,15 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 		aviGS = NewAviGSObjectGraph()
 		// Note: For now, the hostname is used as a way to create the GSLB services. This is on the
 		// assumption that the hostnames are same for a route across all clusters.
-		aviGS.(*AviGSObjectGraph).ConstructAviGSGraph(gsName, key, route.Hostname, route.IPAddr, memberWeight)
+		aviGS.(*AviGSObjectGraph).ConstructAviGSGraph(gsName, key, route, memberWeight)
 	} else {
-		// since the object was found, fetch the previous checksum
+		// since the object was found, fetch the current checksum
 		prevChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		// GSGraph found, so, only need to update the member of the GSGraph's GSNode
-		aviGS.(*AviGSObjectGraph).UpdateMember(route.IPAddr, memberWeight)
+		aviGS.(*AviGSObjectGraph).UpdateGSMember(route.IPAddr, memberWeight)
+		// Update the route member for this GS if it doesn't exist
+		aviGS.(*AviGSObjectGraph).UpdateMemberRoute(route)
+		// Get the new checksum after the updates
 		newChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		if prevChecksum == newChecksum {
 			// Checksums are same, return
@@ -129,6 +132,15 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 		gslbutils.Logf("key: %s, msg: %s", key, "no hostname for the route object")
 		return
 	}
+	obj, ok := gslbutils.AcceptedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
+	if !ok {
+		obj, ok = gslbutils.RejectedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
+		if !ok {
+			gslbutils.Errf("key: %s, msg: %s", key, "error finding the object in the accepted/rejected route store")
+			return
+		}
+	}
+	route := obj.(gslbutils.RouteMeta)
 	// Also, now delete this route name from the host map
 	gsName := ipHostName.Hostname
 	modelName := utils.ADMIN_NS + "/" + ipHostName.Hostname
@@ -141,11 +153,7 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 		} else {
 			deleteOp = true
 		}
-		if !aviGS.(*AviGSObjectGraph).DeleteMember(ipHostName.IP) {
-			// No member found for this route
-			gslbutils.Warnf("key: %s, msg: no member for this route", key)
-			return
-		}
+		aviGS.(*AviGSObjectGraph).DeleteMember(ipHostName.IP, route)
 	} else {
 		// avi graph not found, return
 		gslbutils.Warnf("key: %s, msg: no avi graph found for this key", key)

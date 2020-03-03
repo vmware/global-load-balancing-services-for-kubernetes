@@ -3,6 +3,8 @@ package gslbutils
 import (
 	"errors"
 	"net"
+	"os"
+	"sort"
 	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -119,6 +121,7 @@ var GSLBConfigObj *gslbalphav1.GSLBConfig
 // RouteMeta is the metadata for a route. It is the minimal information
 // that we maintain for each route, accepted or rejected.
 type RouteMeta struct {
+	Cluster   string
 	Name      string
 	Namespace string
 	Hostname  string
@@ -127,17 +130,31 @@ type RouteMeta struct {
 }
 
 // GetRouteMeta returns a trimmed down version of a route
-func GetRouteMeta(route *routev1.Route) RouteMeta {
+func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 	ipAddr, _ := RouteGetIPAddr(route)
 	metaObj := RouteMeta{
 		Name:      route.Name,
 		Namespace: route.ObjectMeta.Namespace,
 		Hostname:  route.Spec.Host,
 		IPAddr:    ipAddr,
+		Cluster:   cname,
 	}
 	metaObj.Labels = make(map[string]string)
 	for key, value := range route.GetLabels() {
 		metaObj.Labels[key] = value
 	}
 	return metaObj
+}
+
+func GetGSLBServiceChecksum(ipList, domainList, routeMembers []string) uint32 {
+	sort.Strings(ipList)
+	sort.Strings(domainList)
+	sort.Strings(routeMembers)
+	return utils.Hash(utils.Stringify(ipList)) +
+		utils.Hash(utils.Stringify(domainList)) +
+		utils.Hash(utils.Stringify(routeMembers))
+}
+
+func GetAviAdminTenantRef() string {
+	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
 }

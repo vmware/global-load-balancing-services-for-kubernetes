@@ -194,7 +194,7 @@ func (store *ObjectStore) GetAllNamespaces() []string {
 }
 
 // AddOrUpdate fetches the right NS Store and then updates the object map store.
-func (store *ObjectStore) AddOrUpdate(ns string, objName string, obj interface{}) {
+func (store *ObjectStore) AddOrUpdate(ns, objName string, obj interface{}) {
 	route, ok := obj.(RouteMeta)
 	if !ok {
 		Warnf("ns: %s, objName: %s, msg: object is not a route, returning...")

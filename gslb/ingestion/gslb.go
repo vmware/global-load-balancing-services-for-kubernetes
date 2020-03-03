@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	avicache "gitlab.eng.vmware.com/orion/mcc/gslb/cache"
 	avirest "gitlab.eng.vmware.com/orion/mcc/gslb/rest"
 )
 
@@ -173,6 +174,9 @@ func AddGSLBConfigObject(obj interface{}) {
 	}
 	gslbutils.Logf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
 		"got an add event")
+	// We initialize the avi cache after a valid GSLB config object is found
+	avicache.PopulateCache()
+
 	// Secret created with name: "gslb-config-secret" and environment variable to set is
 	// GSLB_CONFIG.
 	err = GenerateKubeConfig()

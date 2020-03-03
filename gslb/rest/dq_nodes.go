@@ -2,7 +2,7 @@ package rest
 
 import (
 	"errors"
-	"os"
+	"strings"
 	"sync"
 
 	avimodels "github.com/avinetworks/sdk/go/models"
@@ -129,7 +129,6 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 			continue
 		}
 		enabled := true
-		// ipAddr := ip
 		ipVersion := "V4"
 		ratio := gsMeta.Members[id].Weight
 
@@ -166,9 +165,10 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	poolAlgorithm := "GSLB_SERVICE_ALGORITHM_PRIORITY"
 	resolveCname := false
 	sitePersistenceEnabled := false
-	tenantRef := "https://" + os.Getenv("CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
+	tenantRef := gslbutils.GetAviAdminTenantRef()
 	useEdnsClientSubnet := true
 	wildcardMatch := false
+	description := strings.Join(gsMeta.GetMemberRouteList(), ",")
 
 	aviGslbSvc := avimodels.GslbService{
 		ControllerHealthStatusEnabled: &ctrlHealthStatusEnabled,
@@ -186,6 +186,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		UseEdnsClientSubnet:           &useEdnsClientSubnet,
 		WildcardMatch:                 &wildcardMatch,
 		TenantRef:                     &tenantRef,
+		Description:                   &description,
 	}
 
 	path := "/api/gslbservice/"
@@ -280,7 +281,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 		return errors.New("uuid not present in response")
 	}
 
-	cksum, members, err := GetDetailsFromAviGSLB(respElem)
+	cksum, gsMembers, memberRoutes, err := avicache.GetDetailsFromAviGSLB(respElem)
 	if err != nil {
 		gslbutils.Errf("key: %s, resp: %v, msg: error in getting checksum for gslb svc: %s", key, respElem, err)
 	}
@@ -292,7 +293,8 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 		if found {
 			gsCacheObj.Uuid = uuid
 			gsCacheObj.CloudConfigCksum = cksum
-			gsCacheObj.Members = members
+			gsCacheObj.Members = gsMembers
+			gsCacheObj.Routes = memberRoutes
 			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: updated GS cache\n", key, k,
 				utils.Stringify(gsCacheObj)))
 		}
@@ -302,7 +304,8 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			Name:             name,
 			Tenant:           operation.Tenant,
 			Uuid:             uuid,
-			Members:          members,
+			Members:          gsMembers,
+			Routes:           memberRoutes,
 			CloudConfigCksum: cksum,
 		}
 		restOp.cache.AviCacheAdd(k, &gsCacheObj)

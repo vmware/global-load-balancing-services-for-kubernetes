@@ -57,7 +57,7 @@ func initializeClusterRouteStore() *gslbutils.ClusterStore {
 // in the object map store.
 func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 	route *routev1.Route, cname string) {
-	routeMeta := gslbutils.GetRouteMeta(route)
+	routeMeta := gslbutils.GetRouteMeta(route, cname)
 	clusterRouteStore.AddOrUpdate(routeMeta, cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 }
 
@@ -154,7 +154,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because IP address not found")
 				return
 			}
-			routeMeta := gslbutils.GetRouteMeta(route)
+			routeMeta := gslbutils.GetRouteMeta(route, c.name)
 			if gf == nil || !gf.ApplyFilter(routeMeta, c.name) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
@@ -189,7 +189,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			oldRoute := old.(*routev1.Route)
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
-				routeMeta := gslbutils.GetRouteMeta(route)
+				routeMeta := gslbutils.GetRouteMeta(route, c.name)
 				if gf == nil || !gf.ApplyFilter(routeMeta, c.name) {
 					// See if the route was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
