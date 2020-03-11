@@ -70,8 +70,8 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 		var cksum uint32
 		cksum = aviGSGraph.GetChecksum()
 		if gsCacheObj.CloudConfigCksum == cksum {
-			gslbutils.Logf("key: %s, GSLBService: %s, msg: %s", key, gsName,
-				"the checksums are same for the GSLB service, ignoring")
+			gslbutils.Logf("key: %s, GSLBService: %s, msg: the checksums are same for the GSLB service, existing: %s, new: %s, ignoring",
+				key, gsName, gsCacheObj.CloudConfigCksum, cksum)
 			return
 		}
 		gslbutils.Logf("key: %s, GSLBService: %s, oldCksum: %s, newCksum: %s, msg: %s", key, gsName,
@@ -124,17 +124,19 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
 	var gslbSvcGroups []*avimodels.GslbPool
-	for id, member := range gsMeta.Members {
+	memberRoutes := gsMeta.GetMemberRouteObjs()
+	for _, member := range memberRoutes {
 		if member.IPAddr == "" {
 			continue
 		}
 		enabled := true
 		ipVersion := "V4"
-		ratio := gsMeta.Members[id].Weight
+		ipAddr := member.IPAddr
+		ratio := member.Weight
 
 		gslbPoolMember := avimodels.GslbPoolMember{
 			Enabled: &enabled,
-			IP:      &avimodels.IPAddr{Addr: &gsMeta.Members[id].IPAddr, Type: &ipVersion},
+			IP:      &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
 			Ratio:   &ratio,
 		}
 		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
@@ -190,8 +192,9 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	}
 
 	path := "/api/gslbservice/"
+
 	operation := utils.RestOp{ObjName: gsMeta.Name, Path: path, Obj: aviGslbSvc, Tenant: gsMeta.Tenant, Model: "GSLBService",
-		Version: AviVersion}
+		Version: gslbutils.GetAviVersion()}
 
 	if restMethod == utils.RestPost {
 		operation.Method = utils.RestPost
@@ -223,7 +226,7 @@ func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string, g
 	path := "/api/gslbservice/" + uuid
 	gslbutils.Logf("name of the GS to be deleted from the cache: %s", gsName)
 	operation := utils.RestOp{ObjName: gsName, Path: path, Method: "DELETE", Tenant: tenant, Model: "GSLBService",
-		Version: utils.CtrlVersion}
+		Version: gslbutils.GetAviVersion()}
 	gslbutils.Logf(spew.Sprintf("GSLB Service DELETE Restop %v\n", utils.Stringify(operation)))
 	return &operation
 }
@@ -297,6 +300,21 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			gsCacheObj.Routes = memberRoutes
 			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: updated GS cache\n", key, k,
 				utils.Stringify(gsCacheObj)))
+		} else {
+			// New cache object
+			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: GS Cache obj malformed\n"), key, k,
+				utils.Stringify(gsCacheObj))
+			gsCacheObj := avicache.AviGSCache{
+				Name:             name,
+				Tenant:           operation.Tenant,
+				Uuid:             uuid,
+				Members:          gsMembers,
+				Routes:           memberRoutes,
+				CloudConfigCksum: cksum,
+			}
+			restOp.cache.AviCacheAdd(k, &gsCacheObj)
+			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: added GS to the cache", key, k,
+				utils.Stringify(gsCacheObj)))
 		}
 	} else {
 		// New cache object
@@ -317,7 +335,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 }
 
 func SyncFromNodesLayer(key string) error {
-	cache := avicache.NewAviCache()
+	cache := avicache.GetAviCache()
 	aviclient := avicache.SharedAviClients()
 	restLayerF := NewRestOperations(cache, aviclient)
 	restLayerF.DqNodes(key)

@@ -34,6 +34,7 @@ import (
 
 	avicache "gitlab.eng.vmware.com/orion/mcc/gslb/cache"
 	avirest "gitlab.eng.vmware.com/orion/mcc/gslb/rest"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type kubeClusterDetails struct {
@@ -137,6 +138,58 @@ func IsGSLBConfigValid(obj interface{}) (*gslbalphav1.GSLBConfig, error) {
 	return nil, errors.New("invalid gslb config, namespace can only be avi-system")
 }
 
+func PublishChangeToRestLayer(gsKey interface{}, sharedQ *containerutils.WorkerQueue) {
+	gsCacheKey, ok := gsKey.(avicache.TenantName)
+	if !ok {
+		gslbutils.Errf("CacheKey: %v, msg: cache key malformed, not publishing to rest layer", gsKey)
+		return
+	}
+	gsTenantName := gsCacheKey.Tenant + "/" + gsCacheKey.Name
+	nodes.PublishKeyToRestLayer(gsCacheKey.Tenant, gsCacheKey.Name, gsTenantName, sharedQ)
+}
+
+// CacheRefreshRoutine fetches the objects in the AVI controller and finds out
+// the delta between the existing and the new objects.
+func CacheRefreshRoutine() {
+	gslbutils.Logf("starting AVI cache refresh...")
+
+	gslbutils.Logf("creating a new avi cache")
+
+	newAviCache := avicache.PopulateCache(false)
+	existingAviCache := avicache.GetAviCache()
+
+	sharedQ := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
+	// The refresh cycle builds a new set of AVI objects in `newAviCache` and compares them with
+	// the existing avi cache. If a discrepancy is found, we just write the key to layer 3.
+	for key, obj := range existingAviCache.Cache {
+		existingGSObj, ok := obj.(*avicache.AviGSCache)
+		if !ok {
+			gslbutils.Errf("CacheKey: %v, CacheObj: %v, msg: existing GSLB Object in avi cache malformed", key, existingGSObj)
+			continue
+		}
+		newGS, found := newAviCache.AviCacheGet(key)
+		if !found {
+			existingAviCache.AviCacheAdd(key, nil)
+			PublishChangeToRestLayer(key, sharedQ)
+			continue
+		}
+		newGSObj, ok := newGS.(*avicache.AviGSCache)
+		if !ok {
+			gslbutils.Warnf("CacheKey: %v, CacheObj: %v, msg: new GSLB object in avi cache malformed, will update", key,
+				newGSObj)
+			continue
+		}
+		if existingGSObj.CloudConfigCksum != newGSObj.CloudConfigCksum {
+			gslbutils.Logf("CacheKey: %v, CacheObj: %v, msg: GSLB Service has changed in AVI, will update", key, obj)
+			// First update the newly fetched avi cache in the existing avi cache key
+			existingAviCache.AviCacheAdd(key, newGSObj)
+			PublishChangeToRestLayer(key, sharedQ)
+		}
+	}
+
+	gslbutils.Logf("AVI Cache refresh done")
+}
+
 // GenerateKubeConfig reads the kubeconfig given through the environment variable
 // decodes it and then writes to a temporary file.
 func GenerateKubeConfig() error {
@@ -162,10 +215,37 @@ func GenerateKubeConfig() error {
 	return nil
 }
 
+func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
+	// Read the gslb leader's credentials
+	leaderIP := gc.Spec.GSLBLeader.ControllerIP
+	leaderVersion := gc.Spec.GSLBLeader.ControllerVersion
+	leaderSecret := gc.Spec.GSLBLeader.Credentials
+
+	if leaderIP == "" || leaderVersion == "" || leaderSecret == "" {
+		gslbutils.Errf("controllerIP: %s, controllerVersion: %s, credentials: %s, msg: Invalid GSLB leader configuration",
+			leaderIP, leaderVersion, leaderSecret)
+		return
+	}
+
+	secretObj, err := gslbutils.GlobalKubeClient.CoreV1().Secrets(gslbutils.AVISystem).Get(leaderSecret, metav1.GetOptions{})
+	if err != nil || secretObj == nil {
+		gslbutils.Errf("Error in fetching leader controller secret %s in namespace %s, can't initialize controller",
+			leaderSecret, gslbutils.AVISystem)
+		return
+	}
+	ctrlUsername := secretObj.Data["username"]
+	ctrlPassword := secretObj.Data["password"]
+	gslbutils.SetGSLBControllerEnv(leaderIP, leaderVersion, string(ctrlUsername), string(ctrlPassword))
+}
+
 // AddGSLBConfigObject parses the gslb config object and starts informers
 // for the member clusters.
 func AddGSLBConfigObject(obj interface{}) {
-	utils.AviLog.Info.Print("adding gslb config object")
+	if gslbutils.IsGSLBConfigSet() {
+		gslbutils.Errf("GSLB configuration is set already, can't change it. Delete and re-create the GSLB config object.")
+		return
+	}
+
 	gc, err := IsGSLBConfigValid(obj)
 	if err != nil {
 		gslbutils.Warnf("ns: %s, gslbConfig: %s, msg: %s, %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
@@ -174,8 +254,9 @@ func AddGSLBConfigObject(obj interface{}) {
 	}
 	gslbutils.Logf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
 		"got an add event")
-	// We initialize the avi cache after a valid GSLB config object is found
-	avicache.PopulateCache()
+
+	// parse and set the controller environment variables
+	parseControllerDetails(gc)
 
 	// Secret created with name: "gslb-config-secret" and environment variable to set is
 	// GSLB_CONFIG.
@@ -184,15 +265,30 @@ func AddGSLBConfigObject(obj interface{}) {
 		utils.AviLog.Error.Fatalf("Error in generating the kubeconfig file: %s", err.Error())
 	}
 	aviCtrlList := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
-	for _, aviCtrl := range aviCtrlList {
-		aviCtrl.Start(stopCh)
-	}
 	cacheOnce.Do(func() {
 		gslbutils.GSLBConfigObj = gc
 	})
-}
 
-// func GetKubernetesClient() (kubernetes.Interface, gslbcs.Clientset)
+	// TODO: Change the GSLBConfig CRD to take full sync interval as an input and fetch that
+	// value before going into full sync
+	// boot up time cache population
+	avicache.PopulateCache(true)
+	// Initialize a periodic worker running full sync
+	refreshWorker := gslbutils.NewFullSyncThread(gslbutils.FullSyncInterval)
+	refreshWorker.SyncFunction = CacheRefreshRoutine
+	go refreshWorker.Run()
+
+	gcChan := gslbutils.GetGSLBConfigObjectChan()
+	*gcChan <- true
+
+	// Start the informers for the member controllers
+	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.Start(stopCh)
+	}
+
+	// GSLB Configuration successfully done
+	gslbutils.SetGSLBConfig(true)
+}
 
 // Initialize initializes the first controller which looks for GSLB Config
 func Initialize() {
@@ -220,6 +316,7 @@ func Initialize() {
 		utils.AviLog.Error.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
+	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
 		utils.AviLog.Error.Fatalf("Error building gslb config clientset: %s", err.Error())
@@ -243,7 +340,14 @@ func Initialize() {
 
 	// Start the informer for the GDP controller
 	gslbInformer := gslbInformerFactory.Avilb().V1alpha1().GSLBConfigs()
+
 	go gslbInformer.Informer().Run(stopCh)
+
+	gslbutils.Logf("waiting for a GSLB config object to be added")
+
+	// Wait till a GSLB config object is added
+	tmpChan := gslbutils.GetGSLBConfigObjectChan()
+	<-*tmpChan
 
 	gdpCtrl := InitializeGDPController(kubeClient, gslbClient, gslbInformerFactory, AddGDPObj,
 		UpdateGDPObj, DeleteGDPObj)
@@ -259,7 +363,6 @@ func Initialize() {
 	if err := gdpCtrl.Run(stopCh); err != nil {
 		utils.AviLog.Error.Fatalf("Error running GDP controller: %s\n", err)
 	}
-
 }
 
 // BuildContextConfig builds the kubernetes/openshift context config

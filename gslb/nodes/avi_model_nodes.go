@@ -8,11 +8,6 @@ import (
 	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 )
 
-type GSMember struct {
-	IPAddr string
-	Weight int32
-}
-
 var aviGSGraphInstance *AviGSGraphLister
 var avionce sync.Once
 
@@ -43,11 +38,17 @@ func (a *AviGSGraphLister) Delete(gsName string) {
 	a.AviGSGraphStore.Delete(gsName)
 }
 
+func (a *AviGSGraphLister) GetAll() map[string]interface{} {
+	return a.AviGSGraphStore.GetAllObjectNames()
+}
+
 // AviGSRoute represents a route from which a GS was built.
 type AviGSRoute struct {
 	Cluster   string
 	Name      string
 	Namespace string
+	IPAddr    string
+	Weight    int32
 }
 
 // AviGSObjectGraph is a graph constructed using AviGSNode. It is a one-to-one mapping between
@@ -56,12 +57,10 @@ type AviGSObjectGraph struct {
 	Name        string
 	Tenant      string
 	DomainNames []string
-	// Members is a list of IP addresses, for now. Will change when we add the traffic
-	// weights to each of these members.
-	Members []GSMember
 	// Routes is a list of routes from which this AviGS was built.
-	Routes        []AviGSRoute
+	MemberRoutes  []AviGSRoute
 	GraphChecksum uint32
+	Lock          sync.RWMutex
 }
 
 func (v *AviGSObjectGraph) GetChecksum() uint32 {
@@ -75,12 +74,9 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	var memberIPs []string
 	var memberRoutes []string
 
-	for _, gsMember := range v.Members {
+	for _, gsMember := range v.MemberRoutes {
 		memberIPs = append(memberIPs, gsMember.IPAddr+"-"+strconv.Itoa(int(gsMember.Weight)))
-	}
-	for _, memberRoute := range v.Routes {
-		memberRoutes = append(memberRoutes, memberRoute.Cluster+"/"+
-			memberRoute.Namespace+"/"+memberRoute.Name)
+		memberRoutes = append(memberRoutes, gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberRoutes)
@@ -89,7 +85,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 // GetMemberRouteList returns a list of member routes
 func (v *AviGSObjectGraph) GetMemberRouteList() []string {
 	var memberRoutes []string
-	for _, route := range v.Routes {
+	for _, route := range v.MemberRoutes {
 		memberRoutes = append(memberRoutes, route.Cluster+"/"+route.Namespace+"/"+route.Name)
 	}
 	return memberRoutes
@@ -100,16 +96,14 @@ func NewAviGSObjectGraph() *AviGSObjectGraph {
 }
 
 func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, route gslbutils.RouteMeta, memberWeight int32) {
+	v.Lock.Lock()
+	defer v.Lock.Unlock()
 	hosts := []string{route.Hostname}
-	members := []GSMember{
-		GSMember{
-			IPAddr: route.IPAddr,
-			Weight: memberWeight,
-		},
-	}
-	routes := []AviGSRoute{
+	memberRoutes := []AviGSRoute{
 		AviGSRoute{
 			Cluster:   route.Cluster,
+			IPAddr:    route.IPAddr,
+			Weight:    memberWeight,
 			Name:      route.Name,
 			Namespace: route.Namespace,
 		},
@@ -118,83 +112,99 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, route gslbuti
 	v.Name = gsName
 	v.Tenant = utils.ADMIN_NS
 	v.DomainNames = hosts
-	v.Members = members
-	v.Routes = routes
+	v.MemberRoutes = memberRoutes
 	v.GetChecksum()
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
 }
 
-func (v *AviGSObjectGraph) UpdateGSMember(ipAddr string, weight int32) {
+func (v *AviGSObjectGraph) UpdateGSMember(route gslbutils.RouteMeta, weight int32) {
+	v.Lock.Lock()
+	defer v.Lock.Unlock()
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
-	for idx, member := range v.Members {
-		if ipAddr == member.IPAddr {
-			v.Members[idx].Weight = weight
-			return
+	for _, memberRoute := range v.MemberRoutes {
+		if route.Cluster != memberRoute.Cluster {
+			continue
 		}
-	}
-	gsMember := GSMember{
-		IPAddr: ipAddr,
-		Weight: weight,
-	}
-	v.Members = append(v.Members, gsMember)
-}
+		if route.Namespace != memberRoute.Namespace {
+			continue
+		}
+		if route.Name != memberRoute.Name {
+			continue
+		}
 
-func (v *AviGSObjectGraph) UpdateMemberRoute(route gslbutils.RouteMeta) {
-	// check if the route already exists for this GS
-	for _, memberRoute := range v.Routes {
-		if route.Cluster == memberRoute.Cluster && route.Namespace == memberRoute.Namespace && route.Name == memberRoute.Name {
+		if route.IPAddr == memberRoute.IPAddr {
+			if weight == memberRoute.Weight {
+				// Nothing to update
+				return
+			} else {
+				// weight is different
+				memberRoute.Weight = weight
+				return
+			}
+		} else {
+			// IP Address is different
+			memberRoute.IPAddr = route.IPAddr
 			return
 		}
 	}
-	// the member route doesn't exist, update
-	memberRoute := AviGSRoute{
+
+	// We reach here only if a new member needs to be created, so create and append
+	gsMember := AviGSRoute{
 		Cluster:   route.Cluster,
 		Namespace: route.Namespace,
 		Name:      route.Name,
+		IPAddr:    route.IPAddr,
+		Weight:    weight,
 	}
-	v.Routes = append(v.Routes, memberRoute)
+	v.MemberRoutes = append(v.MemberRoutes, gsMember)
 }
 
-func gsDeleteGSMember(gs *AviGSObjectGraph, ipAddr string) bool {
+func (v *AviGSObjectGraph) DeleteMember(cname, ns, name string) {
 	idx := -1
-	for i, gsMember := range gs.Members {
-		if ipAddr == gsMember.IPAddr {
+	v.Lock.Lock()
+	defer v.Lock.Unlock()
+	for i, memberRoute := range v.MemberRoutes {
+		if cname == memberRoute.Cluster && ns == memberRoute.Namespace && name == memberRoute.Name {
 			idx = i
 			break
 		}
 	}
 	if idx == -1 {
-		// no such element
-		return false
-	}
-	// Delete the member
-	gs.Members = append(gs.Members[:idx], gs.Members[idx+1:]...)
-	return true
-}
-
-func gsDeleteRouteMember(gs *AviGSObjectGraph, route gslbutils.RouteMeta) bool {
-	idx := -1
-	for i, memberRoute := range gs.Routes {
-		if route.Cluster == memberRoute.Cluster && route.Namespace == memberRoute.Namespace && route.Name == memberRoute.Name {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		// no such element
-		return false
+		gslbutils.Warnf("gsGraph: %s, route: %v, msg: couldn't find route member in GS")
+		return
 	}
 	// Delete the member route
-	gs.Routes = append(gs.Routes[:idx], gs.Routes[idx+1:]...)
-	return true
-
+	v.MemberRoutes = append(v.MemberRoutes[:idx], v.MemberRoutes[idx+1:]...)
 }
 
-func (v *AviGSObjectGraph) DeleteMember(ipAddr string, route gslbutils.RouteMeta) {
-	if !gsDeleteGSMember(v, ipAddr) {
-		gslbutils.Warnf("gsGraph: %s, memberIP: %s, msg: couldn't find IP member in GS")
+func (v *AviGSObjectGraph) MembersLen() int {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+	return len(v.MemberRoutes)
+}
+
+func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSRoute {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+	for _, member := range v.MemberRoutes {
+		if member.Cluster == cname && member.Namespace == ns && member.Name == name {
+			return member
+		}
 	}
-	if !gsDeleteRouteMember(v, route) {
-		gslbutils.Warnf("gsGraph: %s, route: %v, msg: couldn't find route member in GS")
+	return AviGSRoute{}
+}
+
+func (v *AviGSObjectGraph) GetMemberRouteObjs() []AviGSRoute {
+	v.Lock.RLock()
+	v.Lock.RUnlock()
+	gslbutils.Warnf("get member route objects: %v", v.MemberRoutes)
+	routeObjs := make([]AviGSRoute, len(v.MemberRoutes))
+	for idx := range v.MemberRoutes {
+		routeObjs[idx].Cluster = v.MemberRoutes[idx].Cluster
+		routeObjs[idx].Name = v.MemberRoutes[idx].Name
+		routeObjs[idx].Namespace = v.MemberRoutes[idx].Namespace
+		routeObjs[idx].IPAddr = v.MemberRoutes[idx].IPAddr
+		routeObjs[idx].Weight = v.MemberRoutes[idx].Weight
 	}
+	return routeObjs
 }

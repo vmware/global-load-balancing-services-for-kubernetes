@@ -35,10 +35,9 @@ func DeriveGSLBServiceName(route gslbutils.RouteMeta) string {
 	return hostName
 }
 
-func publishKeyToRestLayer(aviGSGraph *AviGSObjectGraph, tenant, gsName, key string, sharedQueue *utils.WorkerQueue) {
+func PublishKeyToRestLayer(tenant, gsName, key string, sharedQueue *utils.WorkerQueue) {
 	// First see if there's another instance of the same model in the store
 	modelName := tenant + "/" + gsName
-	SharedAviGSGraphLister().Save(modelName, aviGSGraph)
 	bkt := utils.Bkt(modelName, sharedQueue.NumWorkers)
 	sharedQueue.Workqueue[bkt].AddRateLimited(modelName)
 	gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "published key to rest layer")
@@ -59,14 +58,15 @@ func GetRouteTrafficRatio(ns, cname string) int32 {
 	return val
 }
 
-func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue) {
+func AddUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue, fullSync bool, agl *AviGSGraphLister) {
 	var prevChecksum, newChecksum uint32
-	if gslbutils.AcceptedRouteStore == nil {
+	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
+	if acceptedRouteStore == nil {
 		// Error state, the route store is not updated, so we can't do anything here
 		gslbutils.Errf("key: %s, msg: %s", key, "accepted route store is empty, can't add route")
 		return
 	}
-	obj, ok := gslbutils.AcceptedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
+	obj, ok := acceptedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
 	if !ok {
 		gslbutils.Errf("key: %s, msg: %s", key, "error finding the object in the accepted route store")
 		return
@@ -85,20 +85,19 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 	memberWeight := GetRouteTrafficRatio(ns, cname)
 	gsName := DeriveGSLBServiceName(route)
 	modelName := utils.ADMIN_NS + "/" + gsName
-	found, aviGS := SharedAviGSGraphLister().Get(modelName)
+	found, aviGS := agl.Get(modelName)
 	if !found {
 		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "generating new model")
 		aviGS = NewAviGSObjectGraph()
 		// Note: For now, the hostname is used as a way to create the GSLB services. This is on the
 		// assumption that the hostnames are same for a route across all clusters.
 		aviGS.(*AviGSObjectGraph).ConstructAviGSGraph(gsName, key, route, memberWeight)
+		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	} else {
 		// since the object was found, fetch the current checksum
 		prevChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		// GSGraph found, so, only need to update the member of the GSGraph's GSNode
-		aviGS.(*AviGSObjectGraph).UpdateGSMember(route.IPAddr, memberWeight)
-		// Update the route member for this GS if it doesn't exist
-		aviGS.(*AviGSObjectGraph).UpdateMemberRoute(route)
+		aviGS.(*AviGSObjectGraph).UpdateGSMember(route, memberWeight)
 		// Get the new checksum after the updates
 		newChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		if prevChecksum == newChecksum {
@@ -107,6 +106,7 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 				"the model for this key has identical checksums")
 			return
 		}
+		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	}
 	// Update the hostname in the RouteHostMap
 	routeHostMap := getRouteHostMap()
@@ -117,7 +117,9 @@ func addUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 		Hostname: route.Hostname,
 	}
 
-	publishKeyToRestLayer(aviGS.(*AviGSObjectGraph), utils.ADMIN_NS, gsName, key, wq)
+	if !fullSync {
+		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
+	}
 }
 
 func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue) {
@@ -132,9 +134,11 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 		gslbutils.Logf("key: %s, msg: %s", key, "no hostname for the route object")
 		return
 	}
-	obj, ok := gslbutils.AcceptedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
+	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
+	rejectedRouteStore := gslbutils.GetRejectedRouteStore()
+	obj, ok := acceptedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
 	if !ok {
-		obj, ok = gslbutils.RejectedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
+		obj, ok = rejectedRouteStore.GetClusterNSObjectByName(cname, ns, objName)
 		if !ok {
 			gslbutils.Errf("key: %s, msg: %s", key, "error finding the object in the accepted/rejected route store")
 			return
@@ -145,15 +149,16 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 	gsName := ipHostName.Hostname
 	modelName := utils.ADMIN_NS + "/" + ipHostName.Hostname
 
-	found, aviGS := SharedAviGSGraphLister().Get(modelName)
+	agl := SharedAviGSGraphLister()
+	found, aviGS := agl.Get(modelName)
 	if found {
 		// Check the no. of members in this model, if its the last one, its a delete, else its an update
-		if len(aviGS.(*AviGSObjectGraph).Members) > 1 {
+		if aviGS.(*AviGSObjectGraph).MembersLen() > 1 {
 			deleteOp = false
 		} else {
 			deleteOp = true
 		}
-		aviGS.(*AviGSObjectGraph).DeleteMember(ipHostName.IP, route)
+		aviGS.(*AviGSObjectGraph).DeleteMember(route.Cluster, route.Namespace, route.Name)
 	} else {
 		// avi graph not found, return
 		gslbutils.Warnf("key: %s, msg: no avi graph found for this key", key)
@@ -168,7 +173,8 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 		bkt := utils.Bkt(modelName, wq.NumWorkers)
 		wq.Workqueue[bkt].AddRateLimited(modelName)
 	} else {
-		publishKeyToRestLayer(aviGS.(*AviGSObjectGraph), utils.ADMIN_NS, gsName, key, wq)
+		SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
+		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
 	}
 	gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, gsName, "published key to rest layer")
 }
@@ -184,11 +190,11 @@ func DequeueIngestion(key string) {
 	}
 	switch objectOperation {
 	case gslbutils.ObjectAdd:
-		addUpdateRouteOperation(key, cname, ns, objName, sharedQueue)
+		AddUpdateRouteOperation(key, cname, ns, objName, sharedQueue, false, SharedAviGSGraphLister())
 	case gslbutils.ObjectDelete:
 		deleteRouteOperation(key, cname, ns, objName, sharedQueue)
 	case gslbutils.ObjectUpdate:
-		addUpdateRouteOperation(key, cname, ns, objName, sharedQueue)
+		AddUpdateRouteOperation(key, cname, ns, objName, sharedQueue, false, SharedAviGSGraphLister())
 	}
 }
 

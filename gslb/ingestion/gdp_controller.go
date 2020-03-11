@@ -139,16 +139,7 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"GDP object added")
 	gf := filter.GetGlobalFilter()
-	if gf == nil {
-		// Create a new GlobalFilter
-		gslbutils.Logf("creating a new filter")
-		gf = filter.GetNewGlobalFilter(obj)
-		filter.Gfi = gf
-		writeChangedRoutesToQueue(k8swq, numWorkers, false)
-		return
-	}
-
-	// Else, add on to the existing GlobalFilter.
+	gslbutils.Logf("creating a new filter")
 	gf.AddToGlobalFilter(gdp)
 	writeChangedRoutesToQueue(k8swq, numWorkers, false)
 }

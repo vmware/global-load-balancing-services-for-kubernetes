@@ -6,11 +6,13 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	gslbalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -157,4 +159,49 @@ func GetGSLBServiceChecksum(ipList, domainList, routeMembers []string) uint32 {
 
 func GetAviAdminTenantRef() string {
 	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
+}
+
+// Time after which a full sync thread gets triggered
+const FullSyncInterval = 60
+
+// gslbConfigObjectAdded is a channel which halts the initialization operation until a GSLB config object
+// is added. Even the GDP informers are started after this operation goes through.
+// This channel's usage can be found in gslb.go.
+var gslbConfigObjectAdded chan bool
+var chanOnce sync.Once
+
+func GetGSLBConfigObjectChan() *chan bool {
+	chanOnce.Do(func() {
+		gslbConfigObjectAdded = make(chan bool, 1)
+	})
+	return &gslbConfigObjectAdded
+}
+
+// gslbConfigSet and its setter and getter functions, to be used by the AddGSLBConfig method. This value
+// is set to true once a GSLB Configuration has been successfully done.
+var gslbConfigSet bool = false
+
+func IsGSLBConfigSet() bool {
+	return gslbConfigSet
+}
+
+func SetGSLBConfig(value bool) {
+	gslbConfigSet = value
+}
+
+var GlobalKubeClient *kubernetes.Clientset
+
+func SetGSLBControllerEnv(ipAddr, version, username, password string) {
+	os.Setenv("GSLB_CTRL_USERNAME", username)
+	os.Setenv("GSLB_CTRL_PASSWORD", password)
+	os.Setenv("GSLB_CTRL_IPADDRESS", ipAddr)
+	os.Setenv("GSLB_CTRL_VERSION", version)
+}
+
+func GetAviVersion() string {
+	aviVersion := os.Getenv("GSLB_CTRL_VERSION")
+	if aviVersion == "" {
+		aviVersion = utils.CtrlVersion
+	}
+	return aviVersion
 }

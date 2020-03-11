@@ -34,13 +34,13 @@ type AviGSCache struct {
 
 type AviCache struct {
 	cacheLock sync.RWMutex
-	cache     map[interface{}]interface{}
+	Cache     map[interface{}]interface{}
 }
 
-func NewAviCache() *AviCache {
+func GetAviCache() *AviCache {
 	objCacheOnce.Do(func() {
 		aviCache = &AviCache{}
-		aviCache.cache = make(map[interface{}]interface{})
+		aviCache.Cache = make(map[interface{}]interface{})
 	})
 	return aviCache
 }
@@ -48,14 +48,14 @@ func NewAviCache() *AviCache {
 func (c *AviCache) AviCacheGet(k interface{}) (interface{}, bool) {
 	c.cacheLock.Lock()
 	defer c.cacheLock.Unlock()
-	val, ok := c.cache[k]
+	val, ok := c.Cache[k]
 	return val, ok
 }
 
 func (c *AviCache) AviCacheGetByUuid(uuid string) (interface{}, bool) {
 	c.cacheLock.RLock()
 	defer c.cacheLock.RUnlock()
-	for key, value := range c.cache {
+	for key, value := range c.Cache {
 		switch value.(type) {
 		case *AviGSCache:
 			if value.(*AviGSCache).Uuid == uuid {
@@ -69,13 +69,13 @@ func (c *AviCache) AviCacheGetByUuid(uuid string) (interface{}, bool) {
 func (c *AviCache) AviCacheAdd(k interface{}, val interface{}) {
 	c.cacheLock.Lock()
 	defer c.cacheLock.Unlock()
-	c.cache[k] = val
+	c.Cache[k] = val
 }
 
 func (c *AviCache) AviCacheDelete(k interface{}) {
 	c.cacheLock.Lock()
 	defer c.cacheLock.Unlock()
-	delete(c.cache, k)
+	delete(c.Cache, k)
 }
 
 func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient) {
@@ -245,12 +245,20 @@ type TenantName struct {
 	Name   string
 }
 
-func PopulateCache() {
-	avi_rest_client_pool := SharedAviClients()
-	avi_obj_cache := NewAviCache()
-	// Randomly pickup a client
-	if len(avi_rest_client_pool.AviClient) > 0 {
-		avi_obj_cache.AviObjCachePopulate(avi_rest_client_pool.AviClient[0],
-			utils.CtrlVersion)
+func PopulateCache(shared bool) *AviCache {
+	aviRestClientPool := SharedAviClients()
+	var aviObjCache *AviCache
+	if shared {
+		aviObjCache = GetAviCache()
+	} else {
+		aviObjCache = &AviCache{}
+		aviObjCache.Cache = make(map[interface{}]interface{})
 	}
+
+	// Randomly pickup a client
+	if len(aviRestClientPool.AviClient) > 0 {
+		aviObjCache.AviObjCachePopulate(aviRestClientPool.AviClient[0],
+			gslbutils.GetAviVersion())
+	}
+	return aviObjCache
 }

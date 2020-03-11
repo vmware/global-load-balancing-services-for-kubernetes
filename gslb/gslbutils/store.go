@@ -32,6 +32,26 @@ type ClusterStore struct {
 // Filterfn is a type of a function used to filter out objects.
 type Filterfn func(obj interface{}, cname string) bool
 
+var acceptedOnce sync.Once
+
+// GetAcceptedRouteStore initializes and returns a new accepted route store.
+func GetAcceptedRouteStore() *ClusterStore {
+	acceptedOnce.Do(func() {
+		AcceptedRouteStore = NewClusterStore()
+	})
+	return AcceptedRouteStore
+}
+
+var rejectedOnce sync.Once
+
+// GetRejectedRouteStore initializes and returns a new accepted route store.
+func GetRejectedRouteStore() *ClusterStore {
+	rejectedOnce.Do(func() {
+		RejectedRouteStore = NewClusterStore()
+	})
+	return RejectedRouteStore
+}
+
 // NewClusterStore initializes and returns a new cluster store.
 func NewClusterStore() *ClusterStore {
 	clusterStore := &ClusterStore{}

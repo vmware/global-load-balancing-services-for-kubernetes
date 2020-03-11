@@ -100,8 +100,8 @@ func addAndTestRoute(t *testing.T, name string, ns string, host string, svc stri
 }
 
 func TestGSGraphs(t *testing.T) {
-	gslbutils.AcceptedRouteStore = gslbutils.NewClusterStore()
-	gslbutils.RejectedRouteStore = gslbutils.NewClusterStore()
+	gslbutils.AcceptedRouteStore = gslbutils.GetAcceptedRouteStore()
+	gslbutils.RejectedRouteStore = gslbutils.GetRejectedRouteStore()
 	hostname := "abc.avi.com"
 	addAndTestRoute(t, "foo-test-route1", "default", hostname, "foo-svc1", "10.10.10.10", "foo", gslbutils.AcceptedRouteStore)
 	ok, msg := waitAndVerify(t, "admin"+"/"+hostname, false)

@@ -11,11 +11,15 @@ import (
 
 var (
 	// Need to keep this global since, it will be used across multiple layers and multiple handlers
-	Gfi *GlobalFilter
+	Gfi    *GlobalFilter
+	gfOnce sync.Once
 )
 
 // GetGlobalFilter returns the existing global filter
 func GetGlobalFilter() *GlobalFilter {
+	gfOnce.Do(func() {
+		Gfi = GetNewGlobalFilter()
+	})
 	return Gfi
 }
 
@@ -177,19 +181,10 @@ func (gf *GlobalFilter) DeleteFromGlobalFilter(gdp *gdpv1alpha1.GlobalDeployment
 // GetNewGlobalFilter returns a new GlobalFilter. It is to be called only once with the
 // the GDP object as the input. Either the namespace of the GDP object is AVISystem
 // or its some other namespace. Based on that this GlobalFilter is created.
-func GetNewGlobalFilter(obj interface{}) *GlobalFilter {
-	gdp := obj.(*gdpv1alpha1.GlobalDeploymentPolicy)
-
-	// Check the namespace of the gdp object, if its AVISystem, then its a cluster
-	// wide filter. Else, its a namespace specific filter.
-	filter := GetNewNSFilter(gdp)
+func GetNewGlobalFilter() *GlobalFilter {
 	nsFilterMap := make(map[string]*NSFilter, 0)
-	nsFilterMap[gdp.ObjectMeta.Namespace] = filter
 	gf := &GlobalFilter{
 		NSFilterMap: nsFilterMap,
-	}
-	if gdp.ObjectMeta.Namespace == gslbutils.AVISystem {
-		gf.ClusterFilter = filter
 	}
 	return gf
 }

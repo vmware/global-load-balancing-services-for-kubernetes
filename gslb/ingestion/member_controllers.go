@@ -48,10 +48,6 @@ func rejectIngress(ingr *extensionv1beta1.Ingress) bool {
 	return true
 }
 
-func initializeClusterRouteStore() *gslbutils.ClusterStore {
-	return gslbutils.NewClusterStore()
-}
-
 // AddOrUpdateRouteStore traverses through the cluster store for cluster name cname,
 // and then to ns store for the route's namespace and then adds/updates the route obj
 // in the object map store.
@@ -128,20 +124,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		},
 	}
 
-	acceptedRouteStore := gslbutils.AcceptedRouteStore
-	rejectedRouteStore := gslbutils.RejectedRouteStore
-	if acceptedRouteStore == nil {
-		acceptedRouteStore = initializeClusterRouteStore()
-		gslbutils.Logf("object: acceptedRouteStore, msg: %s", "initialized")
-		// update the global accepted route store
-		gslbutils.AcceptedRouteStore = acceptedRouteStore
-	}
-	if rejectedRouteStore == nil {
-		rejectedRouteStore = initializeClusterRouteStore()
-		gslbutils.Logf("object: rejectedRouteStore, msg: %s", "initialized")
-		// update the global rejected route store
-		gslbutils.RejectedRouteStore = rejectedRouteStore
-	}
+	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
+	rejectedRouteStore := gslbutils.GetRejectedRouteStore()
 	gf := filter.GetGlobalFilter()
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
