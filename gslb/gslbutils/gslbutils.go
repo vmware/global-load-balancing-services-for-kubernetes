@@ -205,3 +205,5 @@ func GetAviVersion() string {
 	}
 	return aviVersion
 }
+
+const GSLBHealthMonitor = "System-GSLB-Ping"

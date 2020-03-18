@@ -172,6 +172,8 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	wildcardMatch := false
 	description := strings.Join(gsMeta.GetMemberRouteList(), ",")
 
+	hmRefs := []string{"/api/healthmonitor/?name=" + gslbutils.GSLBHealthMonitor}
+
 	aviGslbSvc := avimodels.GslbService{
 		ControllerHealthStatusEnabled: &ctrlHealthStatusEnabled,
 		CreatedBy:                     &createdBy,
@@ -189,6 +191,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		WildcardMatch:                 &wildcardMatch,
 		TenantRef:                     &tenantRef,
 		Description:                   &description,
+		HealthMonitorRefs:             hmRefs,
 	}
 
 	path := "/api/gslbservice/"
