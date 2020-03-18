@@ -197,7 +197,6 @@ func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSRoute {
 func (v *AviGSObjectGraph) GetMemberRouteObjs() []AviGSRoute {
 	v.Lock.RLock()
 	v.Lock.RUnlock()
-	gslbutils.Warnf("get member route objects: %v", v.MemberRoutes)
 	routeObjs := make([]AviGSRoute, len(v.MemberRoutes))
 	for idx := range v.MemberRoutes {
 		routeObjs[idx].Cluster = v.MemberRoutes[idx].Cluster

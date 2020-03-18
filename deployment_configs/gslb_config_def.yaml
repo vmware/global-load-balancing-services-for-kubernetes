@@ -39,5 +39,7 @@ spec:
               type: "array"
               items:
                 type: "string"
+            refreshInterval:
+              type: "integer"
   subresources:
     status: {}

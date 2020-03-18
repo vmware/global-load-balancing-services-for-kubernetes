@@ -17,7 +17,20 @@ import (
 
 const (
 	// MaxClusters is the supported number of clusters
-	MaxClusters int = 10
+	MaxClusters       int    = 10
+	GSLBHealthMonitor string = "System-GSLB-Ping"
+	// GSLBKubePath is a temporary path to put the kubeconfig
+	GSLBKubePath = "/tmp/gslb-kubeconfig"
+	//AVISystem is the namespace where everything AVI related is created
+	AVISystem = "avi-system"
+	// Ingestion layer operations
+	ObjectAdd    = "ADD"
+	ObjectDelete = "DELETE"
+	ObjectUpdate = "UPDATE"
+	// Ingestion layer objects
+	RouteType = "Route"
+	// Refresh cycle for AVI cache in seconds
+	DefaultRefreshInterval = 600
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -83,13 +96,6 @@ func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 	return "", false
 }
 
-const (
-	// GSLBKubePath is a temporary path to put the kubeconfig
-	GSLBKubePath = "/tmp/gslb-kubeconfig"
-	//AVISystem is the namespace where everything AVI related is created
-	AVISystem = "avi-system"
-)
-
 // Logf is aliased to utils' Info.Printf
 var Logf = utils.AviLog.Info.Printf
 
@@ -99,22 +105,10 @@ var Errf = utils.AviLog.Error.Printf
 // Warnf is aliased to utils' Warning.Printf
 var Warnf = utils.AviLog.Warning.Printf
 
-// Key operations
-const (
-	ObjectAdd    = "ADD"
-	ObjectDelete = "DELETE"
-	ObjectUpdate = "UPDATE"
-)
-
 // Cluster Routes store for all the route objects.
 var (
 	AcceptedRouteStore *ClusterStore
 	RejectedRouteStore *ClusterStore
-)
-
-// Constants for object types
-const (
-	RouteType = "Route"
 )
 
 // GSLBConfigObj is global and is initialized only once
@@ -161,9 +155,6 @@ func GetAviAdminTenantRef() string {
 	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
 }
 
-// Time after which a full sync thread gets triggered
-const FullSyncInterval = 60
-
 // gslbConfigObjectAdded is a channel which halts the initialization operation until a GSLB config object
 // is added. Even the GDP informers are started after this operation goes through.
 // This channel's usage can be found in gslb.go.
@@ -191,19 +182,28 @@ func SetGSLBConfig(value bool) {
 
 var GlobalKubeClient *kubernetes.Clientset
 
-func SetGSLBControllerEnv(ipAddr, version, username, password string) {
-	os.Setenv("GSLB_CTRL_USERNAME", username)
-	os.Setenv("GSLB_CTRL_PASSWORD", password)
-	os.Setenv("GSLB_CTRL_IPADDRESS", ipAddr)
-	os.Setenv("GSLB_CTRL_VERSION", version)
+type AviControllerConfig struct {
+	Username string
+	Password string
+	IPAddr   string
+	Version  string
 }
 
-func GetAviVersion() string {
-	aviVersion := os.Getenv("GSLB_CTRL_VERSION")
-	if aviVersion == "" {
-		aviVersion = utils.CtrlVersion
-	}
-	return aviVersion
+var gslbLeaderConfig AviControllerConfig
+var leaderConfig sync.Once
+
+func NewAviControllerConfig(username, password, ipAddr, version string) *AviControllerConfig {
+	leaderConfig.Do(func() {
+		gslbLeaderConfig = AviControllerConfig{
+			Username: username,
+			Password: password,
+			IPAddr:   ipAddr,
+			Version:  version,
+		}
+	})
+	return &gslbLeaderConfig
 }
 
-const GSLBHealthMonitor = "System-GSLB-Ping"
+func GetAviConfig() AviControllerConfig {
+	return gslbLeaderConfig
+}

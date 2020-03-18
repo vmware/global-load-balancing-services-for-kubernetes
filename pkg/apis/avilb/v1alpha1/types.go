@@ -30,10 +30,11 @@ type GSLBConfigList struct {
 
 // GSLBConfigSpec is the GSLB configuration
 type GSLBConfigSpec struct {
-	GSLBLeader     GSLBLeader      `json:"gslbLeader,omitempty"`
-	MemberClusters []MemberCluster `json:"memberClusters,omitempty"`
-	GSLBNameSource string          `json:"globalServiceNameSource,omitempty"`
-	DomainNames    []string        `json:"domainNames,omitempty"`
+	GSLBLeader      GSLBLeader      `json:"gslbLeader,omitempty"`
+	MemberClusters  []MemberCluster `json:"memberClusters,omitempty"`
+	GSLBNameSource  string          `json:"globalServiceNameSource,omitempty"`
+	DomainNames     []string        `json:"domainNames,omitempty"`
+	RefreshInterval int             `json:"refreshInterval,omitempty"`
 }
 
 // GSLBLeader is the leader node in the GSLB cluster

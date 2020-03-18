@@ -139,21 +139,18 @@ func IsGSLBConfigValid(obj interface{}) (*gslbalphav1.GSLBConfig, error) {
 }
 
 func PublishChangeToRestLayer(gsKey interface{}, sharedQ *containerutils.WorkerQueue) {
-	gsCacheKey, ok := gsKey.(avicache.TenantName)
+	aviCacheKey, ok := gsKey.(avicache.TenantName)
 	if !ok {
 		gslbutils.Errf("CacheKey: %v, msg: cache key malformed, not publishing to rest layer", gsKey)
 		return
 	}
-	gsTenantName := gsCacheKey.Tenant + "/" + gsCacheKey.Name
-	nodes.PublishKeyToRestLayer(gsCacheKey.Tenant, gsCacheKey.Name, gsTenantName, sharedQ)
+	nodes.PublishKeyToRestLayer(aviCacheKey.Tenant, aviCacheKey.Name, aviCacheKey.Name+"/"+aviCacheKey.Tenant, sharedQ)
 }
 
 // CacheRefreshRoutine fetches the objects in the AVI controller and finds out
 // the delta between the existing and the new objects.
 func CacheRefreshRoutine() {
-	gslbutils.Logf("starting AVI cache refresh...")
-
-	gslbutils.Logf("creating a new avi cache")
+	gslbutils.Logf("starting AVI cache refresh...\ncreating a new AVI cache")
 
 	newAviCache := avicache.PopulateCache(false)
 	existingAviCache := avicache.GetAviCache()
@@ -235,7 +232,7 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 	}
 	ctrlUsername := secretObj.Data["username"]
 	ctrlPassword := secretObj.Data["password"]
-	gslbutils.SetGSLBControllerEnv(leaderIP, leaderVersion, string(ctrlUsername), string(ctrlPassword))
+	gslbutils.NewAviControllerConfig(string(ctrlUsername), string(ctrlPassword), leaderIP, leaderVersion)
 }
 
 // AddGSLBConfigObject parses the gslb config object and starts informers
@@ -258,6 +255,12 @@ func AddGSLBConfigObject(obj interface{}) {
 	// parse and set the controller environment variables
 	parseControllerDetails(gc)
 
+	cacheRefreshInterval := gc.Spec.RefreshInterval
+	if cacheRefreshInterval <= 0 {
+		gslbutils.Logf("Invalid refresh interval provided, will set it to default %d seconds", gslbutils.DefaultRefreshInterval)
+		cacheRefreshInterval = gslbutils.DefaultRefreshInterval
+	}
+	gslbutils.Logf("Cache refresh interval: %d seconds", cacheRefreshInterval)
 	// Secret created with name: "gslb-config-secret" and environment variable to set is
 	// GSLB_CONFIG.
 	err = GenerateKubeConfig()
@@ -274,7 +277,7 @@ func AddGSLBConfigObject(obj interface{}) {
 	// boot up time cache population
 	avicache.PopulateCache(true)
 	// Initialize a periodic worker running full sync
-	refreshWorker := gslbutils.NewFullSyncThread(gslbutils.FullSyncInterval)
+	refreshWorker := gslbutils.NewFullSyncThread(gslbutils.DefaultRefreshInterval)
 	refreshWorker.SyncFunction = CacheRefreshRoutine
 	go refreshWorker.Run()
 

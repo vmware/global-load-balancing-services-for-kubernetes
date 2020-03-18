@@ -245,10 +245,10 @@ type TenantName struct {
 	Name   string
 }
 
-func PopulateCache(shared bool) *AviCache {
+func PopulateCache(createSharedCache bool) *AviCache {
 	aviRestClientPool := SharedAviClients()
 	var aviObjCache *AviCache
-	if shared {
+	if createSharedCache {
 		aviObjCache = GetAviCache()
 	} else {
 		aviObjCache = &AviCache{}
@@ -258,7 +258,7 @@ func PopulateCache(shared bool) *AviCache {
 	// Randomly pickup a client
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviObjCache.AviObjCachePopulate(aviRestClientPool.AviClient[0],
-			gslbutils.GetAviVersion())
+			gslbutils.GetAviConfig().Version)
 	}
 	return aviObjCache
 }

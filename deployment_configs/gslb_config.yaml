@@ -6,13 +6,13 @@ metadata:
 spec:
   gslbLeader:
     credentials: avi-secret
-    controllerVersion: 18.2.5
-    controller_ip: 10.10.10.10
+    controllerVersion: 18.2.7
+    controllerIP: 10.79.110.190
   memberClusters:
-    - clusterContext: dev-default
-    - clusterContext: exp-scratch
+    - clusterContext: cluster1-admin
+    - clusterContext: cluster2-admin
   globalServiceNameSource: HOSTNAME
   domainNames:
-    - avi.com
-    - foo.com
+    - avi-container-dns.internal
+  refreshInterval: 60
 status:

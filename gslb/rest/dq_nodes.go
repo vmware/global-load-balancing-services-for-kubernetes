@@ -197,7 +197,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	path := "/api/gslbservice/"
 
 	operation := utils.RestOp{ObjName: gsMeta.Name, Path: path, Obj: aviGslbSvc, Tenant: gsMeta.Tenant, Model: "GSLBService",
-		Version: gslbutils.GetAviVersion()}
+		Version: gslbutils.GetAviConfig().Version}
 
 	if restMethod == utils.RestPost {
 		operation.Method = utils.RestPost
@@ -229,7 +229,7 @@ func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string, g
 	path := "/api/gslbservice/" + uuid
 	gslbutils.Logf("name of the GS to be deleted from the cache: %s", gsName)
 	operation := utils.RestOp{ObjName: gsName, Path: path, Method: "DELETE", Tenant: tenant, Model: "GSLBService",
-		Version: gslbutils.GetAviVersion()}
+		Version: gslbutils.GetAviConfig().Version}
 	gslbutils.Logf(spew.Sprintf("GSLB Service DELETE Restop %v\n", utils.Stringify(operation)))
 	return &operation
 }
