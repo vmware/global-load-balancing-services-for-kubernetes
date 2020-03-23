@@ -19,7 +19,8 @@ limitations under the License.
 package scheme
 
 import (
-	avilbv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
+	avilbv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

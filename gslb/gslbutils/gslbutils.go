@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
+	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+
+	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
-	gslbalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -34,19 +34,19 @@ const (
 )
 
 // InformersPerCluster is the number of informers per cluster
-var InformersPerCluster *containerutils.AviCache
+var InformersPerCluster *utils.AviCache
 
-func SetInformersPerCluster(clusterName string, info *containerutils.Informers) {
+func SetInformersPerCluster(clusterName string, info *utils.Informers) {
 	InformersPerCluster.AviCacheAdd(clusterName, info)
 }
 
-func GetInformersPerCluster(clusterName string) *containerutils.Informers {
+func GetInformersPerCluster(clusterName string) *utils.Informers {
 	info, ok := InformersPerCluster.AviCacheGet(clusterName)
 	if !ok {
-		containerutils.AviLog.Warning.Printf("Failed to get informer for cluster %v", clusterName)
+		utils.AviLog.Warning.Printf("Failed to get informer for cluster %v", clusterName)
 		return nil
 	}
-	return info.(*containerutils.Informers)
+	return info.(*utils.Informers)
 }
 
 func MultiClusterKey(operation, objType, clusterName, ns, routeName string) string {

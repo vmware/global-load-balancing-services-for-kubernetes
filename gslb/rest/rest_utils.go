@@ -3,8 +3,9 @@ package rest
 import (
 	"errors"
 
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
+	"amko/gslb/gslbutils"
+
+	"github.com/avinetworks/container-lib/utils"
 )
 
 func RestRespArrToObjByType(operation *utils.RestOp, objType string, key string) (map[string]interface{}, error) {

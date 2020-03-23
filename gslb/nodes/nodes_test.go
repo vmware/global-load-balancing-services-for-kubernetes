@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"amko/gslb/gslbutils"
+
+	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 )
 
 var testStopCh <-chan struct{}

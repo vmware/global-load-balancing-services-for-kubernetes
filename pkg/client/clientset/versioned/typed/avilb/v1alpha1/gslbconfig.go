@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	scheme "amko/pkg/client/clientset/versioned/scheme"
 	"time"
 
-	v1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
-	scheme "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

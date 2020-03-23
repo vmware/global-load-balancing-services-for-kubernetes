@@ -1,6 +1,6 @@
 package main
 
-import "gitlab.eng.vmware.com/orion/mcc/gslb/ingestion"
+import "amko/gslb/ingestion"
 
 func main() {
 	ingestion.Initialize()

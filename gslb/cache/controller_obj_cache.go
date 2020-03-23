@@ -6,11 +6,12 @@ import (
 	"strings"
 	"sync"
 
+	"amko/gslb/gslbutils"
+
+	"github.com/avinetworks/container-lib/utils"
 	"github.com/avinetworks/sdk/go/clients"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 )
 
 var (

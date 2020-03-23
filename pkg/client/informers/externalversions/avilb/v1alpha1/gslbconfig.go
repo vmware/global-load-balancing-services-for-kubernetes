@@ -19,12 +19,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	avilbv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	versioned "amko/pkg/client/clientset/versioned"
+	internalinterfaces "amko/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "amko/pkg/client/listers/avilb/v1alpha1"
 	time "time"
 
-	avilbv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
-	versioned "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
-	internalinterfaces "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/client/listers/avilb/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

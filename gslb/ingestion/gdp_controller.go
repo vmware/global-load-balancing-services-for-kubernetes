@@ -1,15 +1,17 @@
 package ingestion
 
 import (
+	filter "amko/gslb/gdp_filter"
+	"amko/gslb/gslbutils"
+
+	gdpalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbcs "amko/pkg/client/clientset/versioned"
+	gdpscheme "amko/pkg/client/clientset/versioned/scheme"
+	gslbinformers "amko/pkg/client/informers/externalversions"
+	gdplisters "amko/pkg/client/listers/avilb/v1alpha1"
+
+	"github.com/avinetworks/container-lib/utils"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
-	gdpalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
-	gslbcs "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
-	gdpscheme "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/scheme"
-	gslbinformers "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions"
-	gdplisters "gitlab.eng.vmware.com/orion/mcc/pkg/client/listers/avilb/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"

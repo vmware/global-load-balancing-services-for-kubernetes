@@ -19,7 +19,8 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
+
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

@@ -3,9 +3,10 @@ package nodes
 import (
 	"sync"
 
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
+	filter "amko/gslb/gdp_filter"
+	"amko/gslb/gslbutils"
+
+	"github.com/avinetworks/container-lib/utils"
 )
 
 type RouteIPHostname struct {

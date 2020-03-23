@@ -19,9 +19,10 @@ limitations under the License.
 package fake
 
 import (
-	clientset "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
-	avilbv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
-	fakeavilbv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/typed/avilb/v1alpha1/fake"
+	clientset "amko/pkg/client/clientset/versioned"
+	avilbv1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
+	fakeavilbv1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1/fake"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

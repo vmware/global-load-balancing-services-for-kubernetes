@@ -3,10 +3,11 @@ package filter
 import (
 	"sync"
 
+	"amko/gslb/gslbutils"
+	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+
+	"github.com/avinetworks/container-lib/utils"
 	"github.com/gobwas/glob"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
-	gdpv1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
 )
 
 var (
