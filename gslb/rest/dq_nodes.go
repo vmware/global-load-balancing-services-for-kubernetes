@@ -5,12 +5,14 @@ import (
 	"strings"
 	"sync"
 
+	avicache "amko/gslb/cache"
+
+	"amko/gslb/gslbutils"
+	"amko/gslb/nodes"
+
+	"github.com/avinetworks/container-lib/utils"
 	avimodels "github.com/avinetworks/sdk/go/models"
 	"github.com/davecgh/go-spew/spew"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	avicache "gitlab.eng.vmware.com/orion/mcc/gslb/cache"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/nodes"
 )
 
 var restLayer *RestOperations

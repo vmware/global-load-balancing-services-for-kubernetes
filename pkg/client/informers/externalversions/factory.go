@@ -19,13 +19,13 @@ limitations under the License.
 package externalversions
 
 import (
+	versioned "amko/pkg/client/clientset/versioned"
+	avilb "amko/pkg/client/informers/externalversions/avilb"
+	internalinterfaces "amko/pkg/client/informers/externalversions/internalinterfaces"
 	reflect "reflect"
 	sync "sync"
 	time "time"
 
-	versioned "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
-	avilb "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions/avilb"
-	internalinterfaces "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

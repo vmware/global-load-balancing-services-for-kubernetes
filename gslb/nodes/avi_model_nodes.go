@@ -4,8 +4,9 @@ import (
 	"strconv"
 	"sync"
 
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
+	"amko/gslb/gslbutils"
+
+	"github.com/avinetworks/container-lib/utils"
 )
 
 var aviGSGraphInstance *AviGSGraphLister

@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
+	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/util/workqueue"
 
+	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbfake "amko/pkg/client/clientset/versioned/fake"
+	gslbinformers "amko/pkg/client/informers/externalversions"
+
 	oshiftfake "github.com/openshift/client-go/route/clientset/versioned/fake"
-	gslbalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
-	gslbfake "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/fake"
-	gslbinformers "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions"
 )
 
 var (

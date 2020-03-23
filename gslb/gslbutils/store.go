@@ -21,7 +21,7 @@ package gslbutils
 import (
 	"sync"
 
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
+	"github.com/avinetworks/container-lib/utils"
 )
 
 type ClusterStore struct {

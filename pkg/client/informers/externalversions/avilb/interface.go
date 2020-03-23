@@ -19,8 +19,8 @@ limitations under the License.
 package avilb
 
 import (
-	v1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions/avilb/v1alpha1"
-	internalinterfaces "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "amko/pkg/client/informers/externalversions/avilb/v1alpha1"
+	internalinterfaces "amko/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

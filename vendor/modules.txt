@@ -1,3 +1,5 @@
+# github.com/avinetworks/container-lib v0.0.0-20200309063932-14a4b95b6102
+github.com/avinetworks/container-lib/utils
 # github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5
 github.com/avinetworks/sdk/go/clients
 github.com/avinetworks/sdk/go/models
@@ -66,8 +68,11 @@ github.com/openshift/client-go/route/informers/externalversions/route/v1
 github.com/openshift/client-go/route/listers/route/v1
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# gitlab.eng.vmware.com/orion/container-lib v0.0.0-20200130101441-759ce84f3060
+# gitlab.eng.vmware.com/orion/container-lib v0.0.0-20200311065938-427b702b5c91
 gitlab.eng.vmware.com/orion/container-lib/utils
+# gitlab.eng.vmware.com/orion/mcc v0.0.0-20200320055649-ef2170fbbd30
+gitlab.eng.vmware.com/orion/mcc/hacloud
+gitlab.eng.vmware.com/orion/mcc/hacloud/hautils
 # golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
@@ -100,6 +105,8 @@ google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
+# gopkg.in/natefinch/lumberjack.v2 v2.0.0
+gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
 # k8s.io/api v0.0.0-20191121015604-11707872ac1c

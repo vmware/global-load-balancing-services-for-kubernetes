@@ -8,14 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"amko/gslb/gslbutils"
+	"amko/gslb/nodes"
+
+	gslbcs "amko/pkg/client/clientset/versioned"
+
+	"github.com/avinetworks/container-lib/utils"
 	"github.com/golang/glog"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
-	"gitlab.eng.vmware.com/orion/container-lib/utils"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/nodes"
-	gslbcs "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -25,15 +26,18 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	gslbalphav1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
-	gslbscheme "gitlab.eng.vmware.com/orion/mcc/pkg/client/clientset/versioned/scheme"
-	gslbinformers "gitlab.eng.vmware.com/orion/mcc/pkg/client/informers/externalversions"
-	gslblisters "gitlab.eng.vmware.com/orion/mcc/pkg/client/listers/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbscheme "amko/pkg/client/clientset/versioned/scheme"
+	gslbinformers "amko/pkg/client/informers/externalversions"
+	gslblisters "amko/pkg/client/listers/avilb/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	avicache "gitlab.eng.vmware.com/orion/mcc/gslb/cache"
-	avirest "gitlab.eng.vmware.com/orion/mcc/gslb/rest"
+	avicache "amko/gslb/cache"
+
+	avirest "amko/gslb/rest"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,7 +45,7 @@ type kubeClusterDetails struct {
 	clusterName string
 	kubeconfig  string
 	kubeapi     string
-	informers   *containerutils.Informers
+	informers   *utils.Informers
 }
 
 type K8SInformers struct {
@@ -138,7 +142,7 @@ func IsGSLBConfigValid(obj interface{}) (*gslbalphav1.GSLBConfig, error) {
 	return nil, errors.New("invalid gslb config, namespace can only be avi-system")
 }
 
-func PublishChangeToRestLayer(gsKey interface{}, sharedQ *containerutils.WorkerQueue) {
+func PublishChangeToRestLayer(gsKey interface{}, sharedQ *utils.WorkerQueue) {
 	aviCacheKey, ok := gsKey.(avicache.TenantName)
 	if !ok {
 		gslbutils.Errf("CacheKey: %v, msg: cache key malformed, not publishing to rest layer", gsKey)
@@ -297,7 +301,7 @@ func AddGSLBConfigObject(obj interface{}) {
 func Initialize() {
 	initFlags()
 	flag.Parse()
-	stopCh = containerutils.SetupSignalHandler()
+	stopCh = utils.SetupSignalHandler()
 	// Check if we are running inside kubernetes
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -382,7 +386,7 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 	clusterDetails := loadClusterAccess(membersKubeConfig, memberClusters)
 	clients := make(map[string]*kubernetes.Clientset)
 
-	registeredInformers := []string{containerutils.IngressInformer, containerutils.RouteInformer}
+	registeredInformers := []string{utils.ExtV1IngressInformer, utils.RouteInformer}
 	informersArg := make(map[string]interface{})
 
 	aviCtrlList := make([]*GSLBMemberController, 0)
@@ -408,9 +412,9 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			continue
 		}
 
-		informersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
-		informersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
-		informerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{
+		informersArg[utils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
+		informersArg[utils.INFORMERS_INSTANTIATE_ONCE] = false
+		informerInstance := utils.NewInformers(utils.KubeClientIntf{
 			ClientSet: kubeClient},
 			registeredInformers,
 			informersArg)

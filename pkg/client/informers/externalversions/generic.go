@@ -19,9 +19,9 @@ limitations under the License.
 package externalversions
 
 import (
+	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
 	"fmt"
 
-	v1alpha1 "gitlab.eng.vmware.com/orion/mcc/pkg/apis/avilb/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

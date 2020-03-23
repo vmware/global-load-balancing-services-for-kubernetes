@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"sync"
 
+	filter "amko/gslb/gdp_filter"
+
+	"amko/gslb/gslbutils"
+
+	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
-	filter "gitlab.eng.vmware.com/orion/mcc/gslb/gdp_filter"
-	"gitlab.eng.vmware.com/orion/mcc/gslb/gslbutils"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -212,8 +214,8 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		},
 	}
 
-	if c.informers.IngressInformer != nil {
-		c.informers.IngressInformer.Informer().AddEventHandler(ingressEventHandler)
+	if c.informers.ExtV1IngressInformer != nil {
+		c.informers.ExtV1IngressInformer.Informer().AddEventHandler(ingressEventHandler)
 	}
 
 	if c.informers.RouteInformer != nil {
@@ -223,9 +225,9 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 
 func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 	var cacheSyncParam []cache.InformerSynced
-	if c.informers.IngressInformer != nil {
-		go c.informers.IngressInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.IngressInformer.Informer().HasSynced)
+	if c.informers.ExtV1IngressInformer != nil {
+		go c.informers.ExtV1IngressInformer.Informer().Run(stopCh)
+		cacheSyncParam = append(cacheSyncParam, c.informers.ExtV1IngressInformer.Informer().HasSynced)
 	}
 
 	if c.informers.RouteInformer != nil {
