@@ -1,7 +1,6 @@
 package ingestion
 
 import (
-	"encoding/base64"
 	"errors"
 	"flag"
 	"os"
@@ -199,17 +198,12 @@ func GenerateKubeConfig() error {
 		utils.AviLog.Error.Fatal("GSLB_CONFIG environment variable not set, exiting...")
 		return errors.New("GSLB_CONFIG environment variable not set, exiting")
 	}
-	membersData, err := base64.StdEncoding.DecodeString(membersKubeConfig)
-	if err != nil {
-		utils.AviLog.Error.Fatalf("Error in decoding the GSLB config data: %s", err)
-		return errors.New("Error in decoding the GSLB config data: " + err.Error())
-	}
 	f, err := os.Create(gslbutils.GSLBKubePath)
 	if err != nil {
 		return errors.New("Error in creating file: " + err.Error())
 	}
 
-	_, err = f.WriteString(string(membersData))
+	_, err = f.WriteString(membersKubeConfig)
 	if err != nil {
 		return errors.New("Error in writing to config file: " + err.Error())
 	}

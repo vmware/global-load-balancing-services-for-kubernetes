@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: amko-binding
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: amko-role
+subjects:
+- kind: ServiceAccount
+  name: amko-sa
+  namespace: {{ .Release.Namespace }}
