@@ -1,0 +1,21 @@
+apiVersion: "avilb.k8s.io/v1alpha1"
+kind: "GSLBConfig"
+metadata:
+  name: "gc-1"
+  namespace: {{ .Release.Namespace }}
+spec:
+  gslbLeader:
+    credentials: {{ .Values.configs.gslbLeaderSecret }}
+    controllerVersion: {{ .Values.configs.gslbLeaderVersion }}
+    controllerIP: {{ .Values.configs.gslbLeaderHost }}
+{{- with .Values.configs.memberClusters }}
+  memberClusters:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+  globalServiceNameSource: {{ .Values.configs.gsNameSource }}
+{{- with .Values.configs.domainNames }}
+  domainNames:
+  {{- toYaml . | nindent 4 }}
+{{- end }}
+  refreshInterval: {{ .Values.configs.refreshInterval }}
+status:
