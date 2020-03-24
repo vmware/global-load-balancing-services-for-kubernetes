@@ -1,11 +1,11 @@
-FROM golang:latest as build
-ENV BUILD_PATH amko/
-RUN mkdir -p $GOPATH/src/${BUILD_PATH}
+FROM golang:1.14 as build
+ENV BUILD_PATH "amko/"
+RUN mkdir -p $GOPATH/src/$BUILD_PATH
 
-COPY . $GOPATH/src/${BUILD_PATH}
-WORKDIR ${GOPATH}/src/$(BUILD_PATH)
+COPY . $GOPATH/src/$BUILD_PATH
+WORKDIR $GOPATH/src/$BUILD_PATH
 
-RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -o $GOPATH/bin/amko $BUILD_PATH/cmd/gslb
+RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -o $GOPATH/bin/amko -mod=vendor $BUILD_PATH/cmd/gslb
 
 FROM photon:latest
 COPY --from=build /go/bin/amko .
