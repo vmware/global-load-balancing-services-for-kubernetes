@@ -114,34 +114,6 @@ var (
 // GSLBConfigObj is global and is initialized only once
 var GSLBConfigObj *gslbalphav1.GSLBConfig
 
-// RouteMeta is the metadata for a route. It is the minimal information
-// that we maintain for each route, accepted or rejected.
-type RouteMeta struct {
-	Cluster   string
-	Name      string
-	Namespace string
-	Hostname  string
-	IPAddr    string
-	Labels    map[string]string
-}
-
-// GetRouteMeta returns a trimmed down version of a route
-func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
-	ipAddr, _ := RouteGetIPAddr(route)
-	metaObj := RouteMeta{
-		Name:      route.Name,
-		Namespace: route.ObjectMeta.Namespace,
-		Hostname:  route.Spec.Host,
-		IPAddr:    ipAddr,
-		Cluster:   cname,
-	}
-	metaObj.Labels = make(map[string]string)
-	for key, value := range route.GetLabels() {
-		metaObj.Labels[key] = value
-	}
-	return metaObj
-}
-
 func GetGSLBServiceChecksum(ipList, domainList, routeMembers []string) uint32 {
 	sort.Strings(ipList)
 	sort.Strings(domainList)

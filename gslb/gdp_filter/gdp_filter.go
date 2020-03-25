@@ -4,10 +4,10 @@ import (
 	"sync"
 
 	"amko/gslb/gslbutils"
+	"amko/gslb/k8sobjects"
 	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
 
 	"github.com/avinetworks/container-lib/utils"
-	"github.com/gobwas/glob"
 )
 
 var (
@@ -40,25 +40,26 @@ type GlobalFilter struct {
 // filter is not present or if the object is rejected by the namespace filter, apply
 // the cluster filter if present. Default action is to reject the object.
 func (gf *GlobalFilter) ApplyFilter(obj interface{}, cname string) bool {
-	route, ok := obj.(gslbutils.RouteMeta)
+	metaobj, ok := obj.(k8sobjects.MetaObject)
 	if !ok {
-		gslbutils.Warnf("cname: %s, msg: not a route object, returning", cname)
+		gslbutils.Warnf("cname: %s, msg: not a meta object, returning", cname)
 		return false
 	}
-	ns := route.Namespace
+
+	ns := metaobj.GetNamespace()
 	if ns == gslbutils.AVISystem {
-		// routes in AVISystem are ignored
-		gslbutils.Errf("cname: %s, ns: %s, route: %s, msg: routes in avi-system are ignored",
-			cname, route.Namespace, route.Name)
+		// objects in AVISystem are ignored
+		gslbutils.Errf("cname: %s, ns: %s, type:%s, name: %s, msg: objects in avi-system are ignored",
+			cname, ns, metaobj.GetType(), metaobj.GetName())
 		return false
 	}
-	// First see, if there's a namespace filter set for this route's namespace, if not, apply
+	// First see, if there's a namespace filter set for this object's namespace, if not, apply
 	// the global filter.
 	var passed bool
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
-	if nf, ok := gf.NSFilterMap[route.Namespace]; ok && nf != nil {
-		passed = nf.ApplyFilter(route, cname)
+	if nf, ok := gf.NSFilterMap[ns]; ok && nf != nil {
+		passed = nf.ApplyFilter(metaobj, cname)
 		if passed {
 			return true
 		}
@@ -66,7 +67,7 @@ func (gf *GlobalFilter) ApplyFilter(obj interface{}, cname string) bool {
 	// If rejected by the namespace filter or a namespace filter isn't there, then
 	// let's apply the cluster filter
 	if gf.ClusterFilter != nil {
-		return gf.ClusterFilter.ApplyFilter(route, cname)
+		return gf.ClusterFilter.ApplyFilter(metaobj, cname)
 	}
 
 	// Else, return false
@@ -196,93 +197,24 @@ type GDPRule struct {
 	Checksum  uint32
 }
 
-// GlobOperate applies glob operator on the route's parameters.
-func (gr *GDPRule) GlobOperate(object interface{}) bool {
-	mr := gr.MatchRule
-	route := object.(gslbutils.RouteMeta)
-	var g glob.Glob
-	// route's hostname has to match
-	// If no hostname given, return false
-	for _, host := range mr.Hosts {
-		g = glob.MustCompile(host.HostName, '.')
-		if g.Match(route.Hostname) {
-			return true
-		}
-	}
-	return false
-}
-
-// EqualOperate applies the Equals operator on the object's fields.
-func (gr *GDPRule) EqualOperate(object interface{}) bool {
-	mr := gr.MatchRule
-	route := object.(gslbutils.RouteMeta)
-	if len(mr.Hosts) != 0 {
-		// Host list is of non-zero length, which means has to be a host match expression
-		for _, h := range mr.Hosts {
-			if h.HostName == route.Hostname {
-				return true
-			}
-		}
-	} else {
-		// Its a label key-value match
-		routeLabels := route.Labels
-		if value, ok := routeLabels[mr.Label.Key]; ok {
-			if value == mr.Label.Value {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// NotEqualOperate applies the NotEquals operator on the object's fields.
-func (gr *GDPRule) NotEqualOperate(object interface{}) bool {
-	mr := gr.MatchRule
-	route := object.(gslbutils.RouteMeta)
-	if len(mr.Hosts) != 0 {
-		// Host list is of non-zero length, which means it has to be a host match expression
-		for _, h := range mr.Hosts {
-			if h.HostName == route.Hostname {
-				return false
-			}
-		}
-		// Match not found for host, return true
-		return true
-	}
-	// Its a label key-value match
-	routeLabels := route.Labels
-	if value, ok := routeLabels[mr.Label.Key]; ok {
-		if value == mr.Label.Value {
-			return false
-		}
-	}
-	return true
-}
-
 // Apply operates on the obj object's fields and returns true/false depending on whether the
 // operation worked.
-func (gr *GDPRule) Apply(obj interface{}) bool {
-	route := obj.(gslbutils.RouteMeta)
+func (gr *GDPRule) Apply(obj k8sobjects.MetaObject) bool {
 	mr := gr.MatchRule
 	// Basic sanity checks
-	if len(mr.Hosts) == 0 && mr.Label.Key == "" {
-		gslbutils.Errf("object: GDPRule, route: %s, msg: %s", route.Name,
-			"GDPRule doesn't have either hosts set or label key-value pair")
-		return false
-	}
-	if len(mr.Hosts) > 0 && route.Hostname == "" {
+	if !obj.SanityCheck(mr) {
 		return false
 	}
 	switch mr.Op {
 	case gdpv1alpha1.GlobOp:
-		return gr.GlobOperate(route)
+		return obj.GlobOperate(mr)
 	case gdpv1alpha1.EqualsOp:
-		return gr.EqualOperate(route)
+		return obj.EqualOperate(mr)
 	case gdpv1alpha1.NotequalsOp:
-		return gr.NotEqualOperate(route)
+		return obj.NotEqualOperate(mr)
 	default:
-		gslbutils.Errf("object: GDPRule, route: %s, operation: %s, msg: %s",
-			route.Name, gr.MatchRule.Op, "operation is invalid")
+		gslbutils.Errf("object: GDPRule, ns: %s, object: %s name: %s, operation: %s, msg: operation is invalid",
+			obj.GetNamespace(), obj.GetType(), obj.GetName(), gr.MatchRule.Op)
 	}
 	return false
 }
@@ -352,8 +284,7 @@ type NSFilter struct {
 
 // ApplyFilter applies the gdp rules in this NS filter on the route object "obj" in cluster "cname".
 // Returns true/false depending on whether this route passes the filter or not.
-func (nf *NSFilter) ApplyFilter(obj interface{}, cname string) bool {
-	route := obj.(gslbutils.RouteMeta)
+func (nf *NSFilter) ApplyFilter(obj k8sobjects.MetaObject, cname string) bool {
 	nf.NSLock.RLock()
 	defer nf.NSLock.RUnlock()
 	if !presentInList(cname, nf.ApplicableClusters) {
@@ -361,9 +292,9 @@ func (nf *NSFilter) ApplyFilter(obj interface{}, cname string) bool {
 	}
 
 	for _, gdpRule := range nf.NSRules {
-		if !gdpRule.Apply(route) {
-			gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: route rejected because of GDPRule: %s",
-				cname, route.Namespace, route.Name, gdpRule)
+		if !gdpRule.Apply(obj) {
+			gslbutils.Logf("cluster: %s, ns: %s, object %s: name: %s, msg: route rejected because of GDPRule: %s",
+				cname, obj.GetNamespace(), obj.GetType(), obj.GetName(), gdpRule)
 			return false
 		}
 	}

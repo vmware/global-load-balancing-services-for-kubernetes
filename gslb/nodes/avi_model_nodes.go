@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"amko/gslb/gslbutils"
+	"amko/gslb/k8sobjects"
 
 	"github.com/avinetworks/container-lib/utils"
 )
@@ -96,7 +97,7 @@ func NewAviGSObjectGraph() *AviGSObjectGraph {
 	return &AviGSObjectGraph{}
 }
 
-func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, route gslbutils.RouteMeta, memberWeight int32) {
+func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, route k8sobjects.RouteMeta, memberWeight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	hosts := []string{route.Hostname}
@@ -118,7 +119,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, route gslbuti
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
 }
 
-func (v *AviGSObjectGraph) UpdateGSMember(route gslbutils.RouteMeta, weight int32) {
+func (v *AviGSObjectGraph) UpdateGSMember(route k8sobjects.RouteMeta, weight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member

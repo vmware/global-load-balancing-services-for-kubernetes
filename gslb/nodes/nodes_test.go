@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"amko/gslb/gslbutils"
+	"amko/gslb/k8sobjects"
 
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
@@ -89,7 +90,7 @@ func addAndTestRoute(t *testing.T, name string, ns string, host string, svc stri
 	routeStatus[0].Conditions = conditions
 	labelMap := make(map[string]string)
 	labelMap["key"] = "value"
-	routeExample := gslbutils.RouteMeta{
+	routeExample := k8sobjects.RouteMeta{
 		Name:      name,
 		Namespace: ns,
 		Labels:    labelMap,
