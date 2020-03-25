@@ -5,6 +5,7 @@ import (
 
 	filter "amko/gslb/gdp_filter"
 	"amko/gslb/gslbutils"
+	"amko/gslb/k8sobjects"
 
 	"github.com/avinetworks/container-lib/utils"
 )
@@ -30,7 +31,7 @@ func getRouteHostMap() *RouteHostMap {
 	return &rhMap
 }
 
-func DeriveGSLBServiceName(route gslbutils.RouteMeta) string {
+func DeriveGSLBServiceName(route k8sobjects.RouteMeta) string {
 	hostName := route.Hostname
 	// For now, the hostname of a route is the GSLB Service name
 	return hostName
@@ -72,7 +73,7 @@ func AddUpdateRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQue
 		gslbutils.Errf("key: %s, msg: %s", key, "error finding the object in the accepted route store")
 		return
 	}
-	route := obj.(gslbutils.RouteMeta)
+	route := obj.(k8sobjects.RouteMeta)
 	if route.Hostname == "" {
 		gslbutils.Errf("key: %s, msg: %s", key, "no hostname for route object, not supported")
 		return
@@ -145,7 +146,7 @@ func deleteRouteOperation(key, cname, ns, objName string, wq *utils.WorkerQueue)
 			return
 		}
 	}
-	route := obj.(gslbutils.RouteMeta)
+	route := obj.(k8sobjects.RouteMeta)
 	// Also, now delete this route name from the host map
 	gsName := ipHostName.Hostname
 	modelName := utils.ADMIN_NS + "/" + ipHostName.Hostname

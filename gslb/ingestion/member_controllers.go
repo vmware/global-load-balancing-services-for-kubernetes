@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	filter "amko/gslb/gdp_filter"
+	"amko/gslb/k8sobjects"
 
 	"amko/gslb/gslbutils"
 
@@ -55,7 +56,7 @@ func rejectIngress(ingr *extensionv1beta1.Ingress) bool {
 // in the object map store.
 func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 	route *routev1.Route, cname string) {
-	routeMeta := gslbutils.GetRouteMeta(route, cname)
+	routeMeta := k8sobjects.GetRouteMeta(route, cname)
 	clusterRouteStore.AddOrUpdate(routeMeta, cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 }
 
@@ -140,7 +141,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because IP address not found")
 				return
 			}
-			routeMeta := gslbutils.GetRouteMeta(route, c.name)
+			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
 			if gf == nil || !gf.ApplyFilter(routeMeta, c.name) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
@@ -175,7 +176,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 			oldRoute := old.(*routev1.Route)
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
-				routeMeta := gslbutils.GetRouteMeta(route, c.name)
+				routeMeta := k8sobjects.GetRouteMeta(route, c.name)
 				if gf == nil || !gf.ApplyFilter(routeMeta, c.name) {
 					// See if the route was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
@@ -189,7 +190,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					// a key for this route to the queue
 					multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
 					MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
-					fetchedRoute := fetchedObj.(gslbutils.RouteMeta)
+					fetchedRoute := fetchedObj.(k8sobjects.RouteMeta)
 					// Add a DELETE key for this route
 					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", c.name, fetchedRoute.Namespace,
 						fetchedRoute.Name)
