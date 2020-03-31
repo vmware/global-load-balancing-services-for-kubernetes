@@ -380,7 +380,7 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 	clusterDetails := loadClusterAccess(membersKubeConfig, memberClusters)
 	clients := make(map[string]*kubernetes.Clientset)
 
-	registeredInformers := []string{utils.ExtV1IngressInformer, utils.RouteInformer}
+	registeredInformers := []string{utils.ExtV1IngressInformer, utils.RouteInformer, utils.ServiceInformer}
 	informersArg := make(map[string]interface{})
 
 	aviCtrlList := make([]*GSLBMemberController, 0)

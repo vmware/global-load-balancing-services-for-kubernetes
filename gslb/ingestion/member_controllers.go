@@ -11,6 +11,7 @@ import (
 
 	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
+	corev1 "k8s.io/api/core/v1"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -189,7 +190,7 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 					// Else, move this route from accepted to rejected store, and add
 					// a key for this route to the queue
 					multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
-					MoveRoutes([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
+					MoveObjects([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore)
 					fetchedRoute := fetchedObj.(k8sobjects.RouteMeta)
 					// Add a DELETE key for this route
 					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", c.name, fetchedRoute.Namespace,
@@ -222,6 +223,137 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	if c.informers.RouteInformer != nil {
 		c.informers.RouteInformer.Informer().AddEventHandler(routeEventHandler)
 	}
+
+	if c.informers.ServiceInformer != nil {
+		lbsvcEventHandler := c.addLBSvcEventHandler(numWorkers)
+		c.informers.ServiceInformer.Informer().AddEventHandler(lbsvcEventHandler)
+	}
+}
+
+func (c *GSLBMemberController) addLBSvcEventHandler(numWorkers uint32) cache.ResourceEventHandler {
+	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
+	rejectedLBSvcStore := gslbutils.GetRejectedLBSvcStore()
+	gf := filter.GetGlobalFilter()
+	gslbutils.Logf("Adding svc handler")
+	svcEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			svc := obj.(*corev1.Service)
+			// Don't add this svc if this is not of type LB,
+			// or if no IP is allocated it's status
+			if !isSvcTypeLB(svc) {
+				gslbutils.Logf("cluster: %s, ns:%s, svc %s, type not lb", c.name, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+				return
+			}
+			svcMeta, ok := k8sobjects.GetSvcMeta(svc, c.name)
+			if !ok {
+				gslbutils.Logf("cluster: %s, msg: could not get meta object for service: %s, ns: %s",
+					c.name, svc.ObjectMeta.Name, svc.ObjectMeta.Namespace)
+				return
+			}
+			if gf == nil || !gf.ApplyFilter(svcMeta, c.name) {
+				AddOrUpdateLBSvcStore(rejectedLBSvcStore, svc, c.name)
+				gslbutils.Logf("cluster: %s, ns: %s, svc: %s, msg: %s\n", c.name,
+					svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, "rejected ADD svc key because it couldn't pass through filter")
+				return
+			}
+			AddOrUpdateLBSvcStore(acceptedLBSvcStore, svc, c.name)
+			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(svc))
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, "LBSvc/", c.name, svc.ObjectMeta.Namespace,
+				svc.ObjectMeta.Name)
+			bkt := containerutils.Bkt(namespace, numWorkers)
+			c.workqueue[bkt].AddRateLimited(key)
+			containerutils.AviLog.Info.Printf("Added ADD LBSvc key from the kubernetes controller %s", key)
+		},
+		DeleteFunc: func(obj interface{}) {
+			svc, ok := obj.(*corev1.Service)
+			if !ok {
+				containerutils.AviLog.Error.Printf("object type is not Svc")
+				return
+			}
+			if !isSvcTypeLB(svc) {
+				return
+			}
+			DeleteFromLBSvcStore(acceptedLBSvcStore, svc, c.name)
+			DeleteFromLBSvcStore(rejectedLBSvcStore, svc, c.name)
+			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(svc))
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "LBSvc/", c.name, svc.ObjectMeta.Namespace,
+				svc.ObjectMeta.Name)
+			bkt := containerutils.Bkt(namespace, numWorkers)
+			c.workqueue[bkt].AddRateLimited(key)
+			containerutils.AviLog.Info.Printf("Added DELETE LBSvc key from the kubernetes controller %s", key)
+		},
+		UpdateFunc: func(old, curr interface{}) {
+			oldSvc := old.(*corev1.Service)
+			svc := curr.(*corev1.Service)
+			if oldSvc.ResourceVersion != svc.ResourceVersion {
+				svcMeta, ok := k8sobjects.GetSvcMeta(svc, c.name)
+				if !ok || gf == nil || !isSvcTypeLB(svc) || !gf.ApplyFilter(svcMeta, c.name) {
+					// See if the svc was already accepted, if yes, need to delete the key
+					fetchedObj, ok := acceptedLBSvcStore.GetClusterNSObjectByName(c.name,
+						oldSvc.ObjectMeta.Namespace, oldSvc.ObjectMeta.Name)
+					if !ok {
+						// Nothing to be done, just add to the rejected svc store
+						AddOrUpdateLBSvcStore(rejectedLBSvcStore, svc, c.name)
+						return
+					}
+					// Else, move this svc from accepted to rejected store, and add
+					// a key for this svc to the queue
+					multiClusterSvcName := c.name + "/" + svc.ObjectMeta.Namespace + "/" + svc.ObjectMeta.Name
+					MoveObjects([]string{multiClusterSvcName}, acceptedLBSvcStore, rejectedLBSvcStore)
+					fetchedSvc := fetchedObj.(k8sobjects.SvcMeta)
+					// Add a DELETE key for this svc
+					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "LBSvc/", c.name, fetchedSvc.Namespace,
+						fetchedSvc.Name)
+					bkt := containerutils.Bkt(fetchedSvc.Namespace, numWorkers)
+					c.workqueue[bkt].AddRateLimited(key)
+					gslbutils.Logf("cluster: %s, ns: %s, svc: %s, key: %s, msg: %s", c.name, fetchedSvc.Namespace,
+						fetchedSvc.Name, key, "added DELETE svc key")
+					return
+				}
+				AddOrUpdateLBSvcStore(acceptedLBSvcStore, svc, c.name)
+				// If the svc was already part of rejected store, we need to remove from
+				// this svc from the rejected store.
+				rejectedLBSvcStore.DeleteClusterNSObj(c.name, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+				// Add the key for this svc to the queue.
+
+				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(svc))
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, "LBSvc/", c.name, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+				bkt := containerutils.Bkt(namespace, numWorkers)
+				c.workqueue[bkt].AddRateLimited(key)
+				containerutils.AviLog.Info.Printf("UPDATE LBSvc key: %s", key)
+			}
+		},
+	}
+	return svcEventHandler
+}
+
+func isSvcTypeLB(svc *corev1.Service) bool {
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		return true
+	}
+	return false
+}
+
+// AddOrUpdateLBSvcStore traverses through the cluster store for cluster name cname,
+// and then to ns store for the service's namespace and then adds/updates the service obj
+// in the object map store.
+func AddOrUpdateLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
+	svc *corev1.Service, cname string) {
+	svcMeta, _ := k8sobjects.GetSvcMeta(svc, cname)
+	gslbutils.Logf("updating service store: %s", svc.ObjectMeta.Name)
+	clusterSvcStore.AddOrUpdate(svcMeta, cname, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+}
+
+// DeleteFromLBSvcStore traverses through the cluster store for cluster name cname,
+// and then ns store for the service's namespace and then deletes the service key from
+// the object map store.
+func DeleteFromLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
+	svc *corev1.Service, cname string) {
+	if clusterSvcStore == nil {
+		// Store is empty, so, noop
+		return
+	}
+	clusterSvcStore.DeleteClusterNSObj(cname, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 }
 
 func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
@@ -235,6 +367,12 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting route informer")
 		go c.informers.RouteInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, c.informers.RouteInformer.Informer().HasSynced)
+	}
+
+	if c.informers.ServiceInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting route informer")
+		go c.informers.ServiceInformer.Informer().Run(stopCh)
+		cacheSyncParam = append(cacheSyncParam, c.informers.ServiceInformer.Informer().HasSynced)
 	}
 
 	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {

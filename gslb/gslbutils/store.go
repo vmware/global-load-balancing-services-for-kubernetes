@@ -52,6 +52,26 @@ func GetRejectedRouteStore() *ClusterStore {
 	return RejectedRouteStore
 }
 
+var acceptedSvcOnce sync.Once
+
+// GetAcceptedRouteStore initializes and returns a new accepted route store.
+func GetAcceptedLBSvcStore() *ClusterStore {
+	acceptedSvcOnce.Do(func() {
+		AcceptedLBSvcStore = NewClusterStore()
+	})
+	return AcceptedLBSvcStore
+}
+
+var rejectedSvcOnce sync.Once
+
+// GetRejectedRouteStore initializes and returns a new accepted route store.
+func GetRejectedLBSvcStore() *ClusterStore {
+	rejectedSvcOnce.Do(func() {
+		RejectedLBSvcStore = NewClusterStore()
+	})
+	return RejectedLBSvcStore
+}
+
 // NewClusterStore initializes and returns a new cluster store.
 func NewClusterStore() *ClusterStore {
 	clusterStore := &ClusterStore{}

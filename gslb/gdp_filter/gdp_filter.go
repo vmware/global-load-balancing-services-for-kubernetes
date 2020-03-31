@@ -291,14 +291,22 @@ func (nf *NSFilter) ApplyFilter(obj k8sobjects.MetaObject, cname string) bool {
 		return false
 	}
 
+	var matched bool
 	for _, gdpRule := range nf.NSRules {
+		if gdpRule.MatchRule.Object != obj.GetType() {
+			continue
+		}
 		if !gdpRule.Apply(obj) {
-			gslbutils.Logf("cluster: %s, ns: %s, object %s: name: %s, msg: route rejected because of GDPRule: %s",
+			gslbutils.Logf("cluster: %s, ns: %s, object %s: name: %s, msg: object rejected because of GDPRule: %s",
 				cname, obj.GetNamespace(), obj.GetType(), obj.GetName(), gdpRule)
 			return false
 		}
+		matched = true
 	}
-	return true
+	if matched {
+		return true
+	}
+	return false
 }
 
 // GetChecksum returns the checksum of the filter

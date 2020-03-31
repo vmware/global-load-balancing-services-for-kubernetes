@@ -120,6 +120,8 @@ const (
 	RouteObj = "ROUTE"
 	// IngressObj applies to K8S Ingresses
 	IngressObj = "INGRESS"
+	// LBSvc applies to service type LoadBalancer
+	LBSvcObj = "LBSVC"
 )
 
 // Host holds the hostname, it could be a glob expression too.

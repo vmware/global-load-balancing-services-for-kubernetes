@@ -63,7 +63,7 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 	return operation, objType, cluster, ns, name
 }
 
-func SplitMultiClusterRouteName(name string) (string, string, string, error) {
+func SplitMultiClusterObjectName(name string) (string, string, string, error) {
 	if name == "" {
 		return "", "", "", errors.New("multi-cluster route name is empty")
 	}
@@ -109,6 +109,8 @@ var Warnf = utils.AviLog.Warning.Printf
 var (
 	AcceptedRouteStore *ClusterStore
 	RejectedRouteStore *ClusterStore
+	AcceptedLBSvcStore *ClusterStore
+	RejectedLBSvcStore *ClusterStore
 )
 
 // GSLBConfigObj is global and is initialized only once

@@ -46,12 +46,12 @@ func (gdpController *GDPController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-// MoveRoutes moves the route objects in "routeList" from "fromStore" to
+// MoveObjects moves the route objects in "objList" from "fromStore" to
 // "toStore".
-func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *gslbutils.ClusterStore) {
-	for _, routeName := range routeList {
+func MoveObjects(objList []string, fromStore *gslbutils.ClusterStore, toStore *gslbutils.ClusterStore) {
+	for _, routeName := range objList {
 		// routeName consists of cluster name, namespace and the route name
-		cname, ns, route, err := gslbutils.SplitMultiClusterRouteName(routeName)
+		cname, ns, route, err := gslbutils.SplitMultiClusterObjectName(routeName)
 		if err != nil {
 			gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
 			continue
@@ -64,68 +64,83 @@ func MoveRoutes(routeList []string, fromStore *gslbutils.ClusterStore, toStore *
 	}
 }
 
-func writeChangedRoutesToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
-	acceptedRouteStore := gslbutils.AcceptedRouteStore
-	rejectedRouteStore := gslbutils.RejectedRouteStore
+func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
+	var acceptedObjStore *gslbutils.ClusterStore
+	var rejectedObjStore *gslbutils.ClusterStore
+	var objKey string
+
+	if objType == gdpalphav1.RouteObj {
+		acceptedObjStore = gslbutils.GetAcceptedRouteStore()
+		rejectedObjStore = gslbutils.GetRejectedRouteStore()
+		objKey = "Route/"
+	} else if objType == gdpalphav1.LBSvcObj {
+		acceptedObjStore = gslbutils.GetAcceptedLBSvcStore()
+		rejectedObjStore = gslbutils.GetRejectedLBSvcStore()
+		objKey = "LBSvc/"
+	} else {
+		gslbutils.Warnf("Unknown Object type: %s", objType)
+		return
+	}
 	gf := filter.GetGlobalFilter()
-	if acceptedRouteStore != nil {
-		// If we have routes in the accepted store, each one has to be passed through
-		// the filter again. If any route fails to pass through the filter, we need to
+	if acceptedObjStore != nil {
+		// If we have objects in the accepted store, each one has to be passed through
+		// the filter again. If any object fails to pass through the filter, we need to
 		// add DELETE keys for them.
-		acceptedList, rejectedList := acceptedRouteStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
+		acceptedList, rejectedList := acceptedObjStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
 		if len(rejectedList) != 0 {
-			gslbutils.Logf("routeList: %v, msg: %s", rejectedList, "route list will be deleted")
-			// Since, these routes are now rejected, they have to be moved to
+			gslbutils.Logf("ObjList: %v, msg: %s", rejectedList, "obj list will be deleted")
+			// Since, these objects are now rejected, they have to be moved to
 			// the rejected list.
-			MoveRoutes(rejectedList, acceptedRouteStore, rejectedRouteStore)
-			for _, routeName := range rejectedList {
-				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
+			MoveObjects(rejectedList, acceptedObjStore, rejectedObjStore)
+			for _, objName := range rejectedList {
+				cname, ns, sname, err := gslbutils.SplitMultiClusterObjectName(objName)
 				if err != nil {
-					gslbutils.Errf("route: %s, msg: couldn't process route, error, %s", routeName, err)
+					gslbutils.Errf("cluster: %s, msg: couldn't process object, objtype: %s, name: %s, error, %s",
+						cname, objType, objName, err)
 					continue
 				}
 
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, "Route/", cname, ns, rname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname)
 				k8swq[bkt].AddRateLimited(key)
-				gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s\n", cname, ns, rname,
-					key, "added DELETE route key")
+				gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added DELETE obj key",
+					cname, ns, objType, sname, key)
 			}
 		}
 		// if the traffic weight changed, then the accepted list has to be sent to the nodes layer
-		for _, routeName := range acceptedList {
-			cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
+		for _, objName := range acceptedList {
+			cname, ns, name, err := gslbutils.SplitMultiClusterObjectName(objName)
 			if err != nil {
-				gslbutils.Errf("route: %s, msg: couldn't split the key, error, %s", routeName, err)
+				gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
 				continue
 			}
 			bkt := utils.Bkt(ns, numWorkers)
-			key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, "Route/", cname, ns, rname)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, name)
 			k8swq[bkt].AddRateLimited(key)
-			gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", cname, ns, rname, key,
-				"added ADD route key")
+			gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added ADD obj key",
+				cname, ns, objType, name, key)
 		}
 	}
 
-	if rejectedRouteStore != nil {
-		// If we have routes in the rejected store, each one has to be passed through
-		// the filter again. If any route passes through the filter, we need to add ADD
+	if rejectedObjStore != nil {
+		// If we have objects in the rejected store, each one has to be passed through
+		// the filter again. If any object passes through the filter, we need to add ADD
 		// keys for them.
-		acceptedList, _ := rejectedRouteStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
+		acceptedList, _ := rejectedObjStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
 		if len(acceptedList) != 0 {
-			gslbutils.Logf("routeList: %v, msg: %s", acceptedList, "route list will be added")
-			MoveRoutes(acceptedList, rejectedRouteStore, acceptedRouteStore)
-			for _, routeName := range acceptedList {
-				cname, ns, rname, err := gslbutils.SplitMultiClusterRouteName(routeName)
+			gslbutils.Logf("ObjList: %v, msg: %s", acceptedList, "object list will be added")
+			MoveObjects(acceptedList, rejectedObjStore, acceptedObjStore)
+			for _, objName := range acceptedList {
+				cname, ns, name, err := gslbutils.SplitMultiClusterObjectName(objName)
 				if err != nil {
-					gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
+					gslbutils.Errf("objName: %s, msg: processing error, %s", objName, err)
 					continue
 				}
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, "Route/", cname, ns, rname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, name)
 				k8swq[bkt].AddRateLimited(key)
-				gslbutils.Logf("cluster: %s, ns: %s, route: %s, key: %s, msg: %s", cname, ns, rname, key,
-					"added ADD route key")
+				gslbutils.Logf("cluster: %s, ns: %s, objtype:%s, name: %s, key: %s, msg: added ADD obj key",
+					cname, ns, objType, name, key)
 			}
 		}
 	}
@@ -143,7 +158,8 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 	gf := filter.GetGlobalFilter()
 	gslbutils.Logf("creating a new filter")
 	gf.AddToGlobalFilter(gdp)
-	writeChangedRoutesToQueue(k8swq, numWorkers, false)
+	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, false)
+	writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, false)
 }
 
 // UpdateGDPObj updates the global and the namespace filters if a the GDP object
@@ -165,7 +181,8 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 	}
 	if gdpChanged, trafficWeightChanged := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
 		gslbutils.Logf("GDP object changed, will go through the routes again")
-		writeChangedRoutesToQueue(k8swq, numWorkers, trafficWeightChanged)
+		writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, trafficWeightChanged)
+		writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, trafficWeightChanged)
 	}
 }
 
@@ -183,8 +200,9 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 		return
 	}
 	gf.DeleteFromGlobalFilter(gdp)
-	// Need to re-evaluate the routes again according to the deleted filter
-	writeChangedRoutesToQueue(k8swq, numWorkers, false)
+	// Need to re-evaluate the objects again according to the deleted filter
+	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, false)
+	writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, false)
 }
 
 // InitializeGDPController handles initialization of a controller which handles
