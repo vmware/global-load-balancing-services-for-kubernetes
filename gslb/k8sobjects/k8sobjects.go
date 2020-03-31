@@ -16,6 +16,7 @@ package k8sobjects
 
 import (
 	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	"sync"
 )
 
 // Interface for k8s/openshift objects(e.g. route, service, ingress) with minimal information
@@ -23,10 +24,27 @@ type MetaObject interface {
 	GetType() string
 	GetName() string
 	GetNamespace() string
+	GetHostname() string
+	GetIPAddr() string
+	GetCluster() string
+	UpdateHostMap(string)
+	GetHostnameFromHostMap(string) string
+	DeleteMapByKey(string)
 
 	SanityCheck(gdpv1alpha1.MatchRule) bool
 
 	GlobOperate(gdpv1alpha1.MatchRule) bool
 	EqualOperate(gdpv1alpha1.MatchRule) bool
 	NotEqualOperate(gdpv1alpha1.MatchRule) bool
+}
+
+type IPHostname struct {
+	IP       string
+	Hostname string
+}
+
+// ObjHostMap stores a mapping between cluster+ns+objName to it's hostname
+type ObjHostMap struct {
+	HostMap map[string]IPHostname
+	Lock    sync.Mutex
 }

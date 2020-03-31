@@ -1,3 +1,17 @@
+/*
+* [2013] - [2020] Avi Networks Incorporated
+* All Rights Reserved.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*   http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+ */
+
 package ingestion
 
 import (
@@ -46,37 +60,71 @@ func (gdpController *GDPController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-// MoveObjects moves the route objects in "objList" from "fromStore" to
-// "toStore".
-func MoveObjects(objList []string, fromStore *gslbutils.ClusterStore, toStore *gslbutils.ClusterStore) {
-	for _, routeName := range objList {
-		// routeName consists of cluster name, namespace and the route name
-		cname, ns, route, err := gslbutils.SplitMultiClusterObjectName(routeName)
-		if err != nil {
-			gslbutils.Errf("route: %s, msg: processing error, %s", routeName, err)
-			continue
+// MoveObjs moves the objects in "objList" from "fromStore" to "toStore".
+// TODO: call this function via an interface, so we can remove dependency
+//       on objType.
+func MoveObjs(objList []string, fromStore *gslbutils.ClusterStore, toStore *gslbutils.ClusterStore, objType string) {
+	var cname, ns, objName string
+	var err error
+	for _, multiClusterObjName := range objList {
+		if objType == gslbutils.IngressType {
+			var hostName string
+			cname, ns, objName, hostName, err = gslbutils.SplitMultiClusterIngHostName(multiClusterObjName)
+			if err != nil {
+				gslbutils.Errf("objType: %s, object: %s, msg: processing error, %s", objType,
+					objName, err)
+				continue
+			}
+			objName += "/" + hostName
+		} else {
+			// for routes and services
+			// objName consists of cluster name, namespace and the route/service name
+			cname, ns, objName, err = gslbutils.SplitMultiClusterObjectName(multiClusterObjName)
+			if err != nil {
+				gslbutils.Errf("objType: %s, object: %s, msg: processing error, %s", objType,
+					objName, err)
+				continue
+			}
 		}
-		routeObj, ok := fromStore.DeleteClusterNSObj(cname, ns, route)
+		obj, ok := fromStore.DeleteClusterNSObj(cname, ns, objName)
 		if ok {
 			// Object was found, add this to the "toStore"
-			toStore.AddOrUpdate(routeObj, cname, ns, route)
+			toStore.AddOrUpdate(obj, cname, ns, objName)
 		}
 	}
+}
+
+func splitName(objType, objName string) (string, string, string, error) {
+	var cname, ns, sname, hostname string
+	var err error
+	if objType == gdpalphav1.IngressObj {
+		cname, ns, sname, hostname, err = gslbutils.SplitMultiClusterIngHostName(objName)
+		sname += "/" + hostname
+	} else {
+		cname, ns, sname, err = gslbutils.SplitMultiClusterObjectName(objName)
+	}
+	return cname, ns, sname, err
 }
 
 func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
 	var acceptedObjStore *gslbutils.ClusterStore
 	var rejectedObjStore *gslbutils.ClusterStore
 	var objKey string
+	var cname, ns, sname string
+	var err error
 
 	if objType == gdpalphav1.RouteObj {
 		acceptedObjStore = gslbutils.GetAcceptedRouteStore()
 		rejectedObjStore = gslbutils.GetRejectedRouteStore()
-		objKey = "Route/"
+		objKey = gslbutils.RouteType
 	} else if objType == gdpalphav1.LBSvcObj {
 		acceptedObjStore = gslbutils.GetAcceptedLBSvcStore()
 		rejectedObjStore = gslbutils.GetRejectedLBSvcStore()
-		objKey = "LBSvc/"
+		objKey = gslbutils.SvcType
+	} else if objType == gdpalphav1.IngressObj {
+		acceptedObjStore = gslbutils.GetAcceptedIngressStore()
+		rejectedObjStore = gslbutils.GetRejectedIngressStore()
+		objKey = gslbutils.IngressType
 	} else {
 		gslbutils.Warnf("Unknown Object type: %s", objType)
 		return
@@ -91,9 +139,9 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 			gslbutils.Logf("ObjList: %v, msg: %s", rejectedList, "obj list will be deleted")
 			// Since, these objects are now rejected, they have to be moved to
 			// the rejected list.
-			MoveObjects(rejectedList, acceptedObjStore, rejectedObjStore)
+			MoveObjs(rejectedList, acceptedObjStore, rejectedObjStore, objKey)
 			for _, objName := range rejectedList {
-				cname, ns, sname, err := gslbutils.SplitMultiClusterObjectName(objName)
+				cname, ns, sname, err = splitName(objType, objName)
 				if err != nil {
 					gslbutils.Errf("cluster: %s, msg: couldn't process object, objtype: %s, name: %s, error, %s",
 						cname, objType, objName, err)
@@ -109,16 +157,16 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 		}
 		// if the traffic weight changed, then the accepted list has to be sent to the nodes layer
 		for _, objName := range acceptedList {
-			cname, ns, name, err := gslbutils.SplitMultiClusterObjectName(objName)
+			cname, ns, sname, err = splitName(objType, objName)
 			if err != nil {
 				gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
 				continue
 			}
 			bkt := utils.Bkt(ns, numWorkers)
-			key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, name)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
 			k8swq[bkt].AddRateLimited(key)
-			gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added ADD obj key",
-				cname, ns, objType, name, key)
+			gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added key",
+				cname, ns, objType, sname, key)
 		}
 	}
 
@@ -129,18 +177,18 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 		acceptedList, _ := rejectedObjStore.GetAllFilteredClusterNSObjects(gf.ApplyFilter)
 		if len(acceptedList) != 0 {
 			gslbutils.Logf("ObjList: %v, msg: %s", acceptedList, "object list will be added")
-			MoveObjects(acceptedList, rejectedObjStore, acceptedObjStore)
+			MoveObjs(acceptedList, rejectedObjStore, acceptedObjStore, objKey)
 			for _, objName := range acceptedList {
-				cname, ns, name, err := gslbutils.SplitMultiClusterObjectName(objName)
+				cname, ns, sname, err = splitName(objType, objName)
 				if err != nil {
 					gslbutils.Errf("objName: %s, msg: processing error, %s", objName, err)
 					continue
 				}
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, name)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, sname)
 				k8swq[bkt].AddRateLimited(key)
 				gslbutils.Logf("cluster: %s, ns: %s, objtype:%s, name: %s, key: %s, msg: added ADD obj key",
-					cname, ns, objType, name, key)
+					cname, ns, objType, sname, key)
 			}
 		}
 	}
@@ -160,6 +208,7 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 	gf.AddToGlobalFilter(gdp)
 	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, false)
 	writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, false)
+	writeChangedObjToQueue(gdpalphav1.IngressObj, k8swq, numWorkers, false)
 }
 
 // UpdateGDPObj updates the global and the namespace filters if a the GDP object
@@ -180,9 +229,10 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		return
 	}
 	if gdpChanged, trafficWeightChanged := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
-		gslbutils.Logf("GDP object changed, will go through the routes again")
+		gslbutils.Logf("GDP object changed, will go through the objects again")
 		writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, trafficWeightChanged)
 		writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, trafficWeightChanged)
+		writeChangedObjToQueue(gdpalphav1.IngressObj, k8swq, numWorkers, trafficWeightChanged)
 	}
 }
 
@@ -203,6 +253,7 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 	// Need to re-evaluate the objects again according to the deleted filter
 	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, false)
 	writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, false)
+	writeChangedObjToQueue(gdpalphav1.IngressObj, k8swq, numWorkers, false)
 }
 
 // InitializeGDPController handles initialization of a controller which handles

@@ -1,3 +1,17 @@
+/*
+* [2013] - [2020] Avi Networks Incorporated
+* All Rights Reserved.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*   http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+ */
+
 package gslbutils
 
 import (
@@ -12,6 +26,7 @@ import (
 
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
+	"k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -28,9 +43,18 @@ const (
 	ObjectDelete = "DELETE"
 	ObjectUpdate = "UPDATE"
 	// Ingestion layer objects
-	RouteType = "Route"
+	RouteType   = "Route"
+	IngressType = "Ingress"
+	SvcType     = "LBService"
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
+	// Store types
+	AcceptedStore = "Accepted"
+	RejectedStore = "Rejected"
+
+	// Multi-cluster key lengths
+	IngMultiClusterKeyLen = 6
+	MultiClusterKeyLen    = 5
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -49,15 +73,20 @@ func GetInformersPerCluster(clusterName string) *utils.Informers {
 	return info.(*utils.Informers)
 }
 
-func MultiClusterKey(operation, objType, clusterName, ns, routeName string) string {
-	key := operation + "/" + objType + clusterName + "/" + ns + "/" + routeName
+func MultiClusterKey(operation, objType, clusterName, ns, objName string) string {
+	key := operation + "/" + objType + "/" + clusterName + "/" + ns + "/" + objName
 	return key
 }
 
 func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
 	segments := strings.Split(key, "/")
-	var operation, objType, cluster, ns, name string
-	if len(segments) == 5 {
+	var operation, objType, cluster, ns, name, hostname string
+	if segments[1] == IngressType {
+		if len(segments) == IngMultiClusterKeyLen {
+			operation, objType, cluster, ns, name, hostname = segments[0], segments[1], segments[2], segments[3], segments[4], segments[5]
+			name += "/" + hostname
+		}
+	} else if len(segments) == MultiClusterKeyLen {
 		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
 	}
 	return operation, objType, cluster, ns, name
@@ -65,14 +94,26 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 
 func SplitMultiClusterObjectName(name string) (string, string, string, error) {
 	if name == "" {
-		return "", "", "", errors.New("multi-cluster route name is empty")
+		return "", "", "", errors.New("multi-cluster route/svc name is empty")
 	}
 	reqList := strings.Split(name, "/")
 
 	if len(reqList) != 3 {
-		return "", "", "", errors.New("multi-cluster route name format is unexpected")
+		return "", "", "", errors.New("multi-cluster route/svc name format is unexpected")
 	}
 	return reqList[0], reqList[1], reqList[2], nil
+}
+
+func SplitMultiClusterIngHostName(name string) (string, string, string, string, error) {
+	if name == "" {
+		return "", "", "", "", errors.New("multi-cluster ingress host name is empty")
+	}
+	reqList := strings.Split(name, "/")
+
+	if len(reqList) != 4 {
+		return "", "", "", "", errors.New("multi-cluster ingress name format is unexpected")
+	}
+	return reqList[0], reqList[1], reqList[2], reqList[3], nil
 }
 
 func RouteGetIPAddr(route *routev1.Route) (string, bool) {
@@ -96,6 +137,52 @@ func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 	return "", false
 }
 
+type IngressHostIP struct {
+	Hostname string
+	IPAddr   string
+}
+
+func getHostListFromIngress(ingress *v1beta1.Ingress) []string {
+	hostList := []string{}
+	for _, rule := range ingress.Spec.Rules {
+		if rule.Host != "" {
+			hostList = append(hostList, rule.Host)
+		}
+	}
+	return hostList
+}
+
+func IngressGetIPAddrs(ingress *v1beta1.Ingress) []IngressHostIP {
+	ingHostIP := []IngressHostIP{}
+	hostList := getHostListFromIngress(ingress)
+	ingStatus := ingress.Status
+	ingList := ingStatus.LoadBalancer.Ingress
+	if len(ingList) == 0 {
+		Warnf("Ingress %v doesn't have the status field populated", ingress)
+		return ingHostIP
+	}
+	for _, ingr := range ingList {
+		// Check if this is a IP address
+		addr := net.ParseIP(ingr.IP)
+		if addr == nil {
+			Warnf("Address %s is not an IP address: %s", addr)
+			continue
+		}
+		// Found an IP address, return
+		if ingr.Hostname == "" {
+			Warnf("Hostname is empty in ingress %s", ingress.Name)
+			continue
+		}
+		if utils.HasElem(hostList, ingr.Hostname) {
+			ingHostIP = append(ingHostIP, IngressHostIP{
+				Hostname: ingr.Hostname,
+				IPAddr:   ingr.IP,
+			})
+		}
+	}
+	return ingHostIP
+}
+
 // Logf is aliased to utils' Info.Printf
 var Logf = utils.AviLog.Info.Printf
 
@@ -107,22 +194,24 @@ var Warnf = utils.AviLog.Warning.Printf
 
 // Cluster Routes store for all the route objects.
 var (
-	AcceptedRouteStore *ClusterStore
-	RejectedRouteStore *ClusterStore
-	AcceptedLBSvcStore *ClusterStore
-	RejectedLBSvcStore *ClusterStore
+	AcceptedRouteStore   *ClusterStore
+	RejectedRouteStore   *ClusterStore
+	AcceptedLBSvcStore   *ClusterStore
+	RejectedLBSvcStore   *ClusterStore
+	AcceptedIngressStore *ClusterStore
+	RejectedIngressStore *ClusterStore
 )
 
 // GSLBConfigObj is global and is initialized only once
 var GSLBConfigObj *gslbalphav1.GSLBConfig
 
-func GetGSLBServiceChecksum(ipList, domainList, routeMembers []string) uint32 {
+func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string) uint32 {
 	sort.Strings(ipList)
 	sort.Strings(domainList)
-	sort.Strings(routeMembers)
+	sort.Strings(memberObjs)
 	return utils.Hash(utils.Stringify(ipList)) +
 		utils.Hash(utils.Stringify(domainList)) +
-		utils.Hash(utils.Stringify(routeMembers))
+		utils.Hash(utils.Stringify(memberObjs))
 }
 
 func GetAviAdminTenantRef() string {

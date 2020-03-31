@@ -1,3 +1,17 @@
+/*
+* [2013] - [2020] Avi Networks Incorporated
+* All Rights Reserved.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*   http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+ */
+
 package cache
 
 import (
@@ -7,6 +21,8 @@ import (
 	"sync"
 
 	"amko/gslb/gslbutils"
+
+	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
 
 	"github.com/avinetworks/container-lib/utils"
 	"github.com/avinetworks/sdk/go/clients"
@@ -29,7 +45,7 @@ type AviGSCache struct {
 	Tenant           string
 	Uuid             string
 	Members          []GSMember
-	Routes           []string
+	K8sObjects       []string
 	CloudConfigCksum uint32
 }
 
@@ -121,7 +137,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient) {
 			gslbutils.Warnf("resp: %v, msg: created_by contains %s instead of mcc-gslb", gsIntf, createdBy)
 			continue
 		}
-		cksum, gsMembers, memberRoutes, err := GetDetailsFromAviGSLB(gs)
+		cksum, gsMembers, memberObjs, err := GetDetailsFromAviGSLB(gs)
 		if err != nil {
 			gslbutils.Errf("resp: %v, msg: error occurred while parsing the response: %s", err)
 			continue
@@ -132,7 +148,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient) {
 			Tenant:           utils.ADMIN_NS,
 			Uuid:             uuid,
 			Members:          gsMembers,
-			Routes:           memberRoutes,
+			K8sObjects:       memberObjs,
 			CloudConfigCksum: cksum,
 		}
 		c.AviCacheAdd(k, &gsCacheObj)
@@ -143,41 +159,54 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient) {
 
 func parseDescription(description string) ([]string, error) {
 	// description field should be like:
-	// cluster-x/namespace-x/route-x,cluster-y/namespace-y/route-y
-	routeList := strings.Split(description, ",")
-	if len(routeList) == 0 {
-		return []string{}, errors.New("description field has no routes")
+	// LBSvc/cluster-x/namespace-x/svc-x,Ingress/cluster-y/namespace-y/ingress-y/hostname,...
+	objList := strings.Split(description, ",")
+	if len(objList) == 0 {
+		return []string{}, errors.New("description field has no k8s/openshift objects")
 	}
-	for _, route := range routeList {
-		routeSeg := strings.Split(route, "/")
-		if len(routeSeg) != 3 {
-			return []string{}, errors.New("description field has malformed route")
+	for _, obj := range objList {
+		seg := strings.Split(obj, "/")
+		switch seg[0] {
+		case gdpv1alpha1.IngressObj:
+			if len(seg) != 5 {
+				return []string{}, errors.New("description field has malformed ingress")
+			}
+		case gdpv1alpha1.LBSvcObj:
+			if len(seg) != 4 {
+				return []string{}, errors.New("description field has malformed LB service")
+			}
+		case gdpv1alpha1.RouteObj:
+			if len(seg) != 4 {
+				return []string{}, errors.New("description field has malformed route")
+			}
+		default:
+			return []string{}, errors.New("description has unrecognised objects")
 		}
 	}
-	return routeList, nil
+	return objList, nil
 }
 
 func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, error) {
 	var ipList []string
 	var domainList []string
 	var gsMembers []GSMember
-	var routeMembers []string
+	var memberObjs []string
 
 	domainNames, ok := gslbSvcMap["domain_names"].([]interface{})
 	if !ok {
-		return 0, nil, routeMembers, errors.New("domain names absent in gslb service")
+		return 0, nil, memberObjs, errors.New("domain names absent in gslb service")
 	}
 	for _, domain := range domainNames {
 		domainList = append(domainList, domain.(string))
 	}
 	groups, ok := gslbSvcMap["groups"].([]interface{})
 	if !ok {
-		return 0, nil, routeMembers, errors.New("groups absent in gslb service")
+		return 0, nil, memberObjs, errors.New("groups absent in gslb service")
 	}
 
 	description, ok := gslbSvcMap["description"].(string)
 	if !ok {
-		return 0, nil, routeMembers, errors.New("description absent in gslb service")
+		return 0, nil, memberObjs, errors.New("description absent in gslb service")
 	}
 
 	for _, val := range groups {
@@ -221,13 +250,13 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			gsMembers = append(gsMembers, gsMember)
 		}
 	}
-	routeMembers, err := parseDescription(description)
+	memberObjs, err := parseDescription(description)
 	if err != nil {
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, routeMembers)
-	return checksum, gsMembers, routeMembers, nil
+	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs)
+	return checksum, gsMembers, memberObjs, nil
 }
 
 func (c *AviCache) AviObjCachePopulate(client *clients.AviClient,

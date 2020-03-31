@@ -1,3 +1,17 @@
+/*
+* [2013] - [2020] Avi Networks Incorporated
+* All Rights Reserved.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*   http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+ */
+
 package nodes
 
 import (
@@ -44,9 +58,10 @@ func (a *AviGSGraphLister) GetAll() map[string]interface{} {
 	return a.AviGSGraphStore.GetAllObjectNames()
 }
 
-// AviGSRoute represents a route from which a GS was built.
-type AviGSRoute struct {
+// AviGSK8sObj represents a K8S/Openshift object from which a GS was built.
+type AviGSK8sObj struct {
 	Cluster   string
+	ObjType   string
 	Name      string
 	Namespace string
 	IPAddr    string
@@ -59,8 +74,8 @@ type AviGSObjectGraph struct {
 	Name        string
 	Tenant      string
 	DomainNames []string
-	// Routes is a list of routes from which this AviGS was built.
-	MemberRoutes  []AviGSRoute
+	// MemberObjs is a list of K8s/openshift objects from which this AviGS was built.
+	MemberObjs    []AviGSK8sObj
 	GraphChecksum uint32
 	Lock          sync.RWMutex
 }
@@ -74,99 +89,93 @@ func (v *AviGSObjectGraph) GetChecksum() uint32 {
 func (v *AviGSObjectGraph) CalculateChecksum() {
 	// A sum of fields for this GS
 	var memberIPs []string
-	var memberRoutes []string
+	var memberObjs []string
 
-	for _, gsMember := range v.MemberRoutes {
+	for _, gsMember := range v.MemberObjs {
 		memberIPs = append(memberIPs, gsMember.IPAddr+"-"+strconv.Itoa(int(gsMember.Weight)))
-		memberRoutes = append(memberRoutes, gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
+		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
 	}
 
-	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberRoutes)
+	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs)
 }
 
 // GetMemberRouteList returns a list of member routes
-func (v *AviGSObjectGraph) GetMemberRouteList() []string {
-	var memberRoutes []string
-	for _, route := range v.MemberRoutes {
-		memberRoutes = append(memberRoutes, route.Cluster+"/"+route.Namespace+"/"+route.Name)
+func (v *AviGSObjectGraph) GetMemberObjList() []string {
+	var memberObjs []string
+	for _, obj := range v.MemberObjs {
+		memberObjs = append(memberObjs, obj.ObjType+"/"+obj.Cluster+"/"+obj.Namespace+"/"+obj.Name)
 	}
-	return memberRoutes
+	return memberObjs
 }
 
 func NewAviGSObjectGraph() *AviGSObjectGraph {
 	return &AviGSObjectGraph{}
 }
 
-func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, route k8sobjects.RouteMeta, memberWeight int32) {
+func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sobjects.MetaObject, memberWeight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
-	hosts := []string{route.Hostname}
-	memberRoutes := []AviGSRoute{
-		AviGSRoute{
-			Cluster:   route.Cluster,
-			IPAddr:    route.IPAddr,
+	hosts := []string{metaObj.GetHostname()}
+	memberRoutes := []AviGSK8sObj{
+		AviGSK8sObj{
+			Cluster:   metaObj.GetCluster(),
+			ObjType:   metaObj.GetType(),
+			IPAddr:    metaObj.GetIPAddr(),
 			Weight:    memberWeight,
-			Name:      route.Name,
-			Namespace: route.Namespace,
+			Name:      metaObj.GetName(),
+			Namespace: metaObj.GetNamespace(),
 		},
 	}
 	// The GSLB service will be put into the admin tenant
 	v.Name = gsName
 	v.Tenant = utils.ADMIN_NS
 	v.DomainNames = hosts
-	v.MemberRoutes = memberRoutes
+	v.MemberObjs = memberRoutes
 	v.GetChecksum()
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
 }
 
-func (v *AviGSObjectGraph) UpdateGSMember(route k8sobjects.RouteMeta, weight int32) {
+func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
-	for _, memberRoute := range v.MemberRoutes {
-		if route.Cluster != memberRoute.Cluster {
+	for idx, memberObj := range v.MemberObjs {
+		if metaObj.GetType() != memberObj.ObjType {
 			continue
 		}
-		if route.Namespace != memberRoute.Namespace {
+		if metaObj.GetCluster() != memberObj.Cluster {
 			continue
 		}
-		if route.Name != memberRoute.Name {
+		if metaObj.GetNamespace() != memberObj.Namespace {
 			continue
 		}
-
-		if route.IPAddr == memberRoute.IPAddr {
-			if weight == memberRoute.Weight {
-				// Nothing to update
-				return
-			} else {
-				// weight is different
-				memberRoute.Weight = weight
-				return
-			}
-		} else {
-			// IP Address is different
-			memberRoute.IPAddr = route.IPAddr
-			return
+		if metaObj.GetName() != memberObj.Name {
+			continue
 		}
+		// if we reach here, it means this is the member we need to update
+		v.MemberObjs[idx].IPAddr = metaObj.GetIPAddr()
+		v.MemberObjs[idx].Weight = weight
+		return
 	}
 
 	// We reach here only if a new member needs to be created, so create and append
-	gsMember := AviGSRoute{
-		Cluster:   route.Cluster,
-		Namespace: route.Namespace,
-		Name:      route.Name,
-		IPAddr:    route.IPAddr,
+	gsMember := AviGSK8sObj{
+		Cluster:   metaObj.GetCluster(),
+		Namespace: metaObj.GetNamespace(),
+		Name:      metaObj.GetName(),
+		IPAddr:    metaObj.GetIPAddr(),
 		Weight:    weight,
+		ObjType:   metaObj.GetType(),
 	}
-	v.MemberRoutes = append(v.MemberRoutes, gsMember)
+	v.MemberObjs = append(v.MemberObjs, gsMember)
 }
 
-func (v *AviGSObjectGraph) DeleteMember(cname, ns, name string) {
+func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
 	idx := -1
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
-	for i, memberRoute := range v.MemberRoutes {
-		if cname == memberRoute.Cluster && ns == memberRoute.Namespace && name == memberRoute.Name {
+	for i, memberObj := range v.MemberObjs {
+		if objType == memberObj.ObjType && cname == memberObj.Cluster && ns == memberObj.Namespace && name == memberObj.Name {
 			idx = i
 			break
 		}
@@ -176,36 +185,37 @@ func (v *AviGSObjectGraph) DeleteMember(cname, ns, name string) {
 		return
 	}
 	// Delete the member route
-	v.MemberRoutes = append(v.MemberRoutes[:idx], v.MemberRoutes[idx+1:]...)
+	v.MemberObjs = append(v.MemberObjs[:idx], v.MemberObjs[idx+1:]...)
 }
 
 func (v *AviGSObjectGraph) MembersLen() int {
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
-	return len(v.MemberRoutes)
+	return len(v.MemberObjs)
 }
 
-func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSRoute {
+func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSK8sObj {
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
-	for _, member := range v.MemberRoutes {
+	for _, member := range v.MemberObjs {
 		if member.Cluster == cname && member.Namespace == ns && member.Name == name {
 			return member
 		}
 	}
-	return AviGSRoute{}
+	return AviGSK8sObj{}
 }
 
-func (v *AviGSObjectGraph) GetMemberRouteObjs() []AviGSRoute {
+func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 	v.Lock.RLock()
 	v.Lock.RUnlock()
-	routeObjs := make([]AviGSRoute, len(v.MemberRoutes))
-	for idx := range v.MemberRoutes {
-		routeObjs[idx].Cluster = v.MemberRoutes[idx].Cluster
-		routeObjs[idx].Name = v.MemberRoutes[idx].Name
-		routeObjs[idx].Namespace = v.MemberRoutes[idx].Namespace
-		routeObjs[idx].IPAddr = v.MemberRoutes[idx].IPAddr
-		routeObjs[idx].Weight = v.MemberRoutes[idx].Weight
+	objs := make([]AviGSK8sObj, len(v.MemberObjs))
+	for idx := range v.MemberObjs {
+		objs[idx].Cluster = v.MemberObjs[idx].Cluster
+		objs[idx].Name = v.MemberObjs[idx].Name
+		objs[idx].Namespace = v.MemberObjs[idx].Namespace
+		objs[idx].IPAddr = v.MemberObjs[idx].IPAddr
+		objs[idx].Weight = v.MemberObjs[idx].Weight
+		objs[idx].ObjType = v.MemberObjs[idx].ObjType
 	}
-	return routeObjs
+	return objs
 }

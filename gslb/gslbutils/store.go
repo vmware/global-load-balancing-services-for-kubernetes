@@ -54,7 +54,7 @@ func GetRejectedRouteStore() *ClusterStore {
 
 var acceptedSvcOnce sync.Once
 
-// GetAcceptedRouteStore initializes and returns a new accepted route store.
+// GetAcceptedLBSvcStore initializes and returns a new accepted route store.
 func GetAcceptedLBSvcStore() *ClusterStore {
 	acceptedSvcOnce.Do(func() {
 		AcceptedLBSvcStore = NewClusterStore()
@@ -64,12 +64,32 @@ func GetAcceptedLBSvcStore() *ClusterStore {
 
 var rejectedSvcOnce sync.Once
 
-// GetRejectedRouteStore initializes and returns a new accepted route store.
+// GetRejectedLBSvcStore initializes and returns a new accepted route store.
 func GetRejectedLBSvcStore() *ClusterStore {
 	rejectedSvcOnce.Do(func() {
 		RejectedLBSvcStore = NewClusterStore()
 	})
 	return RejectedLBSvcStore
+}
+
+var acceptedIngOnce sync.Once
+
+// GetAcceptedIngressStore initializes and returns a new accepted ingress store.
+func GetAcceptedIngressStore() *ClusterStore {
+	acceptedIngOnce.Do(func() {
+		AcceptedIngressStore = NewClusterStore()
+	})
+	return AcceptedIngressStore
+}
+
+var rejectedIngOnce sync.Once
+
+// GetRejectedIngressStore initializes and returns a new accepted ingress store.
+func GetRejectedIngressStore() *ClusterStore {
+	rejectedIngOnce.Do(func() {
+		RejectedIngressStore = NewClusterStore()
+	})
+	return RejectedIngressStore
 }
 
 // NewClusterStore initializes and returns a new cluster store.

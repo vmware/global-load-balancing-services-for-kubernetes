@@ -24,7 +24,7 @@ spec:
                 properties:
                   object:
                     type: "string"
-                    enum: [INGRESS, ROUTE]
+                    enum: [INGRESS, ROUTE, LBSVC]
                   hosts:
                     type: "array"
                     items:
