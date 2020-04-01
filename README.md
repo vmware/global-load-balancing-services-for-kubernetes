@@ -26,7 +26,7 @@ The next step is to use helm to bootstrap amko:
 ```
 helm install amko --generate-name --namespace=avi-system --set configs.gslbLeaderHost="10.10.10.10" 
 ```
-Use the [a relative link](helm/amko/values.yaml) to edit values related to Avi configuration. Please refer to the [parameters](#parameters).
+Use the [values.yaml](helm/amko/values.yaml) to edit values related to Avi configuration. Please refer to the [parameters](#parameters).
 
 ## Uninstall using helm
 
