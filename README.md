@@ -78,5 +78,18 @@ users:
 * The above example is for two clusters. Obtain the server addresses, ca.crts, client certs and client keys for the required clusters.
 * The names `cluster1-admin` and `cluster2-admin` are the respective cluster contexts for both these clusters.
 
+## Build and Test
+Use:
+```
+make docker
+```
+to build and the image that will be generated will be named: `amko:latest`.
+
+Use:
+```
+make test
+```
+to run the test cases.
+
 ### HA Cloud
 HACloud - Federation of services across multiple kubernetes clusters which are typically within same region, without using DNS based load balancing. 
