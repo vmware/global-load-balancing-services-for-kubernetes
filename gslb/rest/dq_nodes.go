@@ -1,3 +1,17 @@
+/*
+* [2013] - [2020] Avi Networks Incorporated
+* All Rights Reserved.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*   http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+ */
+
 package rest
 
 import (
@@ -126,8 +140,8 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
 	var gslbSvcGroups []*avimodels.GslbPool
-	memberRoutes := gsMeta.GetMemberRouteObjs()
-	for _, member := range memberRoutes {
+	memberObjs := gsMeta.GetMemberObjs()
+	for _, member := range memberObjs {
 		if member.IPAddr == "" {
 			continue
 		}
@@ -172,7 +186,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	tenantRef := gslbutils.GetAviAdminTenantRef()
 	useEdnsClientSubnet := true
 	wildcardMatch := false
-	description := strings.Join(gsMeta.GetMemberRouteList(), ",")
+	description := strings.Join(gsMeta.GetMemberObjList(), ",")
 
 	hmRefs := []string{"/api/healthmonitor/?name=" + gslbutils.GSLBHealthMonitor}
 
@@ -289,7 +303,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 		return errors.New("uuid not present in response")
 	}
 
-	cksum, gsMembers, memberRoutes, err := avicache.GetDetailsFromAviGSLB(respElem)
+	cksum, gsMembers, memberObjs, err := avicache.GetDetailsFromAviGSLB(respElem)
 	if err != nil {
 		gslbutils.Errf("key: %s, resp: %v, msg: error in getting checksum for gslb svc: %s", key, respElem, err)
 	}
@@ -302,7 +316,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			gsCacheObj.Uuid = uuid
 			gsCacheObj.CloudConfigCksum = cksum
 			gsCacheObj.Members = gsMembers
-			gsCacheObj.Routes = memberRoutes
+			gsCacheObj.K8sObjects = memberObjs
 			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: updated GS cache\n", key, k,
 				utils.Stringify(gsCacheObj)))
 		} else {
@@ -314,7 +328,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 				Tenant:           operation.Tenant,
 				Uuid:             uuid,
 				Members:          gsMembers,
-				Routes:           memberRoutes,
+				K8sObjects:       memberObjs,
 				CloudConfigCksum: cksum,
 			}
 			restOp.cache.AviCacheAdd(k, &gsCacheObj)
@@ -328,7 +342,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			Tenant:           operation.Tenant,
 			Uuid:             uuid,
 			Members:          gsMembers,
-			Routes:           memberRoutes,
+			K8sObjects:       memberObjs,
 			CloudConfigCksum: cksum,
 		}
 		restOp.cache.AviCacheAdd(k, &gsCacheObj)

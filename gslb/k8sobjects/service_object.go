@@ -17,9 +17,20 @@ package k8sobjects
 import (
 	"amko/gslb/gslbutils"
 	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 )
+
+var shMapInit sync.Once
+var shMap ObjHostMap
+
+func getSvcHostMap() *ObjHostMap {
+	rhMapInit.Do(func() {
+		rhMap.HostMap = make(map[string]IPHostname)
+	})
+	return &rhMap
+}
 
 type SvcMeta struct {
 	Cluster   string
@@ -76,6 +87,10 @@ func (svc SvcMeta) GetNamespace() string {
 	return svc.Namespace
 }
 
+func (svc SvcMeta) GetCluster() string {
+	return svc.Cluster
+}
+
 func (svc SvcMeta) SanityCheck(mr gdpv1alpha1.MatchRule) bool {
 	return true
 }
@@ -83,6 +98,14 @@ func (svc SvcMeta) SanityCheck(mr gdpv1alpha1.MatchRule) bool {
 func (svc SvcMeta) GlobOperate(mr gdpv1alpha1.MatchRule) bool {
 	// not implemented
 	return false
+}
+
+func (svc SvcMeta) GetHostname() string {
+	return svc.Hostname
+}
+
+func (svc SvcMeta) GetIPAddr() string {
+	return svc.IPAddr
 }
 
 func (svc SvcMeta) EqualOperate(mr gdpv1alpha1.MatchRule) bool {
@@ -104,4 +127,32 @@ func (svc SvcMeta) NotEqualOperate(mr gdpv1alpha1.MatchRule) bool {
 		}
 	}
 	return true
+}
+
+func (svc SvcMeta) UpdateHostMap(key string) {
+	rhm := getSvcHostMap()
+	rhm.Lock.Lock()
+	defer rhm.Lock.Unlock()
+	rhm.HostMap[key] = IPHostname{
+		IP:       svc.IPAddr,
+		Hostname: svc.Hostname,
+	}
+}
+
+func (svc SvcMeta) GetHostnameFromHostMap(key string) string {
+	shm := getSvcHostMap()
+	shm.Lock.Lock()
+	defer shm.Lock.Unlock()
+	ipHostname, ok := shm.HostMap[key]
+	if !ok {
+		return ""
+	}
+	return ipHostname.Hostname
+}
+
+func (svc SvcMeta) DeleteMapByKey(key string) {
+	shm := getSvcHostMap()
+	shm.Lock.Lock()
+	defer shm.Lock.Unlock()
+	delete(shm.HostMap, key)
 }
