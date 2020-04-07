@@ -30,7 +30,11 @@ helm install amko --generate-name --namespace=avi-system --set configs.gslbLeade
 Use the [values.yaml](helm/amko/values.yaml) to edit values related to Avi configuration. Please refer to the [parameters](#parameters).
 
 ## Uninstall using helm
-
+Since we provided a dynamic name with `helm install`, we have to first find out the name of the helm installation:
+```
+helm list -n avi-system    // note the name of amko instance
+helm uninstall -n avi-system <amko_instance>
+```
 ## parameters
 | **Parameter**                | **Description**         | **Default**                      |
 |-----------------------------|------------------------|------------------------------------|
