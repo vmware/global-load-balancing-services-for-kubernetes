@@ -1,7 +1,7 @@
 # AMKO: Avi Multi Kubernetes Operator
 
 ## What's AMKO?
-AMKO is a project that is used to provide multi cluster load balancing for applications - GSLB and HACloud features.
+AMKO provides application load-balancing across multiple clusters using AVI's enterprise grade GSLB capabilities.
 
 GSLB - Load balancing across instances of the application that have been deployed to multiple locations (typically, multiple data centers and/or public clouds). Avi uses the Domain Name System (DNS) for providing the optimal destination information to the user clients 
 
@@ -9,7 +9,7 @@ GSLB - Load balancing across instances of the application that have been deploye
 Few things are needed before we can kickstart AMKO:
 1. Atleast one kubernetes/openshift cluster.
 2. Atleast one AVI controller which manages the above kubernetes/openshift cluster. Additional controllers with openshift/kubernetes clusters can be added. 
-3. Designate one controller (site) as the GSLB leader. Enable GSLB on the required controller and the other controllers (sites) as the follower nodes.
+3. One controller (site) designated as the GSLB leader site. Enable GSLB on the required controller and the other controllers (sites) as the follower nodes.
 4. Designate one openshift/kubernetes cluster which will be communicating with the GSLB leader. All the configs for `amko` will be added to this cluster. We will call this cluster, `cluster-amko`.
 5. Create a namespace `avi-system` in `cluster-amko`:
 ```
@@ -30,10 +30,8 @@ helm install amko --generate-name --namespace=avi-system --set configs.gslbLeade
 Use the [values.yaml](helm/amko/values.yaml) to edit values related to Avi configuration. Please refer to the [parameters](#parameters).
 
 ## Uninstall using helm
-Since we provided a dynamic name with `helm install`, we have to first find out the name of the helm installation:
 ```
-helm list -n avi-system    // note the name of amko instance
-helm uninstall -n avi-system <amko_instance>
+helm uninstall -n avi-system <release_name>
 ```
 ## parameters
 | **Parameter**                | **Description**         | **Default**                      |
@@ -47,7 +45,7 @@ helm uninstall -n avi-system <amko_instance>
 |`configs.clusterMembers.secret` | The name of the secret which is created with kubeconfig as the data | `gslb-config-secret`|
 |`configs.clusterMembers.key` | The name of the field (key) inside the secret `configs.clusterMembers.secret` data | `gslb-members`|
 
-## GSLB configuration to kubernetes cluster
+## Use the GSLBConfig CRD
 A CRD has been provided to add the GSLB configuration. The name of the object is GSLBConfig and it has the following parameters:
 ```
 apiVersion: "avilb.k8s.io/v1alpha1"
