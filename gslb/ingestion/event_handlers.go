@@ -22,6 +22,7 @@ import (
 	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
+	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
@@ -110,49 +111,142 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 	return svcEventHandler
 }
 
-func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController, gf *filter.GlobalFilter,
+	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	for _, ihm := range ingressHostMetaObjs {
+		if ihm.IPAddr == "" || ihm.Hostname == "" {
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
+				c.name, ihm.Namespace, ihm.IngName,
+				"rejected ADD ingress because IP address/Hostname not found in status field")
+			continue
+		}
+		if gf == nil || !gf.ApplyFilter(ihm, c.name) {
+			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
+				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
+			continue
+		}
+		AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
+		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, c.workqueue)
+	}
+}
+
+func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController, acceptedIngStore,
+	rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	for _, ihm := range ingressHostMetaObjs {
+		DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
+		DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
+		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+			ihm.Namespace, ihm.ObjName, ihm.Hostname, c.workqueue)
+	}
+}
+
+func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
+	gf *filter.GlobalFilter, acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	for _, ihm := range oldIngMetaObjs {
+		// Check whether this exists in the new ingressHost list, if not, we need
+		// to delete this ingressHost object
+		newIhm, found := ihm.IngressHostInList(newIngMetaObjs)
+		if !found {
+			// ingressHost doesn't exist anymore, delete this ingressHost object
+			_, isAccepted := acceptedIngStore.GetClusterNSObjectByName(c.name, ihm.Namespace,
+				ihm.ObjName)
+			DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
+			DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
+			// If part of accepted store, only then publish the delete key
+			if isAccepted {
+				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+					ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, c.workqueue)
+			}
+			continue
+		}
+		// ingressHost exists, check if that got updated
+		if ihm.GetIngressHostCksum() == newIhm.GetIngressHostCksum() {
+			// no changes, just continue
+			continue
+		}
+		// there are changes, need to send an update key, but first apply the filter
+		if gf == nil || !gf.ApplyFilter(newIhm, c.name) {
+			// See if the ingressHost was already accepted, if yes, need to delete the key
+			fetchedObj, ok := acceptedIngStore.GetClusterNSObjectByName(c.name,
+				ihm.Namespace, ihm.ObjName)
+			if !ok {
+				// Nothing to be done, just add to the rejected ingress store
+				AddOrUpdateIngressStore(rejectedIngStore, newIhm, c.name)
+				continue
+			}
+			// Else, move this ingressHost from accepted to rejected store, and add
+			// a delete key for this ingressHost to the queue
+			multiClusterIngHostName := newIhm.GetClusterKey()
+			MoveObjs([]string{multiClusterIngHostName}, acceptedIngStore, rejectedIngStore, gslbutils.IngressType)
+			fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
+			// Add a DELETE key for this ingHost
+			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, fetchedIngHost.Cluster,
+				fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
+				c.workqueue)
+			continue
+		}
+		// ingHost passed through the filter, need to send an update key
+		// if the ingHost was already part of rejected store, we need to move this ingHost
+		// from the rejected to accepted store
+		AddOrUpdateIngressStore(acceptedIngStore, newIhm, c.name)
+		rejectedIngStore.DeleteClusterNSObj(c.name, ihm.Namespace, ihm.GetIngressHostMetaKey())
+		// Add the key for this ingHost to the queue
+		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, ihm.Namespace, ihm.ObjName,
+			gslbutils.ObjectUpdate, c.workqueue)
+		continue
+	}
+	// Check if there are any new ingHost objects, if yes, we have to add those
+	for _, ihm := range newIngMetaObjs {
+		_, found := ihm.IngressHostInList(oldIngMetaObjs)
+		if found {
+			continue
+		}
+		// only the new ones will be considered, because the old ones
+		// have been taken care of already
+		// Add this ingressHost object
+		if ihm.IPAddr == "" || ihm.Hostname == "" {
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s",
+				c.name, ihm.Namespace, ihm.ObjName,
+				"rejected ADD ingress because IP address/Hostname not found in status field")
+			continue
+		}
+		if gf == nil || !gf.ApplyFilter(ihm, c.name) {
+			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
+				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
+			continue
+		}
+		AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
+		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, c.workqueue)
+		continue
+	}
+}
+
+func AddCoreV1IngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	gf := filter.GetGlobalFilter()
 	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
 	rejectedIngStore := gslbutils.GetRejectedIngressStore()
 
-	gslbutils.Logf("Adding Ingress handler")
+	gslbutils.Logf("Adding CoreV1 Ingress handler")
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ingr := obj.(*v1beta1.Ingress)
 			// Don't add this ingr if there's no status field present or no IP is allocated in this
 			// status field
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
-			for _, ihm := range ingressHostMetaObjs {
-				if ihm.IPAddr == "" || ihm.Hostname == "" {
-					gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
-						c.name, ingr.ObjectMeta.Namespace, ingr.ObjectMeta.Name,
-						"rejected ADD ingress because IP address/Hostname not found in status field")
-					continue
-				}
-				if gf == nil || !gf.ApplyFilter(ihm, c.name) {
-					AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
-					gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
-						ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
-					continue
-				}
-				AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
-				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-					ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, c.workqueue)
-			}
+			filterAndAddIngressMeta(ingressHostMetaObjs, c, gf, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		DeleteFunc: func(obj interface{}) {
 			ingr, ok := obj.(*v1beta1.Ingress)
 			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not Ingress")
+				containerutils.AviLog.Error.Printf("object type is not corev1 Ingress")
 			}
 			// Delete from all ingress stores
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
-			for _, ihm := range ingressHostMetaObjs {
-				DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
-				DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
-				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-					ihm.Namespace, ihm.ObjName, ihm.Hostname, c.workqueue)
-			}
+			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldIngr := old.(*v1beta1.Ingress)
@@ -160,85 +254,45 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
 				oldIngMetaObjs := k8sobjects.GetIngressHostMeta(oldIngr, c.name)
 				newIngMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
-				for _, ihm := range oldIngMetaObjs {
-					// Check whether this exists in the new ingressHost list, if not, we need
-					// to delete this ingressHost object
-					newIhm, found := ihm.IngressHostInList(newIngMetaObjs)
-					if !found {
-						// ingressHost doesn't exist anymore, delete this ingressHost object
-						_, isAccepted := acceptedIngStore.GetClusterNSObjectByName(c.name, ihm.Namespace,
-							ihm.ObjName)
-						DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
-						DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
-						// If part of accepted store, only then publish the delete key
-						if isAccepted {
-							publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-								ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, c.workqueue)
-						}
-						continue
-					}
-					// ingressHost exists, check if that got updated
-					if ihm.GetIngressHostCksum() == newIhm.GetIngressHostCksum() {
-						// no changes, just continue
-						continue
-					}
-					// there are changes, need to send an update key, but first apply the filter
-					if gf == nil || !gf.ApplyFilter(newIhm, c.name) {
-						// See if the ingressHost was already accepted, if yes, need to delete the key
-						fetchedObj, ok := acceptedIngStore.GetClusterNSObjectByName(c.name,
-							ihm.Namespace, ihm.ObjName)
-						if !ok {
-							// Nothing to be done, just add to the rejected ingress store
-							AddOrUpdateIngressStore(rejectedIngStore, newIhm, c.name)
-							continue
-						}
-						// Else, move this ingressHost from accepted to rejected store, and add
-						// a delete key for this ingressHost to the queue
-						multiClusterIngHostName := newIhm.GetClusterKey()
-						MoveObjs([]string{multiClusterIngHostName}, acceptedIngStore, rejectedIngStore, gslbutils.IngressType)
-						fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
-						// Add a DELETE key for this ingHost
-						publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, fetchedIngHost.Cluster,
-							fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
-							c.workqueue)
-						continue
-					}
-					// ingHost passed through the filter, need to send an update key
-					// if the ingHost was already part of rejected store, we need to move this ingHost
-					// from the rejected to accepted store
-					AddOrUpdateIngressStore(acceptedIngStore, newIhm, c.name)
-					rejectedIngStore.DeleteClusterNSObj(c.name, ihm.Namespace, ihm.GetIngressHostMetaKey())
-					// Add the key for this ingHost to the queue
-					publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, ihm.Namespace, ihm.ObjName,
-						gslbutils.ObjectUpdate, c.workqueue)
-					continue
-				}
-				// Check if there are any new ingHost objects, if yes, we have to add those
-				for _, ihm := range newIngMetaObjs {
-					_, found := ihm.IngressHostInList(oldIngMetaObjs)
-					if found {
-						continue
-					}
-					// only the new ones will be considered, because the old ones
-					// have been taken care of already
-					// Add this ingressHost object
-					if ihm.IPAddr == "" || ihm.Hostname == "" {
-						gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s",
-							c.name, ihm.Namespace, ihm.ObjName,
-							"rejected ADD ingress because IP address/Hostname not found in status field")
-						continue
-					}
-					if gf == nil || !gf.ApplyFilter(ihm, c.name) {
-						AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
-						gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
-							ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
-						continue
-					}
-					AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
-					publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-						ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, c.workqueue)
-					continue
-				}
+				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, gf, acceptedIngStore, rejectedIngStore,
+					numWorkers)
+			}
+		},
+	}
+	return ingressEventHandler
+}
+
+func AddExtV1IngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+	gf := filter.GetGlobalFilter()
+	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
+	rejectedIngStore := gslbutils.GetRejectedIngressStore()
+
+	gslbutils.Logf("Adding ExtensionV1 Ingress handler")
+	ingressEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			ingr := obj.(*extensionv1beta1.Ingress)
+			// Don't add this ingr if there's no status field present or no IP is allocated in this
+			// status field
+			ingressHostMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(ingr, c.name)
+			filterAndAddIngressMeta(ingressHostMetaObjs, c, gf, acceptedIngStore, rejectedIngStore, numWorkers)
+		},
+		DeleteFunc: func(obj interface{}) {
+			ingr, ok := obj.(*extensionv1beta1.Ingress)
+			if !ok {
+				containerutils.AviLog.Error.Printf("object type is not extensionv1 Ingress")
+			}
+			// Delete from all ingress stores
+			ingressHostMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(ingr, c.name)
+			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
+		},
+		UpdateFunc: func(old, curr interface{}) {
+			oldIngr := old.(*extensionv1beta1.Ingress)
+			ingr := curr.(*extensionv1beta1.Ingress)
+			if oldIngr.ResourceVersion != ingr.ResourceVersion {
+				oldIngMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(oldIngr, c.name)
+				newIngMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(ingr, c.name)
+				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, gf, acceptedIngStore,
+					rejectedIngStore, numWorkers)
 			}
 		},
 	}

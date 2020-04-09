@@ -19,6 +19,8 @@ import (
 	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
 	"sync"
 
+	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
+
 	"github.com/gobwas/glob"
 	"gitlab.eng.vmware.com/orion/container-lib/utils"
 	"k8s.io/api/networking/v1beta1"
@@ -38,6 +40,28 @@ func getIngHostMap() *ObjHostMap {
 func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMeta {
 	ingHostMetaList := []IngressHostMeta{}
 	hostIPList := gslbutils.IngressGetIPAddrs(ingress)
+	for _, hip := range hostIPList {
+		metaObj := IngressHostMeta{
+			IngName:   ingress.Name,
+			Namespace: ingress.ObjectMeta.Namespace,
+			Hostname:  hip.Hostname,
+			IPAddr:    hip.IPAddr,
+			Cluster:   cname,
+			ObjName:   ingress.Name + "/" + hip.Hostname,
+		}
+		metaObj.Labels = make(map[string]string)
+		for key, value := range ingress.GetLabels() {
+			metaObj.Labels[key] = value
+		}
+
+		ingHostMetaList = append(ingHostMetaList, metaObj)
+	}
+	return ingHostMetaList
+}
+
+func GetExtensionV1IngressHostMeta(ingress *extensionv1beta1.Ingress, cname string) []IngressHostMeta {
+	ingHostMetaList := []IngressHostMeta{}
+	hostIPList := gslbutils.ExtensionV1IngressGetIPAddrs(ingress)
 	for _, hip := range hostIPList {
 		metaObj := IngressHostMeta{
 			IngName:   ingress.Name,

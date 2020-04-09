@@ -398,8 +398,13 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 		allInformers = append(allInformers, utils.RouteInformer)
 	} else {
 		// Kubernetes cluster
-		// TODO: CoreV1 or extensions/v1beta1
-		allInformers = append(allInformers, utils.CoreV1IngressInformer)
+		_, ingErr := kclient.NetworkingV1beta1().Ingresses("").List(metav1.ListOptions{})
+		if ingErr == nil {
+			// CoreV1 Ingress
+			allInformers = append(allInformers, utils.CoreV1IngressInformer)
+		} else {
+			allInformers = append(allInformers, utils.ExtV1IngressInformer)
+		}
 	}
 
 	allInformers = append(allInformers, utils.ServiceInformer)

@@ -107,9 +107,12 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	c.workqueue = k8sQueue.Workqueue
 	numWorkers := k8sQueue.NumWorkers
 
-	// TODO: Seamless way of starting ingress/route informers
+	if c.informers.ExtV1IngressInformer != nil {
+		extv1IngressEventHandler := AddExtV1IngressEventHandler(numWorkers, c)
+		c.informers.ExtV1IngressInformer.Informer().AddEventHandler(extv1IngressEventHandler)
+	}
 	if c.informers.CoreV1IngressInformer != nil {
-		ingressEventHandler := AddIngressEventHandler(numWorkers, c)
+		ingressEventHandler := AddCoreV1IngressEventHandler(numWorkers, c)
 		c.informers.CoreV1IngressInformer.Informer().AddEventHandler(ingressEventHandler)
 	}
 	if c.informers.RouteInformer != nil {

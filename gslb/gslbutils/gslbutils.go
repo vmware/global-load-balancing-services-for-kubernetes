@@ -24,6 +24,8 @@ import (
 
 	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
 
+	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
+
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/api/networking/v1beta1"
@@ -152,9 +154,50 @@ func getHostListFromIngress(ingress *v1beta1.Ingress) []string {
 	return hostList
 }
 
+func getHostListFromExtensionV1Ingress(ingress *extensionv1beta1.Ingress) []string {
+	hostList := []string{}
+	for _, rule := range ingress.Spec.Rules {
+		if rule.Host != "" {
+			hostList = append(hostList, rule.Host)
+		}
+	}
+	return hostList
+}
+
 func IngressGetIPAddrs(ingress *v1beta1.Ingress) []IngressHostIP {
 	ingHostIP := []IngressHostIP{}
 	hostList := getHostListFromIngress(ingress)
+	ingStatus := ingress.Status
+	ingList := ingStatus.LoadBalancer.Ingress
+	if len(ingList) == 0 {
+		Warnf("Ingress %v doesn't have the status field populated", ingress)
+		return ingHostIP
+	}
+	for _, ingr := range ingList {
+		// Check if this is a IP address
+		addr := net.ParseIP(ingr.IP)
+		if addr == nil {
+			Warnf("Address %s is not an IP address: %s", addr)
+			continue
+		}
+		// Found an IP address, return
+		if ingr.Hostname == "" {
+			Warnf("Hostname is empty in ingress %s", ingress.Name)
+			continue
+		}
+		if utils.HasElem(hostList, ingr.Hostname) {
+			ingHostIP = append(ingHostIP, IngressHostIP{
+				Hostname: ingr.Hostname,
+				IPAddr:   ingr.IP,
+			})
+		}
+	}
+	return ingHostIP
+}
+
+func ExtensionV1IngressGetIPAddrs(ingress *extensionv1beta1.Ingress) []IngressHostIP {
+	ingHostIP := []IngressHostIP{}
+	hostList := getHostListFromExtensionV1Ingress(ingress)
 	ingStatus := ingress.Status
 	ingList := ingStatus.LoadBalancer.Ingress
 	if len(ingList) == 0 {
