@@ -62,7 +62,7 @@ type kubeClusterDetails struct {
 }
 
 type K8SInformers struct {
-	cs kubernetes.Interface
+	Cs kubernetes.Interface
 }
 
 type ClusterCache struct {
@@ -78,7 +78,16 @@ var (
 	membersKubeConfig string
 	stopCh            <-chan struct{}
 	cacheOnce         sync.Once
+	informerTimeout   int64
 )
+
+func GetStopChannel() <-chan struct{} {
+	return stopCh
+}
+
+func SetInformerListTimeout(val int64) {
+	informerTimeout = val
+}
 
 type GSLBConfigController struct {
 	kubeclientset kubernetes.Interface
@@ -337,6 +346,7 @@ func Initialize() {
 		utils.AviLog.Error.Fatalf("Error building gslb config clientset: %s", err.Error())
 	}
 
+	SetInformerListTimeout(120)
 	// Set workers for layer 2
 	ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
@@ -391,15 +401,19 @@ func BuildContextConfig(kubeconfigPath, context string) (*restclient.Config, err
 
 func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Clientset) []string {
 	allInformers := []string{}
-
-	_, err := oclient.RouteV1().Routes("").List(metav1.ListOptions{})
+	_, err := oclient.RouteV1().Routes("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	if err == nil {
 		// Openshift cluster with route support, we will just add service informer
 		allInformers = append(allInformers, utils.RouteInformer)
 	} else {
 		// Kubernetes cluster
-		// TODO: CoreV1 or extensions/v1beta1
-		allInformers = append(allInformers, utils.CoreV1IngressInformer)
+		_, ingErr := kclient.NetworkingV1beta1().Ingresses("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+		if ingErr == nil {
+			// CoreV1 Ingress
+			allInformers = append(allInformers, utils.CoreV1IngressInformer)
+		} else {
+			allInformers = append(allInformers, utils.ExtV1IngressInformer)
+		}
 	}
 
 	allInformers = append(allInformers, utils.ServiceInformer)
@@ -435,7 +449,6 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in creating openshift clientset")
 			continue
 		}
-
 		informersArg[utils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
 		informersArg[utils.INFORMERS_INSTANTIATE_ONCE] = false
 		registeredInformers := InformersToRegister(oshiftClient, kubeClient)
@@ -450,7 +463,7 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			informersArg)
 		clients[cluster.clusterName] = kubeClient
 		aviCtrl := GetGSLBMemberController(cluster.clusterName, informerInstance)
-		aviCtrl.SetupEventHandlers(K8SInformers{cs: clients[cluster.clusterName]})
+		aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)
 	}
 	return aviCtrlList

@@ -33,7 +33,11 @@ ifndef BUILD_TAG
 endif
 		sudo docker build -t $(AMKO_BIN):latest --label "BUILD_TAG=$(BUILD_TAG)" --label "BUILD_TIME=$(BUILD_TIME)" -f Dockerfile.amko . 
 
+.PHONY: ingestion_test
+ingestion_test:
+		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
+
 .PHONY: test
 test:
-		$(GOTEST) -v -mod=vendor ./gslb/ingestion -failfast
+		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/nodes -failfast
