@@ -51,6 +51,10 @@ func GetGSLBMemberController(clusterName string, informersInstance *containeruti
 	}
 }
 
+func (ctrl GSLBMemberController) GetName() string {
+	return ctrl.name
+}
+
 // AddOrUpdateRouteStore traverses through the cluster store for cluster name cname,
 // and then to ns store for the route's namespace and then adds/updates the route obj
 // in the object map store.
@@ -97,7 +101,7 @@ func DeleteFromIngressStore(clusterIngStore *gslbutils.ClusterStore,
 // SetupEventHandlers sets up event handlers for the controllers of the member clusters.
 // They define the ingress/route event handlers and start the informers as well.
 func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
-	cs := k8sinfo.cs
+	cs := k8sinfo.Cs
 	gslbutils.Logf("k8scontroller: %s, msg: %s", c.name, "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(containerutils.AviLog.Info.Printf)
