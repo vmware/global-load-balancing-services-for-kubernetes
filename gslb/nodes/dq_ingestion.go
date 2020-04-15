@@ -141,6 +141,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 				"the model for this key has identical checksums")
 			return
 		}
+		aviGS.(*AviGSObjectGraph).SetRetryCounter()
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	}
 	// Update the hostname in the RouteHostMap
@@ -154,7 +155,6 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue) {
 	gslbutils.Logf("key: %s, msg: %s", key, "recieved delete operation for route")
 
-	deleteOp := true
 	clusterObj := cname + "/" + ns + "/" + objName
 	obj := getObjFromStore(objType, cname, ns, objName, key, gslbutils.AcceptedStore)
 	if obj == nil {
@@ -177,12 +177,6 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	agl := SharedAviGSGraphLister()
 	found, aviGS := agl.Get(modelName)
 	if found {
-		// Check the no. of members in this model, if its the last one, its a delete, else its an update
-		if aviGS.(*AviGSObjectGraph).MembersLen() > 1 {
-			deleteOp = false
-		} else {
-			deleteOp = true
-		}
 		aviGS.(*AviGSObjectGraph).DeleteMember(metaObj.GetCluster(), metaObj.GetNamespace(),
 			metaObj.GetName(), metaObj.GetType())
 	} else {
@@ -193,16 +187,9 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	// Also, now delete this route name from the host map
 	metaObj.DeleteMapByKey(clusterObj)
 
-	if deleteOp {
-		// if its a model delete
-		SharedAviGSGraphLister().Save(modelName, nil)
-		// SharedAviGSGraphLister().Delete(modelName)
-		bkt := utils.Bkt(modelName, wq.NumWorkers)
-		wq.Workqueue[bkt].AddRateLimited(modelName)
-	} else {
-		SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
-		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
-	}
+	aviGS.(*AviGSObjectGraph).SetRetryCounter()
+	SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
+	PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
 	gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, gsName, "published key to rest layer")
 }
 

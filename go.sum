@@ -15,6 +15,8 @@ github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/avinetworks/container-lib v0.0.0-20200309063932-14a4b95b6102 h1:7Vir9rWqYQeaJ/HK3r8awYQ/JtVvBHAfdJzcfz4bwMs=
 github.com/avinetworks/container-lib v0.0.0-20200309063932-14a4b95b6102/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
+github.com/avinetworks/container-lib v0.0.0-20200414162739-e4e99ceb81df h1:n8dbhp9Vm4hYZjFcYsDsWZtKN7ETTJCegobtEWSHaGM=
+github.com/avinetworks/container-lib v0.0.0-20200414162739-e4e99ceb81df/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
 github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5 h1:OHfbJmhj00ooqmeu6bzftV37DgzsZA7nUt7pluZN/tA=
 github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5/go.mod h1:BcllDeAFx8PtaMrPxvvuCUo7NRS2x6w+3W17WFDu0sk=
 github.com/avinetworks/servicemesh v0.0.0-20190925185306-4b4864e1327f h1:yopVaj4kzpez8F0aFp0Dnc+ZWF+QkQulDl1uoydl23s=

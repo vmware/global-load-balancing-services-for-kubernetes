@@ -16,6 +16,7 @@ package rest
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -57,6 +58,19 @@ func (restOp *RestOperations) DqNodes(key string) {
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
 	gsCacheObj := restOp.getGSCacheObj(gsKey, key)
 	if aviModelIntf == nil {
+		gslbutils.Logf("key: %s, msg: model found is nil, unexpected error", key)
+		return
+	}
+
+	aviModel := aviModelIntf.(*nodes.AviGSObjectGraph)
+	ct := aviModel.GetRetryCounter()
+	if ct <= 0 {
+		aviModel.SetRetryCounter()
+		return
+	}
+	aviModel.DecrementRetryCounter()
+
+	if aviModel.MembersLen() == 0 {
 		if gsCacheObj != nil {
 			gslbutils.Logf("key: %s, msg: %s", key, "no model found, this is a GS deletion case")
 			// Delete case can have two sub-cases:
@@ -66,15 +80,13 @@ func (restOp *RestOperations) DqNodes(key string) {
 		}
 		return
 	}
-	if ok && aviModelIntf != nil {
-		aviModel := aviModelIntf.(*nodes.AviGSObjectGraph)
-		gslbutils.Logf("key: %s, msg: GS create/update", key)
-		if aviModel == nil {
-			gslbutils.Warnf("key: %s, msg: %s", key, "no gslbservice in the model")
-			return
-		}
-		restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
+
+	gslbutils.Logf("key: %s, msg: GS create/update", key)
+	if aviModel == nil {
+		gslbutils.Warnf("key: %s, msg: %s", key, "no gslbservice in the model")
+		return
 	}
+	restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
 }
 
 func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *nodes.AviGSObjectGraph,
@@ -114,6 +126,7 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 		err := restOp.aviRestPoolClient.AviRestOperate(aviClient, []*utils.RestOp{operation})
 		if err != nil {
 			gslbutils.Errf("key: %s, msg: rest operation error: %s", key, err)
+			PublishKeyToRetryLayer(gsKey, err.Error())
 			return
 		}
 		// rest call executed successfully
@@ -132,6 +145,34 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 			}
 		}
 	}
+}
+
+func PublishKeyToRetryLayer(gsKey avicache.TenantName, errorStr string) {
+	var bkt uint32
+	bkt = 0
+	statuscode := ExtractStatusCode(errorStr)
+	key := gsKey.Tenant + "/" + gsKey.Name
+	utils.AviLog.Info.Printf("key: %s, msg: Status code retrieved: %s", key, statuscode)
+	if statuscode == "500" || statuscode == "501" || statuscode == "502" || statuscode == "503" {
+		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
+		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to slow path retry queue", key)
+	} else if statuscode == "404" || statuscode == "400" || statuscode == "409" {
+		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
+		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
+		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to fast path retry queue", key)
+	} else {
+		utils.AviLog.Info.Printf("key: %s, msg: error status code %s", key, statuscode)
+	}
+}
+
+func ExtractStatusCode(word string) string {
+	r, _ := regexp.Compile("HTTP code: .*.;")
+	result := r.FindAllString(word, -1)
+	if len(result) == 1 {
+		return result[0][len(result[0])-4 : len(result[0])-1]
+	}
+	return ""
 }
 
 func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
@@ -250,7 +291,7 @@ func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string, g
 	return &operation
 }
 
-func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string) bool {
+func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string) {
 	var restOps *utils.RestOp
 	bkt := utils.Bkt(key, utils.NumWorkersGraph)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
@@ -262,16 +303,16 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 			// TODO: Just log it for now, will add a retry logic later
 			gslbutils.Warnf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
 				"failed to delete GSLB Service")
-			return false
+			gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
+			PublishKeyToRetryLayer(gsKey, err.Error())
+			return
 		}
 		// Clear all the cache objects which were deleted
 		restOp.AviGSCacheDel(restOp.cache, operation, key)
 		// delete the GS name from the layer 2 cache here
 		gslbutils.Warnf("key: %s, msg: deleting key from the layer 2 cache", key)
 		nodes.SharedAviGSGraphLister().Delete(key)
-		return true
 	}
-	return false
 }
 
 func (restOp *RestOperations) AviGSCacheDel(gsCache *avicache.AviCache, op *utils.RestOp, key string) {

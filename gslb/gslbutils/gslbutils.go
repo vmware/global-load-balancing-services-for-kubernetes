@@ -57,6 +57,11 @@ const (
 	// Multi-cluster key lengths
 	IngMultiClusterKeyLen = 6
 	MultiClusterKeyLen    = 5
+
+	SlowSyncTime      = 120
+	SlowRetryQueue    = "SlowRetry"
+	FastRetryQueue    = "FastRetry"
+	DefaultRetryCount = 2
 )
 
 // InformersPerCluster is the number of informers per cluster
