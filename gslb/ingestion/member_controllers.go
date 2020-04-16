@@ -95,7 +95,7 @@ func DeleteFromIngressStore(clusterIngStore *gslbutils.ClusterStore,
 		// Store is empty, so, noop
 		return
 	}
-	clusterIngStore.DeleteClusterNSObj(ingHost.ObjName, ingHost.Namespace, ingHost.Cluster)
+	clusterIngStore.DeleteClusterNSObj(ingHost.Cluster, ingHost.Namespace, ingHost.ObjName)
 }
 
 // SetupEventHandlers sets up event handlers for the controllers of the member clusters.

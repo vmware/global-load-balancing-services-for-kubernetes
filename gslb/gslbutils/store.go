@@ -173,6 +173,9 @@ func (clusterStore *ClusterStore) AddOrUpdate(obj interface{}, cname, ns, objNam
 // anymore and removes it.
 func (clusterStore *ClusterStore) DeleteClusterNSObj(cname, ns, objName string) (interface{}, bool) {
 	clusterStoreMap := clusterStore.GetClusterStore(cname)
+	if clusterStoreMap == nil {
+		return nil, false
+	}
 	// Before trying out anything, we have to take a read lock on this
 	clusterStore.ClusterLock.RLock()
 	// Can't use defer here, since we need to unlock the read lock later on, and then

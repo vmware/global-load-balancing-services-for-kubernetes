@@ -138,12 +138,13 @@ func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLB
 		DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
 		DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
 		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-			ihm.Namespace, ihm.ObjName, ihm.Hostname, c.workqueue)
+			ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, c.workqueue)
 	}
 }
 
 func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
 	gf *filter.GlobalFilter, acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+
 	for _, ihm := range oldIngMetaObjs {
 		// Check whether this exists in the new ingressHost list, if not, we need
 		// to delete this ingressHost object
