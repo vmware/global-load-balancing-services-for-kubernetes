@@ -58,10 +58,13 @@ const (
 	IngMultiClusterKeyLen = 6
 	MultiClusterKeyLen    = 5
 
+	// Default values for Retry Operations
 	SlowSyncTime      = 120
 	SlowRetryQueue    = "SlowRetry"
 	FastRetryQueue    = "FastRetry"
 	DefaultRetryCount = 2
+
+	AmkoUser = "mcc-gslb"
 )
 
 // InformersPerCluster is the number of informers per cluster

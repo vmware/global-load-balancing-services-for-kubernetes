@@ -134,7 +134,7 @@ func (v *AviGSObjectGraph) GetMemberObjList() []string {
 }
 
 func NewAviGSObjectGraph() *AviGSObjectGraph {
-	return &AviGSObjectGraph{}
+	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount}
 }
 
 func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sobjects.MetaObject, memberWeight int32) {

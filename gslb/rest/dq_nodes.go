@@ -58,7 +58,7 @@ func (restOp *RestOperations) DqNodes(key string) {
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
 	gsCacheObj := restOp.getGSCacheObj(gsKey, key)
 	if aviModelIntf == nil {
-		gslbutils.Logf("key: %s, msg: model found is nil, unexpected error", key)
+		gslbutils.Errf("key: %s, msg: model found is nil, unexpected error", key)
 		return
 	}
 
@@ -66,6 +66,7 @@ func (restOp *RestOperations) DqNodes(key string) {
 	ct := aviModel.GetRetryCounter()
 	if ct <= 0 {
 		aviModel.SetRetryCounter()
+		gslbutils.Logf("key: %s, msg: retry counter exhausted, resetting counter", key)
 		return
 	}
 	aviModel.DecrementRetryCounter()
@@ -214,7 +215,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 
 	// Now, build the GSLB service
 	ctrlHealthStatusEnabled := true
-	createdBy := "mcc-gslb"
+	createdBy := gslbutils.AmkoUser
 	// TODO: description to be appropriately filled
 	gsEnabled := true
 	healthMonitorScope := "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS"
