@@ -77,7 +77,32 @@ type AviGSObjectGraph struct {
 	// MemberObjs is a list of K8s/openshift objects from which this AviGS was built.
 	MemberObjs    []AviGSK8sObj
 	GraphChecksum uint32
+	RetryCount    int
 	Lock          sync.RWMutex
+}
+
+func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
+	v.Lock.Lock()
+	defer v.Lock.Unlock()
+	if len(num) > 0 {
+		v.RetryCount = num[0]
+		return
+	}
+	v.RetryCount = gslbutils.DefaultRetryCount
+}
+
+func (v *AviGSObjectGraph) GetRetryCounter() int {
+	v.Lock.RLock()
+	v.Lock.RUnlock()
+	return v.RetryCount
+}
+
+func (v *AviGSObjectGraph) DecrementRetryCounter() {
+	v.Lock.Lock()
+	v.Lock.Unlock()
+	if v.RetryCount > 0 {
+		v.RetryCount -= 1
+	}
 }
 
 func (v *AviGSObjectGraph) GetChecksum() uint32 {
@@ -109,7 +134,7 @@ func (v *AviGSObjectGraph) GetMemberObjList() []string {
 }
 
 func NewAviGSObjectGraph() *AviGSObjectGraph {
-	return &AviGSObjectGraph{}
+	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount}
 }
 
 func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sobjects.MetaObject, memberWeight int32) {

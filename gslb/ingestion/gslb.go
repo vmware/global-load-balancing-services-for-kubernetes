@@ -50,6 +50,7 @@ import (
 	avicache "amko/gslb/cache"
 
 	avirest "amko/gslb/rest"
+	aviretry "amko/gslb/retry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -347,6 +348,13 @@ func Initialize() {
 	}
 
 	SetInformerListTimeout(120)
+	ingestionQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersIngestion, WorkqueueName: utils.ObjectIngestionLayer}
+	graphQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersGraph, WorkqueueName: utils.GraphLayer}
+	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
+	fastRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.FastRetryQueue}
+
+	utils.SharedWorkQueue(ingestionQueueParams, graphQueueParams, slowRetryQParams, fastRetryQParams)
+
 	// Set workers for layer 2
 	ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
@@ -356,6 +364,14 @@ func Initialize() {
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 	graphSharedQueue.SyncFunc = avirest.SyncFromNodesLayer
 	graphSharedQueue.Run(stopCh)
+
+	// Set up retry Queue
+	slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+	slowRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
+	slowRetryQueue.Run(stopCh)
+	fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
+	fastRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
+	fastRetryQueue.Run(stopCh)
 
 	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)

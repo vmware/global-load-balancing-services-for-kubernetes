@@ -95,9 +95,13 @@ func (c *AviCache) AviCacheDelete(k interface{}) {
 	delete(c.Cache, k)
 }
 
-func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient) {
+func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...string) {
 	var restResponse interface{}
+
 	uri := "/api/gslbservice"
+	if len(gsname) == 1 {
+		uri = "/api/gslbservice?name=" + gsname[0]
+	}
 	err := client.AviSession.Get(uri, &restResponse)
 	if err != nil {
 		gslbutils.Logf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
@@ -131,16 +135,31 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient) {
 		createdBy, ok := gs["created_by"].(string)
 		if !ok {
 			gslbutils.Warnf("resp: %v, msg: created_by not present in response", gsIntf)
-			continue
+			// if we want to get avi gs object for a spefic gs name,
+			// then don't skip even if created_by field is not present.
+			// This is used while retrying after a failure
+			if len(gsname) == 0 {
+				continue
+			}
 		}
-		if createdBy != "mcc-gslb" {
-			gslbutils.Warnf("resp: %v, msg: created_by contains %s instead of mcc-gslb", gsIntf, createdBy)
-			continue
+		if createdBy != gslbutils.AmkoUser {
+			gslbutils.Warnf("resp: %v, msg: created_by contains %s instead of %s", gsIntf, createdBy, gslbutils.AmkoUser)
+			// if we want to get avi gs object for a spefic gs name,
+			// then don't skip even if created_by field is wrong.
+			// This is used while retrying after a failure
+			if len(gsname) == 0 {
+				continue
+			}
 		}
 		cksum, gsMembers, memberObjs, err := GetDetailsFromAviGSLB(gs)
 		if err != nil {
 			gslbutils.Errf("resp: %v, msg: error occurred while parsing the response: %s", err)
-			continue
+			// if we want to get avi gs object for a spefic gs name,
+			// then don't skip even if not all expected fields are present.
+			// This is used while retrying after a failure
+			if len(gsname) == 0 {
+				continue
+			}
 		}
 		k := TenantName{Tenant: utils.ADMIN_NS, Name: name}
 		gsCacheObj := AviGSCache{
@@ -266,7 +285,7 @@ func (c *AviCache) AviObjCachePopulate(client *clients.AviClient,
 	SetVersion := session.SetVersion(version)
 	SetVersion(client.AviSession)
 
-	// Populate the VS cache
+	// Populate the GS cache
 	c.AviObjGSCachePopulate(client)
 }
 
