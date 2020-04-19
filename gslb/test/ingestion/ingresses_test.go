@@ -594,7 +594,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 
 	// delete the ingress and verify
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
-	buildIngMultiHostKeyAndVerify(t, true, "DELETE", cname, ns, ingName, hostIPMap)
+	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
