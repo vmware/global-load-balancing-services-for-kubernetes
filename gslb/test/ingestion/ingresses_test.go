@@ -25,6 +25,7 @@ import (
 	"github.com/avinetworks/container-lib/utils"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -661,6 +662,71 @@ func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
 	}
 }
 
+func TestBasicTLSIngressCD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "tlscd-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	k8sAddTLSIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	// Verify the presence of the object in the accepted store
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	// delete and verify
+	k8sDeleteTLSIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	// should be deleted from the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	return
+}
+
+func TestBasicTLSIngressCUD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "cud-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+	addGDPAndGSLB(t)
+
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddTLSIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	newHost := testPrefix + TestDomain2
+	ingObj.Spec.Rules[0].Host = newHost
+	ingObj.Status.LoadBalancer.Ingress[0].Hostname = newHost
+	ingObj.ResourceVersion = "101"
+
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingObj.Name, host)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingObj.Name, newHost)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, newHost, ipAddr)
+
+	k8sDeleteTLSIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
+
+	return
+}
+
 func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
 	ingObj *extensionv1beta1.Ingress) {
 
@@ -687,6 +753,53 @@ func k8sAddIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, 
 	}
 
 	return ingObj
+}
+
+func buildk8sSecret(ns string) *corev1.Secret {
+	secretObj := corev1.Secret{}
+	secretObj.Name = "test-secret"
+	secretObj.Namespace = ns
+	secretObj.Data = make(map[string][]byte)
+	secretObj.Data["tls.crt"] = []byte("")
+	secretObj.Data["tls.key"] = []byte("")
+	return &secretObj
+}
+
+func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
+	cname string, hostIPs map[string]string) *extensionv1beta1.Ingress {
+
+	var hosts []string
+	secretObj := buildk8sSecret(ns)
+	_, err := kc.CoreV1().Secrets(ns).Create(secretObj)
+	if err != nil {
+		t.Fatalf("error in creating secret: %v", err)
+	}
+	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, true)
+	for h := range hostIPs {
+		hosts = append(hosts, h)
+	}
+	ingTLSObj := v1beta1.IngressTLS{
+		Hosts:      hosts,
+		SecretName: secretObj.Name,
+	}
+	ingObj.Spec.TLS = []v1beta1.IngressTLS{ingTLSObj}
+	_, err = kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	if err != nil {
+		t.Fatalf("error in creating ingress: %v", err)
+	}
+
+	return ingObj
+}
+
+func k8sDeleteTLSIngress(t *testing.T, kc *k8sfake.Clientset, ingName, ns string) {
+	err := kc.ExtensionsV1beta1().Ingresses(ns).Delete(ingName, &metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Error in deleting ingress: %v", err)
+	}
+	err = kc.CoreV1().Secrets(ns).Delete("test-secret", &metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Error in deleting secret: %v", err)
+	}
 }
 
 func k8sAddIngressWithoutStatus(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
