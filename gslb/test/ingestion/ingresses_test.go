@@ -15,16 +15,24 @@
 package ingestion
 
 import (
+	"amko/gslb/gslbutils"
 	gslbingestion "amko/gslb/ingestion"
+	"amko/gslb/k8sobjects"
 	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
 	"fmt"
 	"testing"
 
 	"github.com/avinetworks/container-lib/utils"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+)
+
+const (
+	acceptedIngStore = true
+	rejectedIngStore = false
 )
 
 func addGDPAndGSLB(t *testing.T) {
@@ -42,6 +50,7 @@ func addGDPAndGSLB(t *testing.T) {
 
 // TestBasicIngress: Create/Delete
 func TestBasicIngressCD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	testPrefix := "cd-"
 	ingName := testPrefix + "def-ing"
 	ns := "default"
@@ -57,14 +66,19 @@ func TestBasicIngressCD(t *testing.T) {
 	fmt.Println("Adding and testing ingresses")
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	// Verify the presence of the object in the accepted store
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	// should be deleted from the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	return
 }
 
 func TestBasicIngressCUD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	testPrefix := "cud-"
 	ingName := testPrefix + "def-ing"
 	ns := "default"
@@ -80,6 +94,7 @@ func TestBasicIngressCUD(t *testing.T) {
 	fmt.Println("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	newHost := testPrefix + TestDomain2
 	ingObj.Spec.Rules[0].Host = newHost
@@ -88,14 +103,19 @@ func TestBasicIngressCUD(t *testing.T) {
 
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingObj.Name, host)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingObj.Name, newHost)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, newHost, ipAddr)
 
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
+
 	return
 }
 
 func TestMultihostIngressCD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	testPrefix := "mhcd-"
 	ingName := testPrefix + "def-ing"
 	ns := "default"
@@ -108,12 +128,19 @@ func TestMultihostIngressCD(t *testing.T) {
 	addGDPAndGSLB(t)
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+	}
 
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
 }
 
 func TestMultihostIngressCUD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	testPrefix := "mhcud-"
 	ingName := testPrefix + "def-ing"
 	ns := "default"
@@ -130,26 +157,11 @@ func TestMultihostIngressCUD(t *testing.T) {
 	addGDPAndGSLB(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
-
-	idx := 0
-	// replace the hostname host1
-	for i, ingRule := range ingObj.Spec.Rules {
-		if ingRule.Host == host1 {
-			idx = i
-			break
-		}
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
 	}
-	ingObj.Spec.Rules[idx].Host = host3
 
-	// also, replace the status
-	for i, ing := range ingObj.Status.LoadBalancer.Ingress {
-		if ing.Hostname == host1 {
-			idx = i
-			break
-		}
-	}
-	ingObj.Status.LoadBalancer.Ingress[idx].Hostname = host3
-	ingObj.Status.LoadBalancer.Ingress[idx].IP = "10.10.10.30"
+	replaceHostInIngress(ingObj, host1, host3, "10.10.10.30")
 	delete(hostIPMap, host1)
 	hostIPMap[host3] = "10.10.10.30"
 	ingObj.ResourceVersion = "101"
@@ -160,11 +172,493 @@ func TestMultihostIngressCUD(t *testing.T) {
 
 	// first key should be the DELETE key for host1 and then an ADD key for host3
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host1)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host1, "10.10.10.10")
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host3)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host3, hostIPMap[host3])
 
 	// delete the ingress and verify
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
+}
+
+func TestBasicIngressLabelChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "lu-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	ingObj.Labels["key"] = "value1"
+	ingObj.ResourceVersion = "101"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// allowed by the GDP object selection criteria
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	// the ihm object should be moved from the accepted to the rejected store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	verifyInIngStore(g, rejectedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	// Update it again, and allow it to pass
+	ingObj.Labels["key"] = "value"
+	ingObj.ResourceVersion = "102"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	// ihm should be moved from rejected to accepted store now
+	verifyInIngStore(g, rejectedIngStore, false, ingName, ns, cname, host, ipAddr)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	// delete the ingress and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	return
+}
+
+func TestMultihostIngressLabelChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "mhlu-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host1 := testPrefix + TestDomain1
+	host2 := testPrefix + TestDomain2
+	ipAddr1 := "10.10.10.20"
+	ipAddr2 := "10.10.10.30"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host1] = ipAddr1
+	ingHostIPMap[host2] = ipAddr2
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, ingHostIPMap)
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+	}
+
+	ingObj.Labels["key"] = "value1"
+	ingObj.ResourceVersion = "101"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// allowed by the GDP object selection criteria
+	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, ingHostIPMap)
+	// both the ihms should be now moved to rejected list
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+		verifyInIngStore(g, rejectedIngStore, true, ingName, ns, cname, h, ip)
+	}
+
+	// Update it again, and allow it to pass
+	ingObj.Labels["key"] = "value"
+	ingObj.ResourceVersion = "102"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, ingHostIPMap)
+	// both the ihms should be now moved to accepted store
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+		verifyInIngStore(g, rejectedIngStore, false, ingName, ns, cname, h, ip)
+	}
+
+	// delete the ingress and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, ingHostIPMap)
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
+	return
+}
+
+func TestMultihostIngressHostAndLabelChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "mhlhu-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host1 := testPrefix + TestDomain1
+	host2 := testPrefix + TestDomain2
+	host3 := testPrefix + TestDomain3
+	ipAddr1 := "10.10.10.20"
+	ipAddr2 := "10.10.10.30"
+	ipAddr3 := "10.10.10.40"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host1] = ipAddr1
+	ingHostIPMap[host2] = ipAddr2
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, ingHostIPMap)
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+	}
+
+	ingObj.Labels["key"] = "value1"
+	ingObj.ResourceVersion = "101"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// allowed by the GDP object selection criteria
+	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, ingHostIPMap)
+	// both the ihms should be moved from accepted store to the rejected store
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+		verifyInIngStore(g, rejectedIngStore, true, ingName, ns, cname, h, ip)
+	}
+
+	// Update the label again, but this time, also edit the host field
+	ingObj.Labels["key"] = "value"
+	replaceHostInIngress(ingObj, host1, host3, ipAddr3)
+	delete(ingHostIPMap, host1)
+
+	ingHostIPMap[host3] = ipAddr3
+	ingObj.ResourceVersion = "102"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, ingHostIPMap)
+
+	// host1 should be deleted from the rejected and the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host1, ipAddr1)
+	verifyInIngStore(g, rejectedIngStore, false, ingName, ns, cname, host1, ipAddr1)
+
+	// host2 and host3 should be present in accepted store and not in the rejected store
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+		verifyInIngStore(g, rejectedIngStore, false, ingName, ns, cname, h, ip)
+	}
+	// delete the ingress and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, ingHostIPMap)
+	for h, ip := range ingHostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
+	return
+}
+
+func TestEmptyStatusIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "es-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host)
+	// Verify the presence of the object in the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+
+	// delete and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
+	// should be deleted from the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	return
+}
+
+func TestStatusChangeToEmptyIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "sce-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	// Verify the presence of the object in the accepted store
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	ingObj.Status.LoadBalancer.Ingress[0].Hostname = ""
+	ingObj.Status.LoadBalancer.Ingress[0].IP = ""
+	ingObj.ResourceVersion = "101"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+
+	// delete and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
+	// should be deleted from the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	return
+}
+
+func TestStatusChangeFromEmptyIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "ecs-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+
+	addGDPAndGSLB(t)
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host)
+	// Verify the presence of the object in the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+
+	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		IP:       ipAddr,
+		Hostname: host,
+	})
+	ingObj.ResourceVersion = "101"
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	// delete and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	// should be deleted from the accepted store
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	return
+}
+
+func TestStatusChangeIPAddrIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "scip-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.20"
+	cname := "cluster1"
+	newIPAddr := "10.10.10.30"
+
+	ingHostIPMap := make(map[string]string)
+	ingHostIPMap[host] = ipAddr
+	addGDPAndGSLB(t)
+
+	// Add and test ingresses
+	fmt.Println("Adding and testing ingresses")
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
+
+	ingObj.Status.LoadBalancer.Ingress[0].IP = newIPAddr
+	ingObj.ResourceVersion = "101"
+
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+	buildIngressKeyAndVerify(t, false, "UPDATE", cname, ns, ingObj.Name, host)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, newIPAddr)
+
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, newIPAddr)
+
+	return
+}
+
+func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "mhsce-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	cname := "cluster1"
+	hostIPMap := make(map[string]string)
+
+	host1 := testPrefix + TestDomain1
+	host2 := testPrefix + TestDomain2
+
+	hostIPMap[host1] = "10.10.10.10"
+	hostIPMap[host2] = "10.10.10.20"
+
+	addGDPAndGSLB(t)
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
+	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+	}
+
+	deleteStatusInIngress(host1, ingObj)
+	delete(hostIPMap, host1)
+	ingObj.ResourceVersion = "101"
+
+	fmt.Println("updating ingress, removing status for host1")
+	// update the ingress and verify
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// first key should be the DELETE key for host1
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host1)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host1, "10.10.10.10")
+
+	deleteStatusInIngress(host2, ingObj)
+	delete(hostIPMap, host2)
+	ingObj.ResourceVersion = "102"
+
+	fmt.Println("updating ingress, removing status for host2")
+	// update the ingress and verify
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// key should be the DELETE key for host2
+	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host2)
+	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host2, "10.10.10.20")
+
+	// delete the ingress and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngMultiHostKeyAndVerify(t, true, "DELETE", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
+}
+
+func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "mhecs-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	cname := "cluster1"
+	hostIPMap := make(map[string]string)
+
+	host1 := testPrefix + TestDomain1
+	host2 := testPrefix + TestDomain2
+
+	hostIPMap[host1] = "10.10.10.10"
+	hostIPMap[host2] = "10.10.10.20"
+
+	addGDPAndGSLB(t)
+	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
+	buildIngMultiHostKeyAndVerify(t, true, "ADD", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
+
+	// Add status for host1
+	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		IP:       hostIPMap[host1],
+		Hostname: host1,
+	})
+	ingObj.ResourceVersion = "101"
+
+	fmt.Println("updating ingress, adding status for host1")
+	// update the ingress and verify
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// key should be the ADD key for host1
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host1)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host1, "10.10.10.10")
+
+	// Add status for host1
+	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		IP:       hostIPMap[host2],
+		Hostname: host2,
+	})
+	ingObj.ResourceVersion = "102"
+
+	fmt.Println("updating ingress, adding status for host2")
+	// update the ingress and verify
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// key should be the ADD key for host2
+	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host2)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host2, "10.10.10.20")
+
+	// delete the ingress and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngMultiHostKeyAndVerify(t, true, "DELETE", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
+}
+
+func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "mhscip-"
+	ingName := testPrefix + "def-ing"
+	ns := "default"
+	cname := "cluster1"
+	hostIPMap := make(map[string]string)
+
+	host1 := testPrefix + TestDomain1
+	host2 := testPrefix + TestDomain2
+
+	hostIPMap[host1] = "10.10.10.10"
+	hostIPMap[host2] = "10.10.10.20"
+
+	addGDPAndGSLB(t)
+	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
+	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, h, ip)
+	}
+
+	// Update IP address for host1 status
+	for idx, ing := range ingObj.Status.LoadBalancer.Ingress {
+		if ing.Hostname == host1 {
+			ingObj.Status.LoadBalancer.Ingress[idx].IP = "10.10.10.30"
+		}
+	}
+	ingObj.ResourceVersion = "101"
+
+	fmt.Println("updating ingress, updating status for host1")
+	// update the ingress and verify
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// key should be UPDATE key for host1
+	buildIngressKeyAndVerify(t, false, "UPDATE", cname, ns, ingName, host1)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host1, "10.10.10.30")
+
+	// update IP address for host2 status
+	for idx, ing := range ingObj.Status.LoadBalancer.Ingress {
+		if ing.Hostname == host2 {
+			ingObj.Status.LoadBalancer.Ingress[idx].IP = "10.10.10.40"
+		}
+	}
+	ingObj.ResourceVersion = "102"
+
+	fmt.Println("updating ingress, updating status for host2")
+	// update the ingress and verify
+	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
+
+	// key should be the ADD key for host2
+	buildIngressKeyAndVerify(t, false, "UPDATE", cname, ns, ingName, host2)
+	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host2, "10.10.10.40")
+
+	// delete the ingress and verify
+	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
+	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, hostIPMap)
+	for h, ip := range hostIPMap {
+		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
+	}
 }
 
 func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
@@ -186,6 +680,28 @@ func k8sDeleteIngress(t *testing.T, kc *k8sfake.Clientset, name, ns string) {
 func k8sAddIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
 	cname string, hostIPs map[string]string) *extensionv1beta1.Ingress {
 
+	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, true)
+	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	if err != nil {
+		t.Fatalf("error in creating ingress: %v", err)
+	}
+
+	return ingObj
+}
+
+func k8sAddIngressWithoutStatus(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
+	cname string, hostIPs map[string]string) *extensionv1beta1.Ingress {
+
+	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, false)
+	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	if err != nil {
+		t.Fatalf("error in creating ingress: %v", err)
+	}
+
+	return ingObj
+}
+
+func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool) *extensionv1beta1.Ingress {
 	ingObj := &extensionv1beta1.Ingress{}
 	ingObj.Namespace = ns
 	ingObj.Name = name
@@ -195,6 +711,9 @@ func k8sAddIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, 
 		ingObj.Spec.Rules = append(ingObj.Spec.Rules, extensionv1beta1.IngressRule{
 			Host: ingHost,
 		})
+		if !withStatus {
+			continue
+		}
 		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
 			IP:       ingIP,
 			Hostname: ingHost,
@@ -203,11 +722,59 @@ func k8sAddIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, 
 	labelMap := make(map[string]string)
 	labelMap["key"] = "value"
 	ingObj.Labels = labelMap
+	return ingObj
+}
 
-	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
-	if err != nil {
-		t.Fatalf("error in creating ingress: %v", err)
+// verify in the accepted or rejected Ingress store
+func verifyInIngStore(g *gomega.WithT, accepted bool, present bool, ingName, ns, cname, host, ip string) {
+
+	var cs *gslbutils.ClusterStore
+	if accepted {
+		cs = gslbutils.GetAcceptedIngressStore()
+	} else {
+		cs = gslbutils.GetRejectedIngressStore()
+	}
+	ihmObjName := ingName + "/" + host
+	obj, found := cs.GetClusterNSObjectByName(cname, ns, ihmObjName)
+	g.Expect(found).To(gomega.Equal(present))
+	if present {
+		ihm := obj.(k8sobjects.IngressHostMeta)
+		// If we are expecting that the object is present in the store, then check the required fields
+		g.Expect(ihm.Hostname).To(gomega.Equal(host))
+		g.Expect(ihm.IPAddr).To(gomega.Equal(ip))
+	}
+}
+
+func replaceHostInIngress(ingObj *extensionv1beta1.Ingress, oldHost, newHost, ipAddr string) {
+	idx := 0
+	// replace the hostname host1
+	for i, ingRule := range ingObj.Spec.Rules {
+		if ingRule.Host == oldHost {
+			idx = i
+			break
+		}
+	}
+	ingObj.Spec.Rules[idx].Host = newHost
+
+	// also, replace the status
+	for i, ing := range ingObj.Status.LoadBalancer.Ingress {
+		if ing.Hostname == oldHost {
+			idx = i
+			break
+		}
+	}
+	ingObj.Status.LoadBalancer.Ingress[idx].Hostname = newHost
+	ingObj.Status.LoadBalancer.Ingress[idx].IP = ipAddr
+}
+
+func deleteStatusInIngress(host string, ingObj *extensionv1beta1.Ingress) {
+	oldIngObj := ingObj.DeepCopy()
+	for i, ing := range oldIngObj.Status.LoadBalancer.Ingress {
+		if ing.Hostname == host {
+			ingObj.Status.LoadBalancer.Ingress =
+				append(oldIngObj.Status.LoadBalancer.Ingress[:i],
+					oldIngObj.Status.LoadBalancer.Ingress[i+1:]...)
+		}
 	}
 
-	return ingObj
 }
