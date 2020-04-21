@@ -138,12 +138,13 @@ func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLB
 		DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
 		DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
 		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-			ihm.Namespace, ihm.ObjName, ihm.Hostname, c.workqueue)
+			ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, c.workqueue)
 	}
 }
 
 func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
 	gf *filter.GlobalFilter, acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+
 	for _, ihm := range oldIngMetaObjs {
 		// Check whether this exists in the new ingressHost list, if not, we need
 		// to delete this ingressHost object
@@ -187,6 +188,11 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 				c.workqueue)
 			continue
 		}
+		// check if the object existed in the acceptedIngStore
+		oper := gslbutils.ObjectAdd
+		if _, ok := acceptedIngStore.GetClusterNSObjectByName(c.name, newIhm.Namespace, newIhm.ObjName); ok {
+			oper = gslbutils.ObjectUpdate
+		}
 		// ingHost passed through the filter, need to send an update key
 		// if the ingHost was already part of rejected store, we need to move this ingHost
 		// from the rejected to accepted store
@@ -194,7 +200,7 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 		rejectedIngStore.DeleteClusterNSObj(c.name, ihm.Namespace, ihm.GetIngressHostMetaKey())
 		// Add the key for this ingHost to the queue
 		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, ihm.Namespace, ihm.ObjName,
-			gslbutils.ObjectUpdate, c.workqueue)
+			oper, c.workqueue)
 		continue
 	}
 	// Check if there are any new ingHost objects, if yes, we have to add those
