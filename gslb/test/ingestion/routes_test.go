@@ -16,7 +16,6 @@ package ingestion
 import (
 	gslbingestion "amko/gslb/ingestion"
 	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
-	"fmt"
 	"testing"
 
 	containerutils "github.com/avinetworks/container-lib/utils"
@@ -39,7 +38,7 @@ func TestGSLBAndGDPWithRoutes(t *testing.T) {
 	}
 	addGSLBTestConfigObject(gc)
 	// Add and test routes
-	fmt.Println("adding and testing routes")
+	t.Log("adding and testing routes")
 	// We expect a success for these routes.
 	addAndTestRoute(t, fooOshiftClient, "foo-def-route1", "default", "foo-host1.avi.com", "foo-svc", "10.10.10.10", false, "cluster1")
 	addAndTestRoute(t, barOshiftClient, "bar-def-route1", "default", "bar-host1.avi.com", "bar-svc", "10.10.10.10", false, "cluster2")
@@ -55,7 +54,6 @@ func TestGSLBAndGDPWithRoutes(t *testing.T) {
 	fooOshiftClient.RouteV1().Routes("default").Delete("foo-def-route1", nil)
 	waitAndVerify(t, []string{"DELETE/Route/cluster1/default/foo-def-route1"}, false)
 	gslbingestion.DeleteGDPObj(gdp, ingestionQueue.Workqueue, 2)
-	fmt.Println("done...")
 }
 
 func addAndTestRoute(t *testing.T, oc *oshiftfake.Clientset, name string, ns string, host string, svc string, ip string, timeoutExpected bool, cname string) (bool, string) {

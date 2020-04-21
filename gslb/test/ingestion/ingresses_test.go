@@ -19,7 +19,6 @@ import (
 	gslbingestion "amko/gslb/ingestion"
 	"amko/gslb/k8sobjects"
 	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
-	"fmt"
 	"testing"
 
 	"github.com/avinetworks/container-lib/utils"
@@ -64,7 +63,7 @@ func TestBasicIngressCD(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	// Verify the presence of the object in the accepted store
@@ -75,7 +74,6 @@ func TestBasicIngressCD(t *testing.T) {
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	return
 }
 
 func TestBasicIngressCUD(t *testing.T) {
@@ -92,7 +90,7 @@ func TestBasicIngressCUD(t *testing.T) {
 	addGDPAndGSLB(t)
 
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
@@ -111,8 +109,6 @@ func TestBasicIngressCUD(t *testing.T) {
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
-
-	return
 }
 
 func TestMultihostIngressCD(t *testing.T) {
@@ -167,7 +163,7 @@ func TestMultihostIngressCUD(t *testing.T) {
 	hostIPMap[host3] = "10.10.10.30"
 	ingObj.ResourceVersion = "101"
 
-	fmt.Println("updating ingress")
+	t.Log("updating ingress")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -199,7 +195,7 @@ func TestBasicIngressLabelChange(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
@@ -228,7 +224,6 @@ func TestBasicIngressLabelChange(t *testing.T) {
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	return
 }
 
 func TestMultihostIngressLabelChange(t *testing.T) {
@@ -248,7 +243,7 @@ func TestMultihostIngressLabelChange(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, ingHostIPMap)
 	for h, ip := range ingHostIPMap {
@@ -285,7 +280,6 @@ func TestMultihostIngressLabelChange(t *testing.T) {
 	for h, ip := range ingHostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
-	return
 }
 
 func TestMultihostIngressHostAndLabelChange(t *testing.T) {
@@ -307,7 +301,7 @@ func TestMultihostIngressHostAndLabelChange(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, ingHostIPMap)
 	for h, ip := range ingHostIPMap {
@@ -352,7 +346,6 @@ func TestMultihostIngressHostAndLabelChange(t *testing.T) {
 	for h, ip := range ingHostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
-	return
 }
 
 func TestEmptyStatusIngress(t *testing.T) {
@@ -369,7 +362,7 @@ func TestEmptyStatusIngress(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host)
 	// Verify the presence of the object in the accepted store
@@ -380,7 +373,6 @@ func TestEmptyStatusIngress(t *testing.T) {
 	buildIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	return
 }
 
 func TestStatusChangeToEmptyIngress(t *testing.T) {
@@ -397,7 +389,7 @@ func TestStatusChangeToEmptyIngress(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	// Verify the presence of the object in the accepted store
@@ -415,7 +407,6 @@ func TestStatusChangeToEmptyIngress(t *testing.T) {
 	buildIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	return
 }
 
 func TestStatusChangeFromEmptyIngress(t *testing.T) {
@@ -432,7 +423,7 @@ func TestStatusChangeFromEmptyIngress(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host)
 	// Verify the presence of the object in the accepted store
@@ -452,7 +443,6 @@ func TestStatusChangeFromEmptyIngress(t *testing.T) {
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	return
 }
 
 func TestStatusChangeIPAddrIngress(t *testing.T) {
@@ -470,7 +460,7 @@ func TestStatusChangeIPAddrIngress(t *testing.T) {
 	addGDPAndGSLB(t)
 
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
@@ -485,8 +475,6 @@ func TestStatusChangeIPAddrIngress(t *testing.T) {
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, newIPAddr)
-
-	return
 }
 
 func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
@@ -514,7 +502,7 @@ func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
 	delete(hostIPMap, host1)
 	ingObj.ResourceVersion = "101"
 
-	fmt.Println("updating ingress, removing status for host1")
+	t.Log("updating ingress, removing status for host1")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -526,7 +514,7 @@ func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
 	delete(hostIPMap, host2)
 	ingObj.ResourceVersion = "102"
 
-	fmt.Println("updating ingress, removing status for host2")
+	t.Log("updating ingress, removing status for host2")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -570,7 +558,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	})
 	ingObj.ResourceVersion = "101"
 
-	fmt.Println("updating ingress, adding status for host1")
+	t.Log("updating ingress, adding status for host1")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -585,7 +573,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	})
 	ingObj.ResourceVersion = "102"
 
-	fmt.Println("updating ingress, adding status for host2")
+	t.Log("updating ingress, adding status for host2")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -630,7 +618,7 @@ func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
 	}
 	ingObj.ResourceVersion = "101"
 
-	fmt.Println("updating ingress, updating status for host1")
+	t.Log("updating ingress, updating status for host1")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -646,7 +634,7 @@ func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
 	}
 	ingObj.ResourceVersion = "102"
 
-	fmt.Println("updating ingress, updating status for host2")
+	t.Log("updating ingress, updating status for host2")
 	// update the ingress and verify
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
@@ -676,7 +664,7 @@ func TestBasicTLSIngressCD(t *testing.T) {
 
 	addGDPAndGSLB(t)
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	k8sAddTLSIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	// Verify the presence of the object in the accepted store
@@ -687,7 +675,6 @@ func TestBasicTLSIngressCD(t *testing.T) {
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	return
 }
 
 func TestBasicTLSIngressCUD(t *testing.T) {
@@ -704,7 +691,7 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 	addGDPAndGSLB(t)
 
 	// Add and test ingresses
-	fmt.Println("Adding and testing ingresses")
+	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddTLSIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
@@ -723,8 +710,6 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 	k8sDeleteTLSIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
-
-	return
 }
 
 func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
@@ -889,5 +874,4 @@ func deleteStatusInIngress(host string, ingObj *extensionv1beta1.Ingress) {
 					oldIngObj.Status.LoadBalancer.Ingress[i+1:]...)
 		}
 	}
-
 }

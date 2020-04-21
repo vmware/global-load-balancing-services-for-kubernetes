@@ -16,7 +16,6 @@ package ingestion
 
 import (
 	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -152,7 +151,7 @@ func waitAndVerify(t *testing.T, keyList []string, timeoutExpected bool) (bool, 
 
 	select {
 	case data := <-keyChan:
-		fmt.Printf("Expected key(s): %s, got data: %s\n", strings.Join(keyList, ","), data)
+		t.Logf("Expected key(s): %s, got data: %s\n", strings.Join(keyList, ","), data)
 		if timeoutExpected {
 			// If the timeout is expected, then there shouldn't be anything on this channel
 			if data != "" {
@@ -165,7 +164,7 @@ func waitAndVerify(t *testing.T, keyList []string, timeoutExpected bool) (bool, 
 			return false, errMsg
 		}
 	case _ = <-waitChan:
-		fmt.Println("waiting for timeout")
+		t.Log("waiting for timeout")
 		if timeoutExpected {
 			return true, "Success"
 		}
