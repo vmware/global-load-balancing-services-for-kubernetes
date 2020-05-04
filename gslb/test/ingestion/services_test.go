@@ -59,7 +59,7 @@ func TestBasicSvcCD(t *testing.T) {
 
 	// Add and test service
 	t.Log("Adding and testing service")
-	k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr)
+	k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, corev1.ServiceTypeLoadBalancer)
 	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
 
 	// Verify the presence of the object in the accepted store
@@ -82,7 +82,7 @@ func TestSvcWithoutHostInStatus(t *testing.T) {
 	addGDPAndGSLBForSvc(t)
 	// Add and test service
 	t.Log("Adding and testing service")
-	k8sAddSvc(t, fooKubeClient, svcName, ns, cname, "", "")
+	k8sAddSvc(t, fooKubeClient, svcName, ns, cname, "", "", corev1.ServiceTypeLoadBalancer)
 	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
 }
 
@@ -98,8 +98,7 @@ func TestSvcWithLabelNotSelected(t *testing.T) {
 
 	// Add and test service
 	t.Log("Adding and testing service")
-	// k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr)
-	svcObj := buildSvcObj(svcName, ns, cname, host, ipAddr, true)
+	svcObj := buildSvcObj(svcName, ns, cname, host, ipAddr, true, corev1.ServiceTypeLoadBalancer)
 	svcObj.ObjectMeta.Labels["key"] = "value1"
 	_, err := fooKubeClient.CoreV1().Services(ns).Create(svcObj)
 	if err != nil {
@@ -124,7 +123,7 @@ func TestBasicSvcCUD(t *testing.T) {
 
 	// Add and test service
 	t.Log("Adding and testing service")
-	svcObj := k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host1, ipAddr1)
+	svcObj := k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host1, ipAddr1, corev1.ServiceTypeLoadBalancer)
 	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
 
 	// Verify the presence of the object in the accepted store
@@ -158,7 +157,7 @@ func TestSvcToNoHost(t *testing.T) {
 
 	// Add and test service
 	t.Log("Adding and testing service")
-	svcObj := k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr)
+	svcObj := k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, corev1.ServiceTypeLoadBalancer)
 	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
 
 	// Verify the presence of the object in the accepted store
@@ -188,7 +187,7 @@ func TestSvcToDiffLabel(t *testing.T) {
 
 	// Add and test service
 	t.Log("Adding and testing service")
-	svcObj := k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr)
+	svcObj := k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, corev1.ServiceTypeLoadBalancer)
 	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
 
 	// Verify the presence of the object in the accepted store
@@ -207,10 +206,29 @@ func TestSvcToDiffLabel(t *testing.T) {
 	verifyInSvcStore(g, rejectedSvcStore, false, svcName, ns, cname, host, ipAddr)
 }
 
-func k8sAddSvc(t *testing.T, kc *k8sfake.Clientset, name string, ns string, cname string, host string,
-	ip string) *corev1.Service {
+func TestNonLBSvcCD(t *testing.T) {
+	testPrefix := "cip-"
+	svcName := testPrefix + "def-svc"
+	ns := "default"
+	host := testPrefix + TestDomain1
+	ipAddr := "10.10.10.10"
+	cname := "cluster1"
 
-	svcObj := buildSvcObj(name, ns, cname, host, ip, true)
+	addGDPAndGSLBForSvc(t)
+
+	// Add and test service
+	t.Log("Adding and testing service")
+	k8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, "ClusterIP")
+	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
+
+	// delete the service
+	k8sDeleteSvc(t, fooKubeClient, svcName, ns)
+}
+
+func k8sAddSvc(t *testing.T, kc *k8sfake.Clientset, name string, ns string, cname string, host string,
+	ip string, svcType corev1.ServiceType) *corev1.Service {
+
+	svcObj := buildSvcObj(name, ns, cname, host, ip, true, svcType)
 	_, err := kc.CoreV1().Services(ns).Create(svcObj)
 	if err != nil {
 		t.Fatalf("error in creating service: %v", err)
@@ -218,13 +236,13 @@ func k8sAddSvc(t *testing.T, kc *k8sfake.Clientset, name string, ns string, cnam
 	return svcObj
 }
 
-func buildSvcObj(name, ns, cname, host, ip string, withStatus bool) *corev1.Service {
+func buildSvcObj(name, ns, cname, host, ip string, withStatus bool, svcType corev1.ServiceType) *corev1.Service {
 	svcObj := &corev1.Service{}
 	svcObj.Namespace = ns
 	svcObj.Name = name
 	svcObj.ResourceVersion = "100"
 
-	svcObj.Spec.Type = corev1.ServiceTypeLoadBalancer
+	svcObj.Spec.Type = svcType
 	svcObj.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
 		corev1.LoadBalancerIngress{
 			IP:       ip,
