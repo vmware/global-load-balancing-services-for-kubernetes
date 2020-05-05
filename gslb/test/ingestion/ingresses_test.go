@@ -35,7 +35,7 @@ const (
 	rejectedIngStore = false
 )
 
-func addGDPAndGSLB(t *testing.T) {
+func addGDPAndGSLBForIngress(t *testing.T) {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(false, true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp)
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
@@ -61,7 +61,7 @@ func TestBasicIngressCD(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -87,7 +87,7 @@ func TestBasicIngressCUD(t *testing.T) {
 
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
@@ -122,7 +122,7 @@ func TestMultihostIngressCD(t *testing.T) {
 	hostIPMap[testPrefix+TestDomain1] = "10.10.10.10"
 	hostIPMap[testPrefix+TestDomain2] = "10.10.10.20"
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -151,7 +151,7 @@ func TestMultihostIngressCUD(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -193,7 +193,7 @@ func TestBasicIngressLabelChange(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -241,7 +241,7 @@ func TestMultihostIngressLabelChange(t *testing.T) {
 	ingHostIPMap[host1] = ipAddr1
 	ingHostIPMap[host2] = ipAddr2
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -299,7 +299,7 @@ func TestMultihostIngressHostAndLabelChange(t *testing.T) {
 	ingHostIPMap[host1] = ipAddr1
 	ingHostIPMap[host2] = ipAddr2
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -360,7 +360,7 @@ func TestEmptyStatusIngress(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -387,7 +387,7 @@ func TestStatusChangeToEmptyIngress(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -421,7 +421,7 @@ func TestStatusChangeFromEmptyIngress(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -457,7 +457,7 @@ func TestStatusChangeIPAddrIngress(t *testing.T) {
 
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
@@ -491,7 +491,7 @@ func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -544,7 +544,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, true, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -603,7 +603,7 @@ func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -662,7 +662,7 @@ func TestBasicTLSIngressCD(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddTLSIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -688,7 +688,7 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
-	addGDPAndGSLB(t)
+	addGDPAndGSLBForIngress(t)
 
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")

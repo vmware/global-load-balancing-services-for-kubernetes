@@ -51,10 +51,6 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-gslbLeaderCredentials:
-  username: "admin"
-  password: "avi123"
-
 service:
   type: ClusterIP
   port: 80

@@ -181,7 +181,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 	fooInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = fooOshiftClient
 	fooInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.ExtV1IngressInformer}
+	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.ExtV1IngressInformer, containerutils.ServiceInformer}
 	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{fooKubeClient}, fooRegisteredInformers, fooInformersArg)
 	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance)
 	fooCtrl.Start(testStopCh)
@@ -194,7 +194,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 	barInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = barOshiftClient
 	barInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.ExtV1IngressInformer}
+	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.ExtV1IngressInformer, containerutils.ServiceInformer}
 	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{barKubeClient}, barRegisteredInformers, barInformersArg)
 	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance)
 	barCtrl.Start(testStopCh)
@@ -227,5 +227,17 @@ func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname
 		if !passed {
 			t.Fatal(errStr)
 		}
+	}
+}
+
+func getSvcKey(op, cname, ns, name string) string {
+	return op + "/LBService/" + cname + "/" + ns + "/" + name
+}
+
+func buildSvcKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
+	actualKey := getSvcKey(op, cname, ns, name)
+	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
+	if !passed {
+		t.Fatal(errStr)
 	}
 }
