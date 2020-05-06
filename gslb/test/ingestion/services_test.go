@@ -35,7 +35,7 @@ const (
 
 func addGDPAndGSLBForSvc(t *testing.T) {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gdp := getTestGDPObject(false, true, gslbalphav1.LBSvcObj, gslbalphav1.EqualsOp)
+	gdp := getTestGDPObject(true, gslbalphav1.LBSvcObj, gslbalphav1.EqualsOp, "default")
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()

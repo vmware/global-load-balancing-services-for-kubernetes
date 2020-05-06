@@ -28,7 +28,7 @@ import (
 func TestGSLBAndGDPWithRoutes(t *testing.T) {
 	ingestionQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 
-	gdp := getTestGDPObject(true, true, gslbalphav1.RouteObj, gslbalphav1.GlobOp)
+	gdp := getTestGDPObject(true, gslbalphav1.RouteObj, gslbalphav1.EqualsOp, "default")
 	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()

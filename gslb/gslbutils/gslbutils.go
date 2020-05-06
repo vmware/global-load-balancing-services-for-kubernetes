@@ -26,6 +26,8 @@ import (
 
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 
+	gslbcs "amko/pkg/client/clientset/versioned"
+
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/api/networking/v1beta1"
@@ -295,6 +297,8 @@ func SetGSLBConfig(value bool) {
 }
 
 var GlobalKubeClient *kubernetes.Clientset
+var GlobalGslbClient *gslbcs.Clientset
+var PublishGDPStatus bool
 
 type AviControllerConfig struct {
 	Username string
@@ -320,4 +324,22 @@ func NewAviControllerConfig(username, password, ipAddr, version string) *AviCont
 
 func GetAviConfig() AviControllerConfig {
 	return gslbLeaderConfig
+}
+
+var initializedClusterContexts []string
+
+func AddClusterContext(cc string) {
+	if IsClusterContextPresent(cc) {
+		return
+	}
+	initializedClusterContexts = append(initializedClusterContexts, cc)
+}
+
+func IsClusterContextPresent(cc string) bool {
+	for _, context := range initializedClusterContexts {
+		if context == cc {
+			return true
+		}
+	}
+	return false
 }

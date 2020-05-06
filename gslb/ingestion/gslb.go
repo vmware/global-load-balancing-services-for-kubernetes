@@ -346,6 +346,11 @@ func Initialize() {
 	if err != nil {
 		utils.AviLog.Error.Fatalf("Error building gslb config clientset: %s", err.Error())
 	}
+	gslbutils.GlobalGslbClient = gslbClient
+	// required to publish the GDP status, the reason we need this is because, during unit tests, we don't
+	// traverse this path and hence we don't initialize GlobalGslbClient, and hence, we can't update the
+	// status of the GDP object. Always check this flag before updating the status.
+	gslbutils.PublishGDPStatus = true
 
 	SetInformerListTimeout(120)
 	ingestionQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersIngestion, WorkqueueName: utils.ObjectIngestionLayer}
@@ -479,6 +484,7 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			informersArg)
 		clients[cluster.clusterName] = kubeClient
 		aviCtrl := GetGSLBMemberController(cluster.clusterName, informerInstance)
+		gslbutils.AddClusterContext(cluster.clusterName)
 		aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)
 	}

@@ -122,8 +122,8 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 		}
 		if gf == nil || !gf.ApplyFilter(ihm, c.name) {
 			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
-			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
-				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s, ing: %v\n", c.name, ihm.Namespace,
+				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter", ihm)
 			continue
 		}
 		AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)

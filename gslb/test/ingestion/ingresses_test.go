@@ -19,6 +19,7 @@ import (
 	gslbingestion "amko/gslb/ingestion"
 	"amko/gslb/k8sobjects"
 	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	"strconv"
 	"testing"
 
 	"github.com/avinetworks/container-lib/utils"
@@ -37,7 +38,7 @@ const (
 
 func addGDPAndGSLBForIngress(t *testing.T) {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gdp := getTestGDPObject(false, true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp)
+	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, "default")
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()
@@ -715,13 +716,27 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
 	ingObj *extensionv1beta1.Ingress) {
 
-	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Update(ingObj)
+	var newResVer string
+	// increment the resource version of this ingress
+	resVer := ingObj.ResourceVersion
+	if resVer == "" {
+		newResVer = "100"
+	}
+	resVerInt, err := strconv.Atoi(resVer)
+	if err != nil {
+		t.Fatalf("error in parsing resource version: %s", err)
+	}
+	newResVer = strconv.Itoa(resVerInt + 1)
+	ingObj.ResourceVersion = newResVer
+
+	_, err = kc.ExtensionsV1beta1().Ingresses(ns).Update(ingObj)
 	if err != nil {
 		t.Fatalf("failed to update ingress: %v\n", err)
 	}
 }
 
 func k8sDeleteIngress(t *testing.T, kc *k8sfake.Clientset, name, ns string) {
+	t.Logf("Deleting ingress %s in ns: %s", name, ns)
 	err := kc.ExtensionsV1beta1().Ingresses(ns).Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in deleting ingress: %v", err)
