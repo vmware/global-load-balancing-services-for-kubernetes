@@ -17,6 +17,8 @@ package ingestion
 import (
 	filter "amko/gslb/gdp_filter"
 	"amko/gslb/gslbutils"
+	"errors"
+	"strconv"
 
 	gdpalphav1 "amko/pkg/apis/avilb/v1alpha1"
 	gslbcs "amko/pkg/client/clientset/versioned"
@@ -194,6 +196,80 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 	}
 }
 
+func validObjectType(objType string) bool {
+	if objType == gdpalphav1.IngressObj || objType == gdpalphav1.LBSvcObj || objType == gdpalphav1.RouteObj {
+		return true
+	}
+	return false
+}
+
+func validOperation(op string) bool {
+	if op == gdpalphav1.EqualsOp || op == gdpalphav1.NotequalsOp {
+		return true
+	}
+	return false
+}
+
+func validLabel(label gdpalphav1.Label) error {
+	if label.Key == "" {
+		if label.Value == "" {
+			return errors.New("label key and value is missing")
+		}
+		return errors.New("label key is missing for value " + label.Value)
+	}
+	if label.Value == "" {
+		return errors.New("label value is missing for key " + label.Key)
+	}
+	return nil
+}
+
+func GDPSanityChecks(gdp *gdpalphav1.GlobalDeploymentPolicy) error {
+	// MatchRule checks
+	for _, matchRule := range gdp.Spec.MatchRules {
+		if !validObjectType(matchRule.Object) {
+			return errors.New("unsupported object type " + matchRule.Object)
+		}
+		if !validOperation(matchRule.Op) {
+			return errors.New("unsupported operation " + matchRule.Op)
+		}
+		if err := validLabel(matchRule.Label); err != nil {
+			return errors.New(err.Error())
+		}
+	}
+
+	// MatchClusters checks, empty matchClusters are allowed
+	for _, matchCluster := range gdp.Spec.MatchClusters {
+		if !gslbutils.IsClusterContextPresent(matchCluster.ClusterContext) {
+			return errors.New("cluster context " + matchCluster.ClusterContext + " not present in GSLBConfig")
+		}
+	}
+
+	// TrafficSplit checks
+	for _, tp := range gdp.Spec.TrafficSplit {
+		if !gslbutils.IsClusterContextPresent(tp.Cluster) {
+			return errors.New("cluster " + tp.Cluster + " in traffic policy not present in GSLBConfig")
+		}
+		if tp.Weight < 1 || tp.Weight > 20 {
+			return errors.New("traffic weight " + strconv.Itoa(int(tp.Weight)) + " must be between 1 and 20")
+		}
+	}
+	return nil
+}
+
+func updateGDPStatus(gdp *gdpalphav1.GlobalDeploymentPolicy, msg string) {
+	gdp.Status.ErrorStatus = msg
+
+	// Always check this flag before writing the status on the GDP object. The reason is, for unit tests,
+	// the fake client doesn't have CRD capability and hence, can't do a runtime create/update of CRDs.
+	if !gslbutils.PublishGDPStatus {
+		return
+	}
+	obj, updateErr := gslbutils.GlobalGslbClient.AvilbV1alpha1().GlobalDeploymentPolicies(gdp.GetObjectMeta().GetNamespace()).Update(gdp)
+	if updateErr != nil {
+		gslbutils.Errf("Error in updating the GDP status object %v: %s", obj, updateErr)
+	}
+}
+
 // AddGDPObj creates a new GlobalFilter if not present on the first GDP object. Subsequent ADD calls add
 // on to the existing GlobalFilter. For each namespace, there can only be one filter. So, if a filter
 // already exists for a namespace, a user needs to edit that and not add a new one. This rule is taken
@@ -201,9 +277,25 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 // only one filter object.
 func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
+	err := GDPSanityChecks(gdp)
+	if err != nil {
+		gslbutils.Errf("Error in accepting GDP object: %s", err.Error())
+		updateGDPStatus(gdp, err.Error())
+		return
+	}
+
+	// Check if a filter already exists for this namespace
+	gf := filter.GetGlobalFilter()
+	if gf.IsNSFilterExists(gdp.ObjectMeta.GetNamespace()) {
+		gslbutils.Errf("a GDP object already exists for this namespace %s, can't add another", gdp.ObjectMeta.Namespace)
+		updateGDPStatus(gdp, "a GDP object already exists for namespace "+gdp.ObjectMeta.GetNamespace())
+		return
+	}
+	updateGDPStatus(gdp, "success")
+
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"GDP object added")
-	gf := filter.GetGlobalFilter()
+
 	gslbutils.Logf("creating a new filter")
 	gf.AddToGlobalFilter(gdp)
 	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, false)
@@ -222,6 +314,15 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 	if oldGdp.ObjectMeta.ResourceVersion == newGdp.ObjectMeta.ResourceVersion {
 		return
 	}
+
+	err := GDPSanityChecks(newGdp)
+	if err != nil {
+		gslbutils.Errf("Error in accepting the new GDP object: %s", err.Error())
+		updateGDPStatus(newGdp, err.Error())
+		return
+	}
+	updateGDPStatus(newGdp, "success")
+
 	gf := filter.GetGlobalFilter()
 	if gf == nil {
 		// global filter not initialized, return

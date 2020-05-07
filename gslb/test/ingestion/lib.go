@@ -77,7 +77,7 @@ func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 	return gslbConfigObj
 }
 
-func getTestGDPObject(hostsReq, labelsReq bool, objType string, op string) *gslbalphav1.GlobalDeploymentPolicy {
+func getTestGDPObject(labelsReq bool, objType string, op, ns string) *gslbalphav1.GlobalDeploymentPolicy {
 	matchRules := []gslbalphav1.MatchRule{gslbalphav1.MatchRule{}}
 
 	if objType != gslbalphav1.RouteObj && objType != gslbalphav1.IngressObj && objType != gslbalphav1.LBSvcObj {
@@ -85,22 +85,11 @@ func getTestGDPObject(hostsReq, labelsReq bool, objType string, op string) *gslb
 	}
 	matchRules[0].Object = objType
 
-	if op != gslbalphav1.GlobOp && op != gslbalphav1.EqualsOp {
+	if op != gslbalphav1.EqualsOp {
 		return nil
 	}
 	matchRules[0].Op = op
 
-	if hostsReq {
-		hosts := []gslbalphav1.Host{
-			gslbalphav1.Host{
-				HostName: "*.avi.com",
-			},
-			gslbalphav1.Host{
-				HostName: "cluster1",
-			},
-		}
-		matchRules[0].Hosts = hosts
-	}
 	if labelsReq {
 		label := gslbalphav1.Label{
 			Key:   "key",
@@ -123,7 +112,7 @@ func getTestGDPObject(hostsReq, labelsReq bool, objType string, op string) *gslb
 	}
 	gdpMeta := metav1.ObjectMeta{
 		Name:            "test-gdp-1",
-		Namespace:       "avi-system",
+		Namespace:       ns,
 		ResourceVersion: "100",
 	}
 	gdp := gslbalphav1.GlobalDeploymentPolicy{
@@ -155,7 +144,7 @@ func waitAndVerify(t *testing.T, keyList []string, timeoutExpected bool) (bool, 
 		if timeoutExpected {
 			// If the timeout is expected, then there shouldn't be anything on this channel
 			if data != "" {
-				errMsg := "Unexpected data: %s" + data
+				errMsg := "Unexpected data: " + data
 				return false, errMsg
 			}
 		}
@@ -177,6 +166,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 	// Initialize a foo kube client
 	fooKubeClient = k8sfake.NewSimpleClientset()
 	fooOshiftClient = oshiftfake.NewSimpleClientset()
+
 	fooInformersArg := make(map[string]interface{})
 	fooInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = fooOshiftClient
 	fooInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false

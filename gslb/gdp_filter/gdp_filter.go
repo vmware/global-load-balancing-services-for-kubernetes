@@ -50,6 +50,16 @@ type GlobalFilter struct {
 	GlobalLock sync.RWMutex
 }
 
+// IsNSFilterExists checks if a filter exists for the namespace `ns`.
+func (gf *GlobalFilter) IsNSFilterExists(ns string) bool {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+	if nf, ok := gf.NSFilterMap[ns]; ok && nf != nil {
+		return true
+	}
+	return false
+}
+
 // ApplyFilter applies the local namespace filter first to an object, if the namespace
 // filter is not present or if the object is rejected by the namespace filter, apply
 // the cluster filter if present. Default action is to reject the object.
@@ -72,6 +82,7 @@ func (gf *GlobalFilter) ApplyFilter(obj interface{}, cname string) bool {
 	var passed bool
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
+
 	if nf, ok := gf.NSFilterMap[ns]; ok && nf != nil {
 		passed = nf.ApplyFilter(metaobj, cname)
 		if passed {
