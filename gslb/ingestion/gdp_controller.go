@@ -283,14 +283,15 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 		updateGDPStatus(gdp, err.Error())
 		return
 	}
-	updateGDPStatus(gdp, "success")
 
 	// Check if a filter already exists for this namespace
 	gf := filter.GetGlobalFilter()
 	if gf.IsNSFilterExists(gdp.ObjectMeta.GetNamespace()) {
+		gslbutils.Errf("a GDP object already exists for this namespace %s, can't add another", gdp.ObjectMeta.Namespace)
 		updateGDPStatus(gdp, "a GDP object already exists for namespace "+gdp.ObjectMeta.GetNamespace())
 		return
 	}
+	updateGDPStatus(gdp, "success")
 
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"GDP object added")

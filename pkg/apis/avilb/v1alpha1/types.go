@@ -154,8 +154,8 @@ type TrafficSplitElem struct {
 
 // GDPStatus gives the current status of the policy object.
 type GDPStatus struct {
-	MatchState  string
-	ErrorStatus string
+	MatchState  string `json:"matchState,omitempty"`
+	ErrorStatus string `json:"errorStatus,omitempty"`
 }
 
 // Set of constants for GSLB Load Balancing algorithm, decide the member inside a pool
