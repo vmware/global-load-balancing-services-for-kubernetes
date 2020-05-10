@@ -15,11 +15,13 @@
 package cache
 
 import (
+	"errors"
 	"sync"
 
 	"amko/gslb/gslbutils"
 
 	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/sdk/go/clients"
 )
 
 var AviClientInstance *utils.AviRestClientPool
@@ -39,4 +41,98 @@ func SharedAviClients() *utils.AviRestClientPool {
 		utils.AviLog.Error.Printf("AVI Controller Initialization failed, %s", err)
 	}
 	return AviClientInstance
+}
+
+func IsAviSiteLeader() bool {
+	aviRestClientPool := SharedAviClients()
+	aviClient := aviRestClientPool.AviClient[0]
+
+	clusterUuid, err := GetClusterUuid(aviClient)
+	if err != nil {
+		gslbutils.Errf("Error in finding controller cluster uuid: %s", err.Error())
+		return false
+	}
+
+	gslbLeaderUuid, err := GetGslbLeaderUuid(aviClient)
+	if err != nil {
+		gslbutils.Errf("error in finding the GSLB leader's uuid: %s", err.Error())
+	}
+	if clusterUuid == gslbLeaderUuid {
+		return true
+	}
+	return false
+}
+
+func GetClusterUuid(client *clients.AviClient) (string, error) {
+	var resp interface{}
+
+	uri := "/api/cluster"
+
+	err := client.AviSession.Get(uri, &resp)
+	if err != nil {
+		gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned error %s", uri, err.Error())
+		return "", err
+	}
+
+	clusterIntf, ok := resp.(interface{})
+	if !ok {
+		gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned %v type %T",
+			uri, resp, clusterIntf)
+		return "", errors.New("unexpected response for get cluster")
+	}
+	gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned a cluster", uri)
+
+	cluster := clusterIntf.(map[string]interface{})
+	name, ok := cluster["name"].(string)
+	if !ok {
+		gslbutils.Warnf("resp: %v, msg: name not present in response", clusterIntf)
+		return "", errors.New("name not present in the cluster response")
+	}
+	clusterUUID, ok := cluster["uuid"].(string)
+	if !ok {
+		gslbutils.Warnf("resp: %v, msg: uuid not present in response", clusterIntf)
+		return "", errors.New("uuid not present in the cluster response")
+	}
+
+	gslbutils.Logf("object: ControllerCluster, name: %s, uuid: %s, msg: fetched uuid for cluster", name, clusterUUID)
+	return clusterUUID, nil
+}
+
+func GetGslbLeaderUuid(client *clients.AviClient) (string, error) {
+	var resp interface{}
+
+	uri := "/api/gslb"
+
+	err := client.AviSession.Get(uri, &resp)
+	if err != nil {
+		gslbutils.Logf("object: GslbConfig, msg: gslb get URI %s returned error %s", uri, err.Error())
+		return "", err
+	}
+
+	restResp, ok := resp.(map[string]interface{})
+	if !ok {
+		gslbutils.Logf("object: GslbConfig, msg: gslb get URI %s returned %v type %T",
+			uri, resp, restResp)
+		return "", errors.New("unexpected response for get gslb")
+	}
+	gslbutils.Logf("object: GslbConfig, msg: gslb get URI %s returned %v count", uri, restResp["count"])
+	results, ok := restResp["results"].([]interface{})
+
+	if !ok {
+		gslbutils.Logf("object: GslbConfig, msg: results not of type []interface{} instead of type %T",
+			restResp["results"])
+		return "", errors.New("results not of type []interface{}")
+	}
+	// results[0] contains the GSLB information
+	gslbIntf := results[0]
+	gslbConfig := gslbIntf.(map[string]interface{})
+	leaderUUID, ok := gslbConfig["leader_cluster_uuid"].(string)
+	if !ok {
+		gslbutils.Warnf("resp: %v, msg: leader_cluster_uuid not present in response", gslbIntf)
+		return "", errors.New("gslb_leader_uuid not present in gslb response")
+	}
+
+	gslbutils.Logf("object: GslbConfig, leader_cluster_uuid: %s, msg: fetched leader_cluster_uuid for gslb",
+		leaderUUID)
+	return leaderUUID, nil
 }

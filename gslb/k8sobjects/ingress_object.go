@@ -33,7 +33,7 @@ func getIngHostMap() *ObjHostMap {
 	ihMapInit.Do(func() {
 		ihMap.HostMap = make(map[string]IPHostname)
 	})
-	return &rhMap
+	return &ihMap
 }
 
 // GetIngressHostMeta returns a ingress split into its backends
