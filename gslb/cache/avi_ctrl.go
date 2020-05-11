@@ -45,6 +45,11 @@ func SharedAviClients() *utils.AviRestClientPool {
 
 func IsAviSiteLeader() bool {
 	aviRestClientPool := SharedAviClients()
+	if len(aviRestClientPool.AviClient) < 1 {
+		gslbutils.Errf("no avi clients initialized, returning")
+		return false
+	}
+
 	aviClient := aviRestClientPool.AviClient[0]
 
 	clusterUuid, err := GetClusterUuid(aviClient)
@@ -64,25 +69,27 @@ func IsAviSiteLeader() bool {
 }
 
 func GetClusterUuid(client *clients.AviClient) (string, error) {
-	var resp interface{}
+	var clusterIntf interface{}
 
 	uri := "/api/cluster"
 
-	err := client.AviSession.Get(uri, &resp)
+	err := client.AviSession.Get(uri, &clusterIntf)
 	if err != nil {
 		gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned error %s", uri, err.Error())
 		return "", err
 	}
 
-	clusterIntf, ok := resp.(interface{})
-	if !ok {
+	if clusterIntf == nil {
 		gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned %v type %T",
-			uri, resp, clusterIntf)
+			uri, clusterIntf, clusterIntf)
 		return "", errors.New("unexpected response for get cluster")
 	}
 	gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned a cluster", uri)
 
-	cluster := clusterIntf.(map[string]interface{})
+	cluster, ok := clusterIntf.(map[string]interface{})
+	if !ok {
+		gslbutils.Logf("resp: %v, msg: response can't be parsed to map[string]interface", clusterIntf)
+	}
 	name, ok := cluster["name"].(string)
 	if !ok {
 		gslbutils.Warnf("resp: %v, msg: name not present in response", clusterIntf)
