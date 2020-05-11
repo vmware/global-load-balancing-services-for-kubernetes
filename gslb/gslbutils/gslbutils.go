@@ -343,3 +343,17 @@ func IsClusterContextPresent(cc string) bool {
 	}
 	return false
 }
+
+var controllerIsLeader bool
+
+func SetControllerAsLeader() {
+	controllerIsLeader = true
+}
+
+func SetControllerAsFollower() {
+	controllerIsLeader = false
+}
+
+func IsControllerLeader() bool {
+	return controllerIsLeader
+}

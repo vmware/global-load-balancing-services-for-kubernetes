@@ -16,7 +16,6 @@ package rest
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -27,6 +26,7 @@ import (
 
 	"github.com/avinetworks/container-lib/utils"
 	avimodels "github.com/avinetworks/sdk/go/models"
+	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -94,6 +94,11 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	gsCacheObj *avicache.AviGSCache, key string) {
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
 	var operation *utils.RestOp
+
+	if !gslbutils.IsControllerLeader() {
+		gslbutils.Errf("key: %s, msg: can't execute rest operation as controller is not a leader")
+		return
+	}
 	if gsCacheObj != nil {
 		var restOps []*utils.RestOp
 		var cksum uint32
@@ -125,9 +130,15 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	if len(restOp.aviRestPoolClient.AviClient) > 0 {
 		aviClient := restOp.aviRestPoolClient.AviClient[bkt]
 		err := restOp.aviRestPoolClient.AviRestOperate(aviClient, []*utils.RestOp{operation})
+
 		if err != nil {
 			gslbutils.Errf("key: %s, msg: rest operation error: %s", key, err)
-			PublishKeyToRetryLayer(gsKey, err.Error())
+			webSyncErr, ok := err.(*utils.WebSyncError)
+			if !ok {
+				gslbutils.Errf("key: %s, msg: %s, err: %v", key, "got an improper web api error, returning", err)
+				return
+			}
+			PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
 			return
 		}
 		// rest call executed successfully
@@ -148,32 +159,50 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	}
 }
 
-func PublishKeyToRetryLayer(gsKey avicache.TenantName, errorStr string) {
+func PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
 	var bkt uint32
 	bkt = 0
-	statuscode := ExtractStatusCode(errorStr)
+
 	key := gsKey.Tenant + "/" + gsKey.Name
-	utils.AviLog.Info.Printf("key: %s, msg: Status code retrieved: %s", key, statuscode)
-	if statuscode == "500" || statuscode == "501" || statuscode == "502" || statuscode == "503" {
+
+	aviError, ok := webApiErr.(session.AviError)
+	if !ok {
+		gslbutils.Errf("error in parsing the web api error to avi error: %v", webApiErr)
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to slow path retry queue", key)
-	} else if statuscode == "404" || statuscode == "400" || statuscode == "409" {
+		return
+	}
+
+	utils.AviLog.Info.Printf("key: %s, msg: Status code retrieved: %d", key, aviError.HttpStatusCode)
+	switch aviError.HttpStatusCode {
+	case 500, 501, 502, 503:
+		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
+		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to slow path retry queue", key)
+
+	case 404, 409:
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to fast path retry queue", key)
-	} else {
-		utils.AviLog.Info.Printf("key: %s, msg: error status code %s", key, statuscode)
-	}
-}
 
-func ExtractStatusCode(word string) string {
-	r, _ := regexp.Compile("HTTP code: .*.;")
-	result := r.FindAllString(word, -1)
-	if len(result) == 1 {
-		return result[0][len(result[0])-4 : len(result[0])-1]
+	case 400:
+		// check if the message contains: "not a leader"
+		// if the controller is not the leader anymore, stop syncing from layer 3.
+		if strings.Contains(*aviError.Message, "Config Operations can be done ONLY on leader") {
+			gslbutils.Errf("can't execute operations on a non-leader controller, will wait for it to become a leader in the next full sync")
+			gslbutils.SetControllerAsFollower()
+			// don't retry
+			return
+		}
+		// however, if this controller is still the leader, we should retry
+		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
+		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
+		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to fast path retry queue", key)
+
+	default:
+		utils.AviLog.Info.Printf("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
 	}
-	return ""
 }
 
 func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
@@ -296,16 +325,24 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 	var restOps *utils.RestOp
 	bkt := utils.Bkt(key, utils.NumWorkersGraph)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+	if !gslbutils.IsControllerLeader() {
+		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
+		return
+	}
 	if gsCacheObj != nil {
 		operation := restOp.AviGSDel(gsCacheObj.Uuid, tenant, key, gsCacheObj.Name)
 		restOps = operation
 		err := restOp.aviRestPoolClient.AviRestOperate(aviclient, []*utils.RestOp{restOps})
 		if err != nil {
-			// TODO: Just log it for now, will add a retry logic later
 			gslbutils.Warnf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
 				"failed to delete GSLB Service")
+			webSyncErr, ok := err.(*utils.WebSyncError)
+			if !ok {
+				gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid, "got an improper web api error, returning")
+				return
+			}
 			gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
-			PublishKeyToRetryLayer(gsKey, err.Error())
+			PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
 			return
 		}
 		// Clear all the cache objects which were deleted

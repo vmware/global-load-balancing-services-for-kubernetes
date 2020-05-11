@@ -92,8 +92,8 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 	}
 	obj, ok := store.GetClusterNSObjectByName(cname, ns, objName)
 	if !ok {
-		gslbutils.Warnf("key: %s, objName: %s, msg: %s", key, objName,
-			"error finding the object in the accepted store")
+		gslbutils.Warnf("key: %s, objName: %s, msg: error finding the object in the %s store", key,
+			objName, storeType)
 		return nil
 	}
 	return obj

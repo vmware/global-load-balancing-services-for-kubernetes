@@ -174,10 +174,26 @@ func PublishChangeToRestLayer(gsKey interface{}, sharedQ *utils.WorkerQueue) {
 	nodes.PublishKeyToRestLayer(aviCacheKey.Tenant, aviCacheKey.Name, aviCacheKey.Name+"/"+aviCacheKey.Tenant, sharedQ)
 }
 
+func CheckAndSetGslbLeader() error {
+	if avicache.IsAviSiteLeader() {
+		gslbutils.SetControllerAsLeader()
+		return nil
+	}
+	gslbutils.SetControllerAsFollower()
+	return errors.New("AVI site is not the GSLB leader")
+}
+
 // CacheRefreshRoutine fetches the objects in the AVI controller and finds out
 // the delta between the existing and the new objects.
 func CacheRefreshRoutine() {
 	gslbutils.Logf("starting AVI cache refresh...\ncreating a new AVI cache")
+
+	// Check if the controller is leader or not, return if not.
+	err := CheckAndSetGslbLeader()
+	if err != nil {
+		gslbutils.Errf("error in verifying site as GSLB leader: %s", err.Error())
+		return
+	}
 
 	newAviCache := avicache.PopulateCache(false)
 	existingAviCache := avicache.GetAviCache()
@@ -255,6 +271,7 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 	ctrlUsername := secretObj.Data["username"]
 	ctrlPassword := secretObj.Data["password"]
 	gslbutils.NewAviControllerConfig(string(ctrlUsername), string(ctrlPassword), leaderIP, leaderVersion)
+
 }
 
 // AddGSLBConfigObject parses the gslb config object and starts informers
@@ -274,8 +291,16 @@ func AddGSLBConfigObject(obj interface{}) {
 	gslbutils.Logf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
 		"got an add event")
 
-	// parse and set the controller environment variables
+	// parse and set the controller configuration
 	parseControllerDetails(gc)
+
+	// check if the controller details provided are for a leader site
+	if !avicache.IsAviSiteLeader() {
+		gslbutils.Errf("Controller details provided are not for a leader, returning")
+		gslbutils.SetControllerAsFollower()
+		return
+	}
+	gslbutils.SetControllerAsLeader()
 
 	cacheRefreshInterval := gc.Spec.RefreshInterval
 	if cacheRefreshInterval <= 0 {
