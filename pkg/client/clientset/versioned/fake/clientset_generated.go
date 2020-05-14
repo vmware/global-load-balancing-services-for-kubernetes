@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "amko/pkg/client/clientset/versioned"
-	avilbv1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
-	fakeavilbv1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1/fake"
+	amkov1alpha1 "amko/pkg/client/clientset/versioned/typed/amko/v1alpha1"
+	fakeamkov1alpha1 "amko/pkg/client/clientset/versioned/typed/amko/v1alpha1/fake"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -77,7 +77,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// AvilbV1alpha1 retrieves the AvilbV1alpha1Client
-func (c *Clientset) AvilbV1alpha1() avilbv1alpha1.AvilbV1alpha1Interface {
-	return &fakeavilbv1alpha1.FakeAvilbV1alpha1{Fake: &c.Fake}
+// AmkoV1alpha1 retrieves the AmkoV1alpha1Client
+func (c *Clientset) AmkoV1alpha1() amkov1alpha1.AmkoV1alpha1Interface {
+	return &fakeamkov1alpha1.FakeAmkoV1alpha1{Fake: &c.Fake}
 }

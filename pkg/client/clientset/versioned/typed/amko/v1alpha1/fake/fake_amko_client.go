@@ -19,27 +19,27 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/client/clientset/versioned/typed/amko/v1alpha1"
 
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeAvilbV1alpha1 struct {
+type FakeAmkoV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeAvilbV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInterface {
+func (c *FakeAmkoV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInterface {
 	return &FakeGSLBConfigs{c, namespace}
 }
 
-func (c *FakeAvilbV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {
+func (c *FakeAmkoV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {
 	return &FakeGlobalDeploymentPolicies{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeAvilbV1alpha1) RESTClient() rest.Interface {
+func (c *FakeAmkoV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

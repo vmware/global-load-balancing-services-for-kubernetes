@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	scheme "amko/pkg/client/clientset/versioned/scheme"
 	"time"
 
@@ -55,7 +55,7 @@ type gSLBConfigs struct {
 }
 
 // newGSLBConfigs returns a GSLBConfigs
-func newGSLBConfigs(c *AvilbV1alpha1Client, namespace string) *gSLBConfigs {
+func newGSLBConfigs(c *AmkoV1alpha1Client, namespace string) *gSLBConfigs {
 	return &gSLBConfigs{
 		client: c.RESTClient(),
 		ns:     namespace,

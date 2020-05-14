@@ -1,9 +1,9 @@
 apiVersion: "apiextensions.k8s.io/v1beta1"
 kind: "CustomResourceDefinition"
 metadata:
-  name: "globaldeploymentpolicies.avilb.k8s.io"
+  name: "globaldeploymentpolicies.amko.k8s.io"
 spec:
-  group: "avilb.k8s.io"
+  group: "amko.k8s.io"
   version: "v1alpha1"
   scope: "Namespaced"
   names:
@@ -19,35 +19,20 @@ spec:
         spec:
           properties:
             matchRules:
-              type: "array"
-              items:
-                properties:
-                  object:
-                    type: "string"
-                    enum: [INGRESS, ROUTE, LBSVC]
-                  hosts:
-                    type: "array"
-                    items:
-                      properties:
-                        host:
-                          type: "string"
-                  label:
-                    properties:
-                      key:
-                        type: "string"
-                      value:
-                        type: "string"
-                  op:
-                    type: "string"
-                    enum: [EQUALS, GLOB, NOTEQUALS]
+              properties:
+                appSelector:
+                  properties:
+                    label:
+                      type: "string"
+                namespaceSelector:
+                  properties:
+                    label:
+                      type: "string"
             matchClusters:
               type: "array"
               items:
-                properties:
-                  cluster:
-                    type: "string"
-            gslbConfig:
-              type: "string"
+                object:
+                  type: "string"
             trafficSplit:
               type: "array"
               items:
@@ -56,5 +41,3 @@ spec:
                     type: "string"
                   weight:
                     type: integer
-            lbAlgorithm:
-              type: "string"

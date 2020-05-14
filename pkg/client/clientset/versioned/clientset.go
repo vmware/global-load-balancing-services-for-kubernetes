@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	avilbv1alpha1 "amko/pkg/client/clientset/versioned/typed/avilb/v1alpha1"
+	amkov1alpha1 "amko/pkg/client/clientset/versioned/typed/amko/v1alpha1"
 	"fmt"
 
 	discovery "k8s.io/client-go/discovery"
@@ -29,19 +29,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	AvilbV1alpha1() avilbv1alpha1.AvilbV1alpha1Interface
+	AmkoV1alpha1() amkov1alpha1.AmkoV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	avilbV1alpha1 *avilbv1alpha1.AvilbV1alpha1Client
+	amkoV1alpha1 *amkov1alpha1.AmkoV1alpha1Client
 }
 
-// AvilbV1alpha1 retrieves the AvilbV1alpha1Client
-func (c *Clientset) AvilbV1alpha1() avilbv1alpha1.AvilbV1alpha1Interface {
-	return c.avilbV1alpha1
+// AmkoV1alpha1 retrieves the AmkoV1alpha1Client
+func (c *Clientset) AmkoV1alpha1() amkov1alpha1.AmkoV1alpha1Interface {
+	return c.amkoV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -65,7 +65,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.avilbV1alpha1, err = avilbv1alpha1.NewForConfig(&configShallowCopy)
+	cs.amkoV1alpha1, err = amkov1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.avilbV1alpha1 = avilbv1alpha1.NewForConfigOrDie(c)
+	cs.amkoV1alpha1 = amkov1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -90,7 +90,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.avilbV1alpha1 = avilbv1alpha1.New(c)
+	cs.amkoV1alpha1 = amkov1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

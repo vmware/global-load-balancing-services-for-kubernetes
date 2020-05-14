@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	avilbv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	amkov1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	versioned "amko/pkg/client/clientset/versioned"
 	internalinterfaces "amko/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "amko/pkg/client/listers/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/client/listers/amko/v1alpha1"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,16 +61,16 @@ func NewFilteredGSLBConfigInformer(client versioned.Interface, namespace string,
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AvilbV1alpha1().GSLBConfigs(namespace).List(options)
+				return client.AmkoV1alpha1().GSLBConfigs(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AvilbV1alpha1().GSLBConfigs(namespace).Watch(options)
+				return client.AmkoV1alpha1().GSLBConfigs(namespace).Watch(options)
 			},
 		},
-		&avilbv1alpha1.GSLBConfig{},
+		&amkov1alpha1.GSLBConfig{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *gSLBConfigInformer) defaultInformer(client versioned.Interface, resyncP
 }
 
 func (f *gSLBConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&avilbv1alpha1.GSLBConfig{}, f.defaultInformer)
+	return f.factory.InformerFor(&amkov1alpha1.GSLBConfig{}, f.defaultInformer)
 }
 
 func (f *gSLBConfigInformer) Lister() v1alpha1.GSLBConfigLister {

@@ -20,7 +20,7 @@ package externalversions
 
 import (
 	versioned "amko/pkg/client/clientset/versioned"
-	avilb "amko/pkg/client/informers/externalversions/avilb"
+	amko "amko/pkg/client/informers/externalversions/amko"
 	internalinterfaces "amko/pkg/client/informers/externalversions/internalinterfaces"
 	reflect "reflect"
 	sync "sync"
@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Avilb() avilb.Interface
+	Amko() amko.Interface
 }
 
-func (f *sharedInformerFactory) Avilb() avilb.Interface {
-	return avilb.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Amko() amko.Interface {
+	return amko.New(f, f.namespace, f.tweakListOptions)
 }

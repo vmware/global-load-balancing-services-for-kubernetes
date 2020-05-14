@@ -1,33 +1,21 @@
-apiVersion: "avilb.k8s.io/v1alpha1"
+apiVersion: "amko.k8s.io/v1alpha1"
 kind: "GlobalDeploymentPolicy"
 metadata:
   name: "gdp-1"
   namespace: "avi-system"
 spec:
   matchRules:
-    - object: ROUTE
-      hosts:
-        - host: "*.foo.com"
-      op: GLOB
-    - object: ROUTE
-      label:
-        key: "key"
-        value: "value"
-      op: "EQUALS"
-    - object: ROUTE
-      hosts:
-        - host: "app1.foo.com"
-        - host: "app2.foo.com"
-      matchOperator: NOTEQUALS
+    appSelector:
+      label: "app:gslb"
+    namespaceSelector:
+      label: "ns:gslb"
  
   matchClusters:
-    - cluster: cluster1
-    - cluster: cluster2
+    - cluster1
+    - cluster2
  
-  gslbConfig: "gslbpolicy-1"
   trafficSplit:
     - cluster: cluster1
       weight: 80
     - cluster: cluster2
       weight: 20
-  gslbAlgorithm: "RoundRobin"
