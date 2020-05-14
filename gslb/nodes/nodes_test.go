@@ -48,6 +48,8 @@ func setupQueue(testCh <-chan struct{}) {
 }
 
 func setUp() {
+	os.Setenv("INGRESS_API", "extensionv1")
+
 	testStopCh = utils.SetupSignalHandler()
 	keyChan = make(chan string)
 

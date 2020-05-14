@@ -104,20 +104,16 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	cs := k8sinfo.Cs
 	gslbutils.Logf("k8scontroller: %s, msg: %s", c.name, "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(containerutils.AviLog.Info.Printf)
+	eventBroadcaster.StartLogging(containerutils.AviLog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: cs.CoreV1().Events("")})
 
 	k8sQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	c.workqueue = k8sQueue.Workqueue
 	numWorkers := k8sQueue.NumWorkers
 
-	if c.informers.ExtV1IngressInformer != nil {
-		extv1IngressEventHandler := AddExtV1IngressEventHandler(numWorkers, c)
-		c.informers.ExtV1IngressInformer.Informer().AddEventHandler(extv1IngressEventHandler)
-	}
-	if c.informers.CoreV1IngressInformer != nil {
-		ingressEventHandler := AddCoreV1IngressEventHandler(numWorkers, c)
-		c.informers.CoreV1IngressInformer.Informer().AddEventHandler(ingressEventHandler)
+	if c.informers.IngressInformer != nil {
+		ingressEventHandler := AddIngressEventHandler(numWorkers, c)
+		c.informers.IngressInformer.Informer().AddEventHandler(ingressEventHandler)
 	}
 	if c.informers.RouteInformer != nil {
 		routeEventHandler := AddRouteEventHandler(numWorkers, c)
@@ -161,16 +157,11 @@ func DeleteFromLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
 
 func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 	var cacheSyncParam []cache.InformerSynced
-	if c.informers.ExtV1IngressInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting ExtV1Ingress informer")
-		go c.informers.ExtV1IngressInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.ExtV1IngressInformer.Informer().HasSynced)
-	}
 
-	if c.informers.CoreV1IngressInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting CoreV1Ingress informer")
-		go c.informers.CoreV1IngressInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.CoreV1IngressInformer.Informer().HasSynced)
+	if c.informers.IngressInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting Ingress informer")
+		go c.informers.IngressInformer.Informer().Run(stopCh)
+		cacheSyncParam = append(cacheSyncParam, c.informers.IngressInformer.Informer().HasSynced)
 	}
 
 	if c.informers.RouteInformer != nil {

@@ -235,7 +235,7 @@ func CacheRefreshRoutine() {
 func GenerateKubeConfig() error {
 	membersKubeConfig = os.Getenv("GSLB_CONFIG")
 	if membersKubeConfig == "" {
-		utils.AviLog.Error.Fatal("GSLB_CONFIG environment variable not set, exiting...")
+		utils.AviLog.Fatal("GSLB_CONFIG environment variable not set, exiting...")
 		return errors.New("GSLB_CONFIG environment variable not set, exiting")
 	}
 	f, err := os.Create(gslbutils.GSLBKubePath)
@@ -312,7 +312,7 @@ func AddGSLBConfigObject(obj interface{}) {
 	// GSLB_CONFIG.
 	err = GenerateKubeConfig()
 	if err != nil {
-		utils.AviLog.Error.Fatalf("Error in generating the kubeconfig file: %s", err.Error())
+		utils.AviLog.Fatalf("Error in generating the kubeconfig file: %s", err.Error())
 	}
 	aviCtrlList := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
 	cacheOnce.Do(func() {
@@ -363,13 +363,13 @@ func Initialize() {
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		utils.AviLog.Error.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		utils.AviLog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
 	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
-		utils.AviLog.Error.Fatalf("Error building gslb config clientset: %s", err.Error())
+		utils.AviLog.Fatalf("Error building gslb config clientset: %s", err.Error())
 	}
 	gslbutils.GlobalGslbClient = gslbClient
 	// required to publish the GDP status, the reason we need this is because, during unit tests, we don't
@@ -428,11 +428,11 @@ func Initialize() {
 	go gdpInformer.Informer().Run(stopCh)
 
 	if err = gslbController.Run(stopCh); err != nil {
-		utils.AviLog.Error.Fatalf("Error running GSLB controller: %s\n", err.Error())
+		utils.AviLog.Fatalf("Error running GSLB controller: %s\n", err.Error())
 	}
 
 	if err := gdpCtrl.Run(stopCh); err != nil {
-		utils.AviLog.Error.Fatalf("Error running GDP controller: %s\n", err)
+		utils.AviLog.Fatalf("Error running GDP controller: %s\n", err)
 	}
 }
 
@@ -453,13 +453,7 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 		allInformers = append(allInformers, utils.RouteInformer)
 	} else {
 		// Kubernetes cluster
-		_, ingErr := kclient.NetworkingV1beta1().Ingresses("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
-		if ingErr == nil {
-			// CoreV1 Ingress
-			allInformers = append(allInformers, utils.CoreV1IngressInformer)
-		} else {
-			allInformers = append(allInformers, utils.ExtV1IngressInformer)
-		}
+		allInformers = append(allInformers, utils.IngressInformer)
 	}
 
 	allInformers = append(allInformers, utils.ServiceInformer)

@@ -41,6 +41,8 @@ func TestMain(m *testing.M) {
 }
 
 func setUp() {
+	os.Setenv("INGRESS_API", "extensionv1")
+
 	testStopCh = containerutils.SetupSignalHandler()
 	keyChan = make(chan string)
 

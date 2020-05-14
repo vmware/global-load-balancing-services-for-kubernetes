@@ -1,8 +1,8 @@
 package hacloud
 
 import (
+	containerutils "github.com/avinetworks/container-lib/utils"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -52,19 +52,19 @@ func Initialize() {
 	for _, cluster := range clusterdetails {
 		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clustername)
 		if err != nil {
-			containerutils.AviLog.Info.Printf("Error in connecting to kubernetes API %v", err.Error())
+			containerutils.AviLog.Infof("Error in connecting to kubernetes API %v", err.Error())
 			continue
 		} else {
-			containerutils.AviLog.Info.Printf("Successfully connected to kubernetes API")
+			containerutils.AviLog.Infof("Successfully connected to kubernetes API")
 		}
 		kubeClient, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
-			containerutils.AviLog.Info.Printf("Error in creating k8s clientset %v", err.Error())
+			containerutils.AviLog.Infof("Error in creating k8s clientset %v", err.Error())
 			continue
 		}
 		oshiftClient, err := oshiftclient.NewForConfig(cfg)
 		if err != nil {
-			containerutils.AviLog.Info.Printf("Error in creating openshift clientset %v", err.Error())
+			containerutils.AviLog.Infof("Error in creating openshift clientset %v", err.Error())
 			continue
 		}
 		informersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient

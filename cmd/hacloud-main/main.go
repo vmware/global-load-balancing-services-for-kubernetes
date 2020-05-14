@@ -1,6 +1,6 @@
 package main
 
-import "gitlab.eng.vmware.com/orion/mcc/hacloud"
+import "amko/hacloud"
 
 func main() {
 	hacloud.Initialize()

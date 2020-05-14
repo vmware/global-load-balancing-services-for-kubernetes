@@ -170,21 +170,21 @@ func PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
 		gslbutils.Errf("error in parsing the web api error to avi error: %v", webApiErr)
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to slow path retry queue", key)
+		utils.AviLog.Infof("key: %s, msg: Published gskey to slow path retry queue", key)
 		return
 	}
 
-	utils.AviLog.Info.Printf("key: %s, msg: Status code retrieved: %d", key, aviError.HttpStatusCode)
+	utils.AviLog.Infof("key: %s, msg: Status code retrieved: %d", key, aviError.HttpStatusCode)
 	switch aviError.HttpStatusCode {
 	case 500, 501, 502, 503:
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to slow path retry queue", key)
+		utils.AviLog.Infof("key: %s, msg: Published gskey to slow path retry queue", key)
 
 	case 404, 409:
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to fast path retry queue", key)
+		utils.AviLog.Infof("key: %s, msg: Published gskey to fast path retry queue", key)
 
 	case 400:
 		// check if the message contains: "not a leader"
@@ -198,10 +198,10 @@ func PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
 		// however, if this controller is still the leader, we should retry
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Info.Printf("key: %s, msg: Published gskey to fast path retry queue", key)
+		utils.AviLog.Infof("key: %s, msg: Published gskey to fast path retry queue", key)
 
 	default:
-		utils.AviLog.Info.Printf("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
+		utils.AviLog.Infof("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
 	}
 }
 

@@ -123,7 +123,7 @@ func (clusterStore *ClusterStore) DeleteClusterStore(cname string) bool {
 		delete(clusterStore.ClusterObjectMap, cname)
 		return true
 	}
-	utils.AviLog.Warning.Printf("Cluster: %s not found, nothing to delete", cname)
+	utils.AviLog.Warnf("Cluster: %s not found, nothing to delete", cname)
 	return false
 }
 
@@ -238,7 +238,7 @@ func (store *ObjectStore) DeleteNSStore(nsName string) bool {
 		delete(store.NSObjectMap, nsName)
 		return true
 	}
-	utils.AviLog.Warning.Printf("Namespace: %s not found, nothing to delete returning false", nsName)
+	utils.AviLog.Warnf("Namespace: %s not found, nothing to delete returning false", nsName)
 	return false
 
 }
@@ -344,7 +344,7 @@ func (o *ObjectMapStore) Delete(objName string) (interface{}, bool) {
 		delete(o.ObjectMap, objName)
 		return obj, true
 	}
-	utils.AviLog.Warning.Printf("Object Not found in store. Nothing to delete: %s ", objName)
+	utils.AviLog.Warnf("Object Not found in store. Nothing to delete: %s ", objName)
 	return nil, false
 }
 
@@ -356,7 +356,7 @@ func (o *ObjectMapStore) Get(objName string) (bool, interface{}) {
 	if ok {
 		return true, val
 	}
-	utils.AviLog.Warning.Printf("Object Not found in store:  %s ", objName)
+	utils.AviLog.Warnf("Object Not found in store:  %s ", objName)
 	return false, nil
 
 }

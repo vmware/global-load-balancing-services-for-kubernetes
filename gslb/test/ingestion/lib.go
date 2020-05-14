@@ -171,7 +171,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 	fooInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = fooOshiftClient
 	fooInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.ExtV1IngressInformer, containerutils.ServiceInformer}
+	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer}
 	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{fooKubeClient}, fooRegisteredInformers, fooInformersArg)
 	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance)
 	fooCtrl.Start(testStopCh)
@@ -184,7 +184,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 	barInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = barOshiftClient
 	barInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.ExtV1IngressInformer, containerutils.ServiceInformer}
+	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer}
 	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{barKubeClient}, barRegisteredInformers, barInformersArg)
 	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance)
 	barCtrl.Start(testStopCh)

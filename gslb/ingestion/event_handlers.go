@@ -19,12 +19,11 @@ import (
 	"amko/gslb/gslbutils"
 	"amko/gslb/k8sobjects"
 
+	"github.com/avinetworks/container-lib/utils"
 	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 
-	"k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -62,7 +61,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 		DeleteFunc: func(obj interface{}) {
 			svc, ok := obj.(*corev1.Service)
 			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not Svc")
+				containerutils.AviLog.Errorf("object type is not Svc")
 				return
 			}
 			if !isSvcTypeLB(svc) {
@@ -231,74 +230,46 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 	}
 }
 
-func AddCoreV1IngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	gf := filter.GetGlobalFilter()
 	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
 	rejectedIngStore := gslbutils.GetRejectedIngressStore()
 
-	gslbutils.Logf("Adding CoreV1 Ingress handler")
+	gslbutils.Logf("Adding Ingress handler")
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ingr := obj.(*v1beta1.Ingress)
+			ingr, ok := utils.ToNetworkingIngress(obj)
+			if !ok {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+				return
+			}
 			// Don't add this ingr if there's no status field present or no IP is allocated in this
 			// status field
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
 			filterAndAddIngressMeta(ingressHostMetaObjs, c, gf, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		DeleteFunc: func(obj interface{}) {
-			ingr, ok := obj.(*v1beta1.Ingress)
+			ingr, ok := utils.ToNetworkingIngress(obj)
 			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not corev1 Ingress")
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+				return
 			}
 			// Delete from all ingress stores
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
 			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		UpdateFunc: func(old, curr interface{}) {
-			oldIngr := old.(*v1beta1.Ingress)
-			ingr := curr.(*v1beta1.Ingress)
+			oldIngr, okOld := utils.ToNetworkingIngress(old)
+			ingr, okNew := utils.ToNetworkingIngress(curr)
+			if !okOld || !okNew {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+				return
+			}
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
 				oldIngMetaObjs := k8sobjects.GetIngressHostMeta(oldIngr, c.name)
 				newIngMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
 				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, gf, acceptedIngStore, rejectedIngStore,
 					numWorkers)
-			}
-		},
-	}
-	return ingressEventHandler
-}
-
-func AddExtV1IngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	gf := filter.GetGlobalFilter()
-	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
-	rejectedIngStore := gslbutils.GetRejectedIngressStore()
-
-	gslbutils.Logf("Adding ExtensionV1 Ingress handler")
-	ingressEventHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			ingr := obj.(*extensionv1beta1.Ingress)
-			// Don't add this ingr if there's no status field present or no IP is allocated in this
-			// status field
-			ingressHostMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(ingr, c.name)
-			filterAndAddIngressMeta(ingressHostMetaObjs, c, gf, acceptedIngStore, rejectedIngStore, numWorkers)
-		},
-		DeleteFunc: func(obj interface{}) {
-			ingr, ok := obj.(*extensionv1beta1.Ingress)
-			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not extensionv1 Ingress")
-			}
-			// Delete from all ingress stores
-			ingressHostMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(ingr, c.name)
-			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
-		},
-		UpdateFunc: func(old, curr interface{}) {
-			oldIngr := old.(*extensionv1beta1.Ingress)
-			ingr := curr.(*extensionv1beta1.Ingress)
-			if oldIngr.ResourceVersion != ingr.ResourceVersion {
-				oldIngMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(oldIngr, c.name)
-				newIngMetaObjs := k8sobjects.GetExtensionV1IngressHostMeta(ingr, c.name)
-				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, gf, acceptedIngStore,
-					rejectedIngStore, numWorkers)
 			}
 		},
 	}
@@ -334,7 +305,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
 			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not route")
+				containerutils.AviLog.Errorf("object type is not route")
 				return
 			}
 			// Delete from all route stores

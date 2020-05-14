@@ -4,9 +4,10 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	"strconv"
 	"strings"
+
+	containerutils "github.com/avinetworks/container-lib/utils"
 )
 
 const (
@@ -22,7 +23,7 @@ func SetInformersPerCluster(clustername string, info *containerutils.Informers) 
 func GetInformersPerCluster(clustername string) *containerutils.Informers {
 	info, ok := InformersPerCluster.AviCacheGet(clustername)
 	if !ok {
-		containerutils.AviLog.Warning.Printf("Failed to get informer for cluster %v", clustername)
+		containerutils.AviLog.Warnf("Failed to get informer for cluster %v", clustername)
 		return nil
 	}
 	return info.(*containerutils.Informers)
@@ -50,7 +51,7 @@ func ShardVSName(text, vsPrefix string, numShards int) (string, bool) {
 	if numShards > 0 {
 		return fmt.Sprintf("%s%d", vsPrefix, int(vsNum)%numShards), true
 	} else {
-		containerutils.AviLog.Warning.Println("numShards not >= zero")
+		containerutils.AviLog.Warn("numShards not >= zero")
 		return "", false
 	}
 }

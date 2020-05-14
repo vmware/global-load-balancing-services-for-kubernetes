@@ -30,11 +30,14 @@ import (
 	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
 
 var CtrlVersion string
+var runtimeScheme = k8sruntime.NewScheme()
 
 func init() {
 	//Setting the package-wide version
@@ -42,6 +45,8 @@ func init() {
 	if CtrlVersion == "" {
 		CtrlVersion = "18.2.2"
 	}
+	extensions.AddToScheme(runtimeScheme)
+	networking.AddToScheme(runtimeScheme)
 }
 
 func IsV4(addr string) bool {
@@ -55,10 +60,10 @@ func IsV4(addr string) bool {
 }
 
 /*
- * Port name is either "http" or "http-suffix"
- * Following Istio named port convention
- * https://istio.io/docs/setup/kubernetes/spec-requirements/
- * TODO: Define matching ports in configmap and make it configurable
+* Port name is either "http" or "http-suffix"
+* Following Istio named port convention
+* https://istio.io/docs/setup/kubernetes/spec-requirements/
+* TODO: Define matching ports in configmap and make it configurable
  */
 
 func IsSvcHttp(svc_name string, port int32) bool {
@@ -76,7 +81,7 @@ func IsSvcHttp(svc_name string, port int32) bool {
 func AviUrlToObjType(aviurl string) (string, error) {
 	url, err := url.Parse(aviurl)
 	if err != nil {
-		AviLog.Warning.Printf("aviurl %v parse error", aviurl)
+		AviLog.Warnf("aviurl %v parse error", aviurl)
 		return "", err
 	}
 
@@ -87,10 +92,10 @@ func AviUrlToObjType(aviurl string) (string, error) {
 }
 
 /*
- * Hash key to pick workqueue & GoRoutine. Hash needs to ensure that K8S
- * objects that map to the same Avi objects hash to the same wq. E.g.
- * Routes that share the same "host" should hash to the same wq, so "host"
- * is the hash key for Routes. For objects like Service, it can be ns:name
+* Hash key to pick workqueue & GoRoutine. Hash needs to ensure that K8S
+* objects that map to the same Avi objects hash to the same wq. E.g.
+* Routes that share the same "host" should hash to the same wq, so "host"
+* is the hash key for Routes. For objects like Service, it can be ns:name
  */
 
 func CrudHashKey(obj_type string, obj interface{}) string {
@@ -109,7 +114,7 @@ func CrudHashKey(obj_type string, obj interface{}) string {
 		ns = ing.Namespace
 		name = ing.Name
 	default:
-		AviLog.Error.Printf("Unknown obj_type %s obj %v", obj_type, obj)
+		AviLog.Errorf("Unknown obj_type %s obj %v", obj_type, obj)
 		return ":"
 	}
 	return ns + ":" + name
@@ -153,7 +158,7 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 	} else {
 		// The informer factory only allows to initialize 1 namespace filter. Not a set of namespaces.
 		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(cs, time.Second*30, kubeinformers.WithNamespace(namespace))
-		AviLog.Info.Printf("Initialized informer factory for namespace :%s", namespace)
+		AviLog.Infof("Initialized informer factory for namespace :%s", namespace)
 	}
 	informers := &Informers{}
 	informers.KubeClientIntf = kubeClient
@@ -173,10 +178,14 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 			informers.NodeInformer = kubeInformerFactory.Core().V1().Nodes()
 		case ConfigMapInformer:
 			informers.ConfigMapInformer = kubeInformerFactory.Core().V1().ConfigMaps()
-		case ExtV1IngressInformer:
-			informers.ExtV1IngressInformer = kubeInformerFactory.Extensions().V1beta1().Ingresses()
-		case CoreV1IngressInformer:
-			informers.CoreV1IngressInformer = kubeInformerFactory.Networking().V1beta1().Ingresses()
+		case IngressInformer:
+			if GetIngressApi() == ExtV1IngressInformer {
+				inginformer, _ := kubeInformerFactory.ForResource(ExtensionsIngress)
+				informers.IngressInformer = inginformer
+			} else {
+				inginformer, _ := kubeInformerFactory.ForResource(NetworkingIngress)
+				informers.IngressInformer = inginformer
+			}
 		case RouteInformer:
 			if ocs != nil {
 				oshiftInformerFactory := oshiftinformers.NewSharedInformerFactory(ocs, time.Second*30)
@@ -188,10 +197,10 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 }
 
 /*
- * Returns a set of informers. By default the informer set would be instantiated once and reused for subsequent calls.
- * Extra arguments can be passed in form of key value pairs.
- * "instanciateOnce" <bool> : If false, then a new set of informers would be returned for each call.
- * "oshiftclient" <oshiftclientset.Interface> : Informer for openshift route has to be registered using openshiftclient
+* Returns a set of informers. By default the informer set would be instantiated once and reused for subsequent calls.
+* Extra arguments can be passed in form of key value pairs.
+* "instanciateOnce" <bool> : If false, then a new set of informers would be returned for each call.
+* "oshiftclient" <oshiftclientset.Interface> : Informer for openshift route has to be registered using openshiftclient
  */
 
 func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args ...map[string]interface{}) *Informers {
@@ -204,20 +213,20 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 			case INFORMERS_INSTANTIATE_ONCE:
 				instantiateOnce, ok = v.(bool)
 				if !ok {
-					AviLog.Warning.Printf("arg instantiateOnce is not of type bool")
+					AviLog.Warnf("arg instantiateOnce is not of type bool")
 				}
 			case INFORMERS_OPENSHIFT_CLIENT:
 				oshiftclient, ok = v.(oshiftclientset.Interface)
 				if !ok {
-					AviLog.Warning.Printf("arg oshiftclient is not of type oshiftclientset.Interface")
+					AviLog.Warnf("arg oshiftclient is not of type oshiftclientset.Interface")
 				}
 			case INFORMERS_NAMESPACE:
 				namespace, ok = v.(string)
 				if !ok {
-					AviLog.Warning.Printf("arg namespace is not of type string")
+					AviLog.Warnf("arg namespace is not of type string")
 				}
 			default:
-				AviLog.Warning.Printf("Unknown Key %s in args", k)
+				AviLog.Warnf("Unknown Key %s in args", k)
 			}
 		}
 	}
@@ -232,7 +241,7 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 
 func GetInformers() *Informers {
 	if informerInstance == nil {
-		AviLog.Error.Fatal("Cannot retrieve the informers since it's not initialized yet.")
+		AviLog.Fatal("Cannot retrieve the informers since it's not initialized yet.")
 		return nil
 	}
 	return informerInstance
@@ -270,8 +279,17 @@ func HasElem(s interface{}, elem interface{}) bool {
 func ObjKey(obj interface{}) string {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		AviLog.Warning.Print(err)
+		AviLog.Warn(err)
 	}
 
 	return key
+}
+
+func Remove(arr []string, item string) []string {
+	for i, v := range arr {
+		if v == item {
+			return append(arr[:i], arr[i+1:]...)
+		}
+	}
+	return arr
 }

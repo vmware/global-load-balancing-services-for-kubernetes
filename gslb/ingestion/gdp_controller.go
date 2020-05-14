@@ -369,7 +369,7 @@ func InitializeGDPController(kubeclientset kubernetes.Interface,
 	gdpscheme.AddToScheme(scheme.Scheme)
 	gslbutils.Logf("object: GDPController, msg: %s", "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(utils.AviLog.Info.Printf)
+	eventBroadcaster.StartLogging(utils.AviLog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	k8sQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	k8sWorkqueue := k8sQueue.Workqueue

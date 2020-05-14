@@ -28,12 +28,11 @@ import (
 	"reflect"
 	"sync"
 
-	"gitlab.eng.vmware.com/orion/mcc/hacloud/hautils"
+	"amko/hacloud/hautils"
 
+	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
-	containerutils "gitlab.eng.vmware.com/orion/container-lib/utils"
 	corev1 "k8s.io/api/core/v1"
-	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -63,9 +62,9 @@ func GetAviController(clusterName string, informersInstance *containerutils.Info
 
 func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 	cs := k8sinfo.cs
-	containerutils.AviLog.Info.Printf("Creating event broadcaster for %v", c.name)
+	containerutils.AviLog.Infof("Creating event broadcaster for %v", c.name)
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(containerutils.AviLog.Info.Printf)
+	eventBroadcaster.StartLogging(containerutils.AviLog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: cs.CoreV1().Events("")})
 
 	k8sQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
@@ -79,7 +78,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 			key := hautils.MultiClusterKey("Endpoints/", c.name, ep)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("ADD Endpoint key: %s", key)
+			containerutils.AviLog.Infof("ADD Endpoint key: %s", key)
 		},
 		DeleteFunc: func(obj interface{}) {
 			ep, ok := obj.(*corev1.Endpoints)
@@ -87,12 +86,12 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 				// endpoints was deleted but its final state is unrecorded.
 				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 				if !ok {
-					containerutils.AviLog.Error.Printf("couldn't get object from tombstone %#v", obj)
+					containerutils.AviLog.Errorf("couldn't get object from tombstone %#v", obj)
 					return
 				}
 				ep, ok = tombstone.Obj.(*corev1.Endpoints)
 				if !ok {
-					containerutils.AviLog.Error.Printf("Tombstone contained object that is not an Endpoints: %#v", obj)
+					containerutils.AviLog.Errorf("Tombstone contained object that is not an Endpoints: %#v", obj)
 					return
 				}
 			}
@@ -101,7 +100,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 			key := hautils.MultiClusterKey("Endpoints/", c.name, ep)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("DELETE Endpoint key: %s", key)
+			containerutils.AviLog.Infof("DELETE Endpoint key: %s", key)
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			oep := old.(*corev1.Endpoints)
@@ -111,7 +110,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 				key := hautils.MultiClusterKey("Endpoints/", c.name, cep)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
-				containerutils.AviLog.Info.Printf("UPDATE Endpoint key: %s", key)
+				containerutils.AviLog.Infof("UPDATE Endpoint key: %s", key)
 			}
 		},
 	}
@@ -123,7 +122,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 			key := hautils.MultiClusterKey("Service/", c.name, svc)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("ADD Service key: %s", key)
+			containerutils.AviLog.Infof("ADD Service key: %s", key)
 		},
 		DeleteFunc: func(obj interface{}) {
 			svc, ok := obj.(*corev1.Service)
@@ -131,12 +130,12 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 				// Service was deleted but its final state is unrecorded.
 				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 				if !ok {
-					containerutils.AviLog.Error.Printf("couldn't get object from tombstone %#v", obj)
+					containerutils.AviLog.Errorf("couldn't get object from tombstone %#v", obj)
 					return
 				}
 				svc, ok = tombstone.Obj.(*corev1.Service)
 				if !ok {
-					containerutils.AviLog.Error.Printf("Tombstone contained object that is not an Service: %#v", obj)
+					containerutils.AviLog.Errorf("Tombstone contained object that is not an Service: %#v", obj)
 					return
 				}
 			}
@@ -145,7 +144,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 			key := hautils.MultiClusterKey("Service/", c.name, svc)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("DELETE Service key: %s", key)
+			containerutils.AviLog.Infof("DELETE Service key: %s", key)
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			oldobj := old.(*corev1.Service)
@@ -156,41 +155,46 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 				key := hautils.MultiClusterKey("Service/", c.name, svc)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
-				containerutils.AviLog.Info.Printf("UPDATE service key: %s", key)
+				containerutils.AviLog.Infof("UPDATE service key: %s", key)
 			}
 		},
 	}
 
 	ingress_event_handler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ingr := obj.(*extensionv1beta1.Ingress)
+			ingr, ok := containerutils.ToNetworkingIngress(obj)
+			if !ok {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+			}
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
 			key := hautils.MultiClusterKey("Ingress/", c.name, ingr)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added ADD Ingress key from the kubernetes controller %s", key)
+			containerutils.AviLog.Infof("Added ADD Ingress key from the kubernetes controller %s", key)
 		},
 		DeleteFunc: func(obj interface{}) {
-			ingr, ok := obj.(*extensionv1beta1.Ingress)
+			ingr, ok := containerutils.ToNetworkingIngress(obj)
 			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not Ingress")
+				containerutils.AviLog.Errorf("object type is not Ingress")
 			}
-			ingr = obj.(*extensionv1beta1.Ingress)
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
 			key := hautils.MultiClusterKey("Ingress/", c.name, ingr)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added DELETE Ingress key from the kubernetes controller %s", key)
+			containerutils.AviLog.Infof("Added DELETE Ingress key from the kubernetes controller %s", key)
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			oldobj := old.(*extensionv1beta1.Ingress)
-			ingr := cur.(*extensionv1beta1.Ingress)
+			oldobj, okOld := containerutils.ToNetworkingIngress(old)
+			ingr, okNew := containerutils.ToNetworkingIngress(cur)
+			if !okOld || !okNew {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+			}
 			if oldobj.ResourceVersion != ingr.ResourceVersion {
 				namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(ingr))
 				key := hautils.MultiClusterKey("Ingress/", c.name, ingr)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
-				containerutils.AviLog.Info.Printf("UPDATE ingress key: %s", key)
+				containerutils.AviLog.Infof("UPDATE ingress key: %s", key)
 			}
 		},
 	}
@@ -202,18 +206,18 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 			key := hautils.MultiClusterKey("Route/", c.name, route)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added ADD Route key from the controller %s", key)
+			containerutils.AviLog.Infof("Added ADD Route key from the controller %s", key)
 		},
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
 			if !ok {
-				containerutils.AviLog.Error.Printf("object type is not Route")
+				containerutils.AviLog.Errorf("object type is not Route")
 			}
 			namespace, _, _ := cache.SplitMetaNamespaceKey(containerutils.ObjKey(route))
 			key := hautils.MultiClusterKey("Route/", c.name, route)
 			bkt := containerutils.Bkt(namespace, numWorkers)
 			c.workqueue[bkt].AddRateLimited(key)
-			containerutils.AviLog.Info.Printf("Added DELETE Route key from the controller %s", key)
+			containerutils.AviLog.Infof("Added DELETE Route key from the controller %s", key)
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			oldobj := old.(*routev1.Route)
@@ -223,7 +227,7 @@ func (c *AviController) SetupEventHandlers(k8sinfo K8sinformers) {
 				key := hautils.MultiClusterKey("Route/", c.name, route)
 				bkt := containerutils.Bkt(namespace, numWorkers)
 				c.workqueue[bkt].AddRateLimited(key)
-				containerutils.AviLog.Info.Printf("UPDATE Route key: %s", key)
+				containerutils.AviLog.Infof("UPDATE Route key: %s", key)
 			}
 		},
 	}
@@ -264,7 +268,7 @@ func (c *AviController) Start(stopCh <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 	} else {
-		containerutils.AviLog.Info.Print("Caches synced")
+		containerutils.AviLog.Info("Caches synced")
 	}
 }
 
@@ -275,9 +279,9 @@ func (c *AviController) Start(stopCh <-chan struct{}) {
 func (c *AviController) Run(stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 
-	containerutils.AviLog.Info.Print("Started the Kubernetes Controller")
+	containerutils.AviLog.Info("Started the Kubernetes Controller")
 	<-stopCh
-	containerutils.AviLog.Info.Print("Shutting down the Kubernetes Controller")
+	containerutils.AviLog.Info("Shutting down the Kubernetes Controller")
 
 	return nil
 }
