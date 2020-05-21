@@ -16,11 +16,10 @@ package k8sobjects
 
 import (
 	"amko/gslb/gslbutils"
-	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	gdpv1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	"sync"
 
 	"github.com/avinetworks/container-lib/utils"
-	"github.com/gobwas/glob"
 	"k8s.io/api/networking/v1beta1"
 )
 
@@ -103,72 +102,6 @@ func (ing IngressHostMeta) GetIPAddr() string {
 	return ing.IPAddr
 }
 
-func (ing IngressHostMeta) SanityCheck(mr gdpv1alpha1.MatchRule) bool {
-	if len(mr.Hosts) == 0 && mr.Label.Key == "" {
-		gslbutils.Errf("object: GDPRule, ingress: %s, msg: %s", ing.ObjName,
-			"GDPRule doesn't have either hosts set or label key-value pair")
-		return false
-	}
-	if len(mr.Hosts) > 0 && ing.Hostname == "" {
-		return false
-	}
-	return true
-}
-
-func (ing IngressHostMeta) GlobOperate(mr gdpv1alpha1.MatchRule) bool {
-	var g glob.Glob
-	// ingressHost's hostname has to match
-	// If no hostname given, return false
-	for _, host := range mr.Hosts {
-		g = glob.MustCompile(host.HostName, '.')
-		if g.Match(ing.Hostname) {
-			return true
-		}
-	}
-	return false
-}
-
-func (ing IngressHostMeta) EqualOperate(mr gdpv1alpha1.MatchRule) bool {
-	if len(mr.Hosts) != 0 {
-		// Host list is of non-zero length, which means has to be a host match expression
-		for _, h := range mr.Hosts {
-			if h.HostName == ing.Hostname {
-				return true
-			}
-		}
-	} else {
-		// Its a label key-value match
-		ingLabels := ing.Labels
-		if value, ok := ingLabels[mr.Label.Key]; ok {
-			if value == mr.Label.Value {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (ing IngressHostMeta) NotEqualOperate(mr gdpv1alpha1.MatchRule) bool {
-	if len(mr.Hosts) != 0 {
-		// Host list is of non-zero length, which means it has to be a host match expression
-		for _, h := range mr.Hosts {
-			if h.HostName == ing.Hostname {
-				return false
-			}
-		}
-		// Match not found for host, return true
-		return true
-	}
-	// Its a label key-value match
-	ingLabels := ing.Labels
-	if value, ok := ingLabels[mr.Label.Key]; ok {
-		if value == mr.Label.Value {
-			return false
-		}
-	}
-	return true
-}
-
 func (ing IngressHostMeta) IngressHostInList(ihmList []IngressHostMeta) (IngressHostMeta, bool) {
 	var ihm IngressHostMeta
 	for _, ihm = range ihmList {
@@ -217,4 +150,73 @@ func (ing IngressHostMeta) DeleteMapByKey(key string) {
 	ihm.Lock.Lock()
 	defer ihm.Lock.Unlock()
 	delete(ihm.HostMap, key)
+}
+
+func (ihm IngressHostMeta) ApplyFilter() bool {
+	gf := gslbutils.GetGlobalFilter()
+	gf.GlobalLock.RLock()
+	gf.GlobalLock.RUnlock()
+
+	if !gslbutils.PresentInList(ihm.Cluster, gf.ApplicableClusters) {
+		gslbutils.Logf("objType: Ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
+			ihm.Cluster, ihm.Namespace, ihm.ObjName)
+		return false
+	}
+	nsFilter := gf.NSFilter
+	// will check the namespaces first, whether the namespace for ihm is selected
+	if nsFilter != nil {
+		nsFilter.Lock.RLock()
+		defer nsFilter.Lock.RUnlock()
+		nsList, ok := gf.NSFilter.SelectedNS[ihm.Cluster]
+		if !ok {
+			gslbutils.Logf("objType: Ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because of namespaceSelector",
+				ihm.Cluster, ihm.Namespace, ihm.ObjName)
+			return false
+		}
+		if gslbutils.PresentInList(ihm.Namespace, nsList) {
+			appFilter := gf.AppFilter
+			if appFilter == nil {
+				gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: accepted because of namespaceSelector",
+					ihm.Cluster, ihm.Namespace, ihm.ObjName)
+				return true
+			}
+			// Check the appFilter now for this object
+			if applyAppFilter(ihm.Labels, appFilter) {
+				gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: accepted because of namespaceSelector and appSelector",
+					ihm.Cluster, ihm.Namespace, ihm.ObjName)
+				return true
+			}
+			gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+				ihm.Cluster, ihm.Namespace, ihm.ObjName)
+			return false
+		}
+		// this means that the namespace is not selected in the filter
+		gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because namespace is not selected",
+			ihm.Cluster, ihm.Namespace, ihm.ObjName)
+		return false
+	}
+	// check for app filter
+	if gf.AppFilter == nil {
+		gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because no appSelector",
+			ihm.Cluster, ihm.Namespace, ihm.ObjName)
+		return false
+	}
+	if !applyAppFilter(ihm.Labels, gf.AppFilter) {
+		gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+			ihm.Cluster, ihm.Namespace, ihm.ObjName)
+		return false
+	}
+	gslbutils.Logf("objType: ingress, cluster: %s, namespace: %s, name: %s, msg: accepted because of appSelector",
+		ihm.Cluster, ihm.Namespace, ihm.ObjName)
+
+	return true
+}
+
+func applyAppFilter(ihmLabels map[string]string, appFilter *gslbutils.AppFilter) bool {
+	for k, v := range ihmLabels {
+		if k == appFilter.Key && v == appFilter.Value {
+			return true
+		}
+	}
+	return false
 }

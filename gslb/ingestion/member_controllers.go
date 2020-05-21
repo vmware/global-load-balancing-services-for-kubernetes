@@ -124,6 +124,11 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		lbsvcEventHandler := AddLBSvcEventHandler(numWorkers, c)
 		c.informers.ServiceInformer.Informer().AddEventHandler(lbsvcEventHandler)
 	}
+
+	if c.informers.NSInformer != nil {
+		nsEventHandler := AddNamespaceEventHandler(numWorkers, c)
+		c.informers.NSInformer.Informer().AddEventHandler(nsEventHandler)
+	}
 }
 
 func isSvcTypeLB(svc *corev1.Service) bool {
@@ -174,6 +179,12 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting service informer")
 		go c.informers.ServiceInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, c.informers.ServiceInformer.Informer().HasSynced)
+	}
+
+	if c.informers.NSInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting namespace informer")
+		go c.informers.NSInformer.Informer().Run(stopCh)
+		cacheSyncParam = append(cacheSyncParam, c.informers.NSInformer.Informer().HasSynced)
 	}
 
 	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {

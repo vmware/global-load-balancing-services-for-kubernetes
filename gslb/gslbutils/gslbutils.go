@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync"
 
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 
 	gslbcs "amko/pkg/client/clientset/versioned"
 
@@ -126,6 +126,17 @@ func SplitMultiClusterIngHostName(name string) (string, string, string, string, 
 	return reqList[0], reqList[1], reqList[2], reqList[3], nil
 }
 
+func SplitMultiClusterNS(name string) (string, string, error) {
+	if name == "" {
+		return "", "", errors.New("multi-cluster namespace is empty")
+	}
+	reqList := strings.Split(name, "/")
+	if len(reqList) != 2 {
+		return "", "", errors.New("multi-cluster namespace format is unexpected")
+	}
+	return reqList[0], reqList[1], nil
+}
+
 func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 	// Return true if the IP address is present in an route's status field, else return false
 	routeStatus := route.Status
@@ -210,6 +221,8 @@ var (
 	RejectedLBSvcStore   *ClusterStore
 	AcceptedIngressStore *ClusterStore
 	RejectedIngressStore *ClusterStore
+	AcceptedNSStore      *ObjectStore
+	RejectedNSStore      *ObjectStore
 )
 
 // GSLBConfigObj is global and is initialized only once
@@ -313,4 +326,13 @@ func SetControllerAsFollower() {
 
 func IsControllerLeader() bool {
 	return controllerIsLeader
+}
+
+func GetKeyIdx(strList []string, key string) (int, bool) {
+	for i, str := range strList {
+		if str == key {
+			return i, true
+		}
+	}
+	return -1, false
 }

@@ -109,12 +109,12 @@ type MatchRules struct {
 
 // AppSelector selects the applications based on their labels
 type AppSelector struct {
-	Label string `json:"label,omitempty"`
+	Label map[string]string `json:"label,omitempty"`
 }
 
 // NamespaceSelector selects the applications based on their labels
 type NamespaceSelector struct {
-	Label string `json:"label,omitempty"`
+	Label map[string]string `json:"label,omitempty"`
 }
 
 // Objects on which rules will be applied
@@ -125,6 +125,8 @@ const (
 	IngressObj = "INGRESS"
 	// LBSvc applies to service type LoadBalancer
 	LBSvcObj = "LBSVC"
+	// NSObj applies to namespaces
+	NSObj = "Namespace"
 )
 
 // TrafficSplitElem determines how much traffic to be routed to a cluster.

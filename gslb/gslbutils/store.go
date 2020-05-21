@@ -92,6 +92,26 @@ func GetRejectedIngressStore() *ClusterStore {
 	return RejectedIngressStore
 }
 
+var acceptedNSOnce sync.Once
+
+// GetAcceptedNSStore initializes and returns a new accepted NSStore.
+func GetAcceptedNSStore() *ObjectStore {
+	acceptedNSOnce.Do(func() {
+		AcceptedNSStore = NewObjectStore()
+	})
+	return AcceptedNSStore
+}
+
+var rejectedNSOnce sync.Once
+
+// GetRejectedNSStore initializes and returns a new accepted NSStore.
+func GetRejectedNSStore() *ObjectStore {
+	rejectedNSOnce.Do(func() {
+		RejectedNSStore = NewObjectStore()
+	})
+	return RejectedNSStore
+}
+
 // NewClusterStore initializes and returns a new cluster store.
 func NewClusterStore() *ClusterStore {
 	clusterStore := &ClusterStore{}
@@ -257,13 +277,31 @@ func (store *ObjectStore) GetAllNamespaces() []string {
 }
 
 // AddOrUpdate fetches the right NS Store and then updates the object map store.
-func (store *ObjectStore) AddOrUpdate(ns, objName string, obj interface{}) {
-	// fetch the minimal version of this route
-	nsStore := store.GetNSStore(ns)
+func (store *ObjectStore) AddOrUpdate(key, objName string, obj interface{}) {
+	objStore := store.GetNSStore(key)
 	// Updating an object inside the object map requires a read lock on the ns store.
 	store.NSLock.RLock()
 	store.NSLock.RUnlock()
-	nsStore.AddOrUpdate(objName, obj)
+	objStore.AddOrUpdate(objName, obj)
+}
+
+func (store *ObjectStore) GetAllFilteredNamespaces(applyFilter Filterfn) ([]string, []string) {
+	store.NSLock.RLock()
+	defer store.NSLock.RUnlock()
+	var acceptedList, rejectedList []string
+
+	for cluster, clusterNSMap := range store.NSObjectMap {
+		nsListAcc, nsListRej := clusterNSMap.GetAllFilteredObjects(applyFilter, cluster)
+		for _, ns := range nsListAcc {
+			// Prefix a cluster name to the list of objects
+			acceptedList = append(acceptedList, cluster+"/"+ns)
+		}
+		for _, ns := range nsListRej {
+			// Prefix a cluster name to the list of objects
+			rejectedList = append(rejectedList, cluster+"/"+ns)
+		}
+	}
+	return acceptedList, rejectedList
 }
 
 // GetAllFilteredNSObjects fetches all the objects from Object Map Store and prefixes

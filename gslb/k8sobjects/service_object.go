@@ -16,7 +16,7 @@ package k8sobjects
 
 import (
 	"amko/gslb/gslbutils"
-	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	gdpv1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -91,42 +91,12 @@ func (svc SvcMeta) GetCluster() string {
 	return svc.Cluster
 }
 
-func (svc SvcMeta) SanityCheck(mr gdpv1alpha1.MatchRule) bool {
-	return true
-}
-
-func (svc SvcMeta) GlobOperate(mr gdpv1alpha1.MatchRule) bool {
-	// not implemented
-	return false
-}
-
 func (svc SvcMeta) GetHostname() string {
 	return svc.Hostname
 }
 
 func (svc SvcMeta) GetIPAddr() string {
 	return svc.IPAddr
-}
-
-func (svc SvcMeta) EqualOperate(mr gdpv1alpha1.MatchRule) bool {
-	svcLabels := svc.Labels
-	if value, ok := svcLabels[mr.Label.Key]; ok {
-		if value == mr.Label.Value {
-			return true
-		}
-	}
-	gslbutils.Logf("no match found for svc: %s %v", svc.Name, svc.Labels)
-	return false
-}
-
-func (svc SvcMeta) NotEqualOperate(mr gdpv1alpha1.MatchRule) bool {
-	svcLabels := svc.Labels
-	if value, ok := svcLabels[mr.Label.Key]; ok {
-		if value == mr.Label.Value {
-			return false
-		}
-	}
-	return true
 }
 
 func (svc SvcMeta) UpdateHostMap(key string) {
@@ -155,4 +125,65 @@ func (svc SvcMeta) DeleteMapByKey(key string) {
 	shm.Lock.Lock()
 	defer shm.Lock.Unlock()
 	delete(shm.HostMap, key)
+}
+
+func (svc SvcMeta) ApplyFilter() bool {
+	gf := gslbutils.GetGlobalFilter()
+	gf.GlobalLock.RLock()
+	gf.GlobalLock.RUnlock()
+
+	if !gslbutils.PresentInList(svc.Cluster, gf.ApplicableClusters) {
+		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
+			svc.Cluster, svc.Namespace, svc.Name)
+		return false
+	}
+	nsFilter := gf.NSFilter
+	// will check the namespaces first, whether the namespace for svc is selected
+	if nsFilter != nil {
+		nsFilter.Lock.RLock()
+		defer nsFilter.Lock.RUnlock()
+		nsList, ok := gf.NSFilter.SelectedNS[svc.Cluster]
+		if !ok {
+			gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because namespace is not selected",
+				svc.Cluster, svc.Namespace, svc.Name)
+			return false
+		}
+		if gslbutils.PresentInList(svc.Namespace, nsList) {
+			appFilter := gf.AppFilter
+			if appFilter == nil {
+				gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: accepted because namespace is selected",
+					svc.Cluster, svc.Namespace, svc.Name)
+				return true
+			}
+			// Check the appFilter now for this object
+			if applyAppFilter(svc.Labels, appFilter) {
+				gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: accepted because of namespaceSelector and appSelector",
+					svc.Cluster, svc.Namespace, svc.Name)
+				return true
+			}
+			gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+				svc.Cluster, svc.Namespace, svc.Name)
+			return false
+		}
+		// this means that the namespace is not selected in the filter
+		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because namespace is not selected",
+			svc.Cluster, svc.Namespace, svc.Name)
+		return false
+	}
+
+	// Check for app filter
+	if gf.AppFilter == nil {
+		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because no appSelector",
+			svc.Cluster, svc.Namespace, svc.Name)
+		return false
+	}
+	if !applyAppFilter(svc.Labels, gf.AppFilter) {
+		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+			svc.Cluster, svc.Namespace, svc.Name)
+		return false
+	}
+
+	gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+		svc.Cluster, svc.Namespace, svc.Name)
+	return true
 }

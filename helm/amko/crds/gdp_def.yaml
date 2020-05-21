@@ -23,11 +23,15 @@ spec:
                 appSelector:
                   properties:
                     label:
-                      type: "string"
+                      type: "object"
+                      additonalPrpoerties:
+                        type: "string"
                 namespaceSelector:
                   properties:
                     label:
-                      type: "string"
+                      type: "object"
+                      additonalPrpoerties:
+                        type: "string"
             matchClusters:
               type: "array"
               items:

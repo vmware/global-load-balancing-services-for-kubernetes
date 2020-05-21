@@ -15,7 +15,6 @@
 package k8sobjects
 
 import (
-	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
 	"sync"
 )
 
@@ -30,12 +29,10 @@ type MetaObject interface {
 	UpdateHostMap(string)
 	GetHostnameFromHostMap(string) string
 	DeleteMapByKey(string)
+}
 
-	SanityCheck(gdpv1alpha1.MatchRule) bool
-
-	GlobOperate(gdpv1alpha1.MatchRule) bool
-	EqualOperate(gdpv1alpha1.MatchRule) bool
-	NotEqualOperate(gdpv1alpha1.MatchRule) bool
+type FilterableObject interface {
+	ApplyFilter() bool
 }
 
 type IPHostname struct {
