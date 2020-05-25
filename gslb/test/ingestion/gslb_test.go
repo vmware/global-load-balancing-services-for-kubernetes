@@ -16,7 +16,7 @@ package ingestion
 
 import (
 	gslbingestion "amko/gslb/ingestion"
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"io/ioutil"
 	"os"
 	"testing"

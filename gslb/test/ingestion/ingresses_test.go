@@ -18,7 +18,7 @@ import (
 	"amko/gslb/gslbutils"
 	gslbingestion "amko/gslb/ingestion"
 	"amko/gslb/k8sobjects"
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"strconv"
 	"testing"
 
@@ -36,9 +36,9 @@ const (
 	rejectedIngStore = false
 )
 
-func addGDPAndGSLBForIngress(t *testing.T) {
+func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, "default")
+	gdp := getTestGDPObject(true, false)
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()
@@ -47,6 +47,7 @@ func addGDPAndGSLBForIngress(t *testing.T) {
 		t.Fatal("GSLB object invalid")
 	}
 	addGSLBTestConfigObject(gc)
+	return gdp
 }
 
 // TestBasicIngress: Create/Delete
@@ -62,7 +63,7 @@ func TestBasicIngressCD(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -75,6 +76,7 @@ func TestBasicIngressCD(t *testing.T) {
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestBasicIngressCUD(t *testing.T) {
@@ -88,7 +90,7 @@ func TestBasicIngressCUD(t *testing.T) {
 
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
@@ -110,6 +112,7 @@ func TestBasicIngressCUD(t *testing.T) {
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestMultihostIngressCD(t *testing.T) {
@@ -123,7 +126,7 @@ func TestMultihostIngressCD(t *testing.T) {
 	hostIPMap[testPrefix+TestDomain1] = "10.10.10.10"
 	hostIPMap[testPrefix+TestDomain2] = "10.10.10.20"
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -135,6 +138,7 @@ func TestMultihostIngressCD(t *testing.T) {
 	for h, ip := range hostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestMultihostIngressCUD(t *testing.T) {
@@ -152,7 +156,7 @@ func TestMultihostIngressCUD(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -180,6 +184,7 @@ func TestMultihostIngressCUD(t *testing.T) {
 	for h, ip := range hostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestBasicIngressLabelChange(t *testing.T) {
@@ -194,7 +199,7 @@ func TestBasicIngressLabelChange(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -225,6 +230,7 @@ func TestBasicIngressLabelChange(t *testing.T) {
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestMultihostIngressLabelChange(t *testing.T) {
@@ -242,7 +248,7 @@ func TestMultihostIngressLabelChange(t *testing.T) {
 	ingHostIPMap[host1] = ipAddr1
 	ingHostIPMap[host2] = ipAddr2
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -281,6 +287,7 @@ func TestMultihostIngressLabelChange(t *testing.T) {
 	for h, ip := range ingHostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestMultihostIngressHostAndLabelChange(t *testing.T) {
@@ -300,7 +307,7 @@ func TestMultihostIngressHostAndLabelChange(t *testing.T) {
 	ingHostIPMap[host1] = ipAddr1
 	ingHostIPMap[host2] = ipAddr2
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -347,6 +354,7 @@ func TestMultihostIngressHostAndLabelChange(t *testing.T) {
 	for h, ip := range ingHostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestEmptyStatusIngress(t *testing.T) {
@@ -361,7 +369,7 @@ func TestEmptyStatusIngress(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -374,6 +382,7 @@ func TestEmptyStatusIngress(t *testing.T) {
 	buildIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestStatusChangeToEmptyIngress(t *testing.T) {
@@ -388,7 +397,7 @@ func TestStatusChangeToEmptyIngress(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -408,6 +417,7 @@ func TestStatusChangeToEmptyIngress(t *testing.T) {
 	buildIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestStatusChangeFromEmptyIngress(t *testing.T) {
@@ -422,7 +432,7 @@ func TestStatusChangeFromEmptyIngress(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -444,6 +454,7 @@ func TestStatusChangeFromEmptyIngress(t *testing.T) {
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestStatusChangeIPAddrIngress(t *testing.T) {
@@ -458,7 +469,7 @@ func TestStatusChangeIPAddrIngress(t *testing.T) {
 
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
@@ -476,6 +487,7 @@ func TestStatusChangeIPAddrIngress(t *testing.T) {
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, newIPAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
@@ -492,7 +504,7 @@ func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -529,6 +541,7 @@ func TestStatusChangeToEmptyMultihostIngress(t *testing.T) {
 	for h, ip := range hostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
@@ -545,7 +558,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngressWithoutStatus(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, true, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -588,6 +601,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	for h, ip := range hostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
@@ -604,7 +618,7 @@ func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
 	hostIPMap[host1] = "10.10.10.10"
 	hostIPMap[host2] = "10.10.10.20"
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, hostIPMap)
 	buildIngMultiHostKeyAndVerify(t, false, "ADD", cname, ns, ingName, hostIPMap)
 	for h, ip := range hostIPMap {
@@ -649,6 +663,7 @@ func TestStatusChangeIPAddrMultihostIngress(t *testing.T) {
 	for h, ip := range hostIPMap {
 		verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, h, ip)
 	}
+	DeleteTestGDPObj(gdp)
 }
 
 func TestBasicTLSIngressCD(t *testing.T) {
@@ -663,7 +678,7 @@ func TestBasicTLSIngressCD(t *testing.T) {
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
 
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddTLSIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
@@ -676,6 +691,7 @@ func TestBasicTLSIngressCD(t *testing.T) {
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// should be deleted from the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestBasicTLSIngressCUD(t *testing.T) {
@@ -689,7 +705,7 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 
 	ingHostIPMap := make(map[string]string)
 	ingHostIPMap[host] = ipAddr
-	addGDPAndGSLBForIngress(t)
+	gdp := addGDPAndGSLBForIngress(t)
 
 	// Add and test ingresses
 	t.Log("Adding and testing ingresses")
@@ -711,6 +727,7 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 	k8sDeleteTLSIngress(t, fooKubeClient, ingName, ns)
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
