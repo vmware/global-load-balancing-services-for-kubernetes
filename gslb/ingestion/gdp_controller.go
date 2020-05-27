@@ -38,6 +38,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+const (
+	AlreadyExistsErr = "a GDP object already exists, can't add another"
+)
+
 // GDPAddDelfn is a type of function which handles an add or a delete of a GDP
 // object
 type GDPAddDelfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
@@ -195,17 +199,19 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 			}
 		}
 		// if the traffic weight changed, then the accepted list has to be sent to the nodes layer
-		for _, objName := range acceptedList {
-			cname, ns, sname, err = splitName(objType, objName)
-			if err != nil {
-				gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
-				continue
+		if trafficWeightChanged {
+			for _, objName := range acceptedList {
+				cname, ns, sname, err = splitName(objType, objName)
+				if err != nil {
+					gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
+					continue
+				}
+				bkt := utils.Bkt(ns, numWorkers)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
+				k8swq[bkt].AddRateLimited(key)
+				gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added key",
+					cname, ns, objType, sname, key)
 			}
-			bkt := utils.Bkt(ns, numWorkers)
-			key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
-			k8swq[bkt].AddRateLimited(key)
-			gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added key",
-				cname, ns, objType, sname, key)
 		}
 	}
 
@@ -393,6 +399,12 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 		return
 	}
 
+	// If amko is restarted, we have to ignore all the other GDP objects which were previously rejected
+	if gdp.Status.ErrorStatus == AlreadyExistsErr {
+		gslbutils.Errf("A GDP object already exists, can't process this object")
+		return
+	}
+
 	err := GDPSanityChecks(gdp)
 	if err != nil {
 		gslbutils.Errf("Error in accepting GDP object: %s", err.Error())
@@ -431,6 +443,11 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		return
 	}
 
+	if oldGdp.Status.ErrorStatus == AlreadyExistsErr {
+		gslbutils.Errf("A GDP object already exists, updates will be ignored for other GDP objects")
+		return
+	}
+
 	err := GDPSanityChecks(newGdp)
 	if err != nil {
 		gslbutils.Errf("Error in accepting the new GDP object: %s", err.Error())
@@ -461,6 +478,11 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"deleted GDP object")
+	if gdp.Status.ErrorStatus == AlreadyExistsErr {
+		gslbutils.Errf("A GDP object already exists, deletes to other objects won't have any effect")
+		return
+	}
+
 	gf := gslbutils.GetGlobalFilter()
 	if gf == nil {
 		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't delete")

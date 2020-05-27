@@ -72,6 +72,12 @@ type NamespaceFilter struct {
 	Lock     sync.RWMutex
 }
 
+func (nsFilter *NamespaceFilter) GetChecksum() uint32 {
+	nsFilter.Lock.RLock()
+	defer nsFilter.Lock.RUnlock()
+	return nsFilter.Checksum
+}
+
 type Label struct {
 	Key   string
 	Value string
@@ -139,7 +145,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 		cksum += utils.Hash(gf.AppFilter.Key + gf.AppFilter.Value)
 	}
 	if gf.NSFilter != nil {
-		cksum += utils.Hash(gf.NSFilter.Key + gf.NSFilter.Value)
+		cksum += gf.NSFilter.GetChecksum()
 	}
 	for _, c := range gf.ApplicableClusters {
 		cksum += utils.Hash(c)

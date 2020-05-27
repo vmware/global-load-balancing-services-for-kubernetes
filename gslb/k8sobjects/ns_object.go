@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// // GetRouteMeta returns a trimmed down version of a route
+// GetNSMeta returns a trimmed down version of a route
 func GetNSMeta(ns *corev1.Namespace, cname string) NSMeta {
 	metaObj := NSMeta{
 		Name:    ns.ObjectMeta.Name,

@@ -183,7 +183,7 @@ func (svc SvcMeta) ApplyFilter() bool {
 		return false
 	}
 
-	gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+	gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: accepted because of appSelector",
 		svc.Cluster, svc.Namespace, svc.Name)
 	return true
 }
