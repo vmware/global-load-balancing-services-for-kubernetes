@@ -191,12 +191,12 @@ func addGSLBTestConfigObject(obj interface{}) {
 	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{barKubeClient})
 }
 
-func getIngressKey(op, cname, ns, name, host string) string {
+func GetIngressKey(op, cname, ns, name, host string) string {
 	return op + "/Ingress/" + cname + "/" + ns + "/" + name + "/" + host
 }
 
 func buildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
-	actualKey := getIngressKey(op, cname, ns, name, hostname)
+	actualKey := GetIngressKey(op, cname, ns, name, hostname)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)
@@ -208,7 +208,7 @@ func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname
 
 	keys := []string{}
 	for host := range hostIPs {
-		newKey := getIngressKey(op, cname, ns, name, host)
+		newKey := GetIngressKey(op, cname, ns, name, host)
 		keys = append(keys, newKey)
 	}
 	for range keys {
@@ -220,12 +220,12 @@ func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname
 	}
 }
 
-func getSvcKey(op, cname, ns, name string) string {
+func GetSvcKey(op, cname, ns, name string) string {
 	return op + "/LBService/" + cname + "/" + ns + "/" + name
 }
 
 func buildSvcKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
-	actualKey := getSvcKey(op, cname, ns, name)
+	actualKey := GetSvcKey(op, cname, ns, name)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)

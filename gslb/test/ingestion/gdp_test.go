@@ -109,7 +109,7 @@ func TestGDPSelectAllObjsFromOneCluster(t *testing.T) {
 	// verify delete keys
 	allKeys = []string{}
 	for _, ing := range ingList {
-		key := getIngressKey("DELETE", cname, ns, ing.ObjectMeta.Name, ing.Status.LoadBalancer.Ingress[0].Hostname)
+		key := GetIngressKey("DELETE", cname, ns, ing.ObjectMeta.Name, ing.Status.LoadBalancer.Ingress[0].Hostname)
 		allKeys = append(allKeys, key)
 	}
 	allKeys = GetMultipleIngDeleteKeys(t, ingList, cname, ns)
@@ -337,8 +337,8 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	ingList2, _ := CreateMultipleIngresses(t, barKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname2)
 	CreateIngressObjWithLabel(t, barKubeClient, extIngName, ns, svc, cname2, extHostMap, true, "key", "test")
 
-	allKeys := []string{getIngressKey("ADD", cname1, ns, extIngName, extHost),
-		getIngressKey("ADD", cname2, ns, extIngName, extHost)}
+	allKeys := []string{GetIngressKey("ADD", cname1, ns, extIngName, extHost),
+		GetIngressKey("ADD", cname2, ns, extIngName, extHost)}
 
 	// At this point, there will not be any keys that will be added, as two ingresses in each cluster have
 	// label: "key": "value" and one ingress in each cluster has label: "key": "test". The GDP object
@@ -369,8 +369,8 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
 	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
 	allKeys = append(keys1, keys2...)
-	extraKeys := []string{getIngressKey("DELETE", cname1, ns, extIngName, extHost),
-		getIngressKey("DELETE", cname2, ns, extIngName, extHost)}
+	extraKeys := []string{GetIngressKey("DELETE", cname1, ns, extIngName, extHost),
+		GetIngressKey("DELETE", cname2, ns, extIngName, extHost)}
 	delKeys := append(allKeys, extraKeys...)
 	VerifyAllKeys(t, delKeys, false)
 }
@@ -472,7 +472,7 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	// Now, cluster 2 keys should be added, and cluster 1 keys should be deleted
 	delKeys := []string{}
 	for _, ing := range ingList1 {
-		delKeys = append(delKeys, getIngressKey("DELETE", cname1, ns, ing.ObjectMeta.Name,
+		delKeys = append(delKeys, GetIngressKey("DELETE", cname1, ns, ing.ObjectMeta.Name,
 			ing.Status.LoadBalancer.Ingress[0].Hostname))
 	}
 	allKeys := append(delKeys, keys2...)
@@ -642,7 +642,7 @@ func CreateMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingNameList, h
 		ingHostIPMap := setAndGetHostMap(hosts[idx], ipAddrs[idx])
 		ingObj := k8sAddIngress(t, kc, ingName, ns, svc, cname, ingHostIPMap)
 		ingList = append(ingList, ingObj)
-		allKeys = append(allKeys, getIngressKey("ADD", cname, ns, ingName, hosts[idx]))
+		allKeys = append(allKeys, GetIngressKey("ADD", cname, ns, ingName, hosts[idx]))
 	}
 	return ingList, allKeys
 }
@@ -710,7 +710,7 @@ func CreateIngressObjWithLabel(t *testing.T, kc *k8sfake.Clientset, name, ns, sv
 func GetMultipleIngDeleteKeys(t *testing.T, ingList []*extensionv1beta1.Ingress, cname, ns string) []string {
 	allKeys := []string{}
 	for _, ing := range ingList {
-		key := getIngressKey("DELETE", cname, ns, ing.ObjectMeta.Name, ing.Status.LoadBalancer.Ingress[0].Hostname)
+		key := GetIngressKey("DELETE", cname, ns, ing.ObjectMeta.Name, ing.Status.LoadBalancer.Ingress[0].Hostname)
 		allKeys = append(allKeys, key)
 	}
 	return allKeys
