@@ -16,10 +16,9 @@ package k8sobjects
 
 import (
 	"amko/gslb/gslbutils"
-	gdpv1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	gdpv1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	"sync"
 
-	"github.com/gobwas/glob"
 	routev1 "github.com/openshift/api/route/v1"
 )
 
@@ -85,72 +84,6 @@ func (route RouteMeta) GetCluster() string {
 	return route.Cluster
 }
 
-func (route RouteMeta) SanityCheck(mr gdpv1alpha1.MatchRule) bool {
-	if len(mr.Hosts) == 0 && mr.Label.Key == "" {
-		gslbutils.Errf("object: GDPRule, route: %s, msg: %s", route.Name,
-			"GDPRule doesn't have either hosts set or label key-value pair")
-		return false
-	}
-	if len(mr.Hosts) > 0 && route.Hostname == "" {
-		return false
-	}
-	return true
-}
-
-func (route RouteMeta) GlobOperate(mr gdpv1alpha1.MatchRule) bool {
-	var g glob.Glob
-	// route's hostname has to match
-	// If no hostname given, return false
-	for _, host := range mr.Hosts {
-		g = glob.MustCompile(host.HostName, '.')
-		if g.Match(route.Hostname) {
-			return true
-		}
-	}
-	return false
-}
-
-func (route RouteMeta) EqualOperate(mr gdpv1alpha1.MatchRule) bool {
-	if len(mr.Hosts) != 0 {
-		// Host list is of non-zero length, which means has to be a host match expression
-		for _, h := range mr.Hosts {
-			if h.HostName == route.Hostname {
-				return true
-			}
-		}
-	} else {
-		// Its a label key-value match
-		routeLabels := route.Labels
-		if value, ok := routeLabels[mr.Label.Key]; ok {
-			if value == mr.Label.Value {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (route RouteMeta) NotEqualOperate(mr gdpv1alpha1.MatchRule) bool {
-	if len(mr.Hosts) != 0 {
-		// Host list is of non-zero length, which means it has to be a host match expression
-		for _, h := range mr.Hosts {
-			if h.HostName == route.Hostname {
-				return false
-			}
-		}
-		// Match not found for host, return true
-		return true
-	}
-	// Its a label key-value match
-	routeLabels := route.Labels
-	if value, ok := routeLabels[mr.Label.Key]; ok {
-		if value == mr.Label.Value {
-			return false
-		}
-	}
-	return true
-}
-
 func (route RouteMeta) UpdateHostMap(key string) {
 	rhm := getRouteHostMap()
 	rhm.Lock.Lock()
@@ -177,4 +110,49 @@ func (route RouteMeta) DeleteMapByKey(key string) {
 	rhm.Lock.Lock()
 	defer rhm.Lock.Unlock()
 	delete(rhm.HostMap, key)
+}
+
+func (route RouteMeta) ApplyFilter() bool {
+	gf := gslbutils.GetGlobalFilter()
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	if !gslbutils.PresentInList(route.Cluster, gf.ApplicableClusters) {
+		gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
+			route.Cluster, route.Namespace, route.Name)
+		return false
+	}
+
+	nsFilter := gf.NSFilter
+	// will check the namespaces first, whether the namespace for ihm is selected
+	if nsFilter != nil {
+		nsFilter.Lock.RLock()
+		defer nsFilter.Lock.RUnlock()
+		nsList, ok := gf.NSFilter.SelectedNS[route.Cluster]
+		if !ok {
+			gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because namespace is not selected",
+				route.Cluster, route.Namespace, route.Name)
+			return false
+		}
+		if gslbutils.PresentInList(route.Namespace, nsList) {
+			appFilter := gf.AppFilter
+			if appFilter == nil {
+				gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: accepted because namespace is selected",
+					route.Cluster, route.Namespace, route.Name)
+				return true
+			}
+			// Check the appFilter now for this object
+			for k, v := range route.Labels {
+				if k == appFilter.Key && v == appFilter.Value {
+					gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: accepted because app is selected",
+						route.Cluster, route.Namespace, route.Name)
+					return true
+				}
+			}
+			gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because app is not selected",
+				route.Cluster, route.Namespace, route.Name)
+			return false
+		}
+	}
+	return false
 }

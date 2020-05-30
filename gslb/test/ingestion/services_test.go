@@ -18,7 +18,7 @@ import (
 	"amko/gslb/gslbutils"
 	gslbingestion "amko/gslb/ingestion"
 	"amko/gslb/k8sobjects"
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"testing"
 
 	"github.com/avinetworks/container-lib/utils"
@@ -33,9 +33,9 @@ const (
 	rejectedSvcStore = false
 )
 
-func addGDPAndGSLBForSvc(t *testing.T) {
+func addGDPAndGSLBForSvc(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gdp := getTestGDPObject(true, gslbalphav1.LBSvcObj, gslbalphav1.EqualsOp, "default")
+	gdp := getTestGDPObject(true, false)
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()
@@ -44,6 +44,7 @@ func addGDPAndGSLBForSvc(t *testing.T) {
 		t.Fatal("GSLB object invalid")
 	}
 	addGSLBTestConfigObject(gc)
+	return gdp
 }
 
 func TestBasicSvcCD(t *testing.T) {
@@ -55,7 +56,7 @@ func TestBasicSvcCD(t *testing.T) {
 	ipAddr := "10.10.10.10"
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 
 	// Add and test service
 	t.Log("Adding and testing service")
@@ -71,6 +72,7 @@ func TestBasicSvcCD(t *testing.T) {
 
 	// should be deleted from the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, false, svcName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestSvcWithoutHostInStatus(t *testing.T) {
@@ -79,11 +81,12 @@ func TestSvcWithoutHostInStatus(t *testing.T) {
 	ns := "default"
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 	// Add and test service
 	t.Log("Adding and testing service")
 	K8sAddSvc(t, fooKubeClient, svcName, ns, cname, "", "", corev1.ServiceTypeLoadBalancer)
 	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestSvcWithLabelNotSelected(t *testing.T) {
@@ -94,7 +97,7 @@ func TestSvcWithLabelNotSelected(t *testing.T) {
 	ipAddr := "10.10.10.10"
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 
 	// Add and test service
 	t.Log("Adding and testing service")
@@ -105,6 +108,7 @@ func TestSvcWithLabelNotSelected(t *testing.T) {
 		t.Fatalf("error in creating service: %v", err)
 	}
 	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestBasicSvcCUD(t *testing.T) {
@@ -119,7 +123,7 @@ func TestBasicSvcCUD(t *testing.T) {
 
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 
 	// Add and test service
 	t.Log("Adding and testing service")
@@ -142,6 +146,7 @@ func TestBasicSvcCUD(t *testing.T) {
 
 	// should be deleted from the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, false, svcName, ns, cname, host2, ipAddr2)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestSvcToNoHost(t *testing.T) {
@@ -153,7 +158,7 @@ func TestSvcToNoHost(t *testing.T) {
 	ipAddr := "10.10.10.10"
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 
 	// Add and test service
 	t.Log("Adding and testing service")
@@ -172,6 +177,7 @@ func TestSvcToNoHost(t *testing.T) {
 	// delete and verify
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
 	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestSvcToDiffLabel(t *testing.T) {
@@ -183,7 +189,7 @@ func TestSvcToDiffLabel(t *testing.T) {
 	ipAddr := "10.10.10.10"
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 
 	// Add and test service
 	t.Log("Adding and testing service")
@@ -204,6 +210,7 @@ func TestSvcToDiffLabel(t *testing.T) {
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
 	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName)
 	verifyInSvcStore(g, rejectedSvcStore, false, svcName, ns, cname, host, ipAddr)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestNonLBSvcCD(t *testing.T) {
@@ -214,7 +221,7 @@ func TestNonLBSvcCD(t *testing.T) {
 	ipAddr := "10.10.10.10"
 	cname := "cluster1"
 
-	addGDPAndGSLBForSvc(t)
+	gdp := addGDPAndGSLBForSvc(t)
 
 	// Add and test service
 	t.Log("Adding and testing service")
@@ -223,6 +230,7 @@ func TestNonLBSvcCD(t *testing.T) {
 
 	// delete the service
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
+	DeleteTestGDPObj(gdp)
 }
 
 func K8sAddSvc(t *testing.T, kc *k8sfake.Clientset, name string, ns string, cname string, host string,

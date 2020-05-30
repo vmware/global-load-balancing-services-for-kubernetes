@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/apis/amko/v1alpha1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -31,13 +31,13 @@ import (
 
 // FakeGlobalDeploymentPolicies implements GlobalDeploymentPolicyInterface
 type FakeGlobalDeploymentPolicies struct {
-	Fake *FakeAvilbV1alpha1
+	Fake *FakeAmkoV1alpha1
 	ns   string
 }
 
-var globaldeploymentpoliciesResource = schema.GroupVersionResource{Group: "avilb", Version: "v1alpha1", Resource: "globaldeploymentpolicies"}
+var globaldeploymentpoliciesResource = schema.GroupVersionResource{Group: "amko", Version: "v1alpha1", Resource: "globaldeploymentpolicies"}
 
-var globaldeploymentpoliciesKind = schema.GroupVersionKind{Group: "avilb", Version: "v1alpha1", Kind: "GlobalDeploymentPolicy"}
+var globaldeploymentpoliciesKind = schema.GroupVersionKind{Group: "amko", Version: "v1alpha1", Kind: "GlobalDeploymentPolicy"}
 
 // Get takes name of the globalDeploymentPolicy, and returns the corresponding globalDeploymentPolicy object, and an error if there is any.
 func (c *FakeGlobalDeploymentPolicies) Get(name string, options v1.GetOptions) (result *v1alpha1.GlobalDeploymentPolicy, err error) {

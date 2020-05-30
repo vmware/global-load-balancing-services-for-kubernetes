@@ -15,7 +15,6 @@ package ingestion
 
 import (
 	gslbingestion "amko/gslb/ingestion"
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
 	"testing"
 
 	containerutils "github.com/avinetworks/container-lib/utils"
@@ -28,7 +27,7 @@ import (
 func TestGSLBAndGDPWithRoutes(t *testing.T) {
 	ingestionQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 
-	gdp := getTestGDPObject(true, gslbalphav1.RouteObj, gslbalphav1.EqualsOp, "default")
+	gdp := getTestGDPObject(true, false)
 	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
 
 	gslbObj := getTestGSLBObject()

@@ -17,7 +17,7 @@ package ingestion
 import (
 	"amko/gslb/gslbutils"
 	gslbingestion "amko/gslb/ingestion"
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	gslbfake "amko/pkg/client/clientset/versioned/fake"
 	gslbinformers "amko/pkg/client/informers/externalversions"
 	"testing"
@@ -53,15 +53,7 @@ func updateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterfa
 }
 
 func updateTestGDPObject(gdp *gslbalphav1.GlobalDeploymentPolicy, clusterList []string, version string) {
-	var matchClusters []gslbalphav1.MemberCluster
-	for _, cname := range clusterList {
-		member := gslbalphav1.MemberCluster{
-			ClusterContext: cname,
-		}
-		matchClusters = append(matchClusters, member)
-	}
-
-	gdp.Spec.MatchClusters = matchClusters
+	gdp.Spec.MatchClusters = clusterList
 	gdp.ObjectMeta.ResourceVersion = version
 }
 
@@ -97,7 +89,7 @@ func TestGDPSelectAllObjsFromOneCluster(t *testing.T) {
 	ingList, allKeys := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
+	gdp := getTestGDPObject(true, false)
 	AddTestGDPObj(gdp)
 
 	t.Logf("verifying keys")
@@ -136,7 +128,7 @@ func TestGDPSelectFewObjsFromOneCluster(t *testing.T) {
 		ns, svc, cname, hostIPMap3, true, "key", "invalid-value")
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
+	gdp := getTestGDPObject(true, false)
 	AddTestGDPObj(gdp)
 
 	t.Logf("verifying keys")
@@ -169,11 +161,12 @@ func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
 	allKeys := append(allKeys1, allKeys2...)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
+	gdp := getTestGDPObject(true, false)
 	// add a matchRule for Ingress object with correct label
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value")
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
+	gdp.Spec.MatchRules.AppSelector.Label["key"] = "value"
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: "cluster1"}, {ClusterContext: "cluster2"}}
+	gdp.Spec.MatchClusters = []string{"cluster1", "cluster2"}
 
 	AddTestGDPObj(gdp)
 
@@ -193,55 +186,55 @@ func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
 	VerifyAllKeys(t, allKeys, false)
 }
 
-func TestGDPMisnameObjects(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	testPrefix := "mnc-"
-	ingNameList := []string{testPrefix + "def-ing1", testPrefix + "def-ing2"}
-	// We can keep a single list of hosts and ipAddrs for both the clusters, as the ingestion layer
-	// won't have a problem with this.
-	hosts := []string{testPrefix + TestDomain1, testPrefix + TestDomain2}
-	ipAddrs := []string{"10.10.10.10", "10.10.10.11"}
-	cname1 := "cluster1"
-	cname2 := "cluster2"
-	ns := "default"
-	svc := "test-svc"
+// func TestGDPMisnameObjects(t *testing.T) {
+// 	g := gomega.NewGomegaWithT(t)
+// 	testPrefix := "mno-"
+// 	ingNameList := []string{testPrefix + "def-ing1", testPrefix + "def-ing2"}
+// 	// We can keep a single list of hosts and ipAddrs for both the clusters, as the ingestion layer
+// 	// won't have a problem with this.
+// 	hosts := []string{testPrefix + TestDomain1, testPrefix + TestDomain2}
+// 	ipAddrs := []string{"10.10.10.10", "10.10.10.11"}
+// 	cname1 := "cluster1"
+// 	cname2 := "cluster2"
+// 	ns := "default"
+// 	svc := "test-svc"
 
-	buildAndAddTestGSLBObject(t)
+// 	buildAndAddTestGSLBObject(t)
 
-	ingList1, allKeys1 := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname1)
-	ingList2, allKeys2 := CreateMultipleIngresses(t, barKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname2)
+// 	ingList1, allKeys1 := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname1)
+// 	ingList2, allKeys2 := CreateMultipleIngresses(t, barKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname2)
 
-	allKeys := append(allKeys1, allKeys2...)
+// 	allKeys := append(allKeys1, allKeys2...)
 
-	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
-	gdp.ObjectMeta.SetNamespace(ns)
-	// add a matchRule for an invalid object with correct label
-	UpdateGDPMatchRuleDefaultLabel(gdp, "InvalidObj", "key", "value")
-	// Select both the clusters
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: cname1}, {ClusterContext: cname2}}
+// 	t.Logf("Adding GDP object")
+// 	gdp := getTestGDPObject(true, false)
+// 	gdp.ObjectMeta.SetNamespace(ns)
+// 	// add a matchRule for an invalid object with correct label
+// 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
+// 	// Select both the clusters
+// 	gdp.Spec.MatchClusters = []string{cname1, cname2}
 
-	AddTestGDPObj(gdp)
+// 	AddTestGDPObj(gdp)
 
-	t.Logf("verifying keys")
-	VerifyAllKeys(t, allKeys, true)
+// 	t.Logf("verifying keys")
+// 	VerifyAllKeys(t, allKeys, true)
 
-	t.Logf("verifying GDP status")
-	g.Expect(gdp.Status.ErrorStatus).To(gomega.Equal("unsupported object type InvalidObj"))
+// 	t.Logf("verifying GDP status")
+// 	g.Expect(gdp.Status.ErrorStatus).To(gomega.Equal("unsupported object type InvalidObj"))
 
-	t.Logf("Deleting ingresses for cluster1")
-	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
-	t.Logf("Deleting ingresses for cluster2")
-	DeleteMultipleIngresses(t, barKubeClient, ingList2)
-	DeleteTestGDPObj(gdp)
+// 	t.Logf("Deleting ingresses for cluster1")
+// 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
+// 	t.Logf("Deleting ingresses for cluster2")
+// 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
+// 	DeleteTestGDPObj(gdp)
 
-	// no objects were added, so no need to verify for delete calls
-	// verify delete keys
-	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
-	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
-	allKeys = append(keys1, keys2...)
-	VerifyAllKeys(t, allKeys, false)
-}
+// 	// no objects were added, so no need to verify for delete calls
+// 	// verify delete keys
+// 	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
+// 	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
+// 	allKeys = append(keys1, keys2...)
+// 	VerifyAllKeys(t, allKeys, false)
+// }
 
 func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -264,10 +257,10 @@ func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	allKeys := append(allKeys1, allKeys2...)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value")
+	gdp := getTestGDPObject(true, false)
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: cname1}, {ClusterContext: cname2}}
+	gdp.Spec.MatchClusters = []string{cname1, cname2}
 
 	AddTestGDPObj(gdp)
 
@@ -278,14 +271,14 @@ func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	g.Expect(gdp.Status.ErrorStatus).To(gomega.Equal("success"))
 
 	// Let's add another GDP object
-	anotherGdp := getTestGDPObject(false, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
+	anotherGdp := getTestGDPObject(true, false)
 	anotherGdp.ObjectMeta.Name = "new-gdp"
-	UpdateGDPMatchRuleDefaultLabel(anotherGdp, gslbalphav1.IngressObj, "key", "test")
+	UpdateGDPMatchRuleAppLabel(anotherGdp, "key", "test")
 	t.Logf("adding another gdp object")
 	AddTestGDPObj(anotherGdp)
 
 	// check the status of this new object
-	g.Expect(anotherGdp.Status.ErrorStatus).To(gomega.Equal("a GDP object already exists for namespace " + ns))
+	g.Expect(anotherGdp.Status.ErrorStatus).To(gomega.Equal("a GDP object already exists, can't add another"))
 
 	t.Logf("Deleting ingresses for cluster1")
 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
@@ -323,11 +316,11 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	buildAndAddTestGSLBObject(t)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
+	gdp := getTestGDPObject(true, false)
 	// "key":"value1" won't select any objects.
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value1")
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value1")
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: cname1}, {ClusterContext: cname2}}
+	gdp.Spec.MatchClusters = []string{cname1, cname2}
 	AddTestGDPObj(gdp)
 
 	// Adding the ingreeses
@@ -346,7 +339,7 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 
 	// Let's now update the GDP object
 	oldGdp := gdp.DeepCopy()
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "test")
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "test")
 	gdp.ResourceVersion = "101"
 	UpdateTestGDPObj(oldGdp, gdp)
 
@@ -391,11 +384,11 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 	buildAndAddTestGSLBObject(t)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value")
+	gdp := getTestGDPObject(true, false)
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 
 	// Empty matchClusters, don't select any cluster
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{}
+	gdp.Spec.MatchClusters = []string{}
 
 	AddTestGDPObj(gdp)
 
@@ -407,7 +400,7 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 	oldGdp := gdp.DeepCopy()
 	gdp.ResourceVersion = "101"
 	// Only select cluster 1
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: "cluster1"}}
+	gdp.Spec.MatchClusters = []string{"cluster1"}
 	UpdateTestGDPObj(oldGdp, gdp)
 
 	// Now, there should be two keys, both from cluster1 ingress objects
@@ -446,10 +439,10 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	buildAndAddTestGSLBObject(t)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value")
+	gdp := getTestGDPObject(true, false)
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select only one cluster
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: cname1}}
+	gdp.Spec.MatchClusters = []string{cname1}
 
 	AddTestGDPObj(gdp)
 
@@ -466,7 +459,7 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	oldGdp := gdp.DeepCopy()
 	gdp.ResourceVersion = "101"
 	// Only select cluster 1
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: "cluster2"}}
+	gdp.Spec.MatchClusters = []string{"cluster2"}
 	UpdateTestGDPObj(oldGdp, gdp)
 
 	// Now, cluster 2 keys should be added, and cluster 1 keys should be deleted
@@ -516,12 +509,12 @@ func TestGDPMisnameClusters(t *testing.T) {
 	allKeys := append(allKeys1, allKeys2...)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
-	gdp.ObjectMeta.SetNamespace(ns)
+	gdp := getTestGDPObject(true, false)
+	gdp.ObjectMeta.SetNamespace(gslbutils.AVISystem)
 	// add a matchRule for Ingress object with correct label
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value")
-	// Select both the clusters
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{{ClusterContext: "abc"}, {ClusterContext: "xyz"}}
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
+	// Select misnamed clusters (clusters not present in GSLBConfig object)
+	gdp.Spec.MatchClusters = []string{"abc", "xyz"}
 
 	AddTestGDPObj(gdp)
 
@@ -559,18 +552,11 @@ func TestGDPSelectNoClusters(t *testing.T) {
 	ingList, allKeys := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
-	gdp.ObjectMeta.SetNamespace(ns)
+	gdp := getTestGDPObject(true, false)
+	gdp.ObjectMeta.SetNamespace(gslbutils.AVISystem)
 
-	// add a matchRule for Ingress object with correct label
-	for idx, matchRule := range gdp.Spec.MatchRules {
-		if matchRule.Object == "INGRESS" {
-			gdp.Spec.MatchRules[idx].Label.Value = "value"
-			gdp.Spec.MatchRules[idx].Hosts = []gslbalphav1.Host{}
-		}
-	}
 	// But, remove the match clusters from the spec
-	gdp.Spec.MatchClusters = []gslbalphav1.MemberCluster{}
+	gdp.Spec.MatchClusters = []string{}
 
 	t.Logf("gdp object: %v", gdp)
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
@@ -608,10 +594,10 @@ func TestGDPSelectNoneObjsFromOneCluster(t *testing.T) {
 	ingList, allKeys := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname)
 
 	t.Logf("Adding GDP object")
-	gdp := getTestGDPObject(true, gslbalphav1.IngressObj, gslbalphav1.EqualsOp, ns)
+	gdp := getTestGDPObject(true, false)
 
 	// add a matchRule for Ingress object with wrong label
-	UpdateGDPMatchRuleDefaultLabel(gdp, gslbalphav1.IngressObj, "key", "value1")
+	UpdateGDPMatchRuleAppLabel(gdp, "key", "value1")
 
 	t.Logf("gdp object: %v", gdp)
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
@@ -653,23 +639,11 @@ func DeleteMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingList []*ext
 	}
 }
 
-func UpdateGDPMatchRuleDefaultLabel(gdp *gslbalphav1.GlobalDeploymentPolicy, obj, key, value string) {
-	for idx, matchRule := range gdp.Spec.MatchRules {
-		if matchRule.Object == obj {
-			gdp.Spec.MatchRules[idx].Label.Key = key
-			gdp.Spec.MatchRules[idx].Label.Value = value
-			return
-		}
+func UpdateGDPMatchRuleAppLabel(gdp *gslbalphav1.GlobalDeploymentPolicy, key, value string) {
+	if len(gdp.Spec.MatchRules.AppSelector.Label) == 0 {
+		gdp.Spec.MatchRules.AppSelector.Label = make(map[string]string)
 	}
-	// No match found, add a new rule
-	gdp.Spec.MatchRules = append(gdp.Spec.MatchRules, gslbalphav1.MatchRule{
-		Op:     gslbalphav1.EqualsOp,
-		Object: obj,
-		Label: gslbalphav1.Label{
-			Key:   key,
-			Value: value,
-		},
-	})
+	gdp.Spec.MatchRules.AppSelector.Label[key] = value
 }
 
 func AddTestGDPObj(gdp *gslbalphav1.GlobalDeploymentPolicy) {

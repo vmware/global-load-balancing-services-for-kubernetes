@@ -15,7 +15,6 @@
 package nodes
 
 import (
-	filter "amko/gslb/gdp_filter"
 	"amko/gslb/gslbutils"
 	"amko/gslb/k8sobjects"
 
@@ -37,15 +36,16 @@ func PublishKeyToRestLayer(tenant, gsName, key string, sharedQueue *utils.Worker
 }
 
 func GetObjTrafficRatio(ns, cname string) int32 {
-	globalFilter := filter.GetGlobalFilter()
+	globalFilter := gslbutils.GetGlobalFilter()
 	if globalFilter == nil {
 		// return default traffic ratio
 		gslbutils.Errf("ns: %s, cname: %s, msg: global filter can't be nil at this stage", ns, cname)
 		return 1
 	}
-	val := globalFilter.GetTrafficWeight(ns, cname)
-	if val < 0 {
-		gslbutils.Warnf("ns: %s, cname: %s, msg: traffic weight wasn't defined for this object", ns, cname)
+	val, err := globalFilter.GetTrafficWeight(ns, cname)
+	if err != nil {
+		gslbutils.Warnf("ns: %s, cname: %s, msg: error occured while fetching traffic info for this cluster, %s",
+			ns, cname, err.Error())
 		return 1
 	}
 	return val
@@ -190,7 +190,6 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	aviGS.(*AviGSObjectGraph).SetRetryCounter()
 	SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
 	PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
-	gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, gsName, "published key to rest layer")
 }
 
 func isAcceptableObject(objType string) bool {

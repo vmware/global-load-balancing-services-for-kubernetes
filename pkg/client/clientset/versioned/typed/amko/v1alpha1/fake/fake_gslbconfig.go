@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/apis/amko/v1alpha1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -31,13 +31,13 @@ import (
 
 // FakeGSLBConfigs implements GSLBConfigInterface
 type FakeGSLBConfigs struct {
-	Fake *FakeAvilbV1alpha1
+	Fake *FakeAmkoV1alpha1
 	ns   string
 }
 
-var gslbconfigsResource = schema.GroupVersionResource{Group: "avilb", Version: "v1alpha1", Resource: "gslbconfigs"}
+var gslbconfigsResource = schema.GroupVersionResource{Group: "amko", Version: "v1alpha1", Resource: "gslbconfigs"}
 
-var gslbconfigsKind = schema.GroupVersionKind{Group: "avilb", Version: "v1alpha1", Kind: "GSLBConfig"}
+var gslbconfigsKind = schema.GroupVersionKind{Group: "amko", Version: "v1alpha1", Kind: "GSLBConfig"}
 
 // Get takes name of the gSLBConfig, and returns the corresponding gSLBConfig object, and an error if there is any.
 func (c *FakeGSLBConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.GSLBConfig, err error) {

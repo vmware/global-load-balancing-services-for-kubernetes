@@ -39,10 +39,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	gslbscheme "amko/pkg/client/clientset/versioned/scheme"
 	gslbinformers "amko/pkg/client/informers/externalversions"
-	gslblisters "amko/pkg/client/listers/avilb/v1alpha1"
+	gslblisters "amko/pkg/client/listers/amko/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -124,7 +124,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 	gslbInformerFactory gslbinformers.SharedInformerFactory,
 	AddGSLBConfigFunc GSLBConfigAddfn) *GSLBConfigController {
 
-	gslbInformer := gslbInformerFactory.Avilb().V1alpha1().GSLBConfigs()
+	gslbInformer := gslbInformerFactory.Amko().V1alpha1().GSLBConfigs()
 	// Create event broadcaster
 	gslbscheme.AddToScheme(scheme.Scheme)
 	gslbutils.Logf("object: GSLBConfigController, msg: %s", "creating event broadcaster")
@@ -410,7 +410,7 @@ func Initialize() {
 		AddGSLBConfigObject)
 
 	// Start the informer for the GDP controller
-	gslbInformer := gslbInformerFactory.Avilb().V1alpha1().GSLBConfigs()
+	gslbInformer := gslbInformerFactory.Amko().V1alpha1().GSLBConfigs()
 
 	go gslbInformer.Informer().Run(stopCh)
 
@@ -424,7 +424,7 @@ func Initialize() {
 		UpdateGDPObj, DeleteGDPObj)
 
 	// Start the informer for the GDP controller
-	gdpInformer := gslbInformerFactory.Avilb().V1alpha1().GlobalDeploymentPolicies()
+	gdpInformer := gslbInformerFactory.Amko().V1alpha1().GlobalDeploymentPolicies()
 	go gdpInformer.Informer().Run(stopCh)
 
 	if err = gslbController.Run(stopCh); err != nil {
@@ -457,6 +457,7 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 	}
 
 	allInformers = append(allInformers, utils.ServiceInformer)
+	allInformers = append(allInformers, utils.NSInformer)
 	return allInformers
 }
 

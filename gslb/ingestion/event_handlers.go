@@ -31,7 +31,6 @@ import (
 func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
 	rejectedLBSvcStore := gslbutils.GetRejectedLBSvcStore()
-	gf := filter.GetGlobalFilter()
 	gslbutils.Logf("Adding svc handler")
 	svcEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -48,7 +47,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 					c.name, svc.ObjectMeta.Name, svc.ObjectMeta.Namespace)
 				return
 			}
-			if gf == nil || !gf.ApplyFilter(svcMeta, c.name) {
+			if !filter.ApplyFilter(svcMeta, c.name) {
 				AddOrUpdateLBSvcStore(rejectedLBSvcStore, svc, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, svc: %s, msg: %s\n", c.name,
 					svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, "rejected ADD svc key because it couldn't pass through filter")
@@ -78,7 +77,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			svc := curr.(*corev1.Service)
 			if oldSvc.ResourceVersion != svc.ResourceVersion {
 				svcMeta, ok := k8sobjects.GetSvcMeta(svc, c.name)
-				if !ok || gf == nil || !isSvcTypeLB(svc) || !gf.ApplyFilter(svcMeta, c.name) {
+				if !ok || !isSvcTypeLB(svc) || !filter.ApplyFilter(svcMeta, c.name) {
 					// See if the svc was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedLBSvcStore.GetClusterNSObjectByName(c.name,
 						oldSvc.ObjectMeta.Namespace, oldSvc.ObjectMeta.Name)
@@ -110,7 +109,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 	return svcEventHandler
 }
 
-func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController, gf *filter.GlobalFilter,
+func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
 	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
 	for _, ihm := range ingressHostMetaObjs {
 		if ihm.IPAddr == "" || ihm.Hostname == "" {
@@ -119,7 +118,7 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 				"rejected ADD ingress because IP address/Hostname not found in status field")
 			continue
 		}
-		if gf == nil || !gf.ApplyFilter(ihm, c.name) {
+		if !filter.ApplyFilter(ihm, c.name) {
 			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
 			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s, ing: %v\n", c.name, ihm.Namespace,
 				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter", ihm)
@@ -142,7 +141,7 @@ func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLB
 }
 
 func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
-	gf *filter.GlobalFilter, acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
 
 	for _, ihm := range oldIngMetaObjs {
 		// Check whether this exists in the new ingressHost list, if not, we need
@@ -167,7 +166,7 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 			continue
 		}
 		// there are changes, need to send an update key, but first apply the filter
-		if gf == nil || !gf.ApplyFilter(newIhm, c.name) {
+		if !filter.ApplyFilter(newIhm, c.name) {
 			// See if the ingressHost was already accepted, if yes, need to delete the key
 			fetchedObj, ok := acceptedIngStore.GetClusterNSObjectByName(c.name,
 				ihm.Namespace, ihm.ObjName)
@@ -217,7 +216,7 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 				"rejected ADD ingress because IP address/Hostname not found in status field")
 			continue
 		}
-		if gf == nil || !gf.ApplyFilter(ihm, c.name) {
+		if !filter.ApplyFilter(ihm, c.name) {
 			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
 			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
 				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
@@ -231,7 +230,6 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 }
 
 func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	gf := filter.GetGlobalFilter()
 	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
 	rejectedIngStore := gslbutils.GetRejectedIngressStore()
 
@@ -246,7 +244,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			// Don't add this ingr if there's no status field present or no IP is allocated in this
 			// status field
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
-			filterAndAddIngressMeta(ingressHostMetaObjs, c, gf, acceptedIngStore, rejectedIngStore, numWorkers)
+			filterAndAddIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		DeleteFunc: func(obj interface{}) {
 			ingr, ok := utils.ToNetworkingIngress(obj)
@@ -268,7 +266,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
 				oldIngMetaObjs := k8sobjects.GetIngressHostMeta(oldIngr, c.name)
 				newIngMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
-				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, gf, acceptedIngStore, rejectedIngStore,
+				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, acceptedIngStore, rejectedIngStore,
 					numWorkers)
 			}
 		},
@@ -277,7 +275,6 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 }
 
 func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	gf := filter.GetGlobalFilter()
 	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
 	rejectedRouteStore := gslbutils.GetRejectedRouteStore()
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
@@ -292,7 +289,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 				return
 			}
 			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
-			if gf == nil || !gf.ApplyFilter(routeMeta, c.name) {
+			if !filter.ApplyFilter(routeMeta, c.name) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
 					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because it couldn't pass through filter")
@@ -319,7 +316,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
 				routeMeta := k8sobjects.GetRouteMeta(route, c.name)
-				if gf == nil || !gf.ApplyFilter(routeMeta, c.name) {
+				if !filter.ApplyFilter(routeMeta, c.name) {
 					// See if the route was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
 						oldRoute.ObjectMeta.Namespace, oldRoute.ObjectMeta.Name)
@@ -357,4 +354,77 @@ func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, 
 	wq[bkt].AddRateLimited(key)
 	gslbutils.Logf("cluster: %s, ns: %s, objType: %s, op: %s, objName: %s, msg: added %s key ",
 		cname, namespace, objType, op, name, key)
+}
+
+func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+	acceptedNSStore := gslbutils.GetAcceptedNSStore()
+	rejectedNSStore := gslbutils.GetRejectedNSStore()
+
+	gslbutils.Logf("Adding Namespace handler")
+	ingressEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			ns, ok := obj.(*corev1.Namespace)
+			if !ok {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to namespace")
+				return
+			}
+			nsMeta := k8sobjects.GetNSMeta(ns, c.name)
+			if !filter.ApplyFilter(nsMeta, c.name) {
+				AddOrUpdateNSStore(rejectedNSStore, ns, c.name)
+				gslbutils.Logf("cluster: %s, ns: %s, msg: %s\n", c.name, nsMeta.Name,
+					"ns didn't pass through the filter, adding to rejected list")
+				return
+			}
+			WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
+			AddOrUpdateNSStore(acceptedNSStore, ns, c.name)
+		},
+		DeleteFunc: func(obj interface{}) {
+			ns, ok := obj.(*corev1.Namespace)
+			if !ok {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to namespace")
+				return
+			}
+			nsMeta := k8sobjects.GetNSMeta(ns, c.name)
+			if !nsMeta.DeleteFromFilter() {
+				gslbutils.Logf("No namespace exists in the filter, nothing to change")
+			}
+			// ns deleted from the filter, re-apply on the existing objects
+			WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
+			DeleteFromNSStore(acceptedNSStore, ns, c.name)
+			DeleteFromNSStore(rejectedNSStore, ns, c.name)
+		},
+		UpdateFunc: func(old, curr interface{}) {
+			oldNS, okOld := old.(*corev1.Namespace)
+			ns, okNew := curr.(*corev1.Namespace)
+			if !okOld || !okNew {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to namespace")
+				return
+			}
+			if oldNS.ResourceVersion != ns.ResourceVersion {
+				oldNSMeta := k8sobjects.GetNSMeta(oldNS, c.name)
+				newNSMeta := k8sobjects.GetNSMeta(ns, c.name)
+				if !newNSMeta.UpdateFilter(oldNSMeta) {
+					// no changes, nothing to be dome
+					gslbutils.Logf("ns didn't change, nothing to be done")
+					// change the namespace label if updated only in the rejection list, for all other
+					// cases, it will be updated
+					AddOrUpdateNSStore(rejectedNSStore, ns, c.name)
+					return
+				}
+				// filter changed, re-apply
+				gslbutils.Logf("namespace: %s, msg: namespace changed in filter, will re-apply", ns.Name)
+				WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
+
+				// determine if the new namespace is accepted or rejected
+				if newNSMeta.ApplyFilter() {
+					MoveNSObjs([]string{c.name + "/" + ns.Name}, rejectedNSStore, acceptedNSStore)
+					AddOrUpdateNSStore(acceptedNSStore, ns, c.name)
+				} else {
+					MoveNSObjs([]string{c.name + "/" + ns.Name}, acceptedNSStore, rejectedNSStore)
+					AddOrUpdateNSStore(rejectedNSStore, ns, c.name)
+				}
+			}
+		},
+	}
+	return ingressEventHandler
 }

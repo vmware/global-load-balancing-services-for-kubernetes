@@ -15,7 +15,7 @@
 package ingestion
 
 import (
-	gslbalphav1 "amko/pkg/apis/avilb/v1alpha1"
+	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
+	"amko/gslb/gslbutils"
 	gslbingestion "amko/gslb/ingestion"
 
 	containerutils "github.com/avinetworks/container-lib/utils"
@@ -70,42 +71,29 @@ func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 		Spec: gslbalphav1.GSLBConfigSpec{
 			GSLBLeader:     gslbalphav1.GSLBLeader{"", "", ""},
 			MemberClusters: memberClusters,
-			GSLBNameSource: "hostname",
 			DomainNames:    []string{},
 		},
 	}
 	return gslbConfigObj
 }
 
-func getTestGDPObject(labelsReq bool, objType string, op, ns string) *gslbalphav1.GlobalDeploymentPolicy {
-	matchRules := []gslbalphav1.MatchRule{gslbalphav1.MatchRule{}}
-
-	if objType != gslbalphav1.RouteObj && objType != gslbalphav1.IngressObj && objType != gslbalphav1.LBSvcObj {
-		return nil
-	}
-	matchRules[0].Object = objType
-
-	if op != gslbalphav1.EqualsOp {
-		return nil
-	}
-	matchRules[0].Op = op
-
-	if labelsReq {
-		label := gslbalphav1.Label{
-			Key:   "key",
-			Value: "value",
-		}
-		matchRules[0].Label = label
+func getTestGDPObject(appLabelReq, nsLabelReq bool) *gslbalphav1.GlobalDeploymentPolicy {
+	ns := gslbutils.AVISystem
+	matchRules := gslbalphav1.MatchRules{
+		AppSelector:       gslbalphav1.AppSelector{},
+		NamespaceSelector: gslbalphav1.NamespaceSelector{},
 	}
 
-	matchClusters := []gslbalphav1.MemberCluster{
-		gslbalphav1.MemberCluster{
-			ClusterContext: "cluster1",
-		},
-		gslbalphav1.MemberCluster{
-			ClusterContext: "cluster2",
-		},
+	if appLabelReq {
+		matchRules.AppSelector.Label = make(map[string]string)
+		matchRules.AppSelector.Label["key"] = "value"
 	}
+	if nsLabelReq {
+		matchRules.NamespaceSelector.Label = make(map[string]string)
+		matchRules.NamespaceSelector.Label["ns"] = "value"
+	}
+
+	matchClusters := []string{"cluster1", "cluster2"}
 	gdpSpec := gslbalphav1.GDPSpec{
 		MatchRules:    matchRules,
 		MatchClusters: matchClusters,

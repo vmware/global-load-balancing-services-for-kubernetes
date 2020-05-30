@@ -19,7 +19,7 @@ limitations under the License.
 package externalversions
 
 import (
-	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	"fmt"
 
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,11 +52,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=avilb, Version=v1alpha1
+	// Group=amko, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("gslbconfigs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Avilb().V1alpha1().GSLBConfigs().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GSLBConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("globaldeploymentpolicies"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Avilb().V1alpha1().GlobalDeploymentPolicies().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GlobalDeploymentPolicies().Informer()}, nil
 
 	}
 

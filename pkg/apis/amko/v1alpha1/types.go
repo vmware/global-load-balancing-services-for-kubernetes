@@ -32,7 +32,6 @@ type GSLBConfigList struct {
 type GSLBConfigSpec struct {
 	GSLBLeader      GSLBLeader      `json:"gslbLeader,omitempty"`
 	MemberClusters  []MemberCluster `json:"memberClusters,omitempty"`
-	GSLBNameSource  string          `json:"globalServiceNameSource,omitempty"`
 	DomainNames     []string        `json:"domainNames,omitempty"`
 	RefreshInterval int             `json:"refreshInterval,omitempty"`
 }
@@ -97,21 +96,25 @@ type GlobalDeploymentPolicyList struct {
 
 // GDPSpec encloses all the properties of a GDP object.
 type GDPSpec struct {
-	MatchRules     []MatchRule        `json:"matchRules,omitempty"`
-	MatchClusters  []MemberCluster    `json:"matchClusters,omitempty"`
-	GSLBConfigName string             `json:"gslbConfig,omitempty"`
-	TrafficSplit   []TrafficSplitElem `json:"trafficSplit,omitempty"`
-	// LBAlgorithm is for determination of a server inside a pool and is different
-	// from the algorithm used to determine a pool inside a GSLB service
-	LBAlgorithm string `json:"lbAlgorithm,omitempty"`
+	MatchRules    MatchRules         `json:"matchRules,omitempty"`
+	MatchClusters []string           `json:"matchClusters,omitempty"`
+	TrafficSplit  []TrafficSplitElem `json:"trafficSplit,omitempty"`
 }
 
-// MatchRule is the match criteria needed to select the kubernetes/openshift objects.
-type MatchRule struct {
-	Object string `json:"object,omitempty"`
-	Hosts  []Host `json:"hosts,omitempty"`
-	Label  Label  `json:"label,omitempty"`
-	Op     string `json:"op,omitempty"`
+// MatchRules is the match criteria needed to select the kubernetes/openshift objects.
+type MatchRules struct {
+	AppSelector       `json:"appSelector,omitempty"`
+	NamespaceSelector `json:"namespaceSelector,omitempty"`
+}
+
+// AppSelector selects the applications based on their labels
+type AppSelector struct {
+	Label map[string]string `json:"label,omitempty"`
+}
+
+// NamespaceSelector selects the applications based on their labels
+type NamespaceSelector struct {
+	Label map[string]string `json:"label,omitempty"`
 }
 
 // Objects on which rules will be applied
@@ -122,27 +125,8 @@ const (
 	IngressObj = "INGRESS"
 	// LBSvc applies to service type LoadBalancer
 	LBSvcObj = "LBSVC"
-)
-
-// Host holds the hostname, it could be a glob expression too.
-type Host struct {
-	HostName string `json:"host,omitempty"`
-}
-
-// Label is a Kubernetes/Openshift label with a key-value pair.
-type Label struct {
-	Key   string `json:"key,omitempty"`
-	Value string `json:"value,omitmempty"`
-}
-
-// Operators required for selecting k8s/openshift objects
-const (
-	// EqualsOp ensures an exact match
-	EqualsOp = "EQUALS"
-	// GlobOp ensures a Glob match
-	GlobOp = "GLOB"
-	// NotequalsOp ensures exact no match
-	NotequalsOp = "NOTEQUALS"
+	// NSObj applies to namespaces
+	NSObj = "Namespace"
 )
 
 // TrafficSplitElem determines how much traffic to be routed to a cluster.
@@ -154,15 +138,5 @@ type TrafficSplitElem struct {
 
 // GDPStatus gives the current status of the policy object.
 type GDPStatus struct {
-	MatchState  string `json:"matchState,omitempty"`
 	ErrorStatus string `json:"errorStatus,omitempty"`
 }
-
-// Set of constants for GSLB Load Balancing algorithm, decide the member inside a pool
-// to be picked.
-// TODO: Support GSLB_ALGORITHM_CONSISTENT_HASH.
-const (
-	GSLBAlgoRoundRobin = "GSLB_ALGORITHM_ROUND_ROBIN"
-	GSLBAlgoGeo        = "GSLB_ALGORITHM_GEO"
-	GSLBAlgoTopology   = "GSLB_ALGORITHM_TOPOLOGY"
-)

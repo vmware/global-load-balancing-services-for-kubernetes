@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "amko/pkg/apis/avilb/v1alpha1"
+	v1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	scheme "amko/pkg/client/clientset/versioned/scheme"
 	"time"
 
@@ -55,7 +55,7 @@ type globalDeploymentPolicies struct {
 }
 
 // newGlobalDeploymentPolicies returns a GlobalDeploymentPolicies
-func newGlobalDeploymentPolicies(c *AvilbV1alpha1Client, namespace string) *globalDeploymentPolicies {
+func newGlobalDeploymentPolicies(c *AmkoV1alpha1Client, namespace string) *globalDeploymentPolicies {
 	return &globalDeploymentPolicies{
 		client: c.RESTClient(),
 		ns:     namespace,
