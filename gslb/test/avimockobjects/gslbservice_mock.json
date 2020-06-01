@@ -1,0 +1,193 @@
+{
+    "count": 4,
+    "results": [
+      {
+        "resolve_cname": false,
+        "controller_health_status_enabled": true,
+        "_last_modified": "1590393188277010",
+        "wildcard_match": false,
+        "url": "https://10.10.100.10/api/gslbservice/gslbservice-1be3716b-fd5c-4a3b-a4c2-602d6245ca8c",
+        "tenant_ref": "https://10.10.100.10/api/tenant/admin",
+        "description": "INGRESS/cluster2-admin/blue/blue-cluster2-ing1/blue-ing1.avi-container-dns.internal",
+        "enabled": true,
+        "is_federated": true,
+        "created_by": "mcc-gslb",
+        "domain_names": [
+          "blue-ing1.avi-container-dns.internal"
+        ],
+        "health_monitor_refs": [
+          "https://10.10.100.10/api/healthmonitor/healthmonitor-55452d5f-d6ca-4c83-bbd5-2121a965d00c"
+        ],
+        "use_edns_client_subnet": true,
+        "groups": [
+          {
+            "priority": 10,
+            "members": [
+              {
+                "ip": {
+                  "type": "V4",
+                  "addr": "10.10.10.11"
+                },
+                "ratio": 2,
+                "enabled": true
+              }
+            ],
+            "enabled": true,
+            "name": "blue-ing1.avi-container-dns.internal-10",
+            "algorithm": "GSLB_ALGORITHM_ROUND_ROBIN"
+          }
+        ],
+        "site_persistence_enabled": false,
+        "min_members": 0,
+        "health_monitor_scope": "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS",
+        "name": "blue-ing1.avi-container-dns.internal",
+        "pool_algorithm": "GSLB_SERVICE_ALGORITHM_PRIORITY",
+        "uuid": "gslbservice-1be3716b-fd5c-4a3b-a4c2-602d6245ca8c"
+      },
+      {
+        "resolve_cname": false,
+        "controller_health_status_enabled": true,
+        "_last_modified": "1590393392057628",
+        "wildcard_match": false,
+        "url": "https://10.10.100.10/api/gslbservice/gslbservice-9a213f88-d94a-48a0-b28e-ce4b7928c745",
+        "tenant_ref": "https://10.10.100.10/api/tenant/admin",
+        "description": "INGRESS/cluster1-admin/green/green-cluster1-ing1/green-ing1.avi-container-dns.internal,INGRESS/cluster2-admin/green/green-cluster2-ing1/green-ing1.avi-container-dns.internal",
+        "enabled": true,
+        "is_federated": true,
+        "created_by": "mcc-gslb",
+        "domain_names": [
+          "green-ing1.avi-container-dns.internal"
+        ],
+        "health_monitor_refs": [
+          "https://10.10.100.10/api/healthmonitor/healthmonitor-55452d5f-d6ca-4c83-bbd5-2121a965d00c"
+        ],
+        "use_edns_client_subnet": true,
+        "groups": [
+          {
+            "priority": 10,
+            "members": [
+              {
+                "ip": {
+                  "type": "V4",
+                  "addr": "10.10.10.11"
+                },
+                "ratio": 8,
+                "enabled": true
+              },
+              {
+                "ip": {
+                  "type": "V4",
+                  "addr": "10.10.10.12"
+                },
+                "ratio": 2,
+                "enabled": true
+              }
+            ],
+            "enabled": true,
+            "name": "green-ing1.avi-container-dns.internal-10",
+            "algorithm": "GSLB_ALGORITHM_ROUND_ROBIN"
+          }
+        ],
+        "site_persistence_enabled": false,
+        "min_members": 0,
+        "health_monitor_scope": "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS",
+        "name": "green-ing1.avi-container-dns.internal",
+        "pool_algorithm": "GSLB_SERVICE_ALGORITHM_PRIORITY",
+        "uuid": "gslbservice-9a213f88-d94a-48a0-b28e-ce4b7928c745"
+      },
+      {
+        "resolve_cname": false,
+        "controller_health_status_enabled": true,
+        "_last_modified": "1590393387593266",
+        "wildcard_match": false,
+        "url": "https://10.10.100.10/api/gslbservice/gslbservice-5e25b198-1e48-46c7-b959-392da46d04b6",
+        "tenant_ref": "https://10.10.100.10/api/tenant/admin",
+        "description": "INGRESS/cluster2-admin/green/green-cluster2-ing2/green-ing2.avi-container-dns.internal,INGRESS/cluster1-admin/green/green-cluster1-ing2/green-ing2.avi-container-dns.internal",
+        "enabled": true,
+        "is_federated": true,
+        "created_by": "mcc-gslb",
+        "domain_names": [
+          "green-ing2.avi-container-dns.internal"
+        ],
+        "health_monitor_refs": [
+          "https://10.10.100.10/api/healthmonitor/healthmonitor-55452d5f-d6ca-4c83-bbd5-2121a965d00c"
+        ],
+        "use_edns_client_subnet": true,
+        "groups": [
+          {
+            "priority": 10,
+            "members": [
+              {
+                "ip": {
+                  "type": "V4",
+                  "addr": "10.10.10.12"
+                },
+                "ratio": 2,
+                "enabled": true
+              },
+              {
+                "ip": {
+                  "type": "V4",
+                  "addr": "10.10.10.11"
+                },
+                "ratio": 8,
+                "enabled": true
+              }
+            ],
+            "enabled": true,
+            "name": "green-ing2.avi-container-dns.internal-10",
+            "algorithm": "GSLB_ALGORITHM_ROUND_ROBIN"
+          }
+        ],
+        "site_persistence_enabled": false,
+        "min_members": 0,
+        "health_monitor_scope": "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS",
+        "name": "green-ing2.avi-container-dns.internal",
+        "pool_algorithm": "GSLB_SERVICE_ALGORITHM_PRIORITY",
+        "uuid": "gslbservice-5e25b198-1e48-46c7-b959-392da46d04b6"
+      },
+      {
+        "resolve_cname": false,
+        "controller_health_status_enabled": true,
+        "_last_modified": "1590393387943874",
+        "wildcard_match": false,
+        "url": "https://10.10.100.10/api/gslbservice/gslbservice-68f93dfa-4bec-4cc0-aa83-9ff82633a374",
+        "tenant_ref": "https://10.10.100.10/api/tenant/admin",
+        "description": "INGRESS/cluster2-admin/blue/blue-cluster2-ing2/blue-ing2.avi-container-dns.internal",
+        "enabled": true,
+        "is_federated": true,
+        "created_by": "mcc-gslb",
+        "domain_names": [
+          "blue-ing2.avi-container-dns.internal"
+        ],
+        "health_monitor_refs": [
+          "https://10.10.100.10/api/healthmonitor/healthmonitor-55452d5f-d6ca-4c83-bbd5-2121a965d00c"
+        ],
+        "use_edns_client_subnet": true,
+        "groups": [
+          {
+            "priority": 10,
+            "members": [
+              {
+                "ip": {
+                  "type": "V4",
+                  "addr": "10.10.10.11"
+                },
+                "ratio": 2,
+                "enabled": true
+              }
+            ],
+            "enabled": true,
+            "name": "blue-ing2.avi-container-dns.internal-10",
+            "algorithm": "GSLB_ALGORITHM_ROUND_ROBIN"
+          }
+        ],
+        "site_persistence_enabled": false,
+        "min_members": 0,
+        "health_monitor_scope": "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS",
+        "name": "blue-ing2.avi-container-dns.internal",
+        "pool_algorithm": "GSLB_SERVICE_ALGORITHM_PRIORITY",
+        "uuid": "gslbservice-68f93dfa-4bec-4cc0-aa83-9ff82633a374"
+      }
+    ]
+  }

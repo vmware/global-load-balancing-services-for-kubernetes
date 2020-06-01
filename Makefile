@@ -41,7 +41,12 @@ ingestion_test:
 graph_test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
 
+.PHONY: rest_test
+rest_test:
+		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
+
 .PHONY: test
 test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
+		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast

@@ -96,7 +96,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	var operation *utils.RestOp
 
 	if !gslbutils.IsControllerLeader() {
-		gslbutils.Errf("key: %s, msg: can't execute rest operation as controller is not a leader")
+		gslbutils.Errf("key: %s, msg: can't execute rest operation as controller is not a leader", gsKey)
 		return
 	}
 	if gsCacheObj != nil {
@@ -361,7 +361,7 @@ func (restOp *RestOperations) AviGSCacheDel(gsCache *avicache.AviCache, op *util
 
 func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string) error {
 	if (operation.Err != nil) || (operation.Response == nil) {
-		gslbutils.Warnf("key: %s, response: %s, msg: rest operation has err or no response for VS: %s", key,
+		gslbutils.Warnf("key: %s, response: %s, msg: rest operation has err or no response for GS: %s", key,
 			operation.Response, operation.Err)
 		return errors.New("rest operation errored")
 	}
