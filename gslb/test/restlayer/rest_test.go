@@ -75,7 +75,7 @@ func verifyMembersMatch(g *gomega.WithT, gsGraph nodes.AviGSObjectGraph, gsCache
 	}
 }
 
-func verifyInAviCache(t *testing.T, gsGraph nodes.AviGSObjectGraph) {
+func verifyInAviCache(t *testing.T, gsGraph nodes.AviGSObjectGraph, deleteCase bool) {
 	cache := avicache.GetAviCache()
 	cacheKey := avicache.TenantName{
 		Tenant: gsGraph.Tenant,
@@ -84,6 +84,10 @@ func verifyInAviCache(t *testing.T, gsGraph nodes.AviGSObjectGraph) {
 
 	gsCache, found := cache.AviCacheGet(cacheKey)
 	g := gomega.NewGomegaWithT(t)
+	if deleteCase {
+		g.Expect(found).To(gomega.Equal(false))
+		return
+	}
 	g.Expect(found).To(gomega.Equal(true))
 	gsCacheObj, ok := gsCache.(*avicache.AviGSCache)
 	g.Expect(ok).To(gomega.Equal(true))
@@ -93,13 +97,13 @@ func verifyInAviCache(t *testing.T, gsGraph nodes.AviGSObjectGraph) {
 	verifyMembersMatch(g, gsGraph, gsCacheObj)
 }
 
-func saveSyncAndVerify(t *testing.T, modelName string, gsGraph nodes.AviGSObjectGraph) {
+func saveSyncAndVerify(t *testing.T, modelName string, gsGraph nodes.AviGSObjectGraph, deleteCase bool) {
 	gsGraph.SetRetryCounter()
 	agl := nodes.SharedAviGSGraphLister()
 	agl.Save(modelName, &gsGraph)
 	rest.SyncFromNodesLayer(gsGraph.Tenant + "/" + gsGraph.Name)
 
-	verifyInAviCache(t, gsGraph)
+	verifyInAviCache(t, gsGraph, deleteCase)
 }
 
 func TestCreateGS(t *testing.T) {
@@ -110,7 +114,7 @@ func TestCreateGS(t *testing.T) {
 	modelName := utils.ADMIN_NS + "/" + host
 	// build a AviGSObjectGraph
 	gsGraph := buildTestGSGraph(clusterList, ipList, names, host, v1alpha1.IngressObj)
-	saveSyncAndVerify(t, modelName, gsGraph)
+	saveSyncAndVerify(t, modelName, gsGraph, false)
 }
 
 func TestUpdateGS(t *testing.T) {
@@ -120,7 +124,7 @@ func TestUpdateGS(t *testing.T) {
 	names := []string{"ing1" + "/" + host}
 	modelName := utils.ADMIN_NS + "/" + host
 	gsGraph := buildTestGSGraph(clusterList, ipList, names, host, v1alpha1.IngressObj)
-	saveSyncAndVerify(t, modelName, gsGraph)
+	saveSyncAndVerify(t, modelName, gsGraph, false)
 
 	// update the graph
 	newMember := nodes.AviGSK8sObj{
@@ -132,5 +136,26 @@ func TestUpdateGS(t *testing.T) {
 		Weight:    10,
 	}
 	gsGraph.MemberObjs = append(gsGraph.MemberObjs, newMember)
-	saveSyncAndVerify(t, modelName, gsGraph)
+	saveSyncAndVerify(t, modelName, gsGraph, false)
+}
+
+func TestDeleteGS(t *testing.T) {
+	host := "host3.avi.com"
+	clusterList := []string{"foo", "bar"}
+	ipList := []string{"10.10.10.31", "10.10.10.32"}
+	names := []string{"ing1/" + host, "ing2/" + host}
+	modelName := utils.ADMIN_NS + "/" + host
+	// build a AviGSObjectGraph
+	gsGraph := buildTestGSGraph(clusterList, ipList, names, host, v1alpha1.IngressObj)
+	saveSyncAndVerify(t, modelName, gsGraph, false)
+
+	gsGraph.SetRetryCounter()
+	agl := nodes.SharedAviGSGraphLister()
+	agl.Save(modelName, nil)
+	rest.SyncFromNodesLayer(gsGraph.Tenant + "/" + gsGraph.Name)
+
+	gsGraph.DeleteMember("foo", DefaultNS, names[0], v1alpha1.IngressObj)
+	gsGraph.DeleteMember("bar", DefaultNS, names[1], v1alpha1.IngressObj)
+
+	saveSyncAndVerify(t, modelName, gsGraph, true)
 }
