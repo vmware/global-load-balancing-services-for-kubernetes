@@ -37,7 +37,11 @@ endif
 ingestion_test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 
+.PHONY: graph_test
+graph_test:
+		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
+
 .PHONY: test
 test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
-		$(GOTEST) -v -mod=vendor ./gslb/nodes -failfast
+		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
