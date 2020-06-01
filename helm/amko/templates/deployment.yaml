@@ -33,6 +33,12 @@ spec:
               secretKeyRef:
                 name: {{ .Values.configs.clusterMembers.secret }}
                 key: {{ .Values.configs.clusterMembers.key }}
+          {{ if .Values.persistentVolumeClaim }}
+          - name: USE_PVC
+            value: "true"
+          {{ end }}
+          - name: LOG_FILE_NAME
+            value: {{ printf "%s/%s" .Values.mountPath .Values.logFile }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
