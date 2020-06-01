@@ -85,3 +85,7 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+persistentVolumeClaim: ""
+mountPath: "/log"
+logFile: "amko.log"
