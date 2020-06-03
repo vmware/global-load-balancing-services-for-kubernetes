@@ -37,16 +37,19 @@ const (
 )
 
 func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
-	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gdp := getTestGDPObject(true, false)
-	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
-
 	gslbObj := getTestGSLBObject()
 	gc, err := gslbingestion.IsGSLBConfigValid(gslbObj)
 	if err != nil {
 		t.Fatal("GSLB object invalid")
 	}
 	addGSLBTestConfigObject(gc)
+	gslbutils.AddClusterContext("cluster1")
+	gslbutils.AddClusterContext("cluster2")
+
+	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
+	gdp := getTestGDPObject(true, false)
+	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
+
 	return gdp
 }
 
@@ -96,6 +99,7 @@ func TestBasicIngressCUD(t *testing.T) {
 	t.Log("Adding and testing ingresses")
 	ingObj := k8sAddIngress(t, fooKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
 	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	t.Log("Verifying in the accepted store")
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	newHost := testPrefix + TestDomain2
@@ -103,10 +107,15 @@ func TestBasicIngressCUD(t *testing.T) {
 	ingObj.Status.LoadBalancer.Ingress[0].Hostname = newHost
 	ingObj.ResourceVersion = "101"
 
+	allKeys := []string{}
+	t.Log("updating ingress")
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
-	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingObj.Name, host)
+	allKeys = append(allKeys, GetIngressKey("DELETE", cname, ns, ingName, host))
+	allKeys = append(allKeys, GetIngressKey("ADD", cname, ns, ingName, newHost))
+	VerifyAllKeys(t, allKeys, false)
+	t.Log("Verifying that the ingress hostname doesn't exist in the accepted store")
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingObj.Name, newHost)
+	t.Log("Verifying that the ingress hostname exists in the accepted store")
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, newHost, ipAddr)
 
 	k8sDeleteIngress(t, fooKubeClient, ingName, ns)
@@ -857,7 +866,6 @@ func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, wit
 
 // verify in the accepted or rejected Ingress store
 func verifyInIngStore(g *gomega.WithT, accepted bool, present bool, ingName, ns, cname, host, ip string) {
-
 	var cs *gslbutils.ClusterStore
 	if accepted {
 		cs = gslbutils.GetAcceptedIngressStore()

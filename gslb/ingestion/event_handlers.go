@@ -55,7 +55,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			}
 			AddOrUpdateLBSvcStore(acceptedLBSvcStore, svc, c.name)
 			publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, svc.ObjectMeta.Namespace,
-				svc.ObjectMeta.Name, gslbutils.ObjectAdd, c.workqueue)
+				svc.ObjectMeta.Name, gslbutils.ObjectAdd, svcMeta.Hostname, c.workqueue)
 		},
 		DeleteFunc: func(obj interface{}) {
 			svc, ok := obj.(*corev1.Service)
@@ -68,8 +68,16 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			}
 			DeleteFromLBSvcStore(acceptedLBSvcStore, svc, c.name)
 			DeleteFromLBSvcStore(rejectedLBSvcStore, svc, c.name)
+
+			// For services, where the status field was deleted, won't contain the hostname in that case
+			hostName := ""
+			svcMeta, ok := k8sobjects.GetSvcMeta(svc, c.name)
+			if ok {
+				hostName = svcMeta.Hostname
+			}
+
 			publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, svc.ObjectMeta.Namespace,
-				svc.ObjectMeta.Name, gslbutils.ObjectDelete, c.workqueue)
+				svc.ObjectMeta.Name, gslbutils.ObjectDelete, hostName, c.workqueue)
 			return
 		},
 		UpdateFunc: func(old, curr interface{}) {
@@ -93,16 +101,16 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 					fetchedSvc := fetchedObj.(k8sobjects.SvcMeta)
 					// Add a DELETE key for this svc
 					publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, fetchedSvc.Namespace,
-						fetchedSvc.Name, gslbutils.ObjectDelete, c.workqueue)
+						fetchedSvc.Name, gslbutils.ObjectDelete, fetchedSvc.Hostname, c.workqueue)
 					return
 				}
 				AddOrUpdateLBSvcStore(acceptedLBSvcStore, svc, c.name)
-				// If the svc was already part of rejected store, we need to remove from
+				// If the svc was already part of rejected store, we need to remove
 				// this svc from the rejected store.
 				rejectedLBSvcStore.DeleteClusterNSObj(c.name, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 				// Add the key for this svc to the queue.
 				publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, svc.ObjectMeta.Namespace,
-					svc.ObjectMeta.Name, gslbutils.ObjectUpdate, c.workqueue)
+					svc.ObjectMeta.Name, gslbutils.ObjectUpdate, svcMeta.Hostname, c.workqueue)
 			}
 		},
 	}
@@ -126,17 +134,22 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 		}
 		AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
 		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, c.workqueue)
+			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, ihm.Hostname, c.workqueue)
 	}
 }
 
 func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController, acceptedIngStore,
 	rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
 	for _, ihm := range ingressHostMetaObjs {
-		DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
+		present := DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
 		DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
-		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-			ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, c.workqueue)
+
+		// Only if the ihm object was part of the accepted list previously, we will send a delete key
+		// otherwise we will assume that the object was already deleted
+		if present {
+			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+				ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, ihm.Hostname, c.workqueue)
+		}
 	}
 }
 
@@ -156,7 +169,7 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 			// If part of accepted store, only then publish the delete key
 			if isAccepted {
 				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-					ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, c.workqueue)
+					ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, ihm.Hostname, c.workqueue)
 			}
 			continue
 		}
@@ -183,7 +196,7 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 			// Add a DELETE key for this ingHost
 			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, fetchedIngHost.Cluster,
 				fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
-				c.workqueue)
+				fetchedIngHost.Hostname, c.workqueue)
 			continue
 		}
 		// check if the object existed in the acceptedIngStore
@@ -197,8 +210,8 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 		AddOrUpdateIngressStore(acceptedIngStore, newIhm, c.name)
 		rejectedIngStore.DeleteClusterNSObj(c.name, ihm.Namespace, ihm.GetIngressHostMetaKey())
 		// Add the key for this ingHost to the queue
-		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, ihm.Namespace, ihm.ObjName,
-			oper, c.workqueue)
+		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, newIhm.Namespace, newIhm.ObjName,
+			oper, newIhm.Hostname, c.workqueue)
 		continue
 	}
 	// Check if there are any new ingHost objects, if yes, we have to add those
@@ -224,7 +237,7 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 		}
 		AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
 		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, c.workqueue)
+			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, ihm.Hostname, c.workqueue)
 		continue
 	}
 }
@@ -297,7 +310,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			}
 			AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 			publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
-				route.ObjectMeta.Name, gslbutils.ObjectAdd, c.workqueue)
+				route.ObjectMeta.Name, gslbutils.ObjectAdd, routeMeta.Hostname, c.workqueue)
 		},
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
@@ -308,8 +321,9 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			// Delete from all route stores
 			DeleteFromRouteStore(acceptedRouteStore, route, c.name)
 			DeleteFromRouteStore(rejectedRouteStore, route, c.name)
+			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
 			publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
-				route.ObjectMeta.Name, gslbutils.ObjectDelete, c.workqueue)
+				route.ObjectMeta.Name, gslbutils.ObjectDelete, routeMeta.Hostname, c.workqueue)
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldRoute := old.(*routev1.Route)
@@ -332,7 +346,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 					fetchedRoute := fetchedObj.(k8sobjects.RouteMeta)
 					// Add a DELETE key for this route
 					publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, fetchedRoute.Namespace,
-						fetchedRoute.Name, gslbutils.ObjectDelete, c.workqueue)
+						fetchedRoute.Name, gslbutils.ObjectDelete, fetchedRoute.Hostname, c.workqueue)
 					return
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
@@ -341,16 +355,16 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 				rejectedRouteStore.DeleteClusterNSObj(c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				// Add the key for this route to the queue.
 				publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
-					route.ObjectMeta.Name, gslbutils.ObjectUpdate, c.workqueue)
+					route.ObjectMeta.Name, gslbutils.ObjectUpdate, routeMeta.Hostname, c.workqueue)
 			}
 		},
 	}
 	return routeEventHandler
 }
 
-func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, op string, wq []workqueue.RateLimitingInterface) {
+func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, op, hostname string, wq []workqueue.RateLimitingInterface) {
 	key := gslbutils.MultiClusterKey(op, objType, cname, namespace, name)
-	bkt := containerutils.Bkt(namespace, numWorkers)
+	bkt := containerutils.Bkt(hostname, numWorkers)
 	wq[bkt].AddRateLimited(key)
 	gslbutils.Logf("cluster: %s, ns: %s, objType: %s, op: %s, objName: %s, msg: added %s key ",
 		cname, namespace, objType, op, name, key)

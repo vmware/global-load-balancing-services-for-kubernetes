@@ -90,12 +90,13 @@ func AddOrUpdateIngressStore(clusterRouteStore *gslbutils.ClusterStore,
 // and then ns store for the ingHost's namespace and then deletes the ingHost key from
 // the object map store.
 func DeleteFromIngressStore(clusterIngStore *gslbutils.ClusterStore,
-	ingHost k8sobjects.IngressHostMeta, cname string) {
+	ingHost k8sobjects.IngressHostMeta, cname string) bool {
 	if clusterIngStore == nil {
 		// Store is empty, so, noop
-		return
+		return false
 	}
-	clusterIngStore.DeleteClusterNSObj(ingHost.Cluster, ingHost.Namespace, ingHost.ObjName)
+	_, present := clusterIngStore.DeleteClusterNSObj(ingHost.Cluster, ingHost.Namespace, ingHost.ObjName)
+	return present
 }
 
 // SetupEventHandlers sets up event handlers for the controllers of the member clusters.

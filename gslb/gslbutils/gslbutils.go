@@ -45,9 +45,9 @@ const (
 	ObjectDelete = "DELETE"
 	ObjectUpdate = "UPDATE"
 	// Ingestion layer objects
-	RouteType   = "Route"
-	IngressType = "Ingress"
-	SvcType     = "LBService"
+	RouteType   = gslbalphav1.RouteObj
+	IngressType = gslbalphav1.IngressObj
+	SvcType     = gslbalphav1.LBSvcObj
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
 	// Store types
@@ -64,7 +64,7 @@ const (
 	FastRetryQueue    = "FastRetry"
 	DefaultRetryCount = 2
 
-	AmkoUser = "mcc-gslb"
+	AmkoUser = "amko-gslb"
 )
 
 // InformersPerCluster is the number of informers per cluster

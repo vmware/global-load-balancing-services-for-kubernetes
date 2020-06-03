@@ -186,56 +186,6 @@ func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
 	VerifyAllKeys(t, allKeys, false)
 }
 
-// func TestGDPMisnameObjects(t *testing.T) {
-// 	g := gomega.NewGomegaWithT(t)
-// 	testPrefix := "mno-"
-// 	ingNameList := []string{testPrefix + "def-ing1", testPrefix + "def-ing2"}
-// 	// We can keep a single list of hosts and ipAddrs for both the clusters, as the ingestion layer
-// 	// won't have a problem with this.
-// 	hosts := []string{testPrefix + TestDomain1, testPrefix + TestDomain2}
-// 	ipAddrs := []string{"10.10.10.10", "10.10.10.11"}
-// 	cname1 := "cluster1"
-// 	cname2 := "cluster2"
-// 	ns := "default"
-// 	svc := "test-svc"
-
-// 	buildAndAddTestGSLBObject(t)
-
-// 	ingList1, allKeys1 := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname1)
-// 	ingList2, allKeys2 := CreateMultipleIngresses(t, barKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname2)
-
-// 	allKeys := append(allKeys1, allKeys2...)
-
-// 	t.Logf("Adding GDP object")
-// 	gdp := getTestGDPObject(true, false)
-// 	gdp.ObjectMeta.SetNamespace(ns)
-// 	// add a matchRule for an invalid object with correct label
-// 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
-// 	// Select both the clusters
-// 	gdp.Spec.MatchClusters = []string{cname1, cname2}
-
-// 	AddTestGDPObj(gdp)
-
-// 	t.Logf("verifying keys")
-// 	VerifyAllKeys(t, allKeys, true)
-
-// 	t.Logf("verifying GDP status")
-// 	g.Expect(gdp.Status.ErrorStatus).To(gomega.Equal("unsupported object type InvalidObj"))
-
-// 	t.Logf("Deleting ingresses for cluster1")
-// 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
-// 	t.Logf("Deleting ingresses for cluster2")
-// 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
-// 	DeleteTestGDPObj(gdp)
-
-// 	// no objects were added, so no need to verify for delete calls
-// 	// verify delete keys
-// 	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
-// 	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
-// 	allKeys = append(keys1, keys2...)
-// 	VerifyAllKeys(t, allKeys, false)
-// }
-
 func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testPrefix := "mgo-"
@@ -359,13 +309,9 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
-	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
-	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
-	allKeys = append(keys1, keys2...)
 	extraKeys := []string{GetIngressKey("DELETE", cname1, ns, extIngName, extHost),
 		GetIngressKey("DELETE", cname2, ns, extIngName, extHost)}
-	delKeys := append(allKeys, extraKeys...)
-	VerifyAllKeys(t, delKeys, false)
+	VerifyAllKeys(t, extraKeys, false)
 }
 
 func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
@@ -418,9 +364,7 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 
 	// verify delete keys
 	keys1 = GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
-	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
-	allKeys := append(keys1, keys2...)
-	VerifyAllKeys(t, allKeys, false)
+	VerifyAllKeys(t, keys1, false)
 }
 
 func TestUpdateGDPSwitchClusters(t *testing.T) {
@@ -482,10 +426,8 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
-	keys1 = GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
 	keys2 = GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
-	allKeys = append(keys1, keys2...)
-	VerifyAllKeys(t, allKeys, false)
+	VerifyAllKeys(t, keys2, false)
 }
 
 func TestGDPMisnameClusters(t *testing.T) {
@@ -530,11 +472,7 @@ func TestGDPMisnameClusters(t *testing.T) {
 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
 	DeleteTestGDPObj(gdp)
 
-	// verify delete keys
-	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
-	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
-	allKeys = append(keys1, keys2...)
-	VerifyAllKeys(t, allKeys, false)
+	// no need to verify delete keys, as no objects were added
 }
 
 func TestGDPSelectNoClusters(t *testing.T) {
@@ -574,9 +512,8 @@ func TestGDPSelectNoClusters(t *testing.T) {
 	DeleteMultipleIngresses(t, fooKubeClient, ingList)
 	DeleteTestGDPObj(gdp)
 
-	// verify delete keys
-	keys1 := GetMultipleIngDeleteKeys(t, ingList, cname, ns)
-	VerifyAllKeys(t, keys1, false)
+	// No need to verify delete keys, since the objects weren't added previously, the delete keys won't
+	// be added.
 }
 
 func TestGDPSelectNoneObjsFromOneCluster(t *testing.T) {
@@ -609,10 +546,6 @@ func TestGDPSelectNoneObjsFromOneCluster(t *testing.T) {
 	t.Logf("Deleting ingresses")
 	DeleteMultipleIngresses(t, fooKubeClient, ingList)
 	DeleteTestGDPObj(gdp)
-
-	// verify delete keys
-	keys1 := GetMultipleIngDeleteKeys(t, ingList, cname, ns)
-	VerifyAllKeys(t, keys1, false)
 }
 
 func CreateMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingNameList, hosts, ipAddrs []string, ns, svc, cname string) ([]*extensionv1beta1.Ingress, []string) {

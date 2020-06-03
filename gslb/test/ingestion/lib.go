@@ -180,7 +180,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 }
 
 func GetIngressKey(op, cname, ns, name, host string) string {
-	return op + "/Ingress/" + cname + "/" + ns + "/" + name + "/" + host
+	return op + "/" + gslbutils.IngressType + "/" + cname + "/" + ns + "/" + name + "/" + host
 }
 
 func buildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
@@ -209,7 +209,7 @@ func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname
 }
 
 func GetSvcKey(op, cname, ns, name string) string {
-	return op + "/LBService/" + cname + "/" + ns + "/" + name
+	return op + "/" + gslbutils.SvcType + "/" + cname + "/" + ns + "/" + name
 }
 
 func buildSvcKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
