@@ -124,7 +124,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs)
 }
 
-// GetMemberRouteList returns a list of member routes
+// GetMemberRouteList returns a list of member objects
 func (v *AviGSObjectGraph) GetMemberObjList() []string {
 	var memberObjs []string
 	for _, obj := range v.MemberObjs {
@@ -232,7 +232,7 @@ func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSK8sObj {
 
 func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 	v.Lock.RLock()
-	v.Lock.RUnlock()
+	defer v.Lock.RUnlock()
 	objs := make([]AviGSK8sObj, len(v.MemberObjs))
 	for idx := range v.MemberObjs {
 		objs[idx].Cluster = v.MemberObjs[idx].Cluster
@@ -243,4 +243,29 @@ func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 		objs[idx].ObjType = v.MemberObjs[idx].ObjType
 	}
 	return objs
+}
+
+// GetUniqueMemberList returns a non-duplicated list of objects, uniqueness is checked by the IPAddr
+func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+
+	memberVips := []string{}
+	uniqueObjs := []AviGSK8sObj{}
+
+	for _, memberObj := range v.MemberObjs {
+		if gslbutils.PresentInList(memberObj.IPAddr, memberVips) {
+			continue
+		}
+		uniqueObjs = append(uniqueObjs, AviGSK8sObj{
+			Cluster:   memberObj.Cluster,
+			ObjType:   memberObj.ObjType,
+			Name:      memberObj.Name,
+			Namespace: memberObj.Namespace,
+			IPAddr:    memberObj.IPAddr,
+			Weight:    memberObj.Weight,
+		})
+		memberVips = append(memberVips, memberObj.IPAddr)
+	}
+	return uniqueObjs
 }

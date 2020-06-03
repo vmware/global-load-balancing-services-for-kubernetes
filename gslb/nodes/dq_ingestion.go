@@ -17,6 +17,7 @@ package nodes
 import (
 	"amko/gslb/gslbutils"
 	"amko/gslb/k8sobjects"
+	"errors"
 
 	"github.com/avinetworks/container-lib/utils"
 )
@@ -99,7 +100,9 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 	return obj
 }
 
-func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue, fullSync bool, agl *AviGSGraphLister) {
+func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue,
+	fullSync bool, agl *AviGSGraphLister) {
+
 	var prevChecksum, newChecksum uint32
 	obj := getObjFromStore(objType, cname, ns, objName, key, gslbutils.AcceptedStore)
 	if obj == nil {
@@ -152,41 +155,54 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 	}
 }
 
+func GetNewObj(objType string) (k8sobjects.MetaObject, error) {
+	switch objType {
+	case gslbutils.RouteType:
+		return k8sobjects.RouteMeta{}, nil
+	case gslbutils.IngressType:
+		return k8sobjects.IngressHostMeta{}, nil
+	case gslbutils.SvcType:
+		return k8sobjects.SvcMeta{}, nil
+	default:
+		return nil, errors.New("unrecognised object: " + objType)
+	}
+	return nil, errors.New("unrecognised object: " + objType)
+}
+
 func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue) {
-	gslbutils.Logf("key: %s, msg: %s", key, "recieved delete operation for route")
+	gslbutils.Logf("key: %s, objType: %s, msg: %s", key, objType, "recieved delete operation for object")
+
+	metaObj, err := GetNewObj(objType)
+	if err != nil {
+		gslbutils.Errf("key: %s, msg: %s", key, err.Error())
+		return
+	}
 
 	clusterObj := cname + "/" + ns + "/" + objName
-	obj := getObjFromStore(objType, cname, ns, objName, key, gslbutils.AcceptedStore)
-	if obj == nil {
-		obj = getObjFromStore(objType, cname, ns, objName, key, gslbutils.RejectedStore)
-		if obj == nil {
-			gslbutils.Errf("key: %s, msg: %s", key, "error finding the object in the accepted/rejected route store")
-			return
-		}
-	}
-	metaObj := obj.(k8sobjects.MetaObject)
 	// TODO: revisit this section to see if we really need this, or can we make do with metaObj
-	hostName := metaObj.GetHostnameFromHostMap(clusterObj)
-	if hostName == "" {
+	hostname := metaObj.GetHostnameFromHostMap(clusterObj)
+	if hostname == "" {
 		gslbutils.Logf("key: %s, msg: no hostname for the %s object", key, objType)
 		return
 	}
-	gsName := hostName
-	modelName := utils.ADMIN_NS + "/" + hostName
+	gsName := hostname
+	modelName := utils.ADMIN_NS + "/" + hostname
 
 	agl := SharedAviGSGraphLister()
 	found, aviGS := agl.Get(modelName)
 	if found {
-		aviGS.(*AviGSObjectGraph).DeleteMember(metaObj.GetCluster(), metaObj.GetNamespace(),
-			metaObj.GetName(), metaObj.GetType())
+		uniqueMembersLen := len(aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs())
+		aviGS.(*AviGSObjectGraph).DeleteMember(cname, ns, objName, objType)
+		// delete the obj from the hostname map
+		newUniqueMemberLen := len(aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs())
+		if uniqueMembersLen != newUniqueMemberLen {
+			metaObj.DeleteMapByKey(clusterObj)
+		}
 	} else {
 		// avi graph not found, return
 		gslbutils.Warnf("key: %s, msg: no avi graph found for this key", key)
 		return
 	}
-	// Also, now delete this route name from the host map
-	metaObj.DeleteMapByKey(clusterObj)
-
 	aviGS.(*AviGSObjectGraph).SetRetryCounter()
 	SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
 	PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)

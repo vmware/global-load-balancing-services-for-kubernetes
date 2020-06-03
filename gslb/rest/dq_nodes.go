@@ -211,7 +211,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
 	var gslbSvcGroups []*avimodels.GslbPool
-	memberObjs := gsMeta.GetMemberObjs()
+	memberObjs := gsMeta.GetUniqueMemberObjs()
 	for _, member := range memberObjs {
 		if member.IPAddr == "" {
 			continue
