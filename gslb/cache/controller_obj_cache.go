@@ -188,18 +188,18 @@ func parseDescription(description string) ([]string, error) {
 		switch seg[0] {
 		case gdpv1alpha1.IngressObj:
 			if len(seg) != 5 {
-				return []string{}, errors.New("description field has malformed ingress")
+				return []string{}, errors.New("description field has malformed ingress: " + description)
 			}
 		case gdpv1alpha1.LBSvcObj:
 			if len(seg) != 4 {
-				return []string{}, errors.New("description field has malformed LB service")
+				return []string{}, errors.New("description field has malformed LB service: " + description)
 			}
 		case gdpv1alpha1.RouteObj:
 			if len(seg) != 4 {
-				return []string{}, errors.New("description field has malformed route")
+				return []string{}, errors.New("description field has malformed route: " + description)
 			}
 		default:
-			return []string{}, errors.New("description has unrecognised objects")
+			return []string{}, errors.New("description has unrecognised objects: " + description)
 		}
 	}
 	return objList, nil
