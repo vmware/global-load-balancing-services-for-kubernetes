@@ -1,0 +1,23 @@
+apiVersion: "amko.k8s.io/v1alpha1"
+kind: "GlobalDeploymentPolicy"
+metadata:
+  name: "global-gdp"
+  namespace: "avi-system"
+spec:
+  matchRules:
+    appSelector:
+{{- with .Values.gdpConfig.appSelector }}
+      {{- toYaml . | nindent 6 }}
+{{- end }}
+    namespaceSelector:
+{{- with .Values.gdpConfig.namespaceSelector }}
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  matchClusters:
+{{- with .Values.gdpConfig.matchClusters }}
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+  trafficSplit:
+{{- with .Values.gdpConfig.trafficSplit }}
+    {{- toYaml . | nindent 4 }}
+{{- end }}

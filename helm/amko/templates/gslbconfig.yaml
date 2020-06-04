@@ -6,16 +6,14 @@ metadata:
 spec:
   gslbLeader:
     credentials: {{ .Values.configs.gslbLeaderSecret }}
-    controllerVersion: {{ .Values.configs.gslbLeaderVersion }}
+    controllerVersion: {{ .Values.configs.controllerVersion }}
     controllerIP: {{ .Values.configs.gslbLeaderHost }}
 {{- with .Values.configs.memberClusters }}
   memberClusters:
     {{- toYaml . | nindent 4 }}
 {{- end }}
-  globalServiceNameSource: {{ .Values.configs.gsNameSource }}
 {{- with .Values.configs.domainNames }}
   domainNames:
   {{- toYaml . | nindent 4 }}
 {{- end }}
   refreshInterval: {{ .Values.configs.refreshInterval }}
-status:
