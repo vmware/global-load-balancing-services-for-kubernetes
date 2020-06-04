@@ -75,7 +75,7 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(url, "login") {
 		// Used for /login
 		w.WriteHeader(http.StatusOK)
-		fmt.Println(w, `{"success", "true"}`)
+		w.Write([]byte(`{"success": "true"}`))
 		return
 	}
 
@@ -97,7 +97,7 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(w, `{"error", "resource not found"}`)
+		w.Write([]byte(`{"error": "resource not found"}`))
 	case "PUT":
 		data, _ := ioutil.ReadAll(r.Body)
 		json.Unmarshal(data, &resp)
@@ -109,15 +109,15 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		objects := strings.Split(strings.Trim(url, "/"), "/")
 		if len(objects) > 1 && objects[1] != "gslbservice" {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Println(w, `{"error": "resource not found"}`)
+			w.Write([]byte(`{"error": "resource not found"}`))
 		}
 		FeedMockData(w, r)
 	case "DELETE":
 		w.WriteHeader(http.StatusNoContent)
-		fmt.Println(w, string(finalResponse))
+		w.Write(finalResponse)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Println(w, `{"error": "Bad request"}`)
+		w.Write([]byte(`{"error": "Bad request"}`))
 	}
 }
 
