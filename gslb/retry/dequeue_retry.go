@@ -16,32 +16,16 @@ package retry
 import (
 	"amko/gslb/gslbutils"
 	"amko/gslb/nodes"
-	"errors"
 
 	"github.com/avinetworks/container-lib/utils"
-
-	avicache "amko/gslb/cache"
 )
 
 func SyncFromRetryLayer(key string) error {
 	// Retrieve the Key and note the time.
 	gslbutils.Logf("key: %s, msg: Retrieved the key in Retry layer", key)
 	tenant, gsName := utils.ExtractNamespaceObjectName(key)
-	// Fetch the cache
-	aviObjCache := avicache.GetAviCache()
 
-	aviRestClientPool := avicache.SharedAviClients()
-	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
-
-	if len(aviRestClientPool.AviClient) == 0 {
-		gslbutils.Warnf("key: %s, msg: could not get aviclient for rest operation in retry layer", key)
-		return errors.New("could not get aviclient in retry layer for rest operation for key: " + key)
-	}
-	// Delete the key from cache and then populate cache for the key from avi object
-	aviObjCache.AviCacheDelete(gsKey)
-	aviObjCache.AviObjGSCachePopulate(aviRestClientPool.AviClient[0], gsName)
-
-	// At this point, we can re-enqueue the key back to the rest layer.
+	// At this point, we re-enqueue the key back to the rest layer.
 	sharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 
 	nodes.PublishKeyToRestLayer(tenant, gsName, "retry", sharedQueue)
