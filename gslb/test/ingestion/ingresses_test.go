@@ -727,10 +727,13 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 	ingObj.Status.LoadBalancer.Ingress[0].Hostname = newHost
 	ingObj.ResourceVersion = "101"
 
+	allKeys := []string{}
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
-	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingObj.Name, host)
+	allKeys = append(allKeys, GetIngressKey("DELETE", cname, ns, ingObj.Name, host))
+	allKeys = append(allKeys, GetIngressKey("ADD", cname, ns, ingObj.Name, newHost))
+	VerifyAllKeys(t, allKeys, false)
+
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
-	buildIngressKeyAndVerify(t, false, "ADD", cname, ns, ingObj.Name, newHost)
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, newHost, ipAddr)
 
 	k8sDeleteTLSIngress(t, fooKubeClient, ingName, ns)

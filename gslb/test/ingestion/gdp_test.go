@@ -97,7 +97,6 @@ func TestGDPSelectAllObjsFromOneCluster(t *testing.T) {
 
 	t.Logf("Deleting ingresses")
 	DeleteMultipleIngresses(t, fooKubeClient, ingList)
-	DeleteTestGDPObj(gdp)
 	// verify delete keys
 	allKeys = []string{}
 	for _, ing := range ingList {
@@ -106,6 +105,7 @@ func TestGDPSelectAllObjsFromOneCluster(t *testing.T) {
 	}
 	allKeys = GetMultipleIngDeleteKeys(t, ingList, cname, ns)
 	VerifyAllKeys(t, allKeys, false)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestGDPSelectFewObjsFromOneCluster(t *testing.T) {
@@ -134,11 +134,11 @@ func TestGDPSelectFewObjsFromOneCluster(t *testing.T) {
 	t.Logf("verifying keys")
 	VerifyAllKeys(t, allKeys, false)
 	DeleteMultipleIngresses(t, fooKubeClient, ingList)
-	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
 	allKeys = GetMultipleIngDeleteKeys(t, ingList, cname, ns)
 	VerifyAllKeys(t, allKeys, false)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
@@ -177,13 +177,13 @@ func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
 	t.Logf("Deleting ingresses for cluster2")
 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
-	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
 	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
 	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
 	allKeys = append(keys1, keys2...)
 	VerifyAllKeys(t, allKeys, false)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestMultipleGDPObjectsForSameNS(t *testing.T) {
@@ -234,14 +234,14 @@ func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
 	t.Logf("Deleting ingresses for cluster2")
 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
-	DeleteTestGDPObj(gdp)
-	DeleteTestGDPObj(anotherGdp)
 
 	// verify delete keys
 	keys1 := GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
 	keys2 := GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
 	allKeys = append(keys1, keys2...)
 	VerifyAllKeys(t, allKeys, false)
+	DeleteTestGDPObj(gdp)
+	DeleteTestGDPObj(anotherGdp)
 }
 
 func TestUpdateGDPSelectFew(t *testing.T) {
@@ -306,12 +306,12 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	t.Logf("Deleting ingresses for cluster2")
 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
 	k8sDeleteIngress(t, barKubeClient, extIngName, ns)
-	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
 	extraKeys := []string{GetIngressKey("DELETE", cname1, ns, extIngName, extHost),
 		GetIngressKey("DELETE", cname2, ns, extIngName, extHost)}
 	VerifyAllKeys(t, extraKeys, false)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
@@ -360,11 +360,11 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
 	t.Logf("Deleting ingresses for cluster2")
 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
-	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
 	keys1 = GetMultipleIngDeleteKeys(t, ingList1, cname1, ns)
 	VerifyAllKeys(t, keys1, false)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestUpdateGDPSwitchClusters(t *testing.T) {
@@ -423,11 +423,11 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	DeleteMultipleIngresses(t, fooKubeClient, ingList1)
 	t.Logf("Deleting ingresses for cluster2")
 	DeleteMultipleIngresses(t, barKubeClient, ingList2)
-	DeleteTestGDPObj(gdp)
 
 	// verify delete keys
 	keys2 = GetMultipleIngDeleteKeys(t, ingList2, cname2, ns)
 	VerifyAllKeys(t, keys2, false)
+	DeleteTestGDPObj(gdp)
 }
 
 func TestGDPMisnameClusters(t *testing.T) {
