@@ -6,16 +6,18 @@ metadata:
 spec:
   matchRules:
     appSelector:
-      label: "app:gslb"
+      label:
+        app: gslb
     namespaceSelector:
-      label: "ns:gslb"
+      label:
+        ns: gslb
  
   matchClusters:
-    - cluster1
-    - cluster2
+    - cluster1-admin
+    - cluster2-admin
  
   trafficSplit:
-    - cluster: cluster1
-      weight: 80
-    - cluster: cluster2
-      weight: 20
+    - cluster: cluster1-admin
+      weight: 8
+    - cluster: cluster2-admin
+      weight: 2
