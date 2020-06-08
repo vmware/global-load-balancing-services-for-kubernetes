@@ -17,7 +17,7 @@ spec:
     - cluster2-admin
  
   trafficSplit:
-    - cluster: cluster1
+    - cluster: cluster1-admin
       weight: 8
     - cluster: cluster2-admin
       weight: 2
