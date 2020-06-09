@@ -30,6 +30,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+const (
+	ControllerNotLeaderErr = "Config Operations can be done ONLY on leader"
+)
+
 var restLayer *RestOperations
 var restOnce sync.Once
 
@@ -138,7 +142,7 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 				gslbutils.Errf("key: %s, msg: %s, err: %v", key, "got an improper web api error, returning", err)
 				return
 			}
-			PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
+			restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
 			return
 		}
 		// rest call executed successfully
@@ -159,7 +163,36 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	}
 }
 
-func PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
+func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicache.TenantName, key string) {
+	if len(restOp.aviRestPoolClient.AviClient) <= 0 {
+		gslbutils.Errf("invalid avi pool client configuration in restOp, key: %s", key)
+		return
+	}
+
+	bkt := utils.Bkt(key, utils.NumWorkersGraph)
+	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+
+	switch errCode {
+	case 409:
+		// case where the object configuration is mis-represented in the in-memory cache
+		// first fetch the object and then update it into the cache
+		gslbutils.Logf("httpStatus: %d, gsKey: %v, will delete the avi cache key and re-populate", errCode,
+			gsKey)
+		restOp.cache.AviCacheDelete(gsKey)
+		restOp.cache.AviObjGSCachePopulate(aviclient, gsKey.Name)
+		return
+
+	case 400, 404:
+		// case where the object doesn't exist in Avi, delete that object
+		gslbutils.Logf("httpStatus: %d, gsKey: %v, will delete the avi cache key", errCode, gsKey)
+		restOp.cache.AviCacheDelete(gsKey)
+		return
+	}
+	gslbutils.Logf("httpStatus: %d, gsKey: %v, unhandled error code, avi cache unchanged")
+	return
+}
+
+func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
 	var bkt uint32
 	bkt = 0
 
@@ -181,21 +214,18 @@ func PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		utils.AviLog.Infof("key: %s, msg: Published gskey to slow path retry queue", key)
 
-	case 404, 409:
-		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
-		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Infof("key: %s, msg: Published gskey to fast path retry queue", key)
-
-	case 400:
+	case 400, 404, 409:
 		// check if the message contains: "not a leader"
 		// if the controller is not the leader anymore, stop syncing from layer 3.
-		if strings.Contains(*aviError.Message, "Config Operations can be done ONLY on leader") {
+		if aviError.HttpStatusCode == 400 && strings.Contains(*aviError.Message, ControllerNotLeaderErr) {
 			gslbutils.Errf("can't execute operations on a non-leader controller, will wait for it to become a leader in the next full sync")
 			gslbutils.SetControllerAsFollower()
 			// don't retry
 			return
 		}
 		// however, if this controller is still the leader, we should retry
+		// for these error codes, we should first update the cache and put the key back to rest layer
+		restOp.handleErrAndUpdateCache(aviError.HttpStatusCode, gsKey, key)
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		utils.AviLog.Infof("key: %s, msg: Published gskey to fast path retry queue", key)
@@ -342,7 +372,7 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 				return
 			}
 			gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
-			PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
+			restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
 			return
 		}
 		// Clear all the cache objects which were deleted
