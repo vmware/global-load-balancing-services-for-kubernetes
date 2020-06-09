@@ -163,18 +163,26 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	}
 }
 
-func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicache.TenantName) {
+func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicache.TenantName, key string) {
+	if len(restOp.aviRestPoolClient.AviClient) <= 0 {
+		gslbutils.Errf("invalid avi pool client configuration in restOp, key: %s", key)
+		return
+	}
+
+	bkt := utils.Bkt(key, utils.NumWorkersGraph)
+	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+
 	switch errCode {
-	case 400, 409:
-		// cases where the object configuration is mis-represented in the in-memory cache
+	case 409:
+		// case where the object configuration is mis-represented in the in-memory cache
 		// first fetch the object and then update it into the cache
 		gslbutils.Logf("httpStatus: %d, gsKey: %v, will delete the avi cache key and re-populate", errCode,
 			gsKey)
 		restOp.cache.AviCacheDelete(gsKey)
-		restOp.cache.AviObjGSCachePopulate(restOp.aviRestPoolClient.AviClient[0], gsKey.Name)
+		restOp.cache.AviObjGSCachePopulate(aviclient, gsKey.Name)
 		return
 
-	case 404:
+	case 400, 404:
 		// case where the object doesn't exist in Avi, delete that object
 		gslbutils.Logf("httpStatus: %d, gsKey: %v, will delete the avi cache key", errCode, gsKey)
 		restOp.cache.AviCacheDelete(gsKey)
@@ -217,7 +225,7 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 		}
 		// however, if this controller is still the leader, we should retry
 		// for these error codes, we should first update the cache and put the key back to rest layer
-		restOp.handleErrAndUpdateCache(aviError.HttpStatusCode, gsKey)
+		restOp.handleErrAndUpdateCache(aviError.HttpStatusCode, gsKey, key)
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		utils.AviLog.Infof("key: %s, msg: Published gskey to fast path retry queue", key)
