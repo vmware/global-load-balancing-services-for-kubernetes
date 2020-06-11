@@ -29,6 +29,7 @@ import (
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/api/networking/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -225,9 +226,6 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-// GSLBConfigObj is global and is initialized only once
-var GSLBConfigObj *gslbalphav1.GSLBConfig
-
 func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string) uint32 {
 	sort.Strings(ipList)
 	sort.Strings(domainList)
@@ -241,6 +239,20 @@ func GetAviAdminTenantRef() string {
 	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
 }
 
+// GSLBConfigObj is global and is initialized only once
+type GSLBConfigObj struct {
+	Namespace string
+	Name      string
+	gcObjLock sync.RWMutex
+}
+
+var gcObj GSLBConfigObj
+
+func InitGSLBConfigObj(name, ns string) {
+	gcObj.Name = name
+	gcObj.Namespace = ns
+}
+
 // gslbConfigObjectAdded is a channel which halts the initialization operation until a GSLB config object
 // is added. Even the GDP informers are started after this operation goes through.
 // This channel's usage can be found in gslb.go.
@@ -252,6 +264,35 @@ func GetGSLBConfigObjectChan() *chan bool {
 		gslbConfigObjectAdded = make(chan bool, 1)
 	})
 	return &gslbConfigObjectAdded
+}
+
+func GetGSLBConfigNameAndNS() (string, string) {
+	gcObj.gcObjLock.RLock()
+	defer gcObj.gcObjLock.RUnlock()
+	return gcObj.Name, gcObj.Namespace
+}
+
+func UpdateGSLBConfigStatus(msg string) error {
+	if !PublishGSLBStatus {
+		return nil
+	}
+
+	gcObj.gcObjLock.RLock()
+	defer gcObj.gcObjLock.RUnlock()
+	gc, err := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.Namespace).Get(gcObj.Name, v1.GetOptions{})
+	if err != nil {
+		errStr := "error in getting the GSLBConfig object " + gcObj.Name + " in " + gcObj.Namespace + " namespace"
+		Errf(errStr)
+		return errors.New(errStr)
+	}
+
+	gc.Status.State = msg
+	_, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.Namespace).Update(gc)
+	if updateErr != nil {
+		Errf("error in updating the GSLBConfig object: %s", err.Error())
+		return errors.New("error in GSLBConfig object update, " + err.Error())
+	}
+	return nil
 }
 
 // gslbConfigSet and its setter and getter functions, to be used by the AddGSLBConfig method. This value
@@ -269,6 +310,7 @@ func SetGSLBConfig(value bool) {
 var GlobalKubeClient *kubernetes.Clientset
 var GlobalGslbClient *gslbcs.Clientset
 var PublishGDPStatus bool
+var PublishGSLBStatus bool
 
 type AviControllerConfig struct {
 	Username string

@@ -18,6 +18,8 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -53,6 +55,19 @@ import (
 	aviretry "amko/gslb/retry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	BootupMsg              = "starting up amko"
+	BootupSyncMsg          = "syncing all objects"
+	BootupSyncEndMsg       = "synced all objects"
+	AcceptedMsg            = "success: gslb config accepted"
+	ControllerNotLeaderMsg = "error: controller not a leader"
+	InvalidConfigMsg       = "error: invalid gslb config"
+	EditRestartMsg         = "gslb config edited, amko needs a restart"
+	AlreadySetMsg          = "error: can't add another gslbconfig"
+	NoSecretMsg            = "error: secret object doesn't exist"
+	KubeConfigErr          = "error: provided kubeconfig has an error"
 )
 
 type kubeClusterDetails struct {
@@ -101,6 +116,9 @@ type GSLBConfigController struct {
 
 func (gslbController *GSLBConfigController) Cleanup() {
 	gslbutils.Logf("object: GSLBConfigController, msg: %s", "cleaning up the entire GSLB configuration")
+
+	// unset GSLBConfig and be prepared to take in the next GSLB config object
+	gslbutils.SetGSLBConfig(false)
 }
 
 func (gslbController *GSLBConfigController) Run(stopCh <-chan struct{}) error {
@@ -117,6 +135,30 @@ func initFlags() {
 	flag.StringVar(&kubeConfig, "kubeconfig", defKubeConfig, "Path to kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the kubernetes API server. Overrides any value in kubeconfig. Overrides any value in kubeconfig, only required if out-of-cluster.")
 	gslbutils.Logf("master: %s, kubeconfig: %s, msg: %s", masterURL, kubeConfig, "fetched from cmd")
+}
+
+func getGSLBConfigChecksum(gc *gslbalphav1.GSLBConfig) uint32 {
+	var cksum uint32
+
+	gcSpec := gc.Spec.DeepCopy()
+	if gcSpec == nil {
+		gslbutils.Errf("gslb config %s in namespace %s has no spec, can't calculate checksum", gc.GetObjectMeta().GetName(),
+			gc.GetObjectMeta().GetNamespace())
+		return cksum
+	}
+
+	cksum += utils.Hash(gcSpec.GSLBLeader.ControllerIP) + utils.Hash(gcSpec.GSLBLeader.ControllerVersion) +
+		utils.Hash(gcSpec.GSLBLeader.Credentials)
+	memberClusters := []string{}
+	for _, c := range gcSpec.MemberClusters {
+		memberClusters = append(memberClusters, c.ClusterContext)
+	}
+	sort.Strings(memberClusters)
+	cksum += utils.Hash(utils.Stringify(memberClusters))
+	domainNames := gcSpec.DeepCopy().DomainNames
+	sort.Strings(domainNames)
+	cksum += utils.Hash(utils.Stringify(domainNames)) + utils.Hash(strconv.Itoa(gcSpec.RefreshInterval))
+	return cksum
 }
 
 // GetNewController builds the GSLB Controller which has an informer for GSLB Config object
@@ -147,11 +189,53 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 		AddFunc: AddGSLBConfigFunc,
 		// Update not allowed for the GSLB Cluster Config object
 		DeleteFunc: func(obj interface{}) {
+			gcObj := obj.(*gslbalphav1.GSLBConfig)
 			// Cleanup everything
+			gcName, gcNS := gslbutils.GetGSLBConfigNameAndNS()
+			if gcName != gcObj.GetObjectMeta().GetName() || gcNS != gcObj.GetObjectMeta().GetNamespace() {
+				// not the GSLBConfig object which was accepted
+				return
+			}
 			gslbController.Cleanup()
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			oldGc := oldObj.(*gslbalphav1.GSLBConfig)
+			newGc := newObj.(*gslbalphav1.GSLBConfig)
+			if oldGc.ResourceVersion == newGc.ResourceVersion {
+				return
+			}
+			existingGCName, existingGCNamespace := gslbutils.GetGSLBConfigNameAndNS()
+			if existingGCName != oldGc.GetObjectMeta().GetName() || existingGCNamespace != oldGc.GetObjectMeta().GetNamespace() {
+				gslbutils.Logf("a GSLBConfig %s already exists in namespace %s, ignoring the updates to this object")
+			}
+			if getGSLBConfigChecksum(oldGc) == getGSLBConfigChecksum(newGc) {
+				return
+			}
+			gslbutils.Warnf("an update has been made to the GSLBConfig object, AMKO needs a reboot to register the changes")
+			gslbutils.UpdateGSLBConfigStatus(EditRestartMsg)
 		},
 	})
 	return gslbController
+}
+
+func CheckAcceptedGSLBConfigAndInitalize() {
+	objs, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs("").List(metav1.ListOptions{})
+	if err != nil {
+		gslbutils.Errf("error in listing the GSLBConfig objects")
+		return
+	}
+
+	gcObjs := objs.Items
+	if len(gcObjs) == 0 {
+		gslbutils.Logf("no existing GSLBConfig objects")
+		return
+	}
+
+	for _, gc := range gcObjs {
+		if gc.Status.State == AcceptedMsg {
+			AddGSLBConfigObject(&gc)
+		}
+	}
 }
 
 // IsGSLBConfigValid returns true if the the GSLB Config object was created
@@ -256,9 +340,19 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 	leaderVersion := gc.Spec.GSLBLeader.ControllerVersion
 	leaderSecret := gc.Spec.GSLBLeader.Credentials
 
-	if leaderIP == "" || leaderVersion == "" || leaderSecret == "" {
-		gslbutils.Errf("controllerIP: %s, controllerVersion: %s, credentials: %s, msg: Invalid GSLB leader configuration",
-			leaderIP, leaderVersion, leaderSecret)
+	if leaderIP == "" {
+		gslbutils.Errf("controllerIP: %s, msg: Invalid controller IP for the leader", leaderIP)
+		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + " with controller IP " + leaderIP)
+		return
+	}
+	if leaderVersion == "" {
+		gslbutils.Errf("controllerVersion: %s, msg: Invalid controller version for leader", leaderVersion)
+		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + " with leaderVersion " + leaderVersion)
+		return
+	}
+	if leaderSecret == "" {
+		gslbutils.Errf("credentials: %s, msg: Invalid controller secret for leader", leaderSecret)
+		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + " with leaderSecret " + leaderSecret)
 		return
 	}
 
@@ -266,6 +360,7 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 	if err != nil || secretObj == nil {
 		gslbutils.Errf("Error in fetching leader controller secret %s in namespace %s, can't initialize controller",
 			leaderSecret, gslbutils.AVISystem)
+		gslbutils.UpdateGSLBConfigStatus(NoSecretMsg + " " + leaderSecret)
 		return
 	}
 	ctrlUsername := secretObj.Data["username"]
@@ -277,8 +372,20 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 // AddGSLBConfigObject parses the gslb config object and starts informers
 // for the member clusters.
 func AddGSLBConfigObject(obj interface{}) {
+	gslbObj := obj.(*gslbalphav1.GSLBConfig)
+	existingName, existingNS := gslbutils.GetGSLBConfigNameAndNS()
+	if existingName == "" && existingNS == "" {
+		gslbutils.InitGSLBConfigObj(gslbObj.GetObjectMeta().GetName(), gslbObj.GetObjectMeta().GetNamespace())
+	}
+
 	if gslbutils.IsGSLBConfigSet() {
 		gslbutils.Errf("GSLB configuration is set already, can't change it. Delete and re-create the GSLB config object.")
+		gslbObj.Status.State = AlreadySetMsg
+		_, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbObj.Namespace).Update(gslbObj)
+		if updateErr != nil {
+			gslbutils.Errf("error in updating the status field of GSLB Config object %s in %s namespace",
+				gslbObj.GetObjectMeta().GetName(), gslbObj.GetObjectMeta().GetNamespace())
+		}
 		return
 	}
 
@@ -286,6 +393,7 @@ func AddGSLBConfigObject(obj interface{}) {
 	if err != nil {
 		gslbutils.Warnf("ns: %s, gslbConfig: %s, msg: %s, %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
 			"invalid format", err)
+		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + err.Error())
 		return
 	}
 	gslbutils.Logf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
@@ -297,6 +405,7 @@ func AddGSLBConfigObject(obj interface{}) {
 	// check if the controller details provided are for a leader site
 	if !avicache.IsAviSiteLeader() {
 		gslbutils.Errf("Controller details provided are not for a leader, returning")
+		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderMsg)
 		gslbutils.SetControllerAsFollower()
 		return
 	}
@@ -313,16 +422,17 @@ func AddGSLBConfigObject(obj interface{}) {
 	err = GenerateKubeConfig()
 	if err != nil {
 		utils.AviLog.Fatalf("Error in generating the kubeconfig file: %s", err.Error())
+		gslbutils.UpdateGSLBConfigStatus(KubeConfigErr + " " + err.Error())
+		return
 	}
 	aviCtrlList := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
-	cacheOnce.Do(func() {
-		gslbutils.GSLBConfigObj = gc
-	})
 
+	gslbutils.UpdateGSLBConfigStatus(BootupSyncMsg)
 	// TODO: Change the GSLBConfig CRD to take full sync interval as an input and fetch that
 	// value before going into full sync
 	// boot up time cache population
 	avicache.PopulateCache(true)
+	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
 	// Initialize a periodic worker running full sync
 	refreshWorker := gslbutils.NewFullSyncThread(gslbutils.DefaultRefreshInterval)
 	refreshWorker.SyncFunction = CacheRefreshRoutine
@@ -338,6 +448,7 @@ func AddGSLBConfigObject(obj interface{}) {
 
 	// GSLB Configuration successfully done
 	gslbutils.SetGSLBConfig(true)
+	gslbutils.UpdateGSLBConfigStatus(AcceptedMsg)
 }
 
 // Initialize initializes the first controller which looks for GSLB Config
@@ -376,6 +487,7 @@ func Initialize() {
 	// traverse this path and hence we don't initialize GlobalGslbClient, and hence, we can't update the
 	// status of the GDP object. Always check this flag before updating the status.
 	gslbutils.PublishGDPStatus = true
+	gslbutils.PublishGSLBStatus = true
 
 	SetInformerListTimeout(120)
 	ingestionQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersIngestion, WorkqueueName: utils.ObjectIngestionLayer}
@@ -409,6 +521,11 @@ func Initialize() {
 	gslbController := GetNewController(kubeClient, gslbClient, gslbInformerFactory,
 		AddGSLBConfigObject)
 
+	// check whether we already have a GSLBConfig object created which was previously accepted
+	// this is to make sure that after a reboot, we don't pick a different GSLBConfig object which
+	// wasn't accepted.
+	CheckAcceptedGSLBConfigAndInitalize()
+
 	// Start the informer for the GDP controller
 	gslbInformer := gslbInformerFactory.Amko().V1alpha1().GSLBConfigs()
 
@@ -417,8 +534,8 @@ func Initialize() {
 	gslbutils.Logf("waiting for a GSLB config object to be added")
 
 	// Wait till a GSLB config object is added
-	tmpChan := gslbutils.GetGSLBConfigObjectChan()
-	<-*tmpChan
+	gcChan := gslbutils.GetGSLBConfigObjectChan()
+	<-*gcChan
 
 	gdpCtrl := InitializeGDPController(kubeClient, gslbClient, gslbInformerFactory, AddGDPObj,
 		UpdateGDPObj, DeleteGDPObj)
