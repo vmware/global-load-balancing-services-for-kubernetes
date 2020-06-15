@@ -29,7 +29,6 @@ import (
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/api/networking/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -241,17 +240,11 @@ func GetAviAdminTenantRef() string {
 
 // GSLBConfigObj is global and is initialized only once
 type GSLBConfigObj struct {
-	Namespace string
-	Name      string
-	gcObjLock sync.RWMutex
+	configObj  *gslbalphav1.GSLBConfig
+	configLock sync.RWMutex
 }
 
 var gcObj GSLBConfigObj
-
-func InitGSLBConfigObj(name, ns string) {
-	gcObj.Name = name
-	gcObj.Namespace = ns
-}
 
 // gslbConfigObjectAdded is a channel which halts the initialization operation until a GSLB config object
 // is added. Even the GDP informers are started after this operation goes through.
@@ -267,9 +260,27 @@ func GetGSLBConfigObjectChan() *chan bool {
 }
 
 func GetGSLBConfigNameAndNS() (string, string) {
-	gcObj.gcObjLock.RLock()
-	defer gcObj.gcObjLock.RUnlock()
-	return gcObj.Name, gcObj.Namespace
+	gcObj.configLock.Lock()
+	defer gcObj.configLock.Unlock()
+
+	if gcObj.configObj == nil {
+		return "", ""
+	}
+	return gcObj.configObj.Name, gcObj.configObj.Namespace
+}
+
+func updateGSLBConfigStatusMsg(msg string) {
+	gcObj.configLock.Lock()
+	defer gcObj.configLock.Unlock()
+
+	gcObj.configObj.Status.State = msg
+}
+
+func SetGSLBConfigObj(gc *gslbalphav1.GSLBConfig) {
+	gcObj.configLock.Lock()
+	defer gcObj.configLock.Unlock()
+
+	gcObj.configObj = gc
 }
 
 func UpdateGSLBConfigStatus(msg string) error {
@@ -277,21 +288,13 @@ func UpdateGSLBConfigStatus(msg string) error {
 		return nil
 	}
 
-	gcObj.gcObjLock.RLock()
-	defer gcObj.gcObjLock.RUnlock()
-	gc, err := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.Namespace).Get(gcObj.Name, v1.GetOptions{})
-	if err != nil {
-		errStr := "error in getting the GSLBConfig object " + gcObj.Name + " in " + gcObj.Namespace + " namespace"
-		Errf(errStr)
-		return errors.New(errStr)
-	}
-
-	gc.Status.State = msg
-	_, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.Namespace).Update(gc)
+	updateGSLBConfigStatusMsg(msg)
+	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(gcObj.configObj)
 	if updateErr != nil {
-		Errf("error in updating the GSLBConfig object: %s", err.Error())
-		return errors.New("error in GSLBConfig object update, " + err.Error())
+		Errf("error in updating the GSLBConfig object: %s", updateErr.Error())
+		return errors.New("error in GSLBConfig object update, " + updateErr.Error())
 	}
+	SetGSLBConfigObj(updatedGC)
 	return nil
 }
 
