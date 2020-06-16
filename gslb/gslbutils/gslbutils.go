@@ -225,9 +225,6 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-// GSLBConfigObj is global and is initialized only once
-var GSLBConfigObj *gslbalphav1.GSLBConfig
-
 func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string) uint32 {
 	sort.Strings(ipList)
 	sort.Strings(domainList)
@@ -241,6 +238,14 @@ func GetAviAdminTenantRef() string {
 	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
 }
 
+// GSLBConfigObj is global and is initialized only once
+type GSLBConfigObj struct {
+	configObj  *gslbalphav1.GSLBConfig
+	configLock sync.RWMutex
+}
+
+var gcObj GSLBConfigObj
+
 // gslbConfigObjectAdded is a channel which halts the initialization operation until a GSLB config object
 // is added. Even the GDP informers are started after this operation goes through.
 // This channel's usage can be found in gslb.go.
@@ -252,6 +257,45 @@ func GetGSLBConfigObjectChan() *chan bool {
 		gslbConfigObjectAdded = make(chan bool, 1)
 	})
 	return &gslbConfigObjectAdded
+}
+
+func GetGSLBConfigNameAndNS() (string, string) {
+	gcObj.configLock.Lock()
+	defer gcObj.configLock.Unlock()
+
+	if gcObj.configObj == nil {
+		return "", ""
+	}
+	return gcObj.configObj.Name, gcObj.configObj.Namespace
+}
+
+func updateGSLBConfigStatusMsg(msg string) {
+	gcObj.configLock.Lock()
+	defer gcObj.configLock.Unlock()
+
+	gcObj.configObj.Status.State = msg
+}
+
+func SetGSLBConfigObj(gc *gslbalphav1.GSLBConfig) {
+	gcObj.configLock.Lock()
+	defer gcObj.configLock.Unlock()
+
+	gcObj.configObj = gc
+}
+
+func UpdateGSLBConfigStatus(msg string) error {
+	if !PublishGSLBStatus {
+		return nil
+	}
+
+	updateGSLBConfigStatusMsg(msg)
+	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(gcObj.configObj)
+	if updateErr != nil {
+		Errf("error in updating the GSLBConfig object: %s", updateErr.Error())
+		return errors.New("error in GSLBConfig object update, " + updateErr.Error())
+	}
+	SetGSLBConfigObj(updatedGC)
+	return nil
 }
 
 // gslbConfigSet and its setter and getter functions, to be used by the AddGSLBConfig method. This value
@@ -269,6 +313,7 @@ func SetGSLBConfig(value bool) {
 var GlobalKubeClient *kubernetes.Clientset
 var GlobalGslbClient *gslbcs.Clientset
 var PublishGDPStatus bool
+var PublishGSLBStatus bool
 
 type AviControllerConfig struct {
 	Username string

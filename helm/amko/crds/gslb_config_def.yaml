@@ -38,5 +38,3 @@ spec:
                 type: "string"
             refreshInterval:
               type: "integer"
-  subresources:
-    status: {}

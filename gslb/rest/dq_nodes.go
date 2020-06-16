@@ -357,6 +357,7 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
+		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderErr)
 		return
 	}
 	if gsCacheObj != nil {
