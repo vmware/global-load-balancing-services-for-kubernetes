@@ -112,7 +112,7 @@ func checkGDPsAndInitialize() error {
 
 	for _, gdp := range gdpList.Items {
 		if gdp.Status.ErrorStatus == GDPSuccess {
-			if successGDP != nil {
+			if successGDP == nil {
 				successGDP = &gdp
 			} else {
 				// there are more than two accepted GDPs, which pertains to an undefined state

@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 
@@ -386,20 +387,48 @@ func GetKeyIdx(strList []string, key string) (int, bool) {
 	return -1, false
 }
 
-// var ingressRouteInformerVersion string
-// var InformerVersionOnce sync.Once
+var waitGroupMap map[string]*sync.WaitGroup
+var wgSyncOnce sync.Once
 
-// func SetIngressRouteVersion(version string) {
-// 	InformerVersionOnce.Do(func() {
-// 		ingressRouteInformerVersion = version
-// 	})
-// }
+const (
+	WGIngestion = "ingestion"
+	WGFastRetry = "fastretry"
+	WGSlowRetry = "slowretry"
+	WGGraph     = "graph"
+)
 
-// func GetIngressRouteVersion() string {
-// 	return ingressRouteInformerVersion
-// }
+func SetWaitGroupMap() {
+	wgSyncOnce.Do(func() {
+		waitGroupMap = make(map[string]*sync.WaitGroup)
+		waitGroupMap[WGIngestion] = &sync.WaitGroup{}
+		waitGroupMap[WGFastRetry] = &sync.WaitGroup{}
+		waitGroupMap[WGGraph] = &sync.WaitGroup{}
+		waitGroupMap[WGSlowRetry] = &sync.WaitGroup{}
+	})
+}
 
-// const (
-// 	RoutesInformerV1        = "routesv1"
-// 	IngInformerNetworkingV1 = "ingressnetworkingv1"
-// )
+func GetWaitGroupFromMap(name string) *sync.WaitGroup {
+	wg, ok := waitGroupMap[name]
+	if !ok {
+		return nil
+	}
+	return wg
+}
+
+func WaitForWorkersToExit() {
+	timeoutChan := make(chan struct{})
+	// timeout after 10 seconds
+	timeout := 10 * time.Second
+	go func() {
+		defer close(timeoutChan)
+		for _, wg := range waitGroupMap {
+			wg.Wait()
+		}
+	}()
+	select {
+	case <-timeoutChan:
+		return
+	case <-time.After(timeout):
+		return
+	}
+}

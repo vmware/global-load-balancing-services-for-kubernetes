@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	networking "k8s.io/api/networking/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -180,11 +179,8 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 		case ConfigMapInformer:
 			informers.ConfigMapInformer = kubeInformerFactory.Core().V1().ConfigMaps()
 		case IngressInformer:
-			var timeout int64
-			timeout = 120
-			_, ingErr := cs.NetworkingV1beta1().Ingresses("").List(metav1.ListOptions{TimeoutSeconds: &timeout})
-			if ingErr != nil {
-				AviLog.Infof("networkingv1 ingresses not found, setting informer for extensionsv1: %v", ingErr)
+			ingressAPI := GetIngressApi(cs)
+			if ingressAPI == ExtV1IngressInformer {
 				inginformer, _ := kubeInformerFactory.ForResource(ExtensionsIngress)
 				informers.IngressInformer = inginformer
 				informers.IngressVersion = ExtV1IngressInformer

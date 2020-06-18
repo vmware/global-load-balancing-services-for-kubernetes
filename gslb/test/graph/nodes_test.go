@@ -16,6 +16,7 @@ package graph
 
 import (
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,11 +49,11 @@ func TestMain(m *testing.M) {
 func setupQueue(testCh <-chan struct{}) {
 	ingestionQueue = utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	ingestionQueue.SyncFunc = nodes.SyncFromIngestionLayer
-	ingestionQueue.Run(testStopCh)
+	ingestionQueue.Run(testStopCh, &sync.WaitGroup{})
 
 	graphQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 	graphQueue.SyncFunc = graphSyncFuncForTest
-	graphQueue.Run(testStopCh)
+	graphQueue.Run(testStopCh, &sync.WaitGroup{})
 }
 
 func setUp() {
@@ -64,7 +65,7 @@ func setUp() {
 	setupQueue(testStopCh)
 }
 
-func graphSyncFuncForTest(key string) error {
+func graphSyncFuncForTest(key string, wg *sync.WaitGroup) error {
 	keyChan <- key
 	return nil
 }

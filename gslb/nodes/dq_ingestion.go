@@ -18,6 +18,7 @@ import (
 	"amko/gslb/gslbutils"
 	"amko/gslb/k8sobjects"
 	"errors"
+	"sync"
 
 	"github.com/avinetworks/container-lib/utils"
 )
@@ -231,7 +232,7 @@ func DequeueIngestion(key string) {
 	}
 }
 
-func SyncFromIngestionLayer(key string) error {
+func SyncFromIngestionLayer(key string, wg *sync.WaitGroup) error {
 	DequeueIngestion(key)
 	return nil
 }

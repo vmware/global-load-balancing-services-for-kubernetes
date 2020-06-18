@@ -227,7 +227,7 @@ func CheckAcceptedGSLBConfigAndInitalize(gcList *gslbalphav1.GSLBConfigList) (bo
 	var acceptedGC *gslbalphav1.GSLBConfig
 	for _, gcObj := range gcObjs {
 		if gcObj.Status.State == AcceptedMsg {
-			if acceptedGC != nil {
+			if acceptedGC == nil {
 				acceptedGC = &gcObj
 			} else {
 				// there are more than two accepted GSLBConfig objects, which pertains to an undefined state
@@ -250,7 +250,7 @@ func CheckAcceptedGSLBConfigAndInitalize(gcList *gslbalphav1.GSLBConfigList) (bo
 // 2. add a GSLBConfig object if only one GSLBConfig object (in non-accepted state).
 // 3. returns if there was an error on either of the above two conditions.
 func CheckGSLBConfigsAndInitialize() {
-	gcList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(metav1.ListOptions{})
+	gcList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	if err != nil {
 		gslbutils.Errf("ns: %s, error in listing the GSLBConfig objects, %s, %s", gslbutils.AVISystem,
 			err.Error(), "can't do a full sync")
@@ -509,7 +509,7 @@ func StartGraphLayerWorkers() {
 	graphOnce.Do(func() {
 		ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 		ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
-		ingestionSharedQueue.Run(stopCh)
+		ingestionSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGIngestion))
 	})
 }
 
@@ -539,6 +539,7 @@ func Initialize() {
 		utils.AviLog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
+	gslbutils.SetWaitGroupMap()
 	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
@@ -552,6 +553,7 @@ func Initialize() {
 	gslbutils.PublishGSLBStatus = true
 
 	SetInformerListTimeout(120)
+
 	ingestionQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersIngestion, WorkqueueName: utils.ObjectIngestionLayer}
 	graphQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersGraph, WorkqueueName: utils.GraphLayer}
 	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
@@ -562,15 +564,15 @@ func Initialize() {
 	// Set workers for layer 3 (REST layer)
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 	graphSharedQueue.SyncFunc = avirest.SyncFromNodesLayer
-	graphSharedQueue.Run(stopCh)
+	graphSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGGraph))
 
 	// Set up retry Queue
 	slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 	slowRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
-	slowRetryQueue.Run(stopCh)
+	slowRetryQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGSlowRetry))
 	fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 	fastRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
-	fastRetryQueue.Run(stopCh)
+	fastRetryQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGFastRetry))
 
 	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)
@@ -601,12 +603,18 @@ func Initialize() {
 	gdpInformer := gslbInformerFactory.Amko().V1alpha1().GlobalDeploymentPolicies()
 	go gdpInformer.Informer().Run(stopCh)
 
-	if err = gslbController.Run(stopCh); err != nil {
+	go RunGDPAndGSLBControllers(gslbController, gdpCtrl, stopCh)
+	<-stopCh
+	gslbutils.WaitForWorkersToExit()
+}
+
+func RunGDPAndGSLBControllers(gslbController *GSLBConfigController, gdpController *GDPController, stopCh <-chan struct{}) {
+	if err := gslbController.Run(stopCh); err != nil {
 		utils.AviLog.Fatalf("Error running GSLB controller: %s\n", err.Error())
 	}
 
-	if err := gdpCtrl.Run(stopCh); err != nil {
-		utils.AviLog.Fatalf("Error running GDP controller: %s\n", err)
+	if err := gdpController.Run(stopCh); err != nil {
+		utils.AviLog.Fatalf("Error running GDP controller: %s\n", err.Error())
 	}
 }
 
