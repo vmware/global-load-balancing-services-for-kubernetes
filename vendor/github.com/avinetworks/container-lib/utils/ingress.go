@@ -15,8 +15,6 @@
 package utils
 
 import (
-	"os"
-
 	extension "k8s.io/api/extensions/v1beta1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -25,16 +23,6 @@ import (
 var IngressApiMap = map[string]string{
 	"corev1":      CoreV1IngressInformer,
 	"extensionv1": ExtV1IngressInformer,
-}
-
-// GetIngressApi reads the INGRESS_API environment variable
-func GetIngressApi() string {
-	ingressApi := os.Getenv("INGRESS_API")
-	ingressApi, ok := IngressApiMap[ingressApi]
-	if !ok {
-		return CoreV1IngressInformer
-	}
-	return ingressApi
 }
 
 var (

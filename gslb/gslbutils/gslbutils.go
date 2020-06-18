@@ -84,8 +84,12 @@ func GetInformersPerCluster(clusterName string) *utils.Informers {
 }
 
 func MultiClusterKey(operation, objType, clusterName, ns, objName string) string {
-	key := operation + "/" + objType + "/" + clusterName + "/" + ns + "/" + objName
-	return key
+	compositeObjName := clusterName + "/" + ns + "/" + objName
+	return MultiClusterKeyWithObjName(operation, objType, compositeObjName)
+}
+
+func MultiClusterKeyWithObjName(operation, objType, compositeName string) string {
+	return operation + "/" + objType + "/" + compositeName
 }
 
 func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
@@ -381,3 +385,21 @@ func GetKeyIdx(strList []string, key string) (int, bool) {
 	}
 	return -1, false
 }
+
+// var ingressRouteInformerVersion string
+// var InformerVersionOnce sync.Once
+
+// func SetIngressRouteVersion(version string) {
+// 	InformerVersionOnce.Do(func() {
+// 		ingressRouteInformerVersion = version
+// 	})
+// }
+
+// func GetIngressRouteVersion() string {
+// 	return ingressRouteInformerVersion
+// }
+
+// const (
+// 	RoutesInformerV1        = "routesv1"
+// 	IngInformerNetworkingV1 = "ingressnetworkingv1"
+// )

@@ -1,4 +1,4 @@
-# github.com/avinetworks/container-lib v0.0.0-20200513181034-05ee12b49354
+# github.com/avinetworks/container-lib v0.0.0-20200617130209-27d5598abfc2
 github.com/avinetworks/container-lib/utils
 # github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5
 github.com/avinetworks/sdk/go/clients
@@ -8,15 +8,6 @@ github.com/avinetworks/sdk/go/session
 github.com/davecgh/go-spew/spew
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
-# github.com/gobwas/glob v0.2.3
-github.com/gobwas/glob
-github.com/gobwas/glob/compiler
-github.com/gobwas/glob/match
-github.com/gobwas/glob/syntax
-github.com/gobwas/glob/syntax/ast
-github.com/gobwas/glob/syntax/lexer
-github.com/gobwas/glob/util/runes
-github.com/gobwas/glob/util/strings
 # github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
