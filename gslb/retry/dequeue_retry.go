@@ -16,11 +16,12 @@ package retry
 import (
 	"amko/gslb/gslbutils"
 	"amko/gslb/nodes"
+	"sync"
 
 	"github.com/avinetworks/container-lib/utils"
 )
 
-func SyncFromRetryLayer(key string) error {
+func SyncFromRetryLayer(key string, wg *sync.WaitGroup) error {
 	// Retrieve the Key and note the time.
 	gslbutils.Logf("key: %s, msg: Retrieved the key in Retry layer", key)
 	tenant, gsName := utils.ExtractNamespaceObjectName(key)

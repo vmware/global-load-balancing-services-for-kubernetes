@@ -21,6 +21,10 @@ github.com/avinetworks/container-lib v0.0.0-20200513162737-1d526e43e41a h1:pBGwU
 github.com/avinetworks/container-lib v0.0.0-20200513162737-1d526e43e41a/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
 github.com/avinetworks/container-lib v0.0.0-20200513181034-05ee12b49354 h1:14+UhPwU6mmGbGbB7RA/zJXJPBstH2FRw8TFlD055hg=
 github.com/avinetworks/container-lib v0.0.0-20200513181034-05ee12b49354/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
+github.com/avinetworks/container-lib v0.0.0-20200617130209-27d5598abfc2 h1:qS3vPVTIUZCN3gu34LwDg55uFqfP3kUvpr1CNAp2TRQ=
+github.com/avinetworks/container-lib v0.0.0-20200617130209-27d5598abfc2/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
+github.com/avinetworks/container-lib v0.0.0-20200617153712-383d0ad09fef h1:VAFOGhQrC44w1ccLbWpliVMQNNsKwUGeSjYNW0gKSuQ=
+github.com/avinetworks/container-lib v0.0.0-20200617153712-383d0ad09fef/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
 github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5 h1:OHfbJmhj00ooqmeu6bzftV37DgzsZA7nUt7pluZN/tA=
 github.com/avinetworks/sdk v0.0.0-20191121155005-ff890c29afe5/go.mod h1:BcllDeAFx8PtaMrPxvvuCUo7NRS2x6w+3W17WFDu0sk=
 github.com/avinetworks/servicemesh v0.0.0-20190925185306-4b4864e1327f h1:yopVaj4kzpez8F0aFp0Dnc+ZWF+QkQulDl1uoydl23s=
@@ -249,6 +253,7 @@ honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt
 k8s.io/api v0.0.0-20191114100352-16d7abae0d2a/go.mod h1:qetVJgs5i8jwdFIdoOZ70ks0ecgU+dYwqZ2uD1srwOU=
 k8s.io/api v0.0.0-20191121015604-11707872ac1c h1:Z87my3sF4WhG0OMxzARkWY/IKBtOr+MhXZAb4ts6qFc=
 k8s.io/api v0.0.0-20191121015604-11707872ac1c/go.mod h1:R/s4gKT0V/cWEnbQa9taNRJNbWUK57/Dx6cPj6MD3A0=
+k8s.io/api v0.18.4 h1:8x49nBRxuXGUlDlwlWd3RMY1SayZrzFfxea3UZSkFw4=
 k8s.io/apimachinery v0.0.0-20191028221656-72ed19daf4bb/go.mod h1:llRdnznGEAqC3DcNm6yEj472xaFVfLM7hnYofMb12tQ=
 k8s.io/apimachinery v0.0.0-20191121015412-41065c7a8c2a/go.mod h1:b9qmWdKlLuU9EBh+06BtLcSf/Mu89rWL33naRxs1uZg=
 k8s.io/apimachinery v0.0.0-20191123233150-4c4803ed55e3 h1:FErmbNIJruD5GT2oVEjtPn5Ar5+rcWJsC8/PPUkR0s4=

@@ -219,24 +219,61 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 	return gslbController
 }
 
-func CheckAcceptedGSLBConfigAndInitalize() {
-	objs, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs("").List(metav1.ListOptions{})
-	if err != nil {
-		gslbutils.Errf("error in listing the GSLBConfig objects")
-		return
-	}
+// CheckAcceptedGSLBConfigAndInitalize checks whether there's already an accepted GSLBConfig object that
+// exists. If yes, we take that and set as our GSLB configuration.
+func CheckAcceptedGSLBConfigAndInitalize(gcList *gslbalphav1.GSLBConfigList) (bool, error) {
+	gcObjs := gcList.Items
 
-	gcObjs := objs.Items
-	if len(gcObjs) == 0 {
-		gslbutils.Logf("no existing GSLBConfig objects")
-		return
-	}
-
-	for _, gc := range gcObjs {
-		if gc.Status.State == AcceptedMsg {
-			AddGSLBConfigObject(&gc)
+	var acceptedGC *gslbalphav1.GSLBConfig
+	for _, gcObj := range gcObjs {
+		if gcObj.Status.State == AcceptedMsg {
+			if acceptedGC == nil {
+				acceptedGC = &gcObj
+			} else {
+				// there are more than two accepted GSLBConfig objects, which pertains to an undefined state
+				gslbutils.Errf("ns: %s, msg: more than one GSLBConfig objects which were accepted, undefined state, can't do a full sync",
+					gslbutils.AVISystem)
+				return false, errors.New("more than one GSLBConfig objects in accepted state")
+			}
 		}
 	}
+
+	if acceptedGC != nil {
+		AddGSLBConfigObject(acceptedGC)
+		return true, nil
+	}
+	return false, nil
+}
+
+// CheckGSLBConfigsAndInitialize iterates through all the GSLBConfig objects in the system and does:
+// 1. add a GSLBConfig object if only one GSLBConfig object exists with accepted state.
+// 2. add a GSLBConfig object if only one GSLBConfig object (in non-accepted state).
+// 3. returns if there was an error on either of the above two conditions.
+func CheckGSLBConfigsAndInitialize() {
+	gcList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	if err != nil {
+		gslbutils.Errf("ns: %s, error in listing the GSLBConfig objects, %s, %s", gslbutils.AVISystem,
+			err.Error(), "can't do a full sync")
+		return
+	}
+
+	if len(gcList.Items) == 0 {
+		gslbutils.Logf("ns: %s, no GSLBConfig objects found during bootup, will skip fullsync", gslbutils.AVISystem)
+		return
+	}
+
+	added, err := CheckAcceptedGSLBConfigAndInitalize(gcList)
+	if err != nil || added {
+		return
+	}
+
+	if len(gcList.Items) > 1 {
+		// more than one GC objects exist and none of them were already accepted, we panic
+		panic("more than one GSLBConfig objects in " + gslbutils.AVISystem + " exist, please add only one")
+	}
+
+	gslbutils.Logf("ns: %s, msg: found a GSLBConfig object", gslbutils.AVISystem)
+	AddGSLBConfigObject(&gcList.Items[0])
 }
 
 // IsGSLBConfigValid returns true if the the GSLB Config object was created
@@ -380,6 +417,12 @@ func AddGSLBConfigObject(obj interface{}) {
 	}
 
 	if gslbutils.IsGSLBConfigSet() {
+		// first check, if we have the same GSLB config which is set, if yes, no need to do anything
+		if existingName == gslbObj.GetObjectMeta().GetName() && existingNS == gslbObj.GetObjectMeta().GetNamespace() {
+			gslbutils.Logf("GSLB object set during bootup, ignoring this")
+			return
+		}
+		// else, populate the status field with an error message
 		gslbutils.Errf("GSLB configuration is set already, can't change it. Delete and re-create the GSLB config object.")
 		gslbObj.Status.State = AlreadySetMsg
 		_, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbObj.Namespace).Update(gslbObj)
@@ -426,13 +469,18 @@ func AddGSLBConfigObject(obj interface{}) {
 		gslbutils.UpdateGSLBConfigStatus(KubeConfigErr + " " + err.Error())
 		return
 	}
+
 	aviCtrlList := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
 
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncMsg)
+
 	// TODO: Change the GSLBConfig CRD to take full sync interval as an input and fetch that
 	// value before going into full sync
 	// boot up time cache population
-	avicache.PopulateCache(true)
+	newCache := avicache.PopulateCache(true)
+
+	bootupSync(aviCtrlList, newCache)
+
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
 	// Initialize a periodic worker running full sync
 	refreshWorker := gslbutils.NewFullSyncThread(gslbutils.DefaultRefreshInterval)
@@ -450,6 +498,19 @@ func AddGSLBConfigObject(obj interface{}) {
 	// GSLB Configuration successfully done
 	gslbutils.SetGSLBConfig(true)
 	gslbutils.UpdateGSLBConfigStatus(AcceptedMsg)
+
+	// Set the workers for the node/graph layer
+	StartGraphLayerWorkers()
+}
+
+var graphOnce sync.Once
+
+func StartGraphLayerWorkers() {
+	graphOnce.Do(func() {
+		ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
+		ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
+		ingestionSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGIngestion))
+	})
 }
 
 // Initialize initializes the first controller which looks for GSLB Config
@@ -478,6 +539,7 @@ func Initialize() {
 		utils.AviLog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
+	gslbutils.SetWaitGroupMap()
 	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
@@ -491,6 +553,7 @@ func Initialize() {
 	gslbutils.PublishGSLBStatus = true
 
 	SetInformerListTimeout(120)
+
 	ingestionQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersIngestion, WorkqueueName: utils.ObjectIngestionLayer}
 	graphQueueParams := utils.WorkerQueue{NumWorkers: utils.NumWorkersGraph, WorkqueueName: utils.GraphLayer}
 	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
@@ -498,23 +561,18 @@ func Initialize() {
 
 	utils.SharedWorkQueue(ingestionQueueParams, graphQueueParams, slowRetryQParams, fastRetryQParams)
 
-	// Set workers for layer 2
-	ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
-	ingestionSharedQueue.Run(stopCh)
-
 	// Set workers for layer 3 (REST layer)
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 	graphSharedQueue.SyncFunc = avirest.SyncFromNodesLayer
-	graphSharedQueue.Run(stopCh)
+	graphSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGGraph))
 
 	// Set up retry Queue
 	slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 	slowRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
-	slowRetryQueue.Run(stopCh)
+	slowRetryQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGSlowRetry))
 	fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 	fastRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
-	fastRetryQueue.Run(stopCh)
+	fastRetryQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGFastRetry))
 
 	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)
@@ -525,7 +583,7 @@ func Initialize() {
 	// check whether we already have a GSLBConfig object created which was previously accepted
 	// this is to make sure that after a reboot, we don't pick a different GSLBConfig object which
 	// wasn't accepted.
-	CheckAcceptedGSLBConfigAndInitalize()
+	CheckGSLBConfigsAndInitialize()
 
 	// Start the informer for the GDP controller
 	gslbInformer := gslbInformerFactory.Amko().V1alpha1().GSLBConfigs()
@@ -545,12 +603,18 @@ func Initialize() {
 	gdpInformer := gslbInformerFactory.Amko().V1alpha1().GlobalDeploymentPolicies()
 	go gdpInformer.Informer().Run(stopCh)
 
-	if err = gslbController.Run(stopCh); err != nil {
+	go RunGDPAndGSLBControllers(gslbController, gdpCtrl, stopCh)
+	<-stopCh
+	gslbutils.WaitForWorkersToExit()
+}
+
+func RunGDPAndGSLBControllers(gslbController *GSLBConfigController, gdpController *GDPController, stopCh <-chan struct{}) {
+	if err := gslbController.Run(stopCh); err != nil {
 		utils.AviLog.Fatalf("Error running GSLB controller: %s\n", err.Error())
 	}
 
-	if err := gdpCtrl.Run(stopCh); err != nil {
-		utils.AviLog.Fatalf("Error running GDP controller: %s\n", err)
+	if err := gdpController.Run(stopCh); err != nil {
+		utils.AviLog.Fatalf("Error running GDP controller: %s\n", err.Error())
 	}
 }
 

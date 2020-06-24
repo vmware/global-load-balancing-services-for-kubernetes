@@ -40,6 +40,7 @@ import (
 
 const (
 	AlreadyExistsErr = "a GDP object already exists, can't add another"
+	GDPSuccess       = "success"
 )
 
 // GDPAddDelfn is a type of function which handles an add or a delete of a GDP
@@ -313,12 +314,14 @@ func filterExists(f *gslbutils.GlobalFilter) bool {
 		f.GlobalLock.RLock()
 		defer f.GlobalLock.RUnlock()
 		if f.AppFilter != nil {
+			gslbutils.Warnf("no app filter")
 			return true
 		}
 		if f.NSFilter != nil {
 			f.NSFilter.Lock.RLock()
 			defer f.NSFilter.Lock.RUnlock()
 			if len(f.NSFilter.SelectedNS) > 0 {
+				gslbutils.Warnf("no ns filter")
 				return true
 			}
 		}
@@ -399,19 +402,6 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 		return
 	}
 
-	// If amko is restarted, we have to ignore all the other GDP objects which were previously rejected
-	if gdp.Status.ErrorStatus == AlreadyExistsErr {
-		gslbutils.Errf("A GDP object already exists, can't process this object")
-		return
-	}
-
-	err := GDPSanityChecks(gdp)
-	if err != nil {
-		gslbutils.Errf("Error in accepting GDP object: %s", err.Error())
-		updateGDPStatus(gdp, err.Error())
-		return
-	}
-
 	gf := gslbutils.GetGlobalFilter()
 	if filterExists(gf) {
 		msg := "a GDP object already exists, can't add another"
@@ -419,7 +409,13 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 		updateGDPStatus(gdp, msg)
 		return
 	}
-	updateGDPStatus(gdp, "success")
+	err := GDPSanityChecks(gdp)
+	if err != nil {
+		gslbutils.Errf("Error in accepting GDP object: %s", err.Error())
+		updateGDPStatus(gdp, err.Error())
+		return
+	}
+	updateGDPStatus(gdp, GDPSuccess)
 
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"GDP object added")
@@ -428,7 +424,12 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 	gf.AddToFilter(gdp)
 	// First apply the filter on the namespaces
 	applyAndAcceptNamespaces()
-	WriteChangedObjsToQueue(k8swq, numWorkers, false)
+	// for bootup sync, k8swq will be nil, in which case, the movement of objects will be taken
+	// care of by the bootupSync function
+	if k8swq != nil {
+		WriteChangedObjsToQueue(k8swq, numWorkers, false)
+	}
+	gslbutils.SetGDPObj(gdp.GetObjectMeta().GetName(), gdp.GetObjectMeta().GetNamespace())
 }
 
 // UpdateGDPObj updates the global and the namespace filters if a the GDP object
@@ -443,7 +444,8 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		return
 	}
 
-	if oldGdp.Status.ErrorStatus == AlreadyExistsErr {
+	// update only the accepted GDP
+	if name, ns := gslbutils.GetGDPObj(); name != newGdp.GetObjectMeta().GetName() && ns != newGdp.GetObjectMeta().GetNamespace() {
 		gslbutils.Errf("A GDP object already exists, updates will be ignored for other GDP objects")
 		return
 	}
@@ -478,8 +480,9 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"deleted GDP object")
-	if gdp.Status.ErrorStatus == AlreadyExistsErr {
-		gslbutils.Errf("A GDP object already exists, deletes to other objects won't have any effect")
+
+	if name, ns := gslbutils.GetGDPObj(); name != gdp.GetObjectMeta().GetName() && ns != gdp.GetObjectMeta().GetNamespace() {
+		gslbutils.Errf("won't delete the filter as GDP object deleted wasn't accepted")
 		return
 	}
 
@@ -492,6 +495,8 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 	// remove all namespaces from filter and re-apply
 	k8sobjects.RemoveAllSelectedNamespaces()
 	WriteChangedObjsToQueue(k8swq, numWorkers, false)
+
+	gslbutils.SetGDPObj("", "")
 }
 
 // InitializeGDPController handles initialization of a controller which handles

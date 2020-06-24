@@ -24,6 +24,37 @@ import (
 	"github.com/avinetworks/container-lib/utils"
 )
 
+type GDPObj struct {
+	Namespace string
+	Name      string
+	GDPLock   sync.RWMutex
+}
+
+var gdpObj GDPObj
+
+func SetGDPObj(name, ns string) {
+	gdpObj.GDPLock.Lock()
+	defer gdpObj.GDPLock.Unlock()
+	gdpObj.Name = name
+	gdpObj.Namespace = ns
+}
+
+func GetGDPObj() (string, string) {
+	gdpObj.GDPLock.RLock()
+	defer gdpObj.GDPLock.RUnlock()
+	return gdpObj.Name, gdpObj.Namespace
+}
+
+func IsEmpty() bool {
+	gdpObj.GDPLock.RLock()
+	defer gdpObj.GDPLock.RUnlock()
+
+	if gdpObj.Name == "" && gdpObj.Namespace == "" {
+		return true
+	}
+	return false
+}
+
 var (
 	// Need to keep this global since, it will be used across multiple layers and multiple handlers
 	Gfi    *GlobalFilter
@@ -57,6 +88,50 @@ func GetGlobalFilter() *GlobalFilter {
 	return Gfi
 }
 
+func (gf *GlobalFilter) GetNSFilterLabel() (Label, error) {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	if gf.NSFilter == nil {
+		return Label{}, errors.New("no NSFilter present")
+	}
+
+	return gf.NSFilter.GetFilterLabel(), nil
+}
+
+func (gf *GlobalFilter) GetAppFilterLabel() (Label, error) {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	if gf.AppFilter == nil {
+		return Label{}, errors.New("no appFilter present")
+	}
+
+	return gf.AppFilter.Label, nil
+}
+
+func (gf *GlobalFilter) IsClusterAllowed(cname string) bool {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	if PresentInList(cname, gf.ApplicableClusters) {
+		return true
+	}
+	return false
+}
+
+func (gf *GlobalFilter) AddNSToNSFilter(cname, ns string) error {
+	gf.GlobalLock.Lock()
+	defer gf.GlobalLock.Unlock()
+
+	if gf.NSFilter == nil {
+		return errors.New("NSFilter empty in GlobalFilter, can't add namespace")
+	}
+	gf.NSFilter.AddNS(cname, ns)
+
+	return nil
+}
+
 type AppFilter struct {
 	Label
 }
@@ -76,6 +151,28 @@ func (nsFilter *NamespaceFilter) GetChecksum() uint32 {
 	nsFilter.Lock.RLock()
 	defer nsFilter.Lock.RUnlock()
 	return nsFilter.Checksum
+}
+
+func (nsFilter *NamespaceFilter) GetFilterLabel() Label {
+	nsFilter.Lock.RLock()
+	defer nsFilter.Lock.RUnlock()
+	return nsFilter.Label
+}
+
+func (nsFilter *NamespaceFilter) AddNS(cname, ns string) {
+	nsFilter.Lock.Lock()
+	defer nsFilter.Lock.Unlock()
+
+	nsList, ok := nsFilter.SelectedNS[cname]
+	if !ok {
+		nsFilter.SelectedNS[cname] = []string{ns}
+		return
+	}
+
+	if !PresentInList(ns, nsList) {
+		nsList = append(nsList, ns)
+		nsFilter.SelectedNS[cname] = nsList
+	}
 }
 
 type Label struct {

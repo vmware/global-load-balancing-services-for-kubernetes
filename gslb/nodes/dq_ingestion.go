@@ -18,6 +18,7 @@ import (
 	"amko/gslb/gslbutils"
 	"amko/gslb/k8sobjects"
 	"errors"
+	"sync"
 
 	"github.com/avinetworks/container-lib/utils"
 )
@@ -166,7 +167,6 @@ func GetNewObj(objType string) (k8sobjects.MetaObject, error) {
 	default:
 		return nil, errors.New("unrecognised object: " + objType)
 	}
-	return nil, errors.New("unrecognised object: " + objType)
 }
 
 func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue) {
@@ -231,7 +231,7 @@ func DequeueIngestion(key string) {
 	}
 }
 
-func SyncFromIngestionLayer(key string) error {
+func SyncFromIngestionLayer(key string, wg *sync.WaitGroup) error {
 	DequeueIngestion(key)
 	return nil
 }

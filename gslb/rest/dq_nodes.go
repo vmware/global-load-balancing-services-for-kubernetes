@@ -463,7 +463,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 	return nil
 }
 
-func SyncFromNodesLayer(key string) error {
+func SyncFromNodesLayer(key string, wg *sync.WaitGroup) error {
 	cache := avicache.GetAviCache()
 	aviclient := avicache.SharedAviClients()
 	restLayerF := NewRestOperations(cache, aviclient)

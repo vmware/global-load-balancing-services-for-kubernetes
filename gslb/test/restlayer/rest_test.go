@@ -6,6 +6,7 @@ import (
 	"amko/gslb/rest"
 	"amko/gslb/test/mockaviserver"
 	"os"
+	"sync"
 	"testing"
 
 	"amko/pkg/apis/amko/v1alpha1"
@@ -101,7 +102,7 @@ func saveSyncAndVerify(t *testing.T, modelName string, gsGraph nodes.AviGSObject
 	gsGraph.SetRetryCounter()
 	agl := nodes.SharedAviGSGraphLister()
 	agl.Save(modelName, &gsGraph)
-	rest.SyncFromNodesLayer(gsGraph.Tenant + "/" + gsGraph.Name)
+	rest.SyncFromNodesLayer(gsGraph.Tenant+"/"+gsGraph.Name, &sync.WaitGroup{})
 
 	verifyInAviCache(t, gsGraph, deleteCase)
 }
@@ -152,7 +153,7 @@ func TestDeleteGS(t *testing.T) {
 	gsGraph.SetRetryCounter()
 	agl := nodes.SharedAviGSGraphLister()
 	agl.Save(modelName, nil)
-	rest.SyncFromNodesLayer(gsGraph.Tenant + "/" + gsGraph.Name)
+	rest.SyncFromNodesLayer(gsGraph.Tenant+"/"+gsGraph.Name, &sync.WaitGroup{})
 
 	gsGraph.DeleteMember("foo", DefaultNS, names[0], v1alpha1.IngressObj)
 	gsGraph.DeleteMember("bar", DefaultNS, names[1], v1alpha1.IngressObj)

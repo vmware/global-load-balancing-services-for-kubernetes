@@ -118,7 +118,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 }
 
 func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
-	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32, fullsync bool) {
 	for _, ihm := range ingressHostMetaObjs {
 		if ihm.IPAddr == "" || ihm.Hostname == "" {
 			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
@@ -133,8 +133,10 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 			continue
 		}
 		AddOrUpdateIngressStore(acceptedIngStore, ihm, c.name)
-		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-			ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, ihm.Hostname, c.workqueue)
+		if !fullsync {
+			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+				ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, ihm.Hostname, c.workqueue)
+		}
 	}
 }
 
@@ -257,7 +259,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			// Don't add this ingr if there's no status field present or no IP is allocated in this
 			// status field
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
-			filterAndAddIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
+			filterAndAddIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers, false)
 		},
 		DeleteFunc: func(obj interface{}) {
 			ingr, ok := utils.ToNetworkingIngress(obj)

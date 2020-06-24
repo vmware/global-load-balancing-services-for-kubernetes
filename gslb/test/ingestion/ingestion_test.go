@@ -16,6 +16,7 @@ package ingestion
 
 import (
 	"os"
+	"sync"
 	"testing"
 
 	containerutils "github.com/avinetworks/container-lib/utils"
@@ -23,7 +24,7 @@ import (
 
 const kubeConfigPath = "/tmp/gslb-kubeconfig"
 
-func syncFuncForTest(key string) error {
+func syncFuncForTest(key string, wg *sync.WaitGroup) error {
 	keyChan <- key
 	return nil
 }
@@ -31,7 +32,7 @@ func syncFuncForTest(key string) error {
 func setupQueue(testStopCh <-chan struct{}) {
 	ingestionQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	ingestionQueue.SyncFunc = syncFuncForTest
-	ingestionQueue.Run(testStopCh)
+	ingestionQueue.Run(testStopCh, &sync.WaitGroup{})
 }
 
 func TestMain(m *testing.M) {

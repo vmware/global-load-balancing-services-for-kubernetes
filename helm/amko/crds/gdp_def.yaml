@@ -24,13 +24,13 @@ spec:
                   properties:
                     label:
                       type: "object"
-                      additonalPrpoerties:
+                      additionalPrpoerties:
                         type: "string"
                 namespaceSelector:
                   properties:
                     label:
                       type: "object"
-                      additonalPrpoerties:
+                      additionalPrpoerties:
                         type: "string"
             matchClusters:
               type: "array"

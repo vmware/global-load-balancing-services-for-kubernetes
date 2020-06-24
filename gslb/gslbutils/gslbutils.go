@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 
@@ -84,8 +85,12 @@ func GetInformersPerCluster(clusterName string) *utils.Informers {
 }
 
 func MultiClusterKey(operation, objType, clusterName, ns, objName string) string {
-	key := operation + "/" + objType + "/" + clusterName + "/" + ns + "/" + objName
-	return key
+	compositeObjName := clusterName + "/" + ns + "/" + objName
+	return MultiClusterKeyWithObjName(operation, objType, compositeObjName)
+}
+
+func MultiClusterKeyWithObjName(operation, objType, compositeName string) string {
+	return operation + "/" + objType + "/" + compositeName
 }
 
 func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
@@ -380,4 +385,50 @@ func GetKeyIdx(strList []string, key string) (int, bool) {
 		}
 	}
 	return -1, false
+}
+
+var waitGroupMap map[string]*sync.WaitGroup
+var wgSyncOnce sync.Once
+
+const (
+	WGIngestion = "ingestion"
+	WGFastRetry = "fastretry"
+	WGSlowRetry = "slowretry"
+	WGGraph     = "graph"
+)
+
+func SetWaitGroupMap() {
+	wgSyncOnce.Do(func() {
+		waitGroupMap = make(map[string]*sync.WaitGroup)
+		waitGroupMap[WGIngestion] = &sync.WaitGroup{}
+		waitGroupMap[WGFastRetry] = &sync.WaitGroup{}
+		waitGroupMap[WGGraph] = &sync.WaitGroup{}
+		waitGroupMap[WGSlowRetry] = &sync.WaitGroup{}
+	})
+}
+
+func GetWaitGroupFromMap(name string) *sync.WaitGroup {
+	wg, ok := waitGroupMap[name]
+	if !ok {
+		return nil
+	}
+	return wg
+}
+
+func WaitForWorkersToExit() {
+	timeoutChan := make(chan struct{})
+	// timeout after 10 seconds
+	timeout := 10 * time.Second
+	go func() {
+		defer close(timeoutChan)
+		for _, wg := range waitGroupMap {
+			wg.Wait()
+		}
+	}()
+	select {
+	case <-timeoutChan:
+		return
+	case <-time.After(timeout):
+		return
+	}
 }

@@ -54,10 +54,6 @@ func (a *AviGSGraphLister) Delete(gsName string) {
 	a.AviGSGraphStore.Delete(gsName)
 }
 
-func (a *AviGSGraphLister) GetAll() map[string]interface{} {
-	return a.AviGSGraphStore.GetAllObjectNames()
-}
-
 // AviGSK8sObj represents a K8S/Openshift object from which a GS was built.
 type AviGSK8sObj struct {
 	Cluster   string

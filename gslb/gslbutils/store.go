@@ -178,6 +178,24 @@ func (clusterStore *ClusterStore) GetAllFilteredClusterNSObjects(applyFilter Fil
 	return acceptedList, rejectedList
 }
 
+func (clusterStore *ClusterStore) GetAllClusterNSObjects() []string {
+	result := []string{}
+
+	clusterStore.ClusterLock.RLock()
+	defer clusterStore.ClusterLock.RUnlock()
+
+	for cname, objStore := range clusterStore.ClusterObjectMap {
+		if objStore == nil {
+			continue
+		}
+		nsObjs := objStore.GetAllNSObjects()
+		for _, nsObj := range nsObjs {
+			result = append(result, cname+"/"+nsObj)
+		}
+	}
+	return result
+}
+
 // AddOrUpdate fetches the right cluster store and then updates the object inside the
 // namespace store inside the cluster store.
 func (clusterStore *ClusterStore) AddOrUpdate(obj interface{}, cname, ns, objName string) {
@@ -325,6 +343,23 @@ func (store *ObjectStore) GetAllFilteredNSObjects(applyFilter Filterfn,
 	return acceptedList, rejectedList
 }
 
+func (store *ObjectStore) GetAllNSObjects() []string {
+	nsObjs := []string{}
+	store.NSLock.RLock()
+	defer store.NSLock.RUnlock()
+
+	for ns, nsObjMap := range store.NSObjectMap {
+		if nsObjMap == nil {
+			continue
+		}
+		objs := nsObjMap.GetAllObjectNames()
+		for _, obj := range objs {
+			nsObjs = append(nsObjs, ns+"/"+obj)
+		}
+	}
+	return nsObjs
+}
+
 // DeleteNSObj deletes the obj from the object map store. Checks if that was the last
 // element in this namespace, if yes, it also removes the namespace.
 func (store *ObjectStore) DeleteNSObj(ns, objName string) (interface{}, bool) {
@@ -400,11 +435,16 @@ func (o *ObjectMapStore) Get(objName string) (bool, interface{}) {
 }
 
 // GetAllObjectNames returns the object map of all the objects in ObjectMapStore.
-func (o *ObjectMapStore) GetAllObjectNames() map[string]interface{} {
+func (o *ObjectMapStore) GetAllObjectNames() []string {
 	o.ObjLock.RLock()
 	defer o.ObjLock.RUnlock()
+
+	objNameList := []string{}
+	for k := range o.ObjectMap {
+		objNameList = append(objNameList, k)
+	}
 	// TODO (sudswas): Pass a copy instead of the reference
-	return o.ObjectMap
+	return objNameList
 
 }
 
