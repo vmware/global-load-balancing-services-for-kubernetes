@@ -167,7 +167,6 @@ func GetNewObj(objType string) (k8sobjects.MetaObject, error) {
 	default:
 		return nil, errors.New("unrecognised object: " + objType)
 	}
-	return nil, errors.New("unrecognised object: " + objType)
 }
 
 func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue) {

@@ -69,6 +69,18 @@ func (c *AviCache) AviCacheGet(k interface{}) (interface{}, bool) {
 	return val, ok
 }
 
+func (c *AviCache) AviCacheGetAllKeys() []TenantName {
+	var gses []TenantName
+
+	c.cacheLock.RLock()
+	defer c.cacheLock.RUnlock()
+
+	for k := range c.Cache {
+		gses = append(gses, k.(TenantName))
+	}
+	return gses
+}
+
 func (c *AviCache) AviCacheGetByUuid(uuid string) (interface{}, bool) {
 	c.cacheLock.RLock()
 	defer c.cacheLock.RUnlock()

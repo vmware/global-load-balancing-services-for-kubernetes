@@ -8,6 +8,8 @@ import (
 	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"errors"
 
+	avicache "amko/gslb/cache"
+
 	"github.com/avinetworks/container-lib/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
@@ -35,7 +37,7 @@ func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.Namespace
 					gslbutils.Errf("process: fullsync, namespace: %s, msg: unable to convert obj to ingress")
 					continue
 				}
-				ingList = append(ingList, ingObj)
+				ingList = append(ingList, ingObj.DeepCopy())
 			}
 		}
 	case utils.ExtV1IngressInformer:
@@ -136,7 +138,7 @@ func checkGDPsAndInitialize() error {
 	return nil
 }
 
-func bootupSync(ctrlList []*GSLBMemberController) {
+func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 	gslbutils.Logf("Starting boot up sync, will sync all ingresses and services from all member clusters")
 
 	// add a GDP object
@@ -163,7 +165,6 @@ func bootupSync(ctrlList []*GSLBMemberController) {
 			gslbutils.Errf("cluster: %s, error in fetching namespaces, %s", c.name, err.Error())
 			return
 		}
-		gslbutils.Logf("selected namespaces: %v", selectedNamespaces.Items)
 
 		if len(selectedNamespaces.Items) == 0 {
 			gslbutils.Errf("namespaces list is empty, can't do a full sync, returning")
@@ -195,11 +196,11 @@ func bootupSync(ctrlList []*GSLBMemberController) {
 	}
 
 	// Generate models
-	GenerateModels()
+	GenerateModels(gsCache)
 	gslbutils.Logf("boot up sync completed")
 }
 
-func GenerateModels() {
+func GenerateModels(gsCache *avicache.AviCache) {
 	gslbutils.Logf("will generate GS graphs from all accepted lists")
 	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
 	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
@@ -216,4 +217,27 @@ func GenerateModels() {
 			gslbutils.SvcType, svcName))
 	}
 	gslbutils.Logf("keys for GS graphs published to layer 3")
+
+	sharedQ := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
+
+	gsKeys := gsCache.AviCacheGetAllKeys()
+	// find out the keys which are not already present in the list of created GS graphs
+	agl := nodes.SharedAviGSGraphLister()
+	for _, gsKey := range gsKeys {
+		key := gsKey.Tenant + "/" + gsKey.Name
+		found, _ := agl.Get(key)
+		if !found {
+			gslbutils.Warnf("didn't get a GS for this key: %s", key)
+			// create a new Graph with 0 members, this is only used for deletion cases
+			newGSGraph := nodes.NewAviGSObjectGraph()
+			newGSGraph.Name = gsKey.Name
+			newGSGraph.Tenant = gsKey.Tenant
+			newGSGraph.MemberObjs = []nodes.AviGSK8sObj{}
+			agl.Save(key, newGSGraph)
+
+			bkt := utils.Bkt(key, sharedQ.NumWorkers)
+			sharedQ.Workqueue[bkt].AddRateLimited(key)
+			gslbutils.Logf("process: fullSync, modelName: %s, msg: %s", gsKey, "published key to rest layer")
+		}
+	}
 }
