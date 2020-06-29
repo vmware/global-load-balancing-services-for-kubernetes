@@ -8,5 +8,6 @@ WORKDIR $GOPATH/src/$BUILD_PATH
 RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -o $GOPATH/bin/amko -mod=vendor $BUILD_PATH/cmd/gslb
 
 FROM photon:latest
+RUN yum install -y tar.x86_64
 COPY --from=build /go/bin/amko .
 ENTRYPOINT [ "./amko" ]
