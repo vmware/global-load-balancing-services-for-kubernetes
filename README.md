@@ -10,8 +10,9 @@ Few things are needed before we can kickstart AMKO:
 1. Atleast one kubernetes/openshift cluster.
 2. Atleast one AVI controller which manages the above kubernetes/openshift cluster. Additional controllers with openshift/kubernetes clusters can be added. 
 3. One controller (site) designated as the GSLB leader site. Enable GSLB on the required controller and the other controllers (sites) as the follower nodes.
-4. Designate one openshift/kubernetes cluster which will be communicating with the GSLB leader. All the configs for `amko` will be added to this cluster. We will call this cluster, `cluster-amko`.
-5. Create a namespace `avi-system` in `cluster-amko`:
+4. AMKO assumes that it has connectivity to all the member clusters' kubernetes API servers. Without this, AMKO wouldn't be able to watch over the ingress/route/services objects in the member kubernetes clusters.
+5. Designate one openshift/kubernetes cluster which will be communicating with the GSLB leader. All the configs for `amko` will be added to this cluster. We will call this cluster, `cluster-amko`.
+6. Create a namespace `avi-system` in `cluster-amko`:
 ```
 kubectl create ns avi-system
 ```
@@ -33,21 +34,33 @@ Use the [values.yaml](helm/amko/values.yaml) to edit values related to Avi confi
 ```
 helm uninstall -n avi-system <release_name>
 ```
+If a user needs to remove the already created GSLB services, one has to remove the GDP object first. This would prompt a deletion of all the GSLB Services selected via that GDP object.
+
+```
+kubectl delete gdp -n avi-system <gdp_name>
+```
+
 ## parameters
-| **Parameter**                | **Description**         | **Default**                      |
-|-----------------------------|------------------------|------------------------------------|
-|`configs.gslbLeaderVersion`  | GSLB leader controller version | 18.2.7                     |
-|`configs.gslbLeaderSecret`   | GSLB leader credentials secret name in `avi-system` namespace |  `avi-secret` |
-|`configs.gslbLeaderCredentials.username` | GSLB leader controller username | `admin` |
-|`configs.gslbLeaderCredentials.password` | GSLB leader controller password | `avi123`|
-|`configs.memberClusters.clusterContext` | K8s member cluster context for GSLB | `cluster1-admin` and `cluster2-admin` |
-|`configs.refreshInterval` | The time interval which triggers a AVI cache refresh | 120 seconds |
-|`configs.clusterMembers.secret` | The name of the secret which is created with kubeconfig as the data | `gslb-config-secret`|
-|`configs.clusterMembers.key` | The name of the field (key) inside the secret `configs.clusterMembers.secret` data | `gslb-members`|
+| **Parameter**                                    | **Description**                                                                                                          | **Default**                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `configs.controllerVersion`                      | GSLB leader controller version                                                                                           | 18.2.9                                |
+| `configs.gslbLeaderHost`                         | GSLB leader site URL                                                                                                     | Nil                                   |
+| `configs.gslbLeaderSecret`                       | GSLB leader credentials secret name in `avi-system` namespace                                                            | `gslb-avi-secret`                     |
+| `configs.gslbLeaderCredentials.username`         | GSLB leader controller username                                                                                          | `admin`                               |
+| `configs.gslbLeaderCredentials.password`         | GSLB leader controller password                                                                                          | `avi123`                              |
+| `configs.memberClusters.clusterContext`          | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
+| `configs.refreshInterval`                        | The time interval which triggers a AVI cache refresh                                                                     | 120 seconds                           |
+| `configs.clusterMembers.secret`                  | The name of the secret which is created with kubeconfig as the data                                                      | `gslb-config-secret`                  |
+| `configs.clusterMembers.key`                     | The name of the field (key) inside the secret `configs.clusterMembers.secret` data                                       | `gslb-members`                        |
+| `gdpConfig.appSelector.label{.key,.value}`       | Selection criteria for applications, label key and value are provided                                                    | Nil                                   |
+| `gdpConfig.namespaceSelector.label{.key,.value}` | Selection criteria for namespaces, label key and value are provided                                                      | Nil                                   |
+| `gdpConfig.matchClusters`                        | List of clusters (names must match the names in configs.memberClusters) from where the objects will be selected          | Nil                                   |
+| `gdpConfig.trafficSplit`                         | List of weights for clusters (names must match the names in configs.memberClusters), each weight must range from 1 to 20 | Nil                                   |
+
 
 ## Use the GSLBConfig CRD
 A CRD has been provided to add the GSLB configuration. The name of the object is GSLBConfig and it has the following parameters:
-```
+```yaml
 apiVersion: "avilb.k8s.io/v1alpha1"
 kind: "GSLBConfig"
 metadata:
@@ -81,74 +94,104 @@ spec:
 **Few Notes**:
 - Only one GSLBConfig object is allowed.
 - If using `helm install`, the GSLB config object will be created for you, just provide the right parameters in `values.yml`.
-- Once this object is defined and is accepted, it can't be changed (as of now). If changed, the changes will not take any effect.
-- The name for the GSLBConfig object is also mentioned in the GDP object.
+- Once this object is defined and is accepted, it can't be changed (as of now). If changed, the changes will not take any effect. For the changes to take effect, one has to restart the AMKO pod.
 
 ## Selecting kubernetes/openshift objects from different clusters
 A CRD called GlobalDeploymentPolicy allows users to select kubernetes/openshift objects based on certain rules. This GDP object has to be created on the same system wherever the GSLBConfig object was created and `amko` is running. The selection policy applies to all the clusters which are mentioned in the GDP object. A typical GlobalDeploymentPolicy looks like this:
-```
-apiVersion: "avilb.k8s.io/v1alpha1"
+
+```yaml
+apiVersion: "amko.k8s.io/v1alpha1"
 kind: "GlobalDeploymentPolicy"
 metadata:
-  name: "green-gdp"
-  namespace: "green"
+  name: "global-gdp"
+  namespace: "avi-system"   // a cluster-wide GDP
 spec:
   matchRules:
-    - object: INGRESS
+    appSelector:
       label:
-        key: "app"
-        value: "gslb"
-      op: EQUALS
-    - object: LBSVC
+        app: gslb
+    namespaceSelector:
       label:
-        key: "app"
-        value: "gslb"
-      op: EQUALS
+        app: gslb
+ 
   matchClusters:
-    - clusterContext: cluster1-admin
-    - clusterContext: cluster2-admin
- 
-  gslbConfig: "gslb-policy-1"
-  trafficSplit:
-    - cluster: cluster1-admin
-      weight: 8
+    - cluster: cluster1-admin    // cluster names are kubernetes cluster contexts
     - cluster: cluster2-admin
-      weight: 2
-  gslbAlgorithm: "RoundRobin"
-```
-1. `namespace`: an important piece here, as a GDP object created in this namespace will only apply to the objects in this namespace across all the member clusters.
-2. `matchRules`: List of selection policy rules. If a user wants to select certain objects in a namespace (mentioned in `namespace`), they have to add those rules here. A typical `matchRule` looks like:
-```
-object: K8S/openshift object     // LBSVC, INGRESS, ROUTE
-label:
-    key: <label key>             // typical k8s/openshift label key
-    value: <label value>         // typical k8s/openshift label value
-op: <operator>                   // EQUALS, NOTEQUALS
-```
-With each rule, we specify the following:
-- object type, this specifies which k8s/openshift object we want to select. Support types are:
-  * Service of type Load balancer (LBSVC)
-  * Kubernetes Ingresses (INGRESS)
-  * Openshift Routes (ROUTE)
- - label, specify what labels we want to select. Only the objects specified in `object` with matching `key/value` pair will be selected.
- - op, specify the operation. For labels, it is either EQUALS/NOTEQUALS.
  
- The `matchRules` are a set of AND (&&) based rules. For same objects, if different labels let's say, `app:gslb` and `app:test` is specified in the `matchRules`, we select those objects which have both of these labels.
+  trafficSplit:
+    - cluster: cluster1
+      weight: 8
+    - cluster: cluster2
+      weight: 2
+```
+1. `namespace`: an important piece here, as a GDP object created in `avi-system` namespace is recognised and all other GDP objects created in other namespaces are ignored.
+2. `matchRules`: List of selection policy rules. If a user wants to select certain objects in a namespace (mentioned in `namespace`), they have to add those rules here. A typical `matchRule` looks like:
+```yaml
+matchRules:
+    appSelector:                       // application selection criteria
+      label:
+        app: gslb                       // kubernetes/openshift label key-value
+    namespaceSelector:                 // namespace selection criteria
+      label:
+        ns: gslb                        // kubernetes/openshift label key-value
+```
+A combination of appSelector and namespaceSelector will decide which objects will be selected for GSLB service consideration.
+- appSelector: Selection criteria only for applications:
+  * label: will be used to match the ingress/service type load balancer labels (key:value pair).
+- namespaceSelector: Selection criteria only for namespaces:
+  * label: will be used to match the namespace labels (key:value pair).
+
+AMKO supports the following combinations for GDP matchRules:
+| **appSelector** | **namespaceSelector** | **Result**                                                                                         |
+| --------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| yes             | yes                   | Select all objects satisfying appSelector and from the namespaces satisfying the namespaceSelector |
+| no              | yes                   | Select all objects from the selected namespaces (satisfying namespaceSelector)                     |
+| yes             | no                    | Select all objects satisfying the appSelector criteria from all namespaces                         |
+| no              | no                    | No objects selected (default action)                                                               |
+
+Example Scenarios:
+
+> Select objects with label `app:gslb` from all the namespaces:
+```yaml
+  matchRules:
+    appSelector:
+      label:
+        app: gslb
+```
+
+> Select objects with label `app:gslb` and from namespaces labelled `ns:prod`:
+```yaml
+matchRules:
+    appSelector:
+      label:
+        app: gslb
+    namespaceSelector:
+      label:
+        ns: prod
+```
 
 3. `matchClusters`: List of clusters on which the above `matchRules` will be applied on. The member object of this list are cluster contexts of the individual k8s/openshift clusters.
-4. `gslbConfig` is the name of the GSLBConfig object created in the `avi-system` namespace.
-5. `trafficSplit` is required if we want to route a certain percentage of traffic to certain objects in a certain cluster. These are weights and the range for them is 1 to 20.
+
+4. `trafficSplit` is required if we want to route a certain percentage of traffic to certain objects in a certain cluster. These are weights and the range for them is 1 to 20.
 
 **Few Notes**
-- GDP objects are per-namespace. This means that a user can create only one GDP object per-namespace.
-- No GDP objects are created as part of `helm install`. User has to create a GDP object to start selecting objects for GSLB'ing.
-- GDP objects are editable. Changes made to a GDP object will be reflected on the AVI objects, if applicable.
+- A GDP object must be created in the `avi-system` namespace. GDP objects in all ther namespaces will *not* be considered. For now, AMKO supports only one GDP object in the entire cluster. Any other additonal GDP objects will be ignored.
+- A GDP object is created as part of `helm install`. User can then edit this GDP object to modify their selection of objects.
+- GDP objects are editable. Changes made to a GDP object will be reflected on the AVI objects in the runtime, if applicable.
 - Deletion of a GDP rule will trigger all the objects to be again checked against the remaining set of rules.
 - Deletion of a cluster member from the `matchClusters` will trigger deletion of objects selected from that cluster in AVI.
 
+## Supported Objects
+AMKO supports selection of these kind of objects:
+* Openshift Routes
+* Kubernetes Ingresses
+* Openshift/Kubernetes Service type Load Balancer
+
+No other objects are supported.
+
 ## Multi-cluster kubeconfig
 * The structure of a kubeconfig file looks like:
-```
+```yaml
 apiVersion: v1
 clusters:
 - cluster:
