@@ -477,6 +477,7 @@ func AddGSLBConfigObject(obj interface{}) {
 	// TODO: Change the GSLBConfig CRD to take full sync interval as an input and fetch that
 	// value before going into full sync
 	// boot up time cache population
+	gslbutils.Logf("will populate avi cache now...")
 	newCache := avicache.PopulateCache(true)
 
 	bootupSync(aviCtrlList, newCache)

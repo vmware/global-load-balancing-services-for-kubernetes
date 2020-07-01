@@ -15,6 +15,7 @@
 package cache
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/avinetworks/container-lib/utils"
 	"github.com/avinetworks/sdk/go/clients"
+	"github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
 )
@@ -108,84 +110,118 @@ func (c *AviCache) AviCacheDelete(k interface{}) {
 }
 
 func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...string) {
-	var restResponse interface{}
+	var nextPageURI string
+	uri := "/api/gslbservice?page_size=100"
 
-	uri := "/api/gslbservice"
-	if len(gsname) == 1 {
-		uri = "/api/gslbservice?name=" + gsname[0]
-	}
-	err := client.AviSession.Get(uri, &restResponse)
-	if err != nil {
-		gslbutils.Logf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
-		return
-	}
-	resp, ok := restResponse.(map[string]interface{})
-	if !ok {
-		gslbutils.Logf("object: AviCache, msg: GS get URI %s returned %v type %T",
-			uri, restResponse, restResponse)
-		return
-	}
-	gslbutils.Logf("object: AviCache, msg: GS get URI %s returned %v GSes", uri, resp["count"])
-	results, ok := resp["results"].([]interface{})
-	if !ok {
-		gslbutils.Logf("object: AviCache, msg: results not of type []interface{} instead of type %T",
-			resp["results"])
-		return
-	}
-	for _, gsIntf := range results {
-		gs := gsIntf.(map[string]interface{})
-		name, ok := gs["name"].(string)
-		if !ok {
-			gslbutils.Warnf("resp: %v, msg: name not present in response", gsIntf)
-			continue
+	// Parse all the pages with GSLB services till we hit the last page
+	for {
+		if len(gsname) == 1 {
+			uri = "/api/gslbservice?name=" + gsname[0]
+		} else if nextPageURI != "" {
+			uri = nextPageURI
 		}
-		uuid, ok := gs["uuid"].(string)
-		if !ok {
-			gslbutils.Warnf("resp: %v, msg: uuid not present in response", gsIntf)
-			continue
-		}
-		createdBy, ok := gs["created_by"].(string)
-		if !ok {
-			gslbutils.Warnf("resp: %v, msg: created_by not present in response", gsIntf)
-			// if we want to get avi gs object for a spefic gs name,
-			// then don't skip even if created_by field is not present.
-			// This is used while retrying after a failure
-			if len(gsname) == 0 {
-				continue
-			}
-		}
-		if createdBy != gslbutils.AmkoUser {
-			gslbutils.Warnf("resp: %v, msg: created_by contains %s instead of %s", gsIntf, createdBy, gslbutils.AmkoUser)
-			// if we want to get avi gs object for a spefic gs name,
-			// then don't skip even if created_by field is wrong.
-			// This is used while retrying after a failure
-			if len(gsname) == 0 {
-				continue
-			}
-		}
-		cksum, gsMembers, memberObjs, err := GetDetailsFromAviGSLB(gs)
+		result, err := AviGetCollectionRaw(client, uri)
 		if err != nil {
-			gslbutils.Errf("resp: %v, msg: error occurred while parsing the response: %s", err)
-			// if we want to get avi gs object for a spefic gs name,
-			// then don't skip even if not all expected fields are present.
-			// This is used while retrying after a failure
-			if len(gsname) == 0 {
+			gslbutils.Warnf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
+			return
+		}
+
+		gslbutils.Logf("fetched %d GSLB services", result.Count)
+		elems := make([]json.RawMessage, result.Count)
+		err = json.Unmarshal(result.Results, &elems)
+		if err != nil {
+			gslbutils.Warnf("failed to unmarshal gslb service data, err: %s", err.Error())
+			return
+		}
+
+		processedObjs := 0
+		for i := 0; i < len(elems); i++ {
+			gs := models.GslbService{}
+			err = json.Unmarshal(elems[i], &gs)
+			if err != nil {
+				gslbutils.Warnf("failed to unmarshal gs element, err: %s", err.Error())
 				continue
 			}
+
+			if gs.Name == nil || gs.UUID == nil {
+				gslbutils.Warnf("incomplete gs data unmarshalled %s", utils.Stringify(gs))
+				continue
+			}
+
+			parseGSObject(c, gs, gsname)
+			processedObjs++
 		}
-		k := TenantName{Tenant: utils.ADMIN_NS, Name: name}
-		gsCacheObj := AviGSCache{
-			Name:             name,
-			Tenant:           utils.ADMIN_NS,
-			Uuid:             uuid,
-			Members:          gsMembers,
-			K8sObjects:       memberObjs,
-			CloudConfigCksum: cksum,
+		gslbutils.Logf("processed %d GSLB services", processedObjs)
+
+		nextPageURI = ""
+		if result.Next != "" {
+			nextURI := strings.Split(result.Next, "/api/gslbservice")
+			if len(nextURI) > 1 {
+				nextPageURI = "/api/gslbservice" + nextURI[1]
+				gslbutils.Logf("object: AviCache, msg: next field in response, will continue fetching")
+				continue
+			}
+			gslbutils.Warnf("error in getting the nextURI, can't proceed further, next URI %s", result.Next)
+			break
 		}
-		c.AviCacheAdd(k, &gsCacheObj)
-		gslbutils.Logf(spew.Sprintf("cacheKey: %v, value: %v, msg: added GS to the cache", k,
-			utils.Stringify(gsCacheObj)))
+		break
 	}
+}
+
+func AviGetCollectionRaw(client *clients.AviClient, uri string) (session.AviCollectionResult, error) {
+	result, err := client.AviSession.GetCollectionRaw(uri)
+	if err != nil {
+		return session.AviCollectionResult{}, err
+	}
+	return result, nil
+}
+
+func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
+	name := *gsObj.Name
+	uuid := *gsObj.UUID
+	createdBy := *gsObj.CreatedBy
+	if createdBy == "" {
+		gslbutils.Warnf("createdBy: %v, msg: created_by not present in response", createdBy)
+		// if we want to get avi gs object for a spefic gs name,
+		// then don't skip even if created_by field is not present.
+		// This is used while retrying after a failure
+		if len(gsname) == 0 {
+			return
+		}
+	}
+	if createdBy != gslbutils.AmkoUser {
+		gslbutils.Warnf("createdBy: %v, msg: GS not created by amko", createdBy, gslbutils.AmkoUser)
+		// if we want to get avi gs object for a spefic gs name,
+		// then don't skip even if created_by field is wrong.
+		// This is used while retrying after a failure
+		if len(gsname) == 0 {
+			return
+		}
+	}
+
+	cksum, gsMembers, memberObjs, err := GetDetailsFromAviGSLBFormatted(gsObj)
+	if err != nil {
+		gslbutils.Errf("resp: %v, msg: error occurred while parsing the response: %s", gsObj, err)
+		// if we want to get avi gs object for a spefic gs name,
+		// then don't skip even if not all expected fields are present.
+		// This is used while retrying after a failure
+		if len(gsname) == 0 {
+			return
+		}
+	}
+	k := TenantName{Tenant: utils.ADMIN_NS, Name: name}
+	gsCacheObj := AviGSCache{
+		Name:             name,
+		Tenant:           utils.ADMIN_NS,
+		Uuid:             uuid,
+		Members:          gsMembers,
+		K8sObjects:       memberObjs,
+		CloudConfigCksum: cksum,
+	}
+	c.AviCacheAdd(k, &gsCacheObj)
+	gslbutils.Logf(spew.Sprintf("cacheKey: %v, value: %v, msg: added GS to the cache", k,
+		utils.Stringify(gsCacheObj)))
+
 }
 
 func parseDescription(description string) ([]string, error) {
@@ -215,6 +251,67 @@ func parseDescription(description string) ([]string, error) {
 		}
 	}
 	return objList, nil
+}
+
+func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, error) {
+	var ipList []string
+	var domainList []string
+	var gsMembers []GSMember
+	var memberObjs []string
+
+	domainNames := gsObj.DomainNames
+	if len(domainNames) == 0 {
+		return 0, nil, memberObjs, errors.New("domain names absent in gslb service")
+	}
+	// make a copy of the domain names list
+	for _, domain := range domainNames {
+		domainList = append(domainList, domain)
+	}
+
+	groups := gsObj.Groups
+	if len(groups) == 0 {
+		return 0, nil, memberObjs, errors.New("groups absent in gslb service")
+	}
+
+	description := *gsObj.Description
+	if description == "" {
+		return 0, nil, memberObjs, errors.New("description absent in gslb service")
+	}
+
+	for _, val := range groups {
+		group := *val
+		members := group.Members
+		if len(members) == 0 {
+			gslbutils.Warnf("no members in gslb pool: %v", group)
+			continue
+		}
+		for _, memberVal := range members {
+			member := *memberVal
+			ipAddr := *member.IP.Addr
+			if ipAddr == "" {
+				gslbutils.Warnf("couldn't get member addr: %v", member)
+				continue
+			}
+			weight := *member.Ratio
+			if weight < 0 {
+				gslbutils.Warnf("invalid weight present, assigning 0: %v", member)
+				weight = 0
+			}
+			ipList = append(ipList, ipAddr+"-"+strconv.Itoa(int(weight)))
+			gsMember := GSMember{
+				IPAddr: ipAddr,
+				Weight: weight,
+			}
+			gsMembers = append(gsMembers, gsMember)
+		}
+	}
+	memberObjs, err := parseDescription(description)
+	if err != nil {
+		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
+	}
+	// calculate the checksum
+	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs)
+	return checksum, gsMembers, memberObjs, nil
 }
 
 func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, error) {

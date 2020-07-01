@@ -34,14 +34,14 @@ type HTTPApplicationProfile struct {
 	// Allows HTTP requests, not just TCP connections, to be load balanced across servers.  Proxied TCP connections to servers may be reused by multiple clients to improve performance. Not compatible with Preserve Client IP.
 	ConnectionMultiplexingEnabled *bool `json:"connection_multiplexing_enabled,omitempty"`
 
-	// Disable chunk body merge for chunked transfer encoding response. Field introduced in 20.1.1.
-	DisableChunkMerge *bool `json:"disable_chunk_merge,omitempty"`
-
 	// Disable keep-alive client side connections for older browsers based off MS Internet Explorer 6.0 (MSIE6). For some applications, this might break NTLM authentication for older clients based off MSIE6. For such applications, set this option to false to allow keep-alive connections.
 	DisableKeepalivePostsMsie6 *bool `json:"disable_keepalive_posts_msie6,omitempty"`
 
 	// Disable strict check between TLS servername and HTTP Host name. Field introduced in 18.2.5.
 	DisableSniHostnameCheck *bool `json:"disable_sni_hostname_check,omitempty"`
+
+	// Enable chunk body merge for chunked transfer encoding response. Field introduced in 18.2.7.
+	EnableChunkMerge *bool `json:"enable_chunk_merge,omitempty"`
 
 	// Enable support for fire and forget feature. If enabled, request from client is forwarded to server even if client prematurely closes the connection. Field introduced in 17.2.4.
 	EnableFireAndForget *bool `json:"enable_fire_and_forget,omitempty"`
@@ -145,10 +145,10 @@ type HTTPApplicationProfile struct {
 	// When terminating client SSL sessions at Avi, servers may incorrectly send redirect to clients as HTTP.  This option will rewrite the server's redirect responses for this virtual service from HTTP to HTTPS.
 	ServerSideRedirectToHTTPS *bool `json:"server_side_redirect_to_https,omitempty"`
 
-	// Enable SPDY proxy for traffic from clients to the virtual service.  SPDY requires SSL from the clients to Avi.  Avi ADC will proxy the SPDY protocol, and forward requests to servers as HTTP 1.1. .
+	// This field is deprecated. Field deprecated in 18.2.8.
 	SpdyEnabled *bool `json:"spdy_enabled,omitempty"`
 
-	// Enable fwd proxy mode with SPDY. This makes the Proxy combine the  host and  uri spdy headers to create a fwd-proxy style request URI.
+	// This field is deprecated. Field deprecated in 18.2.8.
 	SpdyFwdProxyMode *bool `json:"spdy_fwd_proxy_mode,omitempty"`
 
 	// Set of match/action rules that govern what happens when the client certificate request is enabled.
@@ -157,7 +157,7 @@ type HTTPApplicationProfile struct {
 	// Specifies whether the client side verification is set to none, request or require. Enum options - SSL_CLIENT_CERTIFICATE_NONE, SSL_CLIENT_CERTIFICATE_REQUEST, SSL_CLIENT_CERTIFICATE_REQUIRE.
 	SslClientCertificateMode *string `json:"ssl_client_certificate_mode,omitempty"`
 
-	// Enable common settings to increase the level of security for  virtual services running HTTP and HTTPS.  For sites that are  HTTP only, these settings will have no effect.
+	// Enable common settings to increase the level of security for  virtual services running HTTP and HTTPS. For sites that are  HTTP only, these settings will have no effect. Field deprecated in 18.2.7.
 	SslEverywhereEnabled *bool `json:"ssl_everywhere_enabled,omitempty"`
 
 	// Use 'Keep-Alive' header timeout sent by application instead of sending the HTTP Keep-Alive Timeout.

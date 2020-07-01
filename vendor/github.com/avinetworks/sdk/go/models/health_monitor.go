@@ -11,8 +11,17 @@ type HealthMonitor struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// By default, multiple instances of the same healthmonitor to the same server are suppressed intelligently. In rare cases, the monitor may have specific constructs that go beyond the server keys (ip, port, etc.) during which such suppression is not desired. Use this knob to allow duplicates. Field introduced in 18.2.8.
+	AllowDuplicateMonitors *bool `json:"allow_duplicate_monitors,omitempty"`
+
+	// Authentication information for username/password. Field introduced in 20.1.1.
+	Authentication *HealthMonitorAuthInfo `json:"authentication,omitempty"`
+
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
+
+	// During addition of a server or healthmonitors or during bootup, Avi performs sequential health checks rather than waiting for send-interval to kick in, to mark the server up as soon as possible. This knob may be used to turn this feature off. Field introduced in 18.2.7.
+	DisableQuickstart *bool `json:"disable_quickstart,omitempty"`
 
 	// Placeholder for description of property dns_monitor of obj type HealthMonitor field type str  type object
 	DNSMonitor *HealthMonitorDNS `json:"dns_monitor,omitempty"`
