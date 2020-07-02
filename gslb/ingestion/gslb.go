@@ -483,10 +483,6 @@ func AddGSLBConfigObject(obj interface{}) {
 	bootupSync(aviCtrlList, newCache)
 
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
-	// Initialize a periodic worker running full sync
-	refreshWorker := gslbutils.NewFullSyncThread(gslbutils.DefaultRefreshInterval)
-	refreshWorker.SyncFunction = CacheRefreshRoutine
-	go refreshWorker.Run()
 
 	gcChan := gslbutils.GetGSLBConfigObjectChan()
 	*gcChan <- true
