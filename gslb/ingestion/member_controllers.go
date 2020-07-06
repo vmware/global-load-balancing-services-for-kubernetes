@@ -61,6 +61,7 @@ func (ctrl GSLBMemberController) GetName() string {
 func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 	route *routev1.Route, cname string) {
 	routeMeta := k8sobjects.GetRouteMeta(route, cname)
+	gslbutils.Logf("route hostname: %s", routeMeta.Hostname)
 	clusterRouteStore.AddOrUpdate(routeMeta, cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 }
 
@@ -68,14 +69,15 @@ func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 // and then ns store for the route's namespace and then deletes the route key from
 // the object map store.
 func DeleteFromRouteStore(clusterRouteStore *gslbutils.ClusterStore,
-	route *routev1.Route, cname string) {
+	route *routev1.Route, cname string) bool {
 	if clusterRouteStore == nil {
 		// Store is empty, so, noop
-		return
+		return false
 	}
 	ns := route.ObjectMeta.Namespace
 	routeName := route.ObjectMeta.Name
-	clusterRouteStore.DeleteClusterNSObj(cname, ns, routeName)
+	_, present := clusterRouteStore.DeleteClusterNSObj(cname, ns, routeName)
+	return present
 }
 
 // AddOrUpdateIngressStore traverses through the cluster store for cluster name cname,

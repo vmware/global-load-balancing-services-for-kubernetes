@@ -130,29 +130,46 @@ func (route RouteMeta) ApplyFilter() bool {
 		defer nsFilter.Lock.RUnlock()
 		nsList, ok := gf.NSFilter.SelectedNS[route.Cluster]
 		if !ok {
-			gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because namespace is not selected",
+			gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because of namespace selector",
 				route.Cluster, route.Namespace, route.Name)
 			return false
 		}
 		if gslbutils.PresentInList(route.Namespace, nsList) {
 			appFilter := gf.AppFilter
 			if appFilter == nil {
-				gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: accepted because namespace is selected",
+				gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: accepted because of namespaceSelector",
 					route.Cluster, route.Namespace, route.Name)
 				return true
 			}
 			// Check the appFilter now for this object
-			for k, v := range route.Labels {
-				if k == appFilter.Key && v == appFilter.Value {
-					gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: accepted because app is selected",
-						route.Cluster, route.Namespace, route.Name)
-					return true
-				}
+			if applyAppFilter(route.Labels, appFilter) {
+				gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: accepted because of namespaceSelector and appSelector",
+					route.Cluster, route.Namespace, route.Name)
+				return true
 			}
-			gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because app is not selected",
+			gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
 				route.Cluster, route.Namespace, route.Name)
 			return false
 		}
+		// this means that the namespace is not selected in the filter
+		gslbutils.Logf("objType: route, cluster: %s, namespace: %s, name: %s, msg: rejected because namespace is not selected",
+			route.Cluster, route.Namespace, route.Name)
+		return false
 	}
-	return false
+
+	// check for app filter
+	if gf.AppFilter == nil {
+		gslbutils.Logf("objType: route, cluster: %s, namespace: %s, name: %s, msg: rejected because no appSelector",
+			route.Cluster, route.Namespace, route.Name)
+		return false
+	}
+	if !applyAppFilter(route.Labels, gf.AppFilter) {
+		gslbutils.Logf("objType: route, cluster: %s, namespace: %s, name: %s, msg: rejected because of appSelector",
+			route.Cluster, route.Namespace, route.Name)
+		return false
+	}
+	gslbutils.Logf("objType: route, cluster: %s, namespace: %s, name: %s, msg: accepted because of appSelector",
+		route.Cluster, route.Namespace, route.Name)
+
+	return true
 }

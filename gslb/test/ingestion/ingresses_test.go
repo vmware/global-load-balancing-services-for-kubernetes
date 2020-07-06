@@ -16,13 +16,10 @@ package ingestion
 
 import (
 	"amko/gslb/gslbutils"
-	gslbingestion "amko/gslb/ingestion"
 	"amko/gslb/k8sobjects"
-	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"strconv"
 	"testing"
 
-	"github.com/avinetworks/container-lib/utils"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -35,23 +32,6 @@ const (
 	acceptedIngStore = true
 	rejectedIngStore = false
 )
-
-func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
-	gslbObj := getTestGSLBObject()
-	gc, err := gslbingestion.IsGSLBConfigValid(gslbObj)
-	if err != nil {
-		t.Fatal("GSLB object invalid")
-	}
-	addGSLBTestConfigObject(gc)
-	gslbutils.AddClusterContext("cluster1")
-	gslbutils.AddClusterContext("cluster2")
-
-	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gdp := getTestGDPObject(true, false)
-	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
-
-	return gdp
-}
 
 // TestBasicIngress: Create/Delete
 func TestBasicIngressCD(t *testing.T) {
