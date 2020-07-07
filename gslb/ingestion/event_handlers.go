@@ -321,18 +321,20 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 				return
 			}
 			// Delete from all route stores
-			DeleteFromRouteStore(acceptedRouteStore, route, c.name)
+			present := DeleteFromRouteStore(acceptedRouteStore, route, c.name)
 			DeleteFromRouteStore(rejectedRouteStore, route, c.name)
 			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
-			publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
-				route.ObjectMeta.Name, gslbutils.ObjectDelete, routeMeta.Hostname, c.workqueue)
+			if present {
+				publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
+					route.ObjectMeta.Name, gslbutils.ObjectDelete, routeMeta.Hostname, c.workqueue)
+			}
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldRoute := old.(*routev1.Route)
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
 				routeMeta := k8sobjects.GetRouteMeta(route, c.name)
-				if !filter.ApplyFilter(routeMeta, c.name) {
+				if _, ok := gslbutils.RouteGetIPAddr(route); !ok || !filter.ApplyFilter(routeMeta, c.name) {
 					// See if the route was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
 						oldRoute.ObjectMeta.Namespace, oldRoute.ObjectMeta.Name)
@@ -351,13 +353,18 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 						fetchedRoute.Name, gslbutils.ObjectDelete, fetchedRoute.Hostname, c.workqueue)
 					return
 				}
+				op := gslbutils.ObjectUpdate
+				if _, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name, route.GetObjectMeta().GetNamespace(),
+					route.GetObjectMeta().GetName()); !ok {
+					op = gslbutils.ObjectAdd
+				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
 				// If the route was already part of rejected store, we need to remove from
 				// this route from the rejected store.
 				rejectedRouteStore.DeleteClusterNSObj(c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				// Add the key for this route to the queue.
 				publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
-					route.ObjectMeta.Name, gslbutils.ObjectUpdate, routeMeta.Hostname, c.workqueue)
+					route.ObjectMeta.Name, op, routeMeta.Hostname, c.workqueue)
 			}
 		},
 	}

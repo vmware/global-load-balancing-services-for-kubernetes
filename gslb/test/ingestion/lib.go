@@ -219,3 +219,37 @@ func buildSvcKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, nam
 		t.Fatal(errStr)
 	}
 }
+
+func GetRouteKey(op, cname, ns, name string) string {
+	return op + "/" + gslbutils.RouteType + "/" + cname + "/" + ns + "/" + name
+}
+
+func buildRouteKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
+	actualKey := GetRouteKey(op, cname, ns, name)
+	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
+	if !passed {
+		t.Fatal(errStr)
+	}
+}
+
+func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
+	gslbObj := getTestGSLBObject()
+	gc, err := gslbingestion.IsGSLBConfigValid(gslbObj)
+	if err != nil {
+		t.Fatal("GSLB object invalid")
+	}
+	addGSLBTestConfigObject(gc)
+	gslbutils.AddClusterContext("cluster1")
+	gslbutils.AddClusterContext("cluster2")
+
+	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
+	gdp := getTestGDPObject(true, false)
+	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
+
+	return gdp
+}
+
+func DeleteTestGDPObj(gdp *gslbalphav1.GlobalDeploymentPolicy) {
+	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
+	gslbingestion.DeleteGDPObj(gdp, ingestionQ.Workqueue, 2)
+}

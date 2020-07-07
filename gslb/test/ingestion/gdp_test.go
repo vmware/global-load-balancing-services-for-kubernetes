@@ -594,11 +594,6 @@ func VerifyAllKeys(t *testing.T, allKeys []string, timeoutExpected bool) {
 	}
 }
 
-func DeleteTestGDPObj(gdp *gslbalphav1.GlobalDeploymentPolicy) {
-	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gslbingestion.DeleteGDPObj(gdp, ingestionQ.Workqueue, 2)
-}
-
 func UpdateTestGDPObj(oldGdp, gdp *gslbalphav1.GlobalDeploymentPolicy) {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	gslbingestion.UpdateGDPObj(oldGdp, gdp, ingestionQ.Workqueue, 2)
