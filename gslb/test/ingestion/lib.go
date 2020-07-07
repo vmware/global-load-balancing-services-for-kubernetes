@@ -29,7 +29,6 @@ import (
 	"amko/gslb/gslbutils"
 	gslbingestion "amko/gslb/ingestion"
 
-	"github.com/avinetworks/container-lib/utils"
 	containerutils "github.com/avinetworks/container-lib/utils"
 )
 
@@ -243,7 +242,7 @@ func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
 	gslbutils.AddClusterContext("cluster1")
 	gslbutils.AddClusterContext("cluster2")
 
-	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
+	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(true, false)
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
 
@@ -251,6 +250,6 @@ func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
 }
 
 func DeleteTestGDPObj(gdp *gslbalphav1.GlobalDeploymentPolicy) {
-	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
+	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	gslbingestion.DeleteGDPObj(gdp, ingestionQ.Workqueue, 2)
 }
