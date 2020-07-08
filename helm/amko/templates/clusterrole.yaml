@@ -13,7 +13,7 @@ rules:
     resources: ["routes"]
     verbs: ["get","watch","list"]
   - apiGroups: [""]
-    resources: ["services", "secrets"]
+    resources: ["services", "secrets", "namespaces"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["amko.k8s.io"]
     resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status"]

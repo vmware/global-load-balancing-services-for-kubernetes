@@ -71,7 +71,6 @@ func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 		Spec: gslbalphav1.GSLBConfigSpec{
 			GSLBLeader:     gslbalphav1.GSLBLeader{"", "", ""},
 			MemberClusters: memberClusters,
-			DomainNames:    []string{},
 		},
 	}
 	return gslbConfigObj

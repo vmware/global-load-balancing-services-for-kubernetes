@@ -32,9 +32,5 @@ spec:
                 properties:
                   clusterContext:
                     type: "string"
-            domainNames:
-              type: "array"
-              items:
-                type: "string"
             refreshInterval:
               type: "integer"
