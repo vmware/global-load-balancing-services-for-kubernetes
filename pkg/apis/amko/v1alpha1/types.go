@@ -32,7 +32,6 @@ type GSLBConfigList struct {
 type GSLBConfigSpec struct {
 	GSLBLeader      GSLBLeader      `json:"gslbLeader,omitempty"`
 	MemberClusters  []MemberCluster `json:"memberClusters,omitempty"`
-	DomainNames     []string        `json:"domainNames,omitempty"`
 	RefreshInterval int             `json:"refreshInterval,omitempty"`
 }
 

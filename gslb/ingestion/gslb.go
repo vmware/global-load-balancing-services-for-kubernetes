@@ -154,10 +154,7 @@ func getGSLBConfigChecksum(gc *gslbalphav1.GSLBConfig) uint32 {
 		memberClusters = append(memberClusters, c.ClusterContext)
 	}
 	sort.Strings(memberClusters)
-	cksum += utils.Hash(utils.Stringify(memberClusters))
-	domainNames := gcSpec.DeepCopy().DomainNames
-	sort.Strings(domainNames)
-	cksum += utils.Hash(utils.Stringify(domainNames)) + utils.Hash(strconv.Itoa(gcSpec.RefreshInterval))
+	cksum += utils.Hash(utils.Stringify(memberClusters)) + utils.Hash(strconv.Itoa(gcSpec.RefreshInterval))
 	return cksum
 }
 
