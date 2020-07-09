@@ -389,13 +389,17 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 
 func (c *AviCache) AviObjCachePopulate(client *clients.AviClient,
 	version string) {
+	SetTenantAndVersion(client, version)
+
+	// Populate the GS cache
+	c.AviObjGSCachePopulate(client)
+}
+
+func SetTenantAndVersion(client *clients.AviClient, version string) {
 	SetTenant := session.SetTenant("*")
 	SetTenant(client.AviSession)
 	SetVersion := session.SetVersion(version)
 	SetVersion(client.AviSession)
-
-	// Populate the GS cache
-	c.AviObjGSCachePopulate(client)
 }
 
 type TenantName struct {
@@ -419,4 +423,41 @@ func PopulateCache(createSharedCache bool) *AviCache {
 			gslbutils.GetAviConfig().Version)
 	}
 	return aviObjCache
+}
+
+func VerifyVersion() error {
+	gslbutils.Logf("verifying the controller version")
+	version := gslbutils.GetAviConfig().Version
+
+	aviRestClientPool := SharedAviClients()
+	if len(aviRestClientPool.AviClient) < 1 {
+		gslbutils.Errf("no avi clients initialized, returning")
+		return errors.New("no avi clients initialized")
+	}
+
+	aviClient := aviRestClientPool.AviClient[0]
+
+	if version == "" {
+		gslbutils.Warnf("no controller version provided by user")
+		ver, err := aviClient.AviSession.GetControllerVersion()
+		if err != nil {
+			gslbutils.Warnf("unable to fetch the version of the controller, error: %s", err.Error())
+			return err
+		}
+		gslbutils.Warnf("taking default version of the controller as: %s", ver)
+		version = ver
+	}
+
+	SetTenantAndVersion(aviClient, version)
+
+	uri := "/api/cloud"
+
+	// we don't actually need the cloud object, rather we want to see if the version is fine or not
+	_, err := AviGetCollectionRaw(aviClient, uri)
+	if err != nil {
+		gslbutils.Errf("error: get URI %s returned error: %s", uri, err)
+		return err
+	}
+
+	return nil
 }

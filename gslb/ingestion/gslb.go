@@ -68,6 +68,7 @@ const (
 	AlreadySetMsg          = "error: can't add another gslbconfig"
 	NoSecretMsg            = "error: secret object doesn't exist"
 	KubeConfigErr          = "error: provided kubeconfig has an error"
+	ControllerAPIErr       = "error: issue in connecting to the controller API"
 )
 
 type kubeClusterDetails struct {
@@ -369,7 +370,7 @@ func GenerateKubeConfig() error {
 	return nil
 }
 
-func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
+func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 	// Read the gslb leader's credentials
 	leaderIP := gc.Spec.GSLBLeader.ControllerIP
 	leaderVersion := gc.Spec.GSLBLeader.ControllerVersion
@@ -378,17 +379,12 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 	if leaderIP == "" {
 		gslbutils.Errf("controllerIP: %s, msg: Invalid controller IP for the leader", leaderIP)
 		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + " with controller IP " + leaderIP)
-		return
-	}
-	if leaderVersion == "" {
-		gslbutils.Errf("controllerVersion: %s, msg: Invalid controller version for leader", leaderVersion)
-		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + " with leaderVersion " + leaderVersion)
-		return
+		return errors.New("invalid leader IP")
 	}
 	if leaderSecret == "" {
 		gslbutils.Errf("credentials: %s, msg: Invalid controller secret for leader", leaderSecret)
 		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + " with leaderSecret " + leaderSecret)
-		return
+		return errors.New("invalid leader secret")
 	}
 
 	secretObj, err := gslbutils.GlobalKubeClient.CoreV1().Secrets(gslbutils.AVISystem).Get(leaderSecret, metav1.GetOptions{})
@@ -396,12 +392,13 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) {
 		gslbutils.Errf("Error in fetching leader controller secret %s in namespace %s, can't initialize controller",
 			leaderSecret, gslbutils.AVISystem)
 		gslbutils.UpdateGSLBConfigStatus(NoSecretMsg + " " + leaderSecret)
-		return
+		return errors.New("error in fetching leader secret")
 	}
 	ctrlUsername := secretObj.Data["username"]
 	ctrlPassword := secretObj.Data["password"]
 	gslbutils.NewAviControllerConfig(string(ctrlUsername), string(ctrlPassword), leaderIP, leaderVersion)
 
+	return nil
 }
 
 // AddGSLBConfigObject parses the gslb config object and starts informers
@@ -441,7 +438,16 @@ func AddGSLBConfigObject(obj interface{}) {
 		"got an add event")
 
 	// parse and set the controller configuration
-	parseControllerDetails(gc)
+	err = parseControllerDetails(gc)
+	if err != nil {
+		gslbutils.Errf("error while parsing controller details: %s", err.Error())
+		return
+	}
+	err = avicache.VerifyVersion()
+	if err != nil {
+		gslbutils.UpdateGSLBConfigStatus(ControllerAPIErr + ", " + err.Error())
+		return
+	}
 
 	// check if the controller details provided are for a leader site
 	if !avicache.IsAviSiteLeader() {
