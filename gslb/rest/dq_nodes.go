@@ -214,15 +214,18 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		utils.AviLog.Infof("key: %s, msg: Published gskey to slow path retry queue", key)
 
-	case 400, 404, 409:
+	case 400:
 		// check if the message contains: "not a leader"
 		// if the controller is not the leader anymore, stop syncing from layer 3.
-		if aviError.HttpStatusCode == 400 && strings.Contains(*aviError.Message, ControllerNotLeaderErr) {
+		if strings.Contains(*aviError.Message, ControllerNotLeaderErr) {
 			gslbutils.Errf("can't execute operations on a non-leader controller, will wait for it to become a leader in the next full sync")
 			gslbutils.SetControllerAsFollower()
 			// don't retry
 			return
 		}
+		gslbutils.Errf("can't handle error code 400: %s, won't retry", *aviError.Message)
+
+	case 404, 409:
 		// however, if this controller is still the leader, we should retry
 		// for these error codes, we should first update the cache and put the key back to rest layer
 		restOp.handleErrAndUpdateCache(aviError.HttpStatusCode, gsKey, key)
