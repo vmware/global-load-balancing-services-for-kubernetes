@@ -3,7 +3,7 @@ import os
 
 BLACK_LIST_FOLDERS = [
                     ".git", 
-                    "tests/jenkins"
+                    "hack/jenkins"
                      ]
 
 

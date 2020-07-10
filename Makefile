@@ -29,7 +29,7 @@ ifndef BUILD_TAG
 		$(eval BUILD_TIME=$(shell date +%Y-%m-%d_%H:%M:%S_%Z))
 endif
 ifndef BUILD_TAG
-		$(eval BUILD_TAG=$(shell ./tests/jenkins/get_build_version.sh "dummy" 0))
+		$(eval BUILD_TAG=$(shell ./hack/jenkins/get_build_version.sh "dummy" 0))
 endif
 		sudo docker build -t $(AMKO_BIN):latest --label "BUILD_TAG=$(BUILD_TAG)" --label "BUILD_TIME=$(BUILD_TIME)" -f Dockerfile.amko . 
 
