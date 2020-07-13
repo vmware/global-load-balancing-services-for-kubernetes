@@ -5,9 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   gslbLeader:
-    credentials: {{ .Values.configs.gslbLeaderSecret }}
+    credentials: "gslb-avi-secret"
     controllerVersion: {{ .Values.configs.controllerVersion }}
-    controllerIP: {{ .Values.configs.gslbLeaderHost }}
+    controllerIP: {{ .Values.configs.gslbLeaderController }}
 {{- with .Values.configs.memberClusters }}
   memberClusters:
     {{- toYaml . | nindent 4 }}

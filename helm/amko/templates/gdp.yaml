@@ -6,18 +6,18 @@ metadata:
 spec:
   matchRules:
     appSelector:
-{{- with .Values.gdpConfig.appSelector }}
+{{- with .Values.globalDeploymentPolicy.appSelector }}
       {{- toYaml . | nindent 6 }}
 {{- end }}
     namespaceSelector:
-{{- with .Values.gdpConfig.namespaceSelector }}
+{{- with .Values.globalDeploymentPolicy.namespaceSelector }}
       {{- toYaml . | nindent 6 }}
   {{- end }}
   matchClusters:
-{{- with .Values.gdpConfig.matchClusters }}
+{{- with .Values.globalDeploymentPolicy.matchClusters }}
     {{- toYaml . | nindent 4 }}
 {{- end }}
+{{- with .Values.globalDeploymentPolicy.trafficSplit }}
   trafficSplit:
-{{- with .Values.gdpConfig.trafficSplit }}
-    {{- toYaml . | nindent 4 }}
+  {{- toYaml . | nindent 4 }}
 {{- end }}
