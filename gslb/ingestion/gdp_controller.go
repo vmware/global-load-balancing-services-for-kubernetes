@@ -159,7 +159,7 @@ func GetObjTypeStores(objType string) (string, *gslbutils.ClusterStore, *gslbuti
 		rejectedObjStore = gslbutils.GetRejectedIngressStore()
 		objKey = gslbutils.IngressType
 	} else {
-		gslbutils.Warnf("Unknown Object type: %s", objType)
+		gslbutils.Errf("Unknown Object type: %s", objType)
 		return "", nil, nil, errors.New("unknown object type " + objType)
 	}
 	return objKey, acceptedObjStore, rejectedObjStore, nil
@@ -314,14 +314,14 @@ func filterExists(f *gslbutils.GlobalFilter) bool {
 		f.GlobalLock.RLock()
 		defer f.GlobalLock.RUnlock()
 		if f.AppFilter != nil {
-			gslbutils.Warnf("no app filter")
+			gslbutils.Debugf("no app filter")
 			return true
 		}
 		if f.NSFilter != nil {
 			f.NSFilter.Lock.RLock()
 			defer f.NSFilter.Lock.RUnlock()
 			if len(f.NSFilter.SelectedNS) > 0 {
-				gslbutils.Warnf("no ns filter")
+				gslbutils.Debugf("no ns filter")
 				return true
 			}
 		}

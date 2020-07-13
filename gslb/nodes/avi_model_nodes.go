@@ -138,7 +138,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	defer v.Lock.Unlock()
 	hosts := []string{metaObj.GetHostname()}
 	memberRoutes := []AviGSK8sObj{
-		AviGSK8sObj{
+		{
 			Cluster:   metaObj.GetCluster(),
 			ObjType:   metaObj.GetType(),
 			IPAddr:    metaObj.GetIPAddr(),

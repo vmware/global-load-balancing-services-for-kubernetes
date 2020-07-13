@@ -24,6 +24,7 @@ configs:
   clusterMembers:
     secret: gslb-config-secret
     key: gslb-members
+  logLevel: "INFO"
 
 gdpConfig:
   # appSelector takes the form of:

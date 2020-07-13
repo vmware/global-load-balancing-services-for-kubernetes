@@ -12,8 +12,5 @@ spec:
   memberClusters:
     {{- toYaml . | nindent 4 }}
 {{- end }}
-{{- with .Values.configs.domainNames }}
-  domainNames:
-  {{- toYaml . | nindent 4 }}
-{{- end }}
   refreshInterval: {{ .Values.configs.refreshInterval }}
+  logLevel: {{ .Values.configs.logLevel }}

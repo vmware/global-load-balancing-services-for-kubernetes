@@ -204,9 +204,20 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 			}
 			existingGCName, existingGCNamespace := gslbutils.GetGSLBConfigNameAndNS()
 			if existingGCName != oldGc.GetObjectMeta().GetName() || existingGCNamespace != oldGc.GetObjectMeta().GetNamespace() {
-				gslbutils.Logf("a GSLBConfig %s already exists in namespace %s, ignoring the updates to this object")
+				gslbutils.Warnf("a GSLBConfig %s already exists in namespace %s, ignoring the updates to this object")
 				return
 			}
+
+			if oldGc.Spec.LogLevel != newGc.Spec.LogLevel {
+				gslbutils.Logf("log level changed")
+				if gslbutils.IsLogLevelValid(newGc.Spec.LogLevel) {
+					utils.AviLog.SetLevel(newGc.Spec.LogLevel)
+					gslbutils.Logf("setting the new log level as %s", newGc.Spec.LogLevel)
+				} else {
+					gslbutils.Errf("log level %s unrecognized", newGc.Spec.LogLevel)
+				}
+			}
+
 			if getGSLBConfigChecksum(oldGc) == getGSLBConfigChecksum(newGc) {
 				return
 			}
@@ -280,6 +291,9 @@ func CheckGSLBConfigsAndInitialize() {
 func IsGSLBConfigValid(obj interface{}) (*gslbalphav1.GSLBConfig, error) {
 	config := obj.(*gslbalphav1.GSLBConfig)
 	if config.ObjectMeta.Namespace == gslbutils.AVISystem {
+		return config, nil
+	}
+	if gslbutils.IsLogLevelValid(config.Spec.LogLevel) {
 		return config, nil
 	}
 	return nil, errors.New("invalid gslb config, namespace can only be avi-system")
@@ -434,7 +448,9 @@ func AddGSLBConfigObject(obj interface{}) {
 		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + err.Error())
 		return
 	}
-	gslbutils.Logf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
+	utils.AviLog.SetLevel(gc.Spec.LogLevel)
+
+	gslbutils.Debugf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
 		"got an add event")
 
 	// parse and set the controller configuration
@@ -460,10 +476,10 @@ func AddGSLBConfigObject(obj interface{}) {
 
 	cacheRefreshInterval := gc.Spec.RefreshInterval
 	if cacheRefreshInterval <= 0 {
-		gslbutils.Logf("Invalid refresh interval provided, will set it to default %d seconds", gslbutils.DefaultRefreshInterval)
+		gslbutils.Warnf("Invalid refresh interval provided, will set it to default %d seconds", gslbutils.DefaultRefreshInterval)
 		cacheRefreshInterval = gslbutils.DefaultRefreshInterval
 	}
-	gslbutils.Logf("Cache refresh interval: %d seconds", cacheRefreshInterval)
+	gslbutils.Debugf("Cache refresh interval: %d seconds", cacheRefreshInterval)
 	// Secret created with name: "gslb-config-secret" and environment variable to set is
 	// GSLB_CONFIG.
 	err = GenerateKubeConfig()
@@ -528,22 +544,22 @@ func Initialize() {
 	}
 	if insideCluster == false {
 		cfg, err = clientcmd.BuildConfigFromFlags(masterURL, kubeConfig)
-		gslbutils.Logf("masterURL: %s, kubeconfigPath: %s, msg=%s", masterURL, kubeConfig,
+		gslbutils.Logf("masterURL: %s, kubeconfigPath: %s, msg: %s", masterURL, kubeConfig,
 			"built from flags")
 		if err != nil {
-			gslbutils.Logf("object: main, msg: %s, %s", "error building kubeconfig", err)
+			panic("object: main, msg: " + err.Error() + ", error building kubeconfig")
 		}
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		utils.AviLog.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		panic("error building kubernetes clientset: " + err.Error())
 	}
 
 	gslbutils.SetWaitGroupMap()
 	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
-		utils.AviLog.Fatalf("Error building gslb config clientset: %s", err.Error())
+		panic("error building gslb config clientset: " + err.Error())
 	}
 	gslbutils.GlobalGslbClient = gslbClient
 	// required to publish the GDP status, the reason we need this is because, during unit tests, we don't
@@ -610,11 +626,11 @@ func Initialize() {
 
 func RunGDPAndGSLBControllers(gslbController *GSLBConfigController, gdpController *GDPController, stopCh <-chan struct{}) {
 	if err := gslbController.Run(stopCh); err != nil {
-		utils.AviLog.Fatalf("Error running GSLB controller: %s\n", err.Error())
+		panic("error running GSLB Controller: " + err.Error())
 	}
 
 	if err := gdpController.Run(stopCh); err != nil {
-		utils.AviLog.Fatalf("Error running GDP controller: %s\n", err.Error())
+		panic("error running GDP Controller: " + err.Error())
 	}
 }
 
