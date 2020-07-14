@@ -219,7 +219,7 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 		CloudConfigCksum: cksum,
 	}
 	c.AviCacheAdd(k, &gsCacheObj)
-	gslbutils.Logf(spew.Sprintf("cacheKey: %v, value: %v, msg: added GS to the cache", k,
+	gslbutils.Debugf(spew.Sprintf("cacheKey: %v, value: %v, msg: added GS to the cache", k,
 		utils.Stringify(gsCacheObj)))
 
 }

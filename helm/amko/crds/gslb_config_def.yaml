@@ -34,3 +34,6 @@ spec:
                     type: "string"
             refreshInterval:
               type: "integer"
+            logLevel:
+              type: "string"
+              enum: [DEBUG, INFO, WARN, ERROR]

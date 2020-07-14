@@ -218,6 +218,9 @@ var Errf = utils.AviLog.Errorf
 // Warnf is aliased to utils' Warning.Printf
 var Warnf = utils.AviLog.Warnf
 
+// Debugf is aliased to utils' Debug.Printf
+var Debugf = utils.AviLog.Debugf
+
 // Cluster Routes store for all the route objects.
 var (
 	AcceptedRouteStore   *ClusterStore
@@ -431,4 +434,9 @@ func WaitForWorkersToExit() {
 	case <-time.After(timeout):
 		return
 	}
+}
+
+func IsLogLevelValid(level string) bool {
+	_, ok := utils.LogLevelMap[level]
+	return ok
 }

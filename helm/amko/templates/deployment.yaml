@@ -42,8 +42,8 @@ spec:
           - name: GSLB_CONFIG
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.configs.clusterMembers.secret }}
-                key: {{ .Values.configs.clusterMembers.key }}
+                name: "gslb-config-secret"
+                key: "gslb-members"
           {{ if .Values.persistentVolumeClaim }}
           - name: USE_PVC
             value: "true"

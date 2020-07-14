@@ -5,15 +5,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   gslbLeader:
-    credentials: {{ .Values.configs.gslbLeaderSecret }}
+    credentials: "gslb-avi-secret"
     controllerVersion: {{ .Values.configs.controllerVersion }}
-    controllerIP: {{ .Values.configs.gslbLeaderHost }}
+    controllerIP: {{ .Values.configs.gslbLeaderController }}
 {{- with .Values.configs.memberClusters }}
   memberClusters:
     {{- toYaml . | nindent 4 }}
 {{- end }}
-{{- with .Values.configs.domainNames }}
-  domainNames:
-  {{- toYaml . | nindent 4 }}
-{{- end }}
   refreshInterval: {{ .Values.configs.refreshInterval }}
+  logLevel: {{ .Values.configs.logLevel }}

@@ -261,7 +261,7 @@ func (gf *GlobalFilter) GetTrafficWeight(ns, cname string) (int32, error) {
 			return ts.Weight, nil
 		}
 	}
-	Warnf("cname: %s, msg: no weight available for this cluster")
+	Logf("cname: %s, msg: no weight available for this cluster", cname)
 	return 0, errors.New("no weight available for cluster " + cname)
 }
 
@@ -314,7 +314,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha1.GlobalDep
 		"got an update event")
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
-	Logf("old checksum: %d, new checksum: %d", gf.Checksum, nf.Checksum)
+	Debugf("old checksum: %d, new checksum: %d", gf.Checksum, nf.Checksum)
 	if gf.Checksum == nf.Checksum {
 		// No updates needed, just return
 		return false, false

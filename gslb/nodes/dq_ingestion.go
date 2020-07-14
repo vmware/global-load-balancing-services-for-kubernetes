@@ -141,7 +141,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		newChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
 		if prevChecksum == newChecksum {
 			// Checksums are same, return
-			gslbutils.Logf("key: %s, model: %s, msg: %s", key, modelName,
+			gslbutils.Debugf("key: %s, model: %s, msg: %s", key, modelName,
 				"the model for this key has identical checksums")
 			return
 		}

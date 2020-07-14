@@ -33,6 +33,7 @@ type GSLBConfigSpec struct {
 	GSLBLeader      GSLBLeader      `json:"gslbLeader,omitempty"`
 	MemberClusters  []MemberCluster `json:"memberClusters,omitempty"`
 	RefreshInterval int             `json:"refreshInterval,omitempty"`
+	LogLevel        string          `json:"logLevel,omitempty"`
 }
 
 // GSLBLeader is the leader node in the GSLB cluster

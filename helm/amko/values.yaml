@@ -5,27 +5,23 @@
 replicaCount: 1
 
 image:
-  repository: amko
+  repository: 10.79.172.11:5000/avi-buildops/amko
   pullPolicy: IfNotPresent
 
 configs:
-  gslbLeaderHost: ""
+  gslbLeaderController: ""
   controllerVersion: "18.2.9"
-  gslbLeaderSecret: "gslb-avi-secret"
   memberClusters:
     - clusterContext: "cluster1-admin"
     - clusterContext: "cluster2-admin"
   refreshInterval: 1800
-  gslbLeaderCredentials:
-    username: "admin"
-    password: "avi123"
-  domainNames:
-    - foo.com
-  clusterMembers:
-    secret: gslb-config-secret
-    key: gslb-members
+  logLevel: "INFO"
 
-gdpConfig:
+gslbLeaderCredentials:
+  username: "admin"
+  password: "avi123"
+
+globalDeploymentPolicy:
   # appSelector takes the form of:
   # appSelector:
   #   label:
@@ -45,16 +41,12 @@ gdpConfig:
     - "cluster2-admin"
 
   # list of all clusters and their traffic weights, if unspecified, default weights will be
-  # given
-  trafficSplit:
-    - cluster: "cluster1-admin"
-      weight: 8
-    - cluster: "cluster2-admin"
-      weight: 2
-
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+  # given (optional). Uncomment below to add the required trafficSplit.
+  # trafficSplit:
+  #   - cluster: "cluster1-admin"
+  #     weight: 8
+  #   - cluster: "cluster2-admin"
+  #     weight: 2
 
 serviceAccount:
   # Specifies whether a service account should be created

@@ -38,7 +38,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			// Don't add this svc if this is not of type LB,
 			// or if no IP is allocated it's status
 			if !isSvcTypeLB(svc) {
-				gslbutils.Logf("cluster: %s, ns:%s, svc %s, msg: type not lb", c.name, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+				gslbutils.Debugf("cluster: %s, ns: %s, svc %s, msg: type not lb", c.name, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 				return
 			}
 			svcMeta, ok := k8sobjects.GetSvcMeta(svc, c.name)
@@ -60,7 +60,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 		DeleteFunc: func(obj interface{}) {
 			svc, ok := obj.(*corev1.Service)
 			if !ok {
-				containerutils.AviLog.Errorf("object type is not Svc")
+				gslbutils.Debugf("object %v is not of type Service", svc)
 				return
 			}
 			if !isSvcTypeLB(svc) {
@@ -121,7 +121,7 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32, fullsync bool) {
 	for _, ihm := range ingressHostMetaObjs {
 		if ihm.IPAddr == "" || ihm.Hostname == "" {
-			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
+			gslbutils.Debugf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
 				c.name, ihm.Namespace, ihm.IngName,
 				"rejected ADD ingress because IP address/Hostname not found in status field")
 			continue
@@ -317,7 +317,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 		DeleteFunc: func(obj interface{}) {
 			route, ok := obj.(*routev1.Route)
 			if !ok {
-				containerutils.AviLog.Errorf("object type is not route")
+				gslbutils.Debugf("object %v type is not Route", route)
 				return
 			}
 			// Delete from all route stores
@@ -388,7 +388,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 		AddFunc: func(obj interface{}) {
 			ns, ok := obj.(*corev1.Namespace)
 			if !ok {
-				containerutils.AviLog.Errorf("Unable to convert obj type interface to namespace")
+				gslbutils.Debugf("unable to convert obj %v type interface to namespace", obj)
 				return
 			}
 			nsMeta := k8sobjects.GetNSMeta(ns, c.name)
@@ -404,12 +404,12 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 		DeleteFunc: func(obj interface{}) {
 			ns, ok := obj.(*corev1.Namespace)
 			if !ok {
-				containerutils.AviLog.Errorf("Unable to convert obj type interface to namespace")
+				gslbutils.Debugf("unable to convert obj %v type interface to Namespace", obj)
 				return
 			}
 			nsMeta := k8sobjects.GetNSMeta(ns, c.name)
 			if !nsMeta.DeleteFromFilter() {
-				gslbutils.Logf("No namespace exists in the filter, nothing to change")
+				gslbutils.Debugf("no namespace exists in the filter, nothing to change")
 			}
 			// ns deleted from the filter, re-apply on the existing objects
 			WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
@@ -420,7 +420,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 			oldNS, okOld := old.(*corev1.Namespace)
 			ns, okNew := curr.(*corev1.Namespace)
 			if !okOld || !okNew {
-				containerutils.AviLog.Errorf("Unable to convert obj type interface to namespace")
+				gslbutils.Debugf("unable to convert obj %v type interface to Namespace", curr)
 				return
 			}
 			if oldNS.ResourceVersion != ns.ResourceVersion {
@@ -428,7 +428,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 				newNSMeta := k8sobjects.GetNSMeta(ns, c.name)
 				if !newNSMeta.UpdateFilter(oldNSMeta) {
 					// no changes, nothing to be dome
-					gslbutils.Logf("ns didn't change, nothing to be done")
+					gslbutils.Debugf("ns didn't change, nothing to be done")
 					// change the namespace label if updated only in the rejection list, for all other
 					// cases, it will be updated
 					AddOrUpdateNSStore(rejectedNSStore, ns, c.name)

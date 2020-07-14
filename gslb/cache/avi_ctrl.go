@@ -84,11 +84,12 @@ func GetClusterUuid(client *clients.AviClient) (string, error) {
 			uri, clusterIntf, clusterIntf)
 		return "", errors.New("unexpected response for get cluster")
 	}
-	gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned a cluster", uri)
+	gslbutils.Debugf("object: ControllerCluster, msg: Cluster get URI %s returned a cluster", uri)
 
 	cluster, ok := clusterIntf.(map[string]interface{})
 	if !ok {
-		gslbutils.Logf("resp: %v, msg: response can't be parsed to map[string]interface", clusterIntf)
+		gslbutils.Warnf("resp: %v, msg: response can't be parsed to map[string]interface", clusterIntf)
+		return "", errors.New("response can't be parsed to map[string]interface")
 	}
 	name, ok := cluster["name"].(string)
 	if !ok {
@@ -122,7 +123,7 @@ func GetGslbLeaderUuid(client *clients.AviClient) (string, error) {
 			uri, resp, restResp)
 		return "", errors.New("unexpected response for get gslb")
 	}
-	gslbutils.Logf("object: GslbConfig, msg: gslb get URI %s returned %v count", uri, restResp["count"])
+	gslbutils.Debugf("object: GslbConfig, msg: gslb get URI %s returned %v count", uri, restResp["count"])
 	results, ok := restResp["results"].([]interface{})
 
 	if !ok {

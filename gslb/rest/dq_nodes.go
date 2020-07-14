@@ -77,7 +77,7 @@ func (restOp *RestOperations) DqNodes(key string) {
 
 	if aviModel.MembersLen() == 0 {
 		if gsCacheObj != nil {
-			gslbutils.Logf("key: %s, msg: %s", key, "no model found, this is a GS deletion case")
+			gslbutils.Logf("key: %s, msg: %s", key, "no model found, will delete the GslbService")
 			// Delete case can have two sub-cases:
 			// 1. Just delete the IP if present
 			// 2. Delete the GS object only if this is the last IP present.
@@ -86,9 +86,9 @@ func (restOp *RestOperations) DqNodes(key string) {
 		return
 	}
 
-	gslbutils.Logf("key: %s, msg: GS create/update", key)
+	gslbutils.Logf("key: %s, msg: GslbService will be created/updated", key)
 	if aviModel == nil {
-		gslbutils.Warnf("key: %s, msg: %s", key, "no gslbservice in the model")
+		gslbutils.Warnf("key: %s, msg: %s", key, "no model exists for this GslbService")
 		return
 	}
 	restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
@@ -108,15 +108,15 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 		var cksum uint32
 		cksum = aviGSGraph.GetChecksum()
 		if gsCacheObj.CloudConfigCksum == cksum {
-			gslbutils.Logf("key: %s, GSLBService: %s, msg: the checksums are same for the GSLB service, existing: %s, new: %s, ignoring",
+			gslbutils.Debugf("key: %s, GSLBService: %s, msg: the checksums are same for the GSLB service, existing: %s, new: %s, ignoring",
 				key, gsName, gsCacheObj.CloudConfigCksum, cksum)
 			return
 		}
-		gslbutils.Logf("key: %s, GSLBService: %s, oldCksum: %s, newCksum: %s, msg: %s", key, gsName,
+		gslbutils.Debugf("key: %s, GSLBService: %s, oldCksum: %s, newCksum: %s, msg: %s", key, gsName,
 			gsCacheObj.CloudConfigCksum, cksum, "checksums are different for the GSLB Service")
 		// it should be a PUT call
 		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key)
-		gslbutils.Logf("gsKey: %s, restOps: %v, operation: %v", gsKey, restOps, operation)
+		gslbutils.Debugf("gsKey: %s, restOps: %v, operation: %v", gsKey, restOps, operation)
 	} else {
 		// its a post operation
 		gslbutils.Logf("key: %s, operation: POST, msg: GS not found in cache", key)
@@ -203,16 +203,16 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 		gslbutils.Errf("error in parsing the web api error to avi error: %v", webApiErr)
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Infof("key: %s, msg: Published gskey to slow path retry queue", key)
+		gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
 		return
 	}
 
-	utils.AviLog.Infof("key: %s, msg: Status code retrieved: %d", key, aviError.HttpStatusCode)
+	gslbutils.Logf("key: %s, msg: Status code retrieved: %d", key, aviError.HttpStatusCode)
 	switch aviError.HttpStatusCode {
 	case 500, 501, 502, 503:
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Infof("key: %s, msg: Published gskey to slow path retry queue", key)
+		gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
 
 	case 400:
 		// check if the message contains: "not a leader"
@@ -231,10 +231,10 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 		restOp.handleErrAndUpdateCache(aviError.HttpStatusCode, gsKey, key)
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		utils.AviLog.Infof("key: %s, msg: Published gskey to fast path retry queue", key)
+		gslbutils.Logf("key: %s, msg: Published gskey to fast path retry queue", key)
 
 	default:
-		utils.AviLog.Infof("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
+		gslbutils.Warnf("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
 	}
 }
 
@@ -327,7 +327,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	operation.Path = path + cacheObj.Uuid
 	operation.Method = utils.RestPut
 
-	gslbutils.Logf(spew.Sprintf("key: %s, gsMeta: %s, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
+	gslbutils.Debugf(spew.Sprintf("key: %s, gsMeta: %s, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
 	return &operation
 }
 
@@ -350,7 +350,7 @@ func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string, g
 	gslbutils.Logf("name of the GS to be deleted from the cache: %s", gsName)
 	operation := utils.RestOp{ObjName: gsName, Path: path, Method: "DELETE", Tenant: tenant, Model: "GSLBService",
 		Version: gslbutils.GetAviConfig().Version}
-	gslbutils.Logf(spew.Sprintf("GSLB Service DELETE Restop %v\n", utils.Stringify(operation)))
+	gslbutils.Debugf(spew.Sprintf("GSLB Service DELETE Restop %v\n", utils.Stringify(operation)))
 	return &operation
 }
 
@@ -420,7 +420,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 	if err != nil {
 		gslbutils.Errf("key: %s, resp: %v, msg: error in getting checksum for gslb svc: %s", key, respElem, err)
 	}
-	gslbutils.Logf("key: %s, resp: %s, cksum: %d, msg: GS information", key, utils.Stringify(respElem), cksum)
+	gslbutils.Debugf("key: %s, resp: %s, cksum: %d, msg: GS information", key, utils.Stringify(respElem), cksum)
 	k := avicache.TenantName{Tenant: operation.Tenant, Name: name}
 	gsCache, ok := restOp.cache.AviCacheGet(k)
 	if ok {

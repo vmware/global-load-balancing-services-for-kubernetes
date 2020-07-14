@@ -61,7 +61,7 @@ func (ctrl GSLBMemberController) GetName() string {
 func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 	route *routev1.Route, cname string) {
 	routeMeta := k8sobjects.GetRouteMeta(route, cname)
-	gslbutils.Logf("route hostname: %s", routeMeta.Hostname)
+	gslbutils.Debugf("route hostname: %s", routeMeta.Hostname)
 	clusterRouteStore.AddOrUpdate(routeMeta, cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 }
 
@@ -147,7 +147,7 @@ func isSvcTypeLB(svc *corev1.Service) bool {
 func AddOrUpdateLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
 	svc *corev1.Service, cname string) {
 	svcMeta, _ := k8sobjects.GetSvcMeta(svc, cname)
-	gslbutils.Logf("updating service store: %s", svc.ObjectMeta.Name)
+	gslbutils.Debugf("updating service store: %s", svc.ObjectMeta.Name)
 	clusterSvcStore.AddOrUpdate(svcMeta, cname, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 }
 
