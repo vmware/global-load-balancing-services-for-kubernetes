@@ -16,8 +16,7 @@ Few things are needed before we can kickstart AMKO:
 ```
 kubectl create ns avi-system
 ```
-6. Create a kubeconfig file with the permissions to read the service and ingress/route objects for multiple clusters. See how to create a kubeconfig file for multiple clusters [here](#Multi-cluster-kubeconfig)
-Generate a secret with the kubeconfig file in `cluster-amko`:
+6. Create a kubeconfig file with the permissions to read the service and ingress/route objects for multiple clusters. See how to create a kubeconfig file for multiple clusters [here](#Multi-cluster-kubeconfig). Name this file `gslb-members` and generate a secret with the kubeconfig file in `cluster-amko` by following:
 ```
 kubectl --kubeconfig my-config create secret generic gslb-config-secret --from-file gslb-members -n avi-system
 ```
@@ -26,7 +25,7 @@ kubectl --kubeconfig my-config create secret generic gslb-config-secret --from-f
 ## Install using helm
 The next step is to use helm to bootstrap amko:
 ```
-helm install amko --generate-name --namespace=avi-system --set configs.gslbLeaderHost="10.10.10.10" 
+helm install amko --generate-name --namespace=avi-system --set configs.gslbLeaderController="10.10.10.10" 
 ```
 Use the [values.yaml](helm/amko/values.yaml) to edit values related to Avi configuration. Please refer to the [parameters](#parameters).
 
@@ -41,22 +40,18 @@ kubectl delete gdp -n avi-system <gdp_name>
 ```
 
 ## parameters
-| **Parameter**                                    | **Description**                                                                                                          | **Default**                           |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `configs.controllerVersion`                      | GSLB leader controller version                                                                                           | 18.2.9                                |
-| `configs.gslbLeaderHost`                         | GSLB leader site URL                                                                                                     | Nil                                   |
-| `configs.gslbLeaderSecret`                       | GSLB leader credentials secret name in `avi-system` namespace                                                            | `gslb-avi-secret`                     |
-| `configs.gslbLeaderCredentials.username`         | GSLB leader controller username                                                                                          | `admin`                               |
-| `configs.gslbLeaderCredentials.password`         | GSLB leader controller password                                                                                          | `avi123`                              |
-| `configs.memberClusters.clusterContext`          | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
-| `configs.refreshInterval`                        | The time interval which triggers a AVI cache refresh                                                                     | 120 seconds                           |
-| `configs.clusterMembers.secret`                  | The name of the secret which is created with kubeconfig as the data                                                      | `gslb-config-secret`                  |
-| `configs.clusterMembers.key`                     | The name of the field (key) inside the secret `configs.clusterMembers.secret` data                                       | `gslb-members`                        |
-| `gdpConfig.appSelector.label{.key,.value}`       | Selection criteria for applications, label key and value are provided                                                    | Nil                                   |
-| `gdpConfig.namespaceSelector.label{.key,.value}` | Selection criteria for namespaces, label key and value are provided                                                      | Nil                                   |
-| `gdpConfig.matchClusters`                        | List of clusters (names must match the names in configs.memberClusters) from where the objects will be selected          | Nil                                   |
-| `gdpConfig.trafficSplit`                         | List of weights for clusters (names must match the names in configs.memberClusters), each weight must range from 1 to 20 | Nil                                   |
-
+| **Parameter**                                                 | **Description**                                                                                                          | **Default**                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `configs.gslbLeaderController`                                | GSLB leader controller version                                                                                           | 18.2.9                                |
+| `gslbLeaderCredentials.username`                              | GSLB leader controller username                                                                                          | `admin`                               |
+| `gslbLeaderCredentials.password`                              | GSLB leader controller password                                                                                          | `avi123`                              |
+| `configs.memberClusters.clusterContext`                       | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
+| `configs.refreshInterval`                                     | The time interval which triggers a AVI cache refresh                                                                     | 120 seconds                           |
+| `configs.logLevel`                                            | Log level to be used                                                                                                     | `INFO`                                |
+| `globalDeploymentPolicy.appSelector.label{.key,.value}`       | Selection criteria for applications, label key and value are provided                                                    | Nil                                   |
+| `globalDeploymentPolicy.namespaceSelector.label{.key,.value}` | Selection criteria for namespaces, label key and value are provided                                                      | Nil                                   |
+| `globalDeploymentPolicy.matchClusters`                        | List of clusters (names must match the names in configs.memberClusters) from where the objects will be selected          | Nil                                   |
+| `globalDeploymentPolicy.trafficSplit`                         | List of weights for clusters (names must match the names in configs.memberClusters), each weight must range from 1 to 20 | Nil                                   |
 
 ## Use the GSLBConfig CRD
 A CRD has been provided to add the GSLB configuration. The name of the object is GSLBConfig and it has the following parameters:
@@ -69,32 +64,29 @@ metadata:
 spec:
   gslbLeader:
     credentials: gslb-avi-secret
-    controllerVersion: 18.2.7
-    controllerIP: 10.79.171.1
+    controllerVersion: 18.2.9
+    controllerIP: 10.10.10.10
   memberClusters:
     - clusterContext: cluster1-admin
     - clusterContext: cluster2-admin
-  globalServiceNameSource: HOSTNAME
-  domainNames:
-    - avi-container-dns.internal
-  refreshInterval: 60
+  refreshInterval: 1800
+  logLevel: "INFO"
 ```
 1. `apiVersion`: The api version for this object has to be `avilb.k8s.io/v1alpha1`.
 2. `kind`: the object kind is `GSLBConfig`.
-3. `name`: Can be anything, but it has to be specified in the GDP object.
-4. `namespace`: By default, this object is supposed to be created in `avi-system`.
-5. `gslbLeader.credentials`: A secret object has to be created for (`helm install` does that automatically) the GSLB Leader cluster. The username and password have to be provided as part of this secret object. Refer to `username` and `password` in [parameters](#parameters).
-6. `gslbLeader.controllerVersion`: The version of the GSLB leader cluster.
-7. `gslbLeader.controllerIP`: The GSLB leader IP address or the hostname along with the port number, if any.
-8. `memberClusters`: The kubernetes/openshift cluster contexts which are part of this GSLB cluster. See [here](#Multi-cluster kubeconfig) to create contexts for multiple kubernetes clusters.
-9. `globalServiceNameSource`: The basis on which a GSLB service is created and named. For now, the supported type is `HOSTNAME`. This means that the any ingress which shares a host name across clusters will be placed on the same GSLB service.
-10. `domainNames`: Supported GSLB subdomains.
-11. `refreshInterval`: This is an internal cache refresh time interval, on which syncs up with the AVI objects and checks if a sync is required.
+3. `metadata.name`: Can be anything, but it has to be specified in the GDP object.
+4. `metada.namespace`: By default, this object is supposed to be created in `avi-system`.
+5. `spec.gslbLeader.credentials`: A secret object has to be created for (`helm install` does that automatically) the GSLB Leader cluster. The username and password have to be provided as part of this secret object. Refer to `username` and `password` in [parameters](#parameters).
+6. `spec.gslbLeader.controllerVersion`: The version of the GSLB leader cluster.
+7. `spec.gslbLeader.controllerIP`: The GSLB leader IP address or the hostname along with the port number, if any.
+8. `spec.memberClusters`: The kubernetes/openshift cluster contexts which are part of this GSLB cluster. See [here](#Multi-cluster kubeconfig) to create contexts for multiple kubernetes clusters.
+9.  `spec.refreshInterval`: This is an internal cache refresh time interval, on which syncs up with the AVI objects and checks if a sync is required.
+10. `spec.logLevel`: Specify the required types of logs that should be printed by AMKO. There are currently 4 supported types: `INFO`, `DEBUG`, `WARN` and `ERROR`.
 
 **Few Notes**:
 - Only one GSLBConfig object is allowed.
-- If using `helm install`, the GSLB config object will be created for you, just provide the right parameters in `values.yml`.
-- Once this object is defined and is accepted, it can't be changed (as of now). If changed, the changes will not take any effect. For the changes to take effect, one has to restart the AMKO pod.
+- If using `helm install`, the GSLB Config object is created, just provide the right parameters in `values.yml`.
+- Once this object is defined and is accepted, it can't be changed (as of now). The only allowable edit is for the `logLevel` field. For all other fields, if changed, the changes will not take any effect. For the changes to take effect, one has to restart the AMKO pod.
 
 ## Selecting kubernetes/openshift objects from different clusters
 A CRD called GlobalDeploymentPolicy allows users to select kubernetes/openshift objects based on certain rules. This GDP object has to be created on the same system wherever the GSLBConfig object was created and `amko` is running. The selection policy applies to all the clusters which are mentioned in the GDP object. A typical GlobalDeploymentPolicy looks like this:
