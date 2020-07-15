@@ -120,7 +120,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := AviGetCollectionRaw(client, uri)
+		result, err := AviGetCollectionRaw(client, uri+"&created_by="+gslbutils.AmkoUser)
 		if err != nil {
 			gslbutils.Warnf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
 			return
@@ -177,27 +177,13 @@ func AviGetCollectionRaw(client *clients.AviClient, uri string) (session.AviColl
 }
 
 func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
-	name := *gsObj.Name
-	uuid := *gsObj.UUID
-	createdBy := *gsObj.CreatedBy
-	if createdBy == "" {
-		gslbutils.Warnf("createdBy: %v, msg: created_by not present in response", createdBy)
-		// if we want to get avi gs object for a spefic gs name,
-		// then don't skip even if created_by field is not present.
-		// This is used while retrying after a failure
-		if len(gsname) == 0 {
-			return
-		}
+	var name, uuid string
+	if gsObj.Name == nil || gsObj.UUID == nil {
+		gslbutils.Warnf("name: %v, uuid: %v, name/uuid field not set for GSLBService, ignoring", gsObj.Name, gsObj.UUID)
+		return
 	}
-	if createdBy != gslbutils.AmkoUser {
-		gslbutils.Warnf("createdBy: %v, msg: GS not created by amko", createdBy, gslbutils.AmkoUser)
-		// if we want to get avi gs object for a spefic gs name,
-		// then don't skip even if created_by field is wrong.
-		// This is used while retrying after a failure
-		if len(gsname) == 0 {
-			return
-		}
-	}
+	name = *gsObj.Name
+	uuid = *gsObj.UUID
 
 	cksum, gsMembers, memberObjs, err := GetDetailsFromAviGSLBFormatted(gsObj)
 	if err != nil {

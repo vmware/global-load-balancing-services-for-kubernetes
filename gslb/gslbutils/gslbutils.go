@@ -184,7 +184,8 @@ func IngressGetIPAddrs(ingress *v1beta1.Ingress) []IngressHostIP {
 	ingStatus := ingress.Status
 	ingList := ingStatus.LoadBalancer.Ingress
 	if len(ingList) == 0 {
-		Warnf("Ingress %v doesn't have the status field populated", ingress)
+		Logf("Ingress %s doesn't have the status field populated", ingress.GetObjectMeta().GetName())
+		Debugf("Ingress: %v", ingress)
 		return ingHostIP
 	}
 	for _, ingr := range ingList {
