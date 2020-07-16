@@ -24,23 +24,25 @@ import (
 	"github.com/avinetworks/sdk/go/clients"
 )
 
-var AviClientInstance *utils.AviRestClientPool
+var aviClientInstance *utils.AviRestClientPool
 
 var clientOnce sync.Once
 
 // SharedAviClients initializes a pool of connections to the avi controller
 func SharedAviClients() *utils.AviRestClientPool {
-	var err error
+	clientOnce.Do(func() {
+		var err error
 
-	ctrlCfg := gslbutils.GetAviConfig()
-	if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" {
-		utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
-	}
-	AviClientInstance, err = utils.NewAviRestClientPool(utils.NumWorkersGraph, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password)
-	if err != nil {
-		utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
-	}
-	return AviClientInstance
+		ctrlCfg := gslbutils.GetAviConfig()
+		if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" {
+			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
+		}
+		aviClientInstance, err = utils.NewAviRestClientPool(utils.NumWorkersGraph, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password)
+		if err != nil {
+			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
+		}
+	})
+	return aviClientInstance
 }
 
 func IsAviSiteLeader() bool {
