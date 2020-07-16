@@ -26,13 +26,15 @@ globalDeploymentPolicy:
   # appSelector:
   #   label:
   #     app: gslb   <example label key-value for an ingress/service type LB>
-  appSelector:
+  # Uncomment below and add the required ingress/route/service label
+  # appSelector:
 
   # namespaceSelector takes the form of:
   # namespaceSelector:
   #   label:
   #     ns: gslb   <example label key-value for namespace>
-  namespaceSelector:
+  # Uncomment below and add the reuqired namespace label
+  # namespaceSelector:
 
   # list of all clusters that the GDP object will be applied to, can take any/all values
   # from .configs.memberClusters
