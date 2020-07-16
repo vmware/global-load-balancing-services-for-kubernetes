@@ -204,7 +204,8 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 			}
 			existingGCName, existingGCNamespace := gslbutils.GetGSLBConfigNameAndNS()
 			if existingGCName != oldGc.GetObjectMeta().GetName() || existingGCNamespace != oldGc.GetObjectMeta().GetNamespace() {
-				gslbutils.Warnf("a GSLBConfig %s already exists in namespace %s, ignoring the updates to this object")
+				gslbutils.Warnf("a GSLBConfig %s already exists in namespace %s, ignoring the updates to this object", existingGCName,
+					existingGCNamespace)
 				return
 			}
 
