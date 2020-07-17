@@ -52,7 +52,7 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=amko, Version=v1alpha1
+	// Group=amko.vmware.com, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("gslbconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GSLBConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("globaldeploymentpolicies"):

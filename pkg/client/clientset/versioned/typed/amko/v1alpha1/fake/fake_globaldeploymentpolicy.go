@@ -35,9 +35,9 @@ type FakeGlobalDeploymentPolicies struct {
 	ns   string
 }
 
-var globaldeploymentpoliciesResource = schema.GroupVersionResource{Group: "amko", Version: "v1alpha1", Resource: "globaldeploymentpolicies"}
+var globaldeploymentpoliciesResource = schema.GroupVersionResource{Group: "amko.vmware.com", Version: "v1alpha1", Resource: "globaldeploymentpolicies"}
 
-var globaldeploymentpoliciesKind = schema.GroupVersionKind{Group: "amko", Version: "v1alpha1", Kind: "GlobalDeploymentPolicy"}
+var globaldeploymentpoliciesKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha1", Kind: "GlobalDeploymentPolicy"}
 
 // Get takes name of the globalDeploymentPolicy, and returns the corresponding globalDeploymentPolicy object, and an error if there is any.
 func (c *FakeGlobalDeploymentPolicies) Get(name string, options v1.GetOptions) (result *v1alpha1.GlobalDeploymentPolicy, err error) {

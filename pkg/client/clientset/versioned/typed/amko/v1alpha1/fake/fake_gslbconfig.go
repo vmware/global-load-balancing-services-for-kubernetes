@@ -35,9 +35,9 @@ type FakeGSLBConfigs struct {
 	ns   string
 }
 
-var gslbconfigsResource = schema.GroupVersionResource{Group: "amko", Version: "v1alpha1", Resource: "gslbconfigs"}
+var gslbconfigsResource = schema.GroupVersionResource{Group: "amko.vmware.com", Version: "v1alpha1", Resource: "gslbconfigs"}
 
-var gslbconfigsKind = schema.GroupVersionKind{Group: "amko", Version: "v1alpha1", Kind: "GSLBConfig"}
+var gslbconfigsKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha1", Kind: "GSLBConfig"}
 
 // Get takes name of the gSLBConfig, and returns the corresponding gSLBConfig object, and an error if there is any.
 func (c *FakeGSLBConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.GSLBConfig, err error) {

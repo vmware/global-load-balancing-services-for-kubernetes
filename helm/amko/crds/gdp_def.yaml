@@ -1,47 +1,61 @@
-apiVersion: "apiextensions.k8s.io/v1beta1"
-kind: "CustomResourceDefinition"
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
 metadata:
-  name: "globaldeploymentpolicies.amko.k8s.io"
+  name: globaldeploymentpolicies.amko.vmware.com
 spec:
-  group: "amko.k8s.io"
-  version: "v1alpha1"
-  scope: "Namespaced"
+  conversion:
+    strategy: None
+  group: amko.vmware.com
   names:
-    plural: "globaldeploymentpolicies"
-    singular: "globaldeploymentpolicy"
-    kind: "GlobalDeploymentPolicy"
+    kind: GlobalDeploymentPolicy
+    listKind: GlobalDeploymentPolicyList
+    plural: globaldeploymentpolicies
     shortNames:
-      - "gdp"
-  validation:
-    openAPIV3Schema:
-      required: ["spec"]
-      properties:
-        spec:
-          properties:
-            matchRules:
-              properties:
-                appSelector:
-                  properties:
-                    label:
-                      type: "object"
-                      additionalPrpoerties:
-                        type: "string"
-                namespaceSelector:
-                  properties:
-                    label:
-                      type: "object"
-                      additionalPrpoerties:
-                        type: "string"
-            matchClusters:
-              type: "array"
-              items:
-                object:
-                  type: "string"
-            trafficSplit:
-              type: "array"
-              items:
+    - gdp
+    singular: globaldeploymentpolicy
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              matchClusters:
+                type: array
+                items:
+                  type: string
+                  # object:
+                  #   type: string
+              matchRules:
+                type: object
                 properties:
-                  cluster:
-                    type: "string"
-                  weight:
-                    type: integer
+                  appSelector:
+                    type: object
+                    properties:
+                      label:
+                        additionalProperties:
+                          type: string
+                        type: object
+                  namespaceSelector:
+                    type: object
+                    properties:
+                      label:
+                        additionalProperties:
+                          type: string
+                        type: object
+              trafficSplit:
+                items:
+                  type: object
+                  properties:
+                    cluster:
+                      type: string
+                    weight:
+                      type: integer
+                type: array
+        required:
+        - spec
+    served: true
+    storage: true

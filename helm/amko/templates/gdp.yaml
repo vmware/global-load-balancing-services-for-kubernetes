@@ -1,21 +1,21 @@
-apiVersion: "amko.k8s.io/v1alpha1"
+apiVersion: "amko.vmware.com/v1alpha1"
 kind: "GlobalDeploymentPolicy"
 metadata:
   name: "global-gdp"
   namespace: "avi-system"
 spec:
   matchRules:
-    appSelector:
 {{- with .Values.globalDeploymentPolicy.appSelector }}
-      {{- toYaml . | nindent 6 }}
+    appSelector:
+  {{- toYaml . | nindent 6 }}
 {{- end }}
-    namespaceSelector:
 {{- with .Values.globalDeploymentPolicy.namespaceSelector }}
-      {{- toYaml . | nindent 6 }}
-  {{- end }}
-  matchClusters:
+    namespaceSelector:
+  {{- toYaml . | nindent 6 }}
+{{- end }}
 {{- with .Values.globalDeploymentPolicy.matchClusters }}
-    {{- toYaml . | nindent 4 }}
+  matchClusters:
+  {{- toYaml . | nindent 4 }}
 {{- end }}
 {{- with .Values.globalDeploymentPolicy.trafficSplit }}
   trafficSplit:

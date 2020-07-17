@@ -15,6 +15,6 @@ rules:
   - apiGroups: [""]
     resources: ["services", "secrets", "namespaces"]
     verbs: ["get", "watch", "list"]
-  - apiGroups: ["amko.k8s.io"]
+  - apiGroups: ["amko.vmware.com"]
     resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status"]
     verbs: ["get","watch","list","patch", "update"]

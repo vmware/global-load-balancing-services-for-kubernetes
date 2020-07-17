@@ -31,7 +31,7 @@ type AmkoV1alpha1Interface interface {
 	GlobalDeploymentPoliciesGetter
 }
 
-// AmkoV1alpha1Client is used to interact with features provided by the amko group.
+// AmkoV1alpha1Client is used to interact with features provided by the amko.vmware.com group.
 type AmkoV1alpha1Client struct {
 	restClient rest.Interface
 }
