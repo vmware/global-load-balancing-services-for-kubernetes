@@ -92,7 +92,7 @@ spec:
 A CRD called GlobalDeploymentPolicy allows users to select kubernetes/openshift objects based on certain rules. This GDP object has to be created on the same system wherever the GSLBConfig object was created and `amko` is running. The selection policy applies to all the clusters which are mentioned in the GDP object. A typical GlobalDeploymentPolicy looks like this:
 
 ```yaml
-apiVersion: "amko.k8s.io/v1alpha1"
+apiVersion: "amko.vmware.com/v1alpha1"
 kind: "GlobalDeploymentPolicy"
 metadata:
   name: "global-gdp"

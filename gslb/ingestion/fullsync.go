@@ -183,7 +183,7 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 				}
 				AddOrUpdateNSStore(acceptedNSStore, &ns, c.GetName())
 			} else {
-				gslbutils.Logf("no namespace filter present, will sync the applications now")
+				gslbutils.Debugf("no namespace filter present, will sync the applications now")
 			}
 		}
 		if c.informers.IngressInformer != nil {
