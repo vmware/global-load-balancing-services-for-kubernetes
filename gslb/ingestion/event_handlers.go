@@ -95,9 +95,10 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 						return
 					}
 					// Else, move this svc from accepted to rejected store, and add
-					// a key for this svc to the queue
-					multiClusterSvcName := c.name + "/" + svc.ObjectMeta.Namespace + "/" + svc.ObjectMeta.Name
-					MoveObjs([]string{multiClusterSvcName}, acceptedLBSvcStore, rejectedLBSvcStore, gslbutils.SvcType)
+					// a DELETE key for this svc to the queue
+					AddOrUpdateLBSvcStore(rejectedLBSvcStore, svc, c.name)
+					DeleteFromLBSvcStore(acceptedLBSvcStore, svc, c.name)
+
 					fetchedSvc := fetchedObj.(k8sobjects.SvcMeta)
 					// Add a DELETE key for this svc
 					publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, fetchedSvc.Namespace,
@@ -190,10 +191,11 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 				AddOrUpdateIngressStore(rejectedIngStore, newIhm, c.name)
 				continue
 			}
-			// Else, move this ingressHost from accepted to rejected store, and add
-			// a delete key for this ingressHost to the queue
-			multiClusterIngHostName := newIhm.GetClusterKey()
-			MoveObjs([]string{multiClusterIngHostName}, acceptedIngStore, rejectedIngStore, gslbutils.IngressType)
+			// Else, delete this ingressHost from accepted list and add the newIhm to the
+			// rejected store, and add a delete key for this ingressHost to the queue
+			AddOrUpdateIngressStore(rejectedIngStore, newIhm, c.name)
+			DeleteFromIngressStore(acceptedIngStore, newIhm, c.name)
+
 			fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
 			// Add a DELETE key for this ingHost
 			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, fetchedIngHost.Cluster,
@@ -343,10 +345,11 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 						AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 						return
 					}
-					// Else, move this route from accepted to rejected store, and add
+					// Else, delete this route from accepted store and add to rejected store, and add
 					// a key for this route to the queue
-					multiClusterRouteName := c.name + "/" + route.ObjectMeta.Namespace + "/" + route.ObjectMeta.Name
-					MoveObjs([]string{multiClusterRouteName}, acceptedRouteStore, rejectedRouteStore, "Route")
+					AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+					DeleteFromRouteStore(acceptedRouteStore, route, c.name)
+
 					fetchedRoute := fetchedObj.(k8sobjects.RouteMeta)
 					// Add a DELETE key for this route
 					publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, fetchedRoute.Namespace,
