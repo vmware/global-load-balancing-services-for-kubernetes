@@ -66,6 +66,8 @@ const (
 	DefaultRetryCount = 2
 
 	AmkoUser = "amko-gslb"
+
+	NumRestWorkers = 8
 )
 
 // InformersPerCluster is the number of informers per cluster

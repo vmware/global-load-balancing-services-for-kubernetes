@@ -129,7 +129,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestOp, gsKey avicache.TenantName, key string) {
 	// Choose a AVI client based on the model name hash. This would ensure that the same worker queue processes updates for a
 	// given GS everytime.
-	bkt := utils.Bkt(key, utils.NumWorkersGraph)
+	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, queue: %d, msg: processing in rest queue", key, bkt)
 	if len(restOp.aviRestPoolClient.AviClient) > 0 {
 		aviClient := restOp.aviRestPoolClient.AviClient[bkt]
@@ -169,7 +169,7 @@ func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicach
 		return
 	}
 
-	bkt := utils.Bkt(key, utils.NumWorkersGraph)
+	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 
 	switch errCode {
@@ -356,7 +356,7 @@ func (restOp *RestOperations) AviGSDel(uuid string, tenant string, key string, g
 
 func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string) {
 	var restOps *utils.RestOp
-	bkt := utils.Bkt(key, utils.NumWorkersGraph)
+	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
