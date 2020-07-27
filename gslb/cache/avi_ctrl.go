@@ -37,7 +37,7 @@ func SharedAviClients() *utils.AviRestClientPool {
 		if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" {
 			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
 		}
-		aviClientInstance, err = utils.NewAviRestClientPool(utils.NumWorkersGraph, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password)
+		aviClientInstance, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password)
 		if err != nil {
 			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
 		}
