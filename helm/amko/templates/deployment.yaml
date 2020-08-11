@@ -48,8 +48,14 @@ spec:
           - name: USE_PVC
             value: "true"
           {{ end }}
+          - name: LOG_FILE_PATH
+            value: {{ .Values.mountPath }}
           - name: LOG_FILE_NAME
-            value: {{ printf "%s/%s" .Values.mountPath .Values.logFile }}
+            value: {{ .Values.logFile }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
