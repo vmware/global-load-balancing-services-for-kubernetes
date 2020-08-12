@@ -14,9 +14,10 @@
 package retry
 
 import (
-	"amko/gslb/gslbutils"
-	"amko/gslb/nodes"
 	"sync"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/nodes"
 
 	"github.com/avinetworks/container-lib/utils"
 )

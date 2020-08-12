@@ -14,11 +14,12 @@
 package ingestion
 
 import (
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
 	"fmt"
 	"strconv"
 	"testing"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"

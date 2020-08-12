@@ -15,10 +15,11 @@
 package ingestion
 
 import (
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
 	"strconv"
 	"testing"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"

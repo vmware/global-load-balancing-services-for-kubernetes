@@ -1,10 +1,10 @@
-module amko
+module github.com/avinetworks/amko
 
 go 1.13
 
 require (
 	github.com/avinetworks/container-lib v0.0.0-20200805113307-80c6b5ecc46e
-	github.com/avinetworks/sdk v0.0.0-20200624185816-702f35402431
+	github.com/avinetworks/sdk v0.0.0-20200812060914-ba100c75801c
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b

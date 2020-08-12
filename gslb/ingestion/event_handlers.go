@@ -15,9 +15,11 @@
 package ingestion
 
 import (
-	filter "amko/gslb/gdp_filter"
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
+
+	filter "github.com/avinetworks/amko/gslb/gdp_filter"
 
 	"github.com/avinetworks/container-lib/utils"
 	containerutils "github.com/avinetworks/container-lib/utils"

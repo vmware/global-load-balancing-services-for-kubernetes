@@ -17,7 +17,7 @@ package rest
 import (
 	"errors"
 
-	"amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/gslbutils"
 
 	"github.com/avinetworks/container-lib/utils"
 )

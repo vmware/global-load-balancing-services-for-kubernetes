@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"sync"
 
-	"amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
-	"amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/gslbutils"
 
 	containerutils "github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"

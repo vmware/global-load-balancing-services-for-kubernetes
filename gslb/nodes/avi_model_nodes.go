@@ -18,8 +18,8 @@ import (
 	"strconv"
 	"sync"
 
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
 	"github.com/avinetworks/container-lib/utils"
 )

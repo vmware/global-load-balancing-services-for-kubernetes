@@ -1,20 +1,21 @@
 package restlayer
 
 import (
-	"amko/gslb/gslbutils"
-	"amko/gslb/nodes"
-	"amko/gslb/rest"
-	"amko/gslb/test/mockaviserver"
 	"os"
 	"sync"
 	"testing"
 
-	"amko/pkg/apis/amko/v1alpha1"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/nodes"
+	"github.com/avinetworks/amko/gslb/rest"
+	"github.com/avinetworks/amko/gslb/test/mockaviserver"
+
+	"github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
 	"github.com/avinetworks/container-lib/utils"
 	"github.com/onsi/gomega"
 
-	avicache "amko/gslb/cache"
+	avicache "github.com/avinetworks/amko/gslb/cache"
 )
 
 const (

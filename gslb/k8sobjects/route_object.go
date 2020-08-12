@@ -15,9 +15,10 @@
 package k8sobjects
 
 import (
-	"amko/gslb/gslbutils"
-	gdpv1alpha1 "amko/pkg/apis/amko/v1alpha1"
 	"sync"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
 	routev1 "github.com/openshift/api/route/v1"
 )

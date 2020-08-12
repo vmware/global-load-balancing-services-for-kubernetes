@@ -18,7 +18,7 @@ import (
 	"errors"
 	"sync"
 
-	"amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/gslbutils"
 
 	"github.com/avinetworks/container-lib/utils"
 	"github.com/avinetworks/sdk/go/clients"

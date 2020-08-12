@@ -19,10 +19,10 @@ import (
 	"strings"
 	"sync"
 
-	avicache "amko/gslb/cache"
+	avicache "github.com/avinetworks/amko/gslb/cache"
 
-	"amko/gslb/gslbutils"
-	"amko/gslb/nodes"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/nodes"
 
 	"github.com/avinetworks/container-lib/utils"
 	avimodels "github.com/avinetworks/sdk/go/models"

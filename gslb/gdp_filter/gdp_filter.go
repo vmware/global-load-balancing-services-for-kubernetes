@@ -15,8 +15,8 @@
 package filter
 
 import (
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 )
 
 // ApplyFilter applies the local namespace filter first to an object, if the namespace

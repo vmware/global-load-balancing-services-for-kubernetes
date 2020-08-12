@@ -15,10 +15,11 @@
 package nodes
 
 import (
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
 	"errors"
 	"sync"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
 	"github.com/avinetworks/container-lib/utils"
 )

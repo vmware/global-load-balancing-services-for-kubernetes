@@ -23,9 +23,9 @@ import (
 	"sync"
 	"time"
 
-	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
+	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	gslbcs "amko/pkg/client/clientset/versioned"
+	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
 
 	"github.com/avinetworks/container-lib/utils"
 	routev1 "github.com/openshift/api/route/v1"

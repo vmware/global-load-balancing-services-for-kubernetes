@@ -5,7 +5,7 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOTEST=$(GOCMD) test
 AMKO_BIN=amko
-AMKO_REL_PATH=amko/cmd/gslb
+AMKO_REL_PATH=github.com/avinetworks/amko/cmd/gslb
 
 .PHONY: all
 all: vendor build

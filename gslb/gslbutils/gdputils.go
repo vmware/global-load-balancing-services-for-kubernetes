@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"sync"
 
-	gdpv1alpha1 "amko/pkg/apis/amko/v1alpha1"
+	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
 	"github.com/avinetworks/container-lib/utils"
 )
