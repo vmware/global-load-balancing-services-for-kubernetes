@@ -28,7 +28,7 @@ import (
 
 	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/golang/glog"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"

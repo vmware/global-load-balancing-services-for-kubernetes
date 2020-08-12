@@ -25,7 +25,7 @@ import (
 	"github.com/avinetworks/amko/gslb/nodes"
 	"github.com/avinetworks/amko/gslb/test/ingestion"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
 )
 

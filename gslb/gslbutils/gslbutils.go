@@ -27,7 +27,7 @@ import (
 
 	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"

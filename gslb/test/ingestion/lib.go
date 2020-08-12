@@ -30,7 +30,7 @@ import (
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
 
-	containerutils "github.com/avinetworks/container-lib/utils"
+	containerutils "github.com/avinetworks/ako/pkg/utils"
 )
 
 var (

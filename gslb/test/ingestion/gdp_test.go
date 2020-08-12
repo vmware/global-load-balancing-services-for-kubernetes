@@ -25,7 +25,7 @@ import (
 	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
 	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"

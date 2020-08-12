@@ -21,7 +21,7 @@ import (
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	"github.com/avinetworks/amko/gslb/k8sobjects"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 )
 
 func DeriveGSLBServiceName(hostname string) string {

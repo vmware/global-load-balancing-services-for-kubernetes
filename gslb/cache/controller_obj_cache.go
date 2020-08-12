@@ -25,7 +25,7 @@ import (
 
 	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/avinetworks/sdk/go/clients"
 	"github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"

@@ -29,7 +29,7 @@ import (
 	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
 	gdplisters "github.com/avinetworks/amko/internal/client/listers/amko/v1alpha1"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"

@@ -20,7 +20,7 @@ import (
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/avinetworks/sdk/go/clients"
 )
 

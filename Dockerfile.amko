@@ -1,5 +1,5 @@
 FROM golang:1.14 as build
-ENV BUILD_PATH "amko/"
+ENV BUILD_PATH "github.com/avinetworks/amko/"
 RUN mkdir -p $GOPATH/src/$BUILD_PATH
 
 COPY . $GOPATH/src/$BUILD_PATH
