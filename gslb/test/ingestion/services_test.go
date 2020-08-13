@@ -15,13 +15,14 @@
 package ingestion
 
 import (
-	"amko/gslb/gslbutils"
-	gslbingestion "amko/gslb/ingestion"
-	"amko/gslb/k8sobjects"
-	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"testing"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
+	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

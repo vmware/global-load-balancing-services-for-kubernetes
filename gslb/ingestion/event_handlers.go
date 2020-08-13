@@ -15,12 +15,14 @@
 package ingestion
 
 import (
-	filter "amko/gslb/gdp_filter"
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
-	"github.com/avinetworks/container-lib/utils"
-	containerutils "github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+
+	filter "github.com/avinetworks/amko/gslb/gdp_filter"
+
+	"github.com/avinetworks/ako/pkg/utils"
+	containerutils "github.com/avinetworks/ako/pkg/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 

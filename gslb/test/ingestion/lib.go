@@ -15,21 +15,22 @@
 package ingestion
 
 import (
-	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"strings"
 	"testing"
 	"time"
 
-	gslbfake "amko/pkg/client/clientset/versioned/fake"
+	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+
+	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
 
 	oshiftfake "github.com/openshift/client-go/route/clientset/versioned/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
-	"amko/gslb/gslbutils"
-	gslbingestion "amko/gslb/ingestion"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
 
-	containerutils "github.com/avinetworks/container-lib/utils"
+	containerutils "github.com/avinetworks/ako/pkg/utils"
 )
 
 var (

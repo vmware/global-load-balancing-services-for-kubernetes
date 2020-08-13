@@ -48,6 +48,11 @@ spec:
                 type: array
               refreshInterval:
                 type: integer
+          status:
+            type: "object"
+            properties:
+              state:
+                type: "string"
         required:
         - spec
     served: true

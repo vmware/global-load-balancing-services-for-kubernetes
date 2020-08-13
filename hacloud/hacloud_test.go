@@ -10,7 +10,7 @@ import (
 	// To Do: add test for openshift route
 	oshiftfake "github.com/openshift/client-go/route/clientset/versioned/fake"
 
-	containerutils "github.com/avinetworks/container-lib/utils"
+	containerutils "github.com/avinetworks/ako/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

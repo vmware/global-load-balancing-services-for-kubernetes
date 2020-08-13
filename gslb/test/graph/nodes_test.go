@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
-	"amko/gslb/nodes"
-	"amko/gslb/test/ingestion"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/nodes"
+	"github.com/avinetworks/amko/gslb/test/ingestion"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
 )
 

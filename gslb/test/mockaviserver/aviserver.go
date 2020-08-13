@@ -15,7 +15,6 @@
 package mockaviserver
 
 import (
-	"amko/gslb/gslbutils"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -23,6 +22,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+
+	"github.com/avinetworks/amko/gslb/gslbutils"
 )
 
 type InjectFault func(w http.ResponseWriter, r *http.Request)

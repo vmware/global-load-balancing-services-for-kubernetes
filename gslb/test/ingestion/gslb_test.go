@@ -15,16 +15,18 @@
 package ingestion
 
 import (
-	gslbingestion "amko/gslb/ingestion"
-	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
-	gslbfake "amko/pkg/client/clientset/versioned/fake"
+	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
 
-	gslbinformers "amko/pkg/client/informers/externalversions"
+	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+
+	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
+
+	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 )

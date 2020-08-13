@@ -55,6 +55,11 @@ spec:
                     weight:
                       type: integer
                 type: array
+          status:
+            type: "object"
+            properties:
+              errorStatus:
+                type: "string"
         required:
         - spec
     served: true

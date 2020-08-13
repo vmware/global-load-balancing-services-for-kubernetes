@@ -19,12 +19,12 @@ import (
 	"strings"
 	"sync"
 
-	avicache "amko/gslb/cache"
+	avicache "github.com/avinetworks/amko/gslb/cache"
 
-	"amko/gslb/gslbutils"
-	"amko/gslb/nodes"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/nodes"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 	avimodels "github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"

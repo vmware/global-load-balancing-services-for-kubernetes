@@ -238,6 +238,9 @@ type EventDetails struct {
 	// Placeholder for description of property ip_fail_details of obj type EventDetails field type str  type object
 	IPFailDetails *RmSeIPFailEventDetails `json:"ip_fail_details,omitempty"`
 
+	// Placeholder for description of property ip_threat_db_event_data of obj type EventDetails field type str  type object
+	IPThreatDbEventData *IPThreatDBEventData `json:"ip_threat_db_event_data,omitempty"`
+
 	// Placeholder for description of property license_details of obj type EventDetails field type str  type object
 	LicenseDetails *LicenseDetails `json:"license_details,omitempty"`
 
@@ -276,6 +279,9 @@ type EventDetails struct {
 
 	// Placeholder for description of property network_subnet_details of obj type EventDetails field type str  type object
 	NetworkSubnetDetails *NetworkSubnetInfo `json:"network_subnet_details,omitempty"`
+
+	// Nsxt Image event. Field introduced in 20.1.1.
+	NsxtImgDetails *NsxtImageDetails `json:"nsxt_img_details,omitempty"`
 
 	// Nsxt cloud event. Field introduced in 20.1.1.
 	NsxtInfo *NsxtSetup `json:"nsxt_info,omitempty"`
@@ -345,6 +351,9 @@ type EventDetails struct {
 
 	// Placeholder for description of property scheduler_action_info of obj type EventDetails field type str  type object
 	SchedulerActionInfo *SchedulerActionDetails `json:"scheduler_action_info,omitempty"`
+
+	//  Field introduced in 20.1.1.
+	SeBgpPeerDownDetails *SeBgpPeerDownDetails `json:"se_bgp_peer_down_details,omitempty"`
 
 	// Placeholder for description of property se_bgp_peer_state_change_details of obj type EventDetails field type str  type object
 	SeBgpPeerStateChangeDetails *SeBgpPeerStateChangeDetails `json:"se_bgp_peer_state_change_details,omitempty"`

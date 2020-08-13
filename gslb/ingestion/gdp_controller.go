@@ -15,19 +15,21 @@
 package ingestion
 
 import (
-	filter "amko/gslb/gdp_filter"
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
 	"errors"
 	"strconv"
 
-	gdpalphav1 "amko/pkg/apis/amko/v1alpha1"
-	gslbcs "amko/pkg/client/clientset/versioned"
-	gdpscheme "amko/pkg/client/clientset/versioned/scheme"
-	gslbinformers "amko/pkg/client/informers/externalversions"
-	gdplisters "amko/pkg/client/listers/amko/v1alpha1"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
 
-	"github.com/avinetworks/container-lib/utils"
+	filter "github.com/avinetworks/amko/gslb/gdp_filter"
+
+	gdpalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
+	gdpscheme "github.com/avinetworks/amko/internal/client/clientset/versioned/scheme"
+	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
+	gdplisters "github.com/avinetworks/amko/internal/client/listers/amko/v1alpha1"
+
+	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"

@@ -1,16 +1,17 @@
 package ingestion
 
 import (
-	filter "amko/gslb/gdp_filter"
-	"amko/gslb/gslbutils"
-	"amko/gslb/k8sobjects"
-	"amko/gslb/nodes"
-	gslbalphav1 "amko/pkg/apis/amko/v1alpha1"
 	"errors"
 
-	avicache "amko/gslb/cache"
+	filter "github.com/avinetworks/amko/gslb/gdp_filter"
+	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/k8sobjects"
+	"github.com/avinetworks/amko/gslb/nodes"
+	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	"github.com/avinetworks/container-lib/utils"
+	avicache "github.com/avinetworks/amko/gslb/cache"
+
+	"github.com/avinetworks/ako/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

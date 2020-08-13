@@ -1,6 +1,6 @@
 package main
 
-import "amko/gslb/ingestion"
+import "github.com/avinetworks/amko/gslb/ingestion"
 
 func main() {
 	ingestion.Initialize()

@@ -1,6 +1,6 @@
 package main
 
-import "amko/hacloud"
+import "github.com/avinetworks/amko/hacloud"
 
 func main() {
 	hacloud.Initialize()

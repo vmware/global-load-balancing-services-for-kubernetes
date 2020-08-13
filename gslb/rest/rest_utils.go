@@ -17,9 +17,9 @@ package rest
 import (
 	"errors"
 
-	"amko/gslb/gslbutils"
+	"github.com/avinetworks/amko/gslb/gslbutils"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 )
 
 func RestRespArrToObjByType(operation *utils.RestOp, objType string, key string) (map[string]interface{}, error) {

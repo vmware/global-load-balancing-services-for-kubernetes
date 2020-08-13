@@ -21,7 +21,7 @@ package gslbutils
 import (
 	"sync"
 
-	"github.com/avinetworks/container-lib/utils"
+	"github.com/avinetworks/ako/pkg/utils"
 )
 
 type ClusterStore struct {

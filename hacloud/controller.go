@@ -28,9 +28,9 @@ import (
 	"reflect"
 	"sync"
 
-	"amko/hacloud/hautils"
+	"github.com/avinetworks/amko/hacloud/hautils"
 
-	containerutils "github.com/avinetworks/container-lib/utils"
+	containerutils "github.com/avinetworks/ako/pkg/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
