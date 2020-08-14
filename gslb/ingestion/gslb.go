@@ -319,6 +319,28 @@ func CheckAndSetGslbLeader() error {
 	return errors.New("AVI site is not the GSLB leader")
 }
 
+func ResyncNodesToRestLayer() {
+	prevStateCtrl := gslbutils.IsControllerLeader()
+	CheckAndSetGslbLeader()
+	newStateCtrl := gslbutils.IsControllerLeader()
+	// Check if the controller is a leader or not
+	if prevStateCtrl == newStateCtrl {
+		gslbutils.Logf("controller state unchanged, no re-sync required")
+		return
+	}
+
+	// Check if the controller has changed to leader
+	if newStateCtrl == false {
+		gslbutils.Errf("controller has changed to follower, can't do re-sync of the nodes")
+		return
+	}
+
+	gslbutils.Logf("controller has changed to leader, re-syncing all the nodes")
+
+	// do a re-sync of the nodes layer to the rest layer
+	nodes.PublishAllGraphKeys()
+}
+
 // CacheRefreshRoutine fetches the objects in the AVI controller and finds out
 // the delta between the existing and the new objects.
 func CacheRefreshRoutine() {
@@ -504,6 +526,11 @@ func AddGSLBConfigObject(obj interface{}) {
 	bootupSync(aviCtrlList, newCache)
 
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
+
+	// Initalize a periodic worker running full sync
+	resyncNodesWorker := gslbutils.NewFullSyncThread(time.Duration(cacheRefreshInterval))
+	resyncNodesWorker.SyncFunction = ResyncNodesToRestLayer
+	go resyncNodesWorker.Run()
 
 	gcChan := gslbutils.GetGSLBConfigObjectChan()
 	*gcChan <- true

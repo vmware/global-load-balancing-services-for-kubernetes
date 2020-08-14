@@ -102,6 +102,17 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 	return obj
 }
 
+func PublishAllGraphKeys() {
+	agl := SharedAviGSGraphLister()
+	keys := agl.GetAll()
+	sharedQ := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
+	for _, key := range keys {
+		bkt := utils.Bkt(key, sharedQ.NumWorkers)
+		sharedQ.Workqueue[bkt].AddRateLimited(key)
+		gslbutils.Logf("process: resyncNodes, modelName: %s, msg: published key to rest layer", key)
+	}
+}
+
 func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue,
 	fullSync bool, agl *AviGSGraphLister) {
 
@@ -152,7 +163,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 	// Update the hostname in the RouteHostMap
 	metaObj.UpdateHostMap(cname + "/" + ns + "/" + objName)
 
-	if !fullSync {
+	if !fullSync || gslbutils.IsControllerLeader() {
 		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
 	}
 }
@@ -206,7 +217,9 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	}
 	aviGS.(*AviGSObjectGraph).SetRetryCounter()
 	SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
-	PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
+	if gslbutils.IsControllerLeader() {
+		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
+	}
 }
 
 func isAcceptableObject(objType string) bool {
