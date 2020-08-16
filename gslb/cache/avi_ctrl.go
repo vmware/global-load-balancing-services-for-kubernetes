@@ -45,29 +45,30 @@ func SharedAviClients() *utils.AviRestClientPool {
 	return aviClientInstance
 }
 
-func IsAviSiteLeader() bool {
+func IsAviSiteLeader() (bool, error) {
 	aviRestClientPool := SharedAviClients()
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
-		return false
+		return false, errors.New("no avi clients initialized")
 	}
 
 	aviClient := aviRestClientPool.AviClient[0]
 
 	clusterUuid, err := GetClusterUuid(aviClient)
 	if err != nil {
-		gslbutils.Errf("Error in finding controller cluster uuid: %s", err.Error())
-		return false
+		gslbutils.Errf("error in finding controller cluster uuid: %s", err.Error())
+		return false, err
 	}
 
 	gslbLeaderUuid, err := GetGslbLeaderUuid(aviClient)
 	if err != nil {
 		gslbutils.Errf("error in finding the GSLB leader's uuid: %s", err.Error())
+		return false, errors.New("error in finding the GSLB leader's uuid")
 	}
 	if clusterUuid == gslbLeaderUuid {
-		return true
+		return true, nil
 	}
-	return false
+	return false, nil
 }
 
 func GetClusterUuid(client *clients.AviClient) (string, error) {

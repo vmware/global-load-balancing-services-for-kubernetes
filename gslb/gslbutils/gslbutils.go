@@ -63,7 +63,7 @@ const (
 	SlowSyncTime      = 120
 	SlowRetryQueue    = "SlowRetry"
 	FastRetryQueue    = "FastRetry"
-	DefaultRetryCount = 2
+	DefaultRetryCount = 5
 
 	AmkoUser = "amko-gslb"
 
@@ -442,4 +442,30 @@ func WaitForWorkersToExit() {
 func IsLogLevelValid(level string) bool {
 	_, ok := utils.LogLevelMap[level]
 	return ok
+}
+
+type ResyncStatus struct {
+	required bool
+	lock     sync.RWMutex
+}
+
+var resync ResyncStatus
+var resyncOnce sync.Once
+
+func InitResync() {
+	resyncOnce.Do(func() {
+		resync.required = false
+	})
+}
+
+func SetResyncRequired(value bool) {
+	resync.lock.Lock()
+	defer resync.lock.Unlock()
+	resync.required = value
+}
+
+func IsResyncRequired() bool {
+	resync.lock.RLock()
+	defer resync.lock.RUnlock()
+	return resync.required
 }
