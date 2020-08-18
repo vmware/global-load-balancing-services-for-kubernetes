@@ -311,12 +311,56 @@ func PublishChangeToRestLayer(gsKey interface{}, sharedQ *utils.WorkerQueue) {
 }
 
 func CheckAndSetGslbLeader() error {
-	if avicache.IsAviSiteLeader() {
+	var leader bool
+	leader, err := avicache.IsAviSiteLeader()
+	if err != nil {
+		gslbutils.SetResyncRequired(true)
+		return err
+	}
+	if leader {
 		gslbutils.SetControllerAsLeader()
 		return nil
 	}
 	gslbutils.SetControllerAsFollower()
 	return errors.New("AVI site is not the GSLB leader")
+}
+
+func ResyncNodesToRestLayer() {
+	prevStateCtrl := gslbutils.IsControllerLeader()
+	err := CheckAndSetGslbLeader()
+	if err != nil {
+		// controller details can't be fetched due to some error, so return
+		gslbutils.Errf("error fetching Gslb leader details, %s", err.Error())
+		gslbutils.SetResyncRequired(true)
+		return
+	}
+	newStateCtrl := gslbutils.IsControllerLeader()
+
+	if newStateCtrl == false {
+		// controller is a follower, set resync and return
+		gslbutils.Errf("controller is a follower, can't re-sync")
+		// will try to re-sync next time
+		gslbutils.SetResyncRequired(true)
+		return
+	}
+
+	// controller is the leader
+	if prevStateCtrl != newStateCtrl {
+		gslbutils.Logf("Gslb controller state has changed from follower to leader")
+		gslbutils.SetResyncRequired(true)
+	}
+
+	if !gslbutils.IsResyncRequired() {
+		gslbutils.Logf("resync not required")
+		return
+	}
+
+	// re-sync is required anyway
+	gslbutils.Logf("Gslb leader controller re-sync required, will perform re-sync now")
+
+	nodes.PublishAllGraphKeys()
+	// once syncing is done, no further resync required
+	gslbutils.SetResyncRequired(false)
 }
 
 // CacheRefreshRoutine fetches the objects in the AVI controller and finds out
@@ -468,7 +512,12 @@ func AddGSLBConfigObject(obj interface{}) {
 	}
 
 	// check if the controller details provided are for a leader site
-	if !avicache.IsAviSiteLeader() {
+	isLeader, err := avicache.IsAviSiteLeader()
+	if err != nil {
+		gslbutils.Errf("error fetching Gslb leader site details, %s", err.Error())
+		return
+	}
+	if !isLeader {
 		gslbutils.Errf("Controller details provided are not for a leader, returning")
 		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderMsg)
 		gslbutils.SetControllerAsFollower()
@@ -504,6 +553,11 @@ func AddGSLBConfigObject(obj interface{}) {
 	bootupSync(aviCtrlList, newCache)
 
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
+
+	// Initalize a periodic worker running full sync
+	resyncNodesWorker := gslbutils.NewFullSyncThread(time.Duration(cacheRefreshInterval))
+	resyncNodesWorker.SyncFunction = ResyncNodesToRestLayer
+	go resyncNodesWorker.Run()
 
 	gcChan := gslbutils.GetGSLBConfigObjectChan()
 	*gcChan <- true

@@ -50,6 +50,10 @@ func (a *AviGSGraphLister) Get(gsName string) (bool, interface{}) {
 	return ok, obj
 }
 
+func (a *AviGSGraphLister) GetAll() []string {
+	return a.AviGSGraphStore.GetAllObjectNames()
+}
+
 func (a *AviGSGraphLister) Delete(gsName string) {
 	a.AviGSGraphStore.Delete(gsName)
 }

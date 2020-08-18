@@ -235,6 +235,7 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 
 	default:
 		gslbutils.Warnf("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
+		gslbutils.SetResyncRequired(true)
 	}
 }
 
