@@ -84,7 +84,7 @@ func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceL
 			svcMeta, ok := k8sobjects.GetSvcMeta(&svc, c.GetName())
 			if !ok {
 				gslbutils.Logf("cluster: %s, namespace: %s, svc: %s, msg: couldn't get meta object for service",
-					c.GetName(), namespace.Name, svc.Name, err.Error())
+					c.GetName(), namespace.Name, svc.Name)
 				continue
 			}
 			if !filter.ApplyFilter(svcMeta, c.GetName()) {
