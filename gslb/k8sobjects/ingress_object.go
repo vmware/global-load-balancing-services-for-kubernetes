@@ -15,6 +15,7 @@
 package k8sobjects
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
@@ -101,6 +102,14 @@ func (ing IngressHostMeta) GetHostname() string {
 
 func (ing IngressHostMeta) GetIPAddr() string {
 	return ing.IPAddr
+}
+
+func (ing IngressHostMeta) GetPort() (int32, error) {
+	return 0, errors.New("ingress object doesn't support GetPort function")
+}
+
+func (ing IngressHostMeta) GetProtocol() (string, error) {
+	return "", errors.New("ingress object doesn't support GetProtocol function")
 }
 
 func (ing IngressHostMeta) IngressHostInList(ihmList []IngressHostMeta) (IngressHostMeta, bool) {

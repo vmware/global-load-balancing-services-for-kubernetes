@@ -15,6 +15,7 @@
 package k8sobjects
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
@@ -83,6 +84,14 @@ func (route RouteMeta) GetIPAddr() string {
 
 func (route RouteMeta) GetCluster() string {
 	return route.Cluster
+}
+
+func (route RouteMeta) GetPort() (int32, error) {
+	return 0, errors.New("route object doesn't support GetPort function")
+}
+
+func (route RouteMeta) GetProtocol() (string, error) {
+	return "", errors.New("route object doesn't support GetProtocol support")
 }
 
 func (route RouteMeta) UpdateHostMap(key string) {

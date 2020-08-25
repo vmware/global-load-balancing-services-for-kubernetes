@@ -15,6 +15,7 @@
 package k8sobjects
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
@@ -25,6 +26,24 @@ import (
 
 var shMapInit sync.Once
 var shMap ObjHostMap
+
+func getSvcPortProtocol(svc *corev1.Service) (int32, string, error) {
+	if svc == nil {
+		gslbutils.Errf("service not found, returning")
+		return 0, "", nil
+	}
+
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != "" && (port.Protocol != gslbutils.ProtocolTCP && port.Protocol != gslbutils.ProtocolUDP) {
+			gslbutils.Errf("ns: %s, svc: %s, msg: can't enable health monitor for protocol %s, will use the default TCP health monitor",
+				svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, port.Protocol)
+			return port.Port, gslbutils.ProtocolTCP, nil
+		}
+		return port.Port, string(port.Protocol), nil
+	}
+
+	return 0, "", errors.New("service has no ports, will ignore")
+}
 
 func getSvcHostMap() *ObjHostMap {
 	rhMapInit.Do(func() {
@@ -40,6 +59,8 @@ type SvcMeta struct {
 	Hostname  string
 	IPAddr    string
 	Labels    map[string]string
+	Port      int32
+	Protocol  string
 }
 
 // GetSvcMeta returns a trimmed down version of a svc
@@ -62,6 +83,14 @@ func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
 			cname, svc.Name, svc.Namespace, ip, hostname)
 		return metaObj, false
 	}
+
+	port, protocol, err := getSvcPortProtocol(svc)
+	if err != nil {
+		return metaObj, false
+	}
+	metaObj.Port = port
+	metaObj.Protocol = protocol
+
 	return metaObj, true
 }
 
@@ -98,6 +127,14 @@ func (svc SvcMeta) GetHostname() string {
 
 func (svc SvcMeta) GetIPAddr() string {
 	return svc.IPAddr
+}
+
+func (svc SvcMeta) GetPort() (int32, error) {
+	return svc.Port, nil
+}
+
+func (svc SvcMeta) GetProtocol() (string, error) {
+	return svc.Protocol, nil
 }
 
 func (svc SvcMeta) UpdateHostMap(key string) {

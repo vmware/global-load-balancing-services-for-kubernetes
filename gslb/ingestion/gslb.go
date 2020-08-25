@@ -375,7 +375,7 @@ func CacheRefreshRoutine() {
 		return
 	}
 
-	newAviCache := avicache.PopulateCache(false)
+	newAviCache := avicache.PopulateGSCache(false)
 	existingAviCache := avicache.GetAviCache()
 
 	sharedQ := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
@@ -548,7 +548,8 @@ func AddGSLBConfigObject(obj interface{}) {
 	// value before going into full sync
 	// boot up time cache population
 	gslbutils.Logf("will populate avi cache now...")
-	newCache := avicache.PopulateCache(true)
+	avicache.PopulateHMCache(true)
+	newCache := avicache.PopulateGSCache(true)
 
 	bootupSync(aviCtrlList, newCache)
 

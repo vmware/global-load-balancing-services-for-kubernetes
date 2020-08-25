@@ -47,8 +47,7 @@ func GetObjTrafficRatio(ns, cname string) int32 {
 	}
 	val, err := globalFilter.GetTrafficWeight(ns, cname)
 	if err != nil {
-		gslbutils.Warnf("ns: %s, cname: %s, msg: error occured while fetching traffic info for this cluster, %s",
-			ns, cname, err.Error())
+		gslbutils.Warnf("ns: %s, cname: %s, msg: %s", ns, cname, err.Error())
 		return 1
 	}
 	return val

@@ -68,6 +68,18 @@ type AviGSK8sObj struct {
 	Weight    int32
 }
 
+type HealthMonitor struct {
+	Name     string
+	Protocol string
+	Port     int32
+	Custom   bool
+}
+
+func (hm HealthMonitor) getChecksum() uint32 {
+	//func GetGSLBHmChecksum(name, hmType string, port int32) uint32 {
+	return gslbutils.GetGSLBHmChecksum(hm.Name, hm.Protocol, hm.Port)
+}
+
 // AviGSObjectGraph is a graph constructed using AviGSNode. It is a one-to-one mapping between
 // the name of the object and the GSLB Model node.
 type AviGSObjectGraph struct {
@@ -78,6 +90,7 @@ type AviGSObjectGraph struct {
 	MemberObjs    []AviGSK8sObj
 	GraphChecksum uint32
 	RetryCount    int
+	Hm            HealthMonitor
 	Lock          sync.RWMutex
 }
 
@@ -111,6 +124,10 @@ func (v *AviGSObjectGraph) GetChecksum() uint32 {
 	return v.GraphChecksum
 }
 
+func (v *AviGSObjectGraph) GetHmChecksum() uint32 {
+	return v.Hm.getChecksum()
+}
+
 func (v *AviGSObjectGraph) CalculateChecksum() {
 	// A sum of fields for this GS
 	var memberIPs []string
@@ -121,7 +138,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
 	}
 
-	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs)
+	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs, v.Hm.Name)
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -156,6 +173,27 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	v.Tenant = utils.ADMIN_NS
 	v.DomainNames = hosts
 	v.MemberObjs = memberRoutes
+
+	port, err := metaObj.GetPort()
+	if err != nil {
+		// for objects other than service type load balancer
+		v.Hm.Name = gslbutils.SystemGslbHealthMonitorTCP
+		v.Hm.Custom = false
+	} else {
+		// for svc type load balancer objects
+		v.Hm.Name = "amko-hm-" + gsName
+		v.Hm.Port = port
+		v.Hm.Custom = true
+		protocol, _ := metaObj.GetProtocol()
+		switch protocol {
+		case gslbutils.ProtocolTCP:
+			v.Hm.Protocol = gslbutils.SystemHealthMonitorTypeTCP
+		case gslbutils.ProtocolUDP:
+			v.Hm.Protocol = gslbutils.SystemHealthMonitorTypeUDP
+		default:
+			gslbutils.Errf("unrecognized protocol for service, can't create a health monitor for this GSLB service graph")
+		}
+	}
 	v.GetChecksum()
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
 }
