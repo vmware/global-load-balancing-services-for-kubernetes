@@ -374,6 +374,20 @@ func applyAndUpdateNamespaces() {
 	}
 }
 
+func applyAndRejectNamespaces(gf *gslbutils.GlobalFilter, gdp *gdpalphav1.GlobalDeploymentPolicy) {
+	acceptedNSStore := gslbutils.GetAcceptedNSStore()
+	rejectedNSStore := gslbutils.GetRejectedNSStore()
+
+	// Since, we have just deleted a GDP object, we need to just check the acceptedNSStore
+	acceptedList, _ := acceptedNSStore.GetAllFilteredNamespaces(filter.ApplyFilter)
+	if len(acceptedList) == 0 {
+		gslbutils.Logf("accepted list of namespaces is empty, nothing to be done")
+		return
+	}
+	MoveNSObjs(acceptedList, acceptedNSStore, rejectedNSStore)
+	gslbutils.Logf("objList: %v, msg: moved namespaces from accepted to rejected store", acceptedList)
+}
+
 func applyAndAcceptNamespaces() {
 	acceptedNSStore := gslbutils.GetAcceptedNSStore()
 	rejectedNSStore := gslbutils.GetRejectedNSStore()
@@ -493,6 +507,7 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't delete")
 		return
 	}
+	applyAndRejectNamespaces(gf, gdp)
 	gf.DeleteFromGlobalFilter(gdp)
 	// remove all namespaces from filter and re-apply
 	k8sobjects.RemoveAllSelectedNamespaces()
