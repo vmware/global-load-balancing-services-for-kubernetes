@@ -93,15 +93,15 @@ func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
 
 func (v *AviGSObjectGraph) GetRetryCounter() int {
 	v.Lock.RLock()
-	v.Lock.RUnlock()
+	defer v.Lock.RUnlock()
 	return v.RetryCount
 }
 
 func (v *AviGSObjectGraph) DecrementRetryCounter() {
 	v.Lock.Lock()
-	v.Lock.Unlock()
+	defer v.Lock.Unlock()
 	if v.RetryCount > 0 {
-		v.RetryCount -= 1
+		v.RetryCount--
 	}
 }
 
