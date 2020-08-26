@@ -488,7 +488,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	hmRef := hmRefs[0].(string)
 	hmRefSplit := strings.Split(hmRef, "#")
 	if len(hmRefSplit) != 2 {
-		errStr := fmt.Sprintf("health monitor is absent in health monitor ref: %v", hmRefSplit[0])
+		errStr := fmt.Sprintf("health monitor name is absent in health monitor ref: %v", hmRefSplit[0])
 		return 0, nil, memberObjs, hm, errors.New(errStr)
 	}
 	hm = hmRefSplit[1]

@@ -86,6 +86,7 @@ func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
 
 	port, protocol, err := getSvcPortProtocol(svc)
 	if err != nil {
+		gslbutils.Errf("service rejected because of error: %s", err.Error())
 		return metaObj, false
 	}
 	metaObj.Port = port

@@ -57,6 +57,7 @@ func buildRouteObj(name, ns, svc, cname, host, ip string, withStatus bool) *rout
 							Message: ip,
 						},
 					},
+					RouterName: "ako-test",
 				},
 			},
 		}
@@ -308,6 +309,7 @@ func TestStatusChangeFromEmptyRoute(t *testing.T) {
 		{
 			Conditions: []routev1.RouteIngressCondition{condition},
 			Host:       host,
+			RouterName: "ako-test",
 		},
 	}
 	t.Log("updating route to have non-empty status field")

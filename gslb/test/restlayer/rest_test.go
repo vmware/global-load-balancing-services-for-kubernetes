@@ -59,6 +59,10 @@ func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType stri
 		Tenant:      utils.ADMIN_NS,
 		DomainNames: []string{host},
 		MemberObjs:  memberObjs,
+		Hm: nodes.HealthMonitor{
+			Name:   gslbutils.SystemGslbHealthMonitorTCP,
+			Custom: false,
+		},
 	}
 	gsGraph.GetChecksum()
 	return gsGraph
