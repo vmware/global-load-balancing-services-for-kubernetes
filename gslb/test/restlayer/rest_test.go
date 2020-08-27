@@ -12,8 +12,8 @@ import (
 
 	"github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 
 	avicache "github.com/avinetworks/amko/gslb/cache"
 )

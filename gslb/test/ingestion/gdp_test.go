@@ -25,8 +25,8 @@ import (
 	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
 	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
 
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/util/workqueue"

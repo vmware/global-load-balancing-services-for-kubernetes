@@ -22,8 +22,8 @@ import (
 	"github.com/avinetworks/amko/gslb/k8sobjects"
 	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"

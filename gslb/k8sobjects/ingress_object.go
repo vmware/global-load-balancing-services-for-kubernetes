@@ -21,7 +21,7 @@ import (
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	"github.com/avinetworks/ako/pkg/utils"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/api/networking/v1beta1"
 )
 
