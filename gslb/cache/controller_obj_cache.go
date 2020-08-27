@@ -109,7 +109,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient) error {
 		if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := AviGetCollectionRaw(client, uri)
+		result, err := AviGetCollectionRaw(client, uri+"&is_federated=true")
 		if err != nil {
 			return errors.New("object: AviCache, msg: HealthMonitor get URI " + uri + " returned error: " + err.Error())
 		}
@@ -130,7 +130,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient) error {
 				continue
 			}
 
-			if *hm.IsFederated == false || hm.MonitorPort == nil {
+			if hm.MonitorPort == nil {
 				// not a GSLB health monitor or isn't a TCP/UDP/HTTP/HTTPS health monitor
 				continue
 			}
