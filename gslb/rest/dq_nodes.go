@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	ControllerNotLeaderErr = "Config Operations can be done ONLY on leader"
+	ControllerNotLeaderErr      = "Config Operations can be done ONLY on leader"
+	ControllerInMaintenanceMode = "GSLB system is in maintenance mode."
 )
 
 var restLayer *RestOperations
@@ -192,6 +193,21 @@ func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicach
 	return
 }
 
+func setRetryCounterForGraph(key string) error {
+	ok, aviModelIntf := nodes.SharedAviGSGraphLister().Get(key)
+	if !ok {
+		gslbutils.Warnf("key: %s, msg: %s", key, "no model found for this key")
+		return errors.New("no model for this key")
+	}
+	aviModel, ok := aviModelIntf.(*nodes.AviGSObjectGraph)
+	if !ok {
+		gslbutils.Errf("key: %s, msg: %s", key, "model malformed for this key")
+		return errors.New("model malformed for this key")
+	}
+	aviModel.SetRetryCounter()
+	return nil
+}
+
 func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
 	var bkt uint32
 	bkt = 0
@@ -221,6 +237,21 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 			gslbutils.Errf("can't execute operations on a non-leader controller, will wait for it to become a leader in the next full sync")
 			gslbutils.SetControllerAsFollower()
 			// don't retry
+			return
+		}
+		if strings.Contains(*aviError.Message, ControllerInMaintenanceMode) {
+			gslbutils.Errf("can't execute rest operations on a leader in maintenance mode, will retry")
+			// will retry indefinitely for this error, so reset the retryCounter
+			err := setRetryCounterForGraph(key)
+			if err != nil {
+				gslbutils.Errf("can't set the retry counter for this key, will re-sync in the next full sync")
+				gslbutils.SetResyncRequired(true)
+				return
+			}
+			// else, publish the key to slowRetryQueue
+			slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+			slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
+			gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
 			return
 		}
 		gslbutils.Errf("can't handle error code 400: %s, won't retry", *aviError.Message)
