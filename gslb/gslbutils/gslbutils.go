@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,8 +36,7 @@ import (
 
 const (
 	// MaxClusters is the supported number of clusters
-	MaxClusters       int    = 10
-	GSLBHealthMonitor string = "System-GSLB-Ping"
+	MaxClusters int = 10
 	// GSLBKubePath is a temporary path to put the kubeconfig
 	GSLBKubePath = "/tmp/gslb-kubeconfig"
 	//AVISystem is the namespace where everything AVI related is created
@@ -68,6 +68,16 @@ const (
 	AmkoUser = "amko-gslb"
 
 	NumRestWorkers = 8
+
+	// Service Protocols
+	ProtocolTCP = "TCP"
+	ProtocolUDP = "UDP"
+
+	// Health monitors
+	SystemHealthMonitorTypeTCP  = "HEALTH_MONITOR_TCP"
+	SystemHealthMonitorTypeUDP  = "HEALTH_MONITOR_UDP"
+	SystemGslbHealthMonitorTCP  = "System-GSLB-TCP"
+	DefaultTCPHealthMonitorPort = "80"
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -148,6 +158,10 @@ func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 	// Return true if the IP address is present in an route's status field, else return false
 	routeStatus := route.Status
 	for _, ingr := range routeStatus.Ingress {
+		// check if the status message was populated by ako
+		if !strings.HasPrefix(ingr.RouterName, "ako-") {
+			continue
+		}
 		conditions := ingr.Conditions
 		for _, condition := range conditions {
 			// TODO: Check if the message field contains an IP address
@@ -157,7 +171,6 @@ func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 			// Check if this is a IP address
 			addr := net.ParseIP(condition.Message)
 			if addr != nil {
-				// Found an IP address, return
 				return condition.Message, true
 			}
 		}
@@ -236,13 +249,19 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string) uint32 {
+func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string, hm string) uint32 {
 	sort.Strings(ipList)
 	sort.Strings(domainList)
 	sort.Strings(memberObjs)
 	return utils.Hash(utils.Stringify(ipList)) +
 		utils.Hash(utils.Stringify(domainList)) +
-		utils.Hash(utils.Stringify(memberObjs))
+		utils.Hash(utils.Stringify(memberObjs)) +
+		utils.Hash(hm)
+}
+
+func GetGSLBHmChecksum(name, hmType string, port int32) uint32 {
+	portStr := strconv.FormatInt(int64(port), 10)
+	return utils.Hash(name) + utils.Hash(hmType) + utils.Hash(portStr)
 }
 
 func GetAviAdminTenantRef() string {

@@ -252,8 +252,14 @@ func BuildSvcObj(name, ns, cname, host, ip string, withStatus bool, svcType core
 	svcObj.ResourceVersion = "100"
 
 	svcObj.Spec.Type = svcType
+	svcObj.Spec.Ports = []corev1.ServicePort{
+		{
+			Port:     80,
+			Protocol: "TCP",
+		},
+	}
 	svcObj.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
-		corev1.LoadBalancerIngress{
+		{
 			IP:       ip,
 			Hostname: host,
 		},

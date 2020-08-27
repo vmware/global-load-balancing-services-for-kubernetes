@@ -67,6 +67,13 @@ func GetMockServerURL() string {
 	return strings.Split(AviMockAPIServer.URL, "https://")[1]
 }
 
+func buildHealthMonitorRef(hmRefs []interface{}) []interface{} {
+	rHmRef := hmRefs[0].(string)
+	rHmSplit := strings.Split(rHmRef, "name=")
+	rHmName := rHmSplit[1]
+	return []interface{}{"https://10.79.111.29/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#" + rHmName}
+}
+
 func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.EscapedPath()
 	var resp map[string]interface{}
@@ -88,10 +95,12 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		objects := strings.Split(strings.Trim(url, "/"), "/")
 		rData, aviObject := resp, objects[1]
 		rName := rData["name"].(string)
+		rHmRefs := rData["health_monitor_refs"].([]interface{})
 		objURL := fmt.Sprintf("https://localhost/api/%s/%s-%s-%s#%s", aviObject, aviObject, rName, RandomUUID, rName)
 		if aviObject == "gslbservice" {
 			rData["url"] = objURL
 			rData["uuid"] = fmt.Sprintf("%s-%s-%s", aviObject, rName, RandomUUID)
+			rData["health_monitor_refs"] = buildHealthMonitorRef(rHmRefs)
 			finalResponse, _ = json.Marshal(rData)
 			w.WriteHeader(http.StatusOK)
 			w.Write(finalResponse)
@@ -103,6 +112,7 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		data, _ := ioutil.ReadAll(r.Body)
 		json.Unmarshal(data, &resp)
 		resp["uuid"] = strings.Split(strings.Trim(url, "/"), "/")[2]
+		resp["health_monitor_refs"] = []interface{}{"https://10.79.111.29/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#System-GSLB-TCP"}
 		finalResponse, _ = json.Marshal(resp)
 		w.WriteHeader(http.StatusOK)
 		w.Write(finalResponse)

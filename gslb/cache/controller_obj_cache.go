@@ -17,6 +17,7 @@ package cache
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,9 +34,141 @@ import (
 )
 
 var (
-	aviCache     *AviCache
-	objCacheOnce sync.Once
+	aviCache       *AviCache
+	objCacheOnce   sync.Once
+	aviHmCache     *AviHmCache
+	hmObjCacheOnce sync.Once
 )
+
+type AviHmObj struct {
+	Tenant           string
+	Name             string
+	Port             int32
+	UUID             string
+	Type             string
+	CloudConfigCksum uint32
+}
+
+type AviHmCache struct {
+	cacheLock sync.RWMutex
+	Cache     map[interface{}]interface{}
+	UUIDCache map[string]interface{}
+}
+
+func GetAviHmCache() *AviHmCache {
+	hmObjCacheOnce.Do(func() {
+		aviHmCache = &AviHmCache{}
+		aviHmCache.Cache = make(map[interface{}]interface{})
+		aviHmCache.UUIDCache = make(map[string]interface{})
+	})
+	return aviHmCache
+}
+
+func (h *AviHmCache) AviHmCacheAdd(k interface{}, val *AviHmObj) {
+	h.cacheLock.Lock()
+	defer h.cacheLock.Unlock()
+	h.Cache[k] = val
+	h.UUIDCache[val.UUID] = val
+}
+
+func (h *AviHmCache) AviHmCacheGet(k interface{}) (interface{}, bool) {
+	h.cacheLock.RLock()
+	defer h.cacheLock.RUnlock()
+	val, ok := h.Cache[k]
+	return val, ok
+}
+
+func (h *AviHmCache) AviHmCacheGetByUUID(k string) (interface{}, bool) {
+	h.cacheLock.RLock()
+	defer h.cacheLock.RUnlock()
+	val, ok := h.UUIDCache[k]
+	return val, ok
+}
+
+func (h *AviHmCache) AviHmCacheDelete(k interface{}) {
+	h.cacheLock.Lock()
+	defer h.cacheLock.Unlock()
+
+	delete(h.Cache, k)
+}
+
+func (h *AviHmCache) AviHmCachePopulate(client *clients.AviClient,
+	version string) {
+	SetTenantAndVersion(client, version)
+
+	// Populate the GS cache
+	h.AviHmObjCachePopulate(client)
+}
+
+func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient) error {
+	var nextPageURI string
+	uri := "/api/healthmonitor?page_size=100"
+
+	// parse all pages with Health monitors till we hit the last page
+	for {
+		if nextPageURI != "" {
+			uri = nextPageURI
+		}
+		result, err := AviGetCollectionRaw(client, uri+"&is_federated=true")
+		if err != nil {
+			return errors.New("object: AviCache, msg: HealthMonitor get URI " + uri + " returned error: " + err.Error())
+		}
+
+		gslbutils.Logf("fetched %d Health Monitors", result.Count)
+		elems := make([]json.RawMessage, result.Count)
+		err = json.Unmarshal(result.Results, &elems)
+		if err != nil {
+			return errors.New("failed to unmarshal health monitor data, err: " + err.Error())
+		}
+
+		processedObjs := 0
+		for i := 0; i < len(elems); i++ {
+			hm := models.HealthMonitor{}
+			err := json.Unmarshal(elems[i], &hm)
+			if err != nil {
+				gslbutils.Warnf("failed to unmarshal health monitor element, err: %s", err.Error())
+				continue
+			}
+
+			if hm.MonitorPort == nil {
+				// not a GSLB health monitor or isn't a TCP/UDP/HTTP/HTTPS health monitor
+				continue
+			}
+
+			if hm.Name == nil || hm.UUID == nil {
+				gslbutils.Warnf("incomplete health monitor data unmarshalled %s", utils.Stringify(hm))
+				continue
+			}
+
+			k := TenantName{Tenant: utils.ADMIN_NS, Name: *hm.Name}
+			cksum := gslbutils.GetGSLBHmChecksum(*hm.Name, *hm.Type, *hm.MonitorPort)
+			hmCacheObj := AviHmObj{
+				Name:             *hm.Name,
+				Tenant:           utils.ADMIN_NS,
+				UUID:             *hm.UUID,
+				Port:             *hm.MonitorPort,
+				CloudConfigCksum: cksum,
+			}
+			h.AviHmCacheAdd(k, &hmCacheObj)
+			processedObjs++
+		}
+		gslbutils.Logf("processed %d Health monitor objects", processedObjs)
+
+		nextPageURI = ""
+		if result.Next != "" {
+			nextURI := strings.Split(result.Next, "/api/healthmonitor")
+			if len(nextURI) > 1 {
+				nextPageURI = "/api/healthmonitor" + nextURI[1]
+				gslbutils.Logf("object: AviCache, msg: next field in response, will continue fetching")
+				continue
+			}
+			gslbutils.Warnf("error in getting the nextURI, can't proceed further, next URI %s", result.Next)
+			break
+		}
+		break
+	}
+	return nil
+}
 
 type GSMember struct {
 	IPAddr string
@@ -43,12 +176,13 @@ type GSMember struct {
 }
 
 type AviGSCache struct {
-	Name             string
-	Tenant           string
-	Uuid             string
-	Members          []GSMember
-	K8sObjects       []string
-	CloudConfigCksum uint32
+	Name              string
+	Tenant            string
+	Uuid              string
+	Members           []GSMember
+	K8sObjects        []string
+	HealthMonitorName string
+	CloudConfigCksum  uint32
 }
 
 type AviCache struct {
@@ -185,7 +319,8 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 	name = *gsObj.Name
 	uuid = *gsObj.UUID
 
-	cksum, gsMembers, memberObjs, err := GetDetailsFromAviGSLBFormatted(gsObj)
+	// find the health monitor for this object
+	cksum, gsMembers, memberObjs, hm, err := GetDetailsFromAviGSLBFormatted(gsObj)
 	if err != nil {
 		gslbutils.Errf("resp: %v, msg: error occurred while parsing the response: %s", gsObj, err)
 		// if we want to get avi gs object for a spefic gs name,
@@ -197,12 +332,13 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 	}
 	k := TenantName{Tenant: utils.ADMIN_NS, Name: name}
 	gsCacheObj := AviGSCache{
-		Name:             name,
-		Tenant:           utils.ADMIN_NS,
-		Uuid:             uuid,
-		Members:          gsMembers,
-		K8sObjects:       memberObjs,
-		CloudConfigCksum: cksum,
+		Name:              name,
+		Tenant:            utils.ADMIN_NS,
+		Uuid:              uuid,
+		Members:           gsMembers,
+		K8sObjects:        memberObjs,
+		HealthMonitorName: hm,
+		CloudConfigCksum:  cksum,
 	}
 	c.AviCacheAdd(k, &gsCacheObj)
 	gslbutils.Debugf(spew.Sprintf("cacheKey: %v, value: %v, msg: added GS to the cache", k,
@@ -239,15 +375,16 @@ func parseDescription(description string) ([]string, error) {
 	return objList, nil
 }
 
-func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, error) {
+func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, string, error) {
 	var ipList []string
 	var domainList []string
 	var gsMembers []GSMember
 	var memberObjs []string
+	var hm string
 
 	domainNames := gsObj.DomainNames
 	if len(domainNames) == 0 {
-		return 0, nil, memberObjs, errors.New("domain names absent in gslb service")
+		return 0, nil, memberObjs, hm, errors.New("domain names absent in gslb service")
 	}
 	// make a copy of the domain names list
 	for _, domain := range domainNames {
@@ -256,13 +393,33 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 	groups := gsObj.Groups
 	if len(groups) == 0 {
-		return 0, nil, memberObjs, errors.New("groups absent in gslb service")
+		return 0, nil, memberObjs, hm, errors.New("groups absent in gslb service")
 	}
 
 	description := *gsObj.Description
 	if description == "" {
-		return 0, nil, memberObjs, errors.New("description absent in gslb service")
+		return 0, nil, memberObjs, hm, errors.New("description absent in gslb service")
 	}
+
+	hmRefs := gsObj.HealthMonitorRefs
+	if len(hmRefs) == 0 {
+		return 0, nil, memberObjs, hm, errors.New("health monitor refs absent in gslb service")
+	}
+	hmRefSplit := strings.Split(hmRefs[0], "/api/healthmonitor/")
+	if len(hmRefSplit) != 2 {
+		return 0, nil, memberObjs, hm, errors.New("health monitor name is absent in health monitor ref: " + hmRefs[0])
+	}
+	hmUUID := hmRefSplit[1]
+	hmCache := GetAviHmCache()
+	hmObjIntf, found := hmCache.AviHmCacheGetByUUID(hmUUID)
+	if !found {
+		return 0, nil, memberObjs, hm, errors.New("health monitor object is absent in the controller for GS")
+	}
+	hmObj, ok := hmObjIntf.(*AviHmObj)
+	if !ok {
+		return 0, nil, memberObjs, hm, errors.New("health monitor cache object can't be parsed")
+	}
+	hm = hmObj.Name
 
 	for _, val := range groups {
 		group := *val
@@ -296,32 +453,45 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs)
-	return checksum, gsMembers, memberObjs, nil
+	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs, hm)
+	return checksum, gsMembers, memberObjs, hm, nil
 }
 
-func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, error) {
+func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, string, error) {
 	var ipList []string
 	var domainList []string
 	var gsMembers []GSMember
 	var memberObjs []string
+	var hm string
 
 	domainNames, ok := gslbSvcMap["domain_names"].([]interface{})
 	if !ok {
-		return 0, nil, memberObjs, errors.New("domain names absent in gslb service")
+		return 0, nil, memberObjs, hm, errors.New("domain names absent in gslb service")
 	}
 	for _, domain := range domainNames {
 		domainList = append(domainList, domain.(string))
 	}
 	groups, ok := gslbSvcMap["groups"].([]interface{})
 	if !ok {
-		return 0, nil, memberObjs, errors.New("groups absent in gslb service")
+		return 0, nil, memberObjs, hm, errors.New("groups absent in gslb service")
 	}
 
 	description, ok := gslbSvcMap["description"].(string)
 	if !ok {
-		return 0, nil, memberObjs, errors.New("description absent in gslb service")
+		return 0, nil, memberObjs, hm, errors.New("description absent in gslb service")
 	}
+
+	hmRefs, ok := gslbSvcMap["health_monitor_refs"].([]interface{})
+	if !ok {
+		return 0, nil, memberObjs, hm, errors.New("health_monitor_refs absent in gslb service")
+	}
+	hmRef := hmRefs[0].(string)
+	hmRefSplit := strings.Split(hmRef, "#")
+	if len(hmRefSplit) != 2 {
+		errStr := fmt.Sprintf("health monitor name is absent in health monitor ref: %v", hmRefSplit[0])
+		return 0, nil, memberObjs, hm, errors.New(errStr)
+	}
+	hm = hmRefSplit[1]
 
 	for _, val := range groups {
 		group, ok := val.(map[string]interface{})
@@ -369,8 +539,8 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs)
-	return checksum, gsMembers, memberObjs, nil
+	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs, hm)
+	return checksum, gsMembers, memberObjs, hm, nil
 }
 
 func (c *AviCache) AviObjCachePopulate(client *clients.AviClient,
@@ -393,7 +563,7 @@ type TenantName struct {
 	Name   string
 }
 
-func PopulateCache(createSharedCache bool) *AviCache {
+func PopulateGSCache(createSharedCache bool) *AviCache {
 	aviRestClientPool := SharedAviClients()
 	var aviObjCache *AviCache
 	if createSharedCache {
@@ -409,6 +579,23 @@ func PopulateCache(createSharedCache bool) *AviCache {
 			gslbutils.GetAviConfig().Version)
 	}
 	return aviObjCache
+}
+
+func PopulateHMCache(createSharedCache bool) *AviHmCache {
+	aviRestClientPool := SharedAviClients()
+	var aviHmCache *AviHmCache
+	if createSharedCache {
+		aviHmCache = GetAviHmCache()
+	} else {
+		aviHmCache = &AviHmCache{}
+		aviHmCache.Cache = make(map[interface{}]interface{})
+		aviHmCache.UUIDCache = make(map[string]interface{})
+	}
+	if len(aviRestClientPool.AviClient) > 0 {
+		aviHmCache.AviHmCachePopulate(aviRestClientPool.AviClient[0],
+			gslbutils.GetAviConfig().Version)
+	}
+	return aviHmCache
 }
 
 func VerifyVersion() error {

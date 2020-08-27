@@ -96,7 +96,35 @@ func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceL
 			AddOrUpdateLBSvcStore(acceptedLBSvcStore, &svc, c.GetName())
 		}
 	}
+}
 
+func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceList) {
+	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
+	rejectedRotueStore := gslbutils.GetRejectedRouteStore()
+
+	for _, namespace := range nsList.Items {
+		routeList, err := c.informers.OshiftClient.RouteV1().Routes(namespace.Name).List(metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the  list, %s",
+				namespace.Name, err.Error())
+			continue
+		}
+		for _, route := range routeList.Items {
+			routeMeta := k8sobjects.GetRouteMeta(&route, c.name)
+			if routeMeta.IPAddr == "" || routeMeta.Hostname == "" {
+				gslbutils.Debugf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, routeMeta.Namespace,
+					routeMeta.Name, "rejected ADD route because IP address/hostname not found in status field")
+				continue
+			}
+			if !filter.ApplyFilter(routeMeta, c.name) {
+				AddOrUpdateRouteStore(rejectedRotueStore, &route, c.name)
+				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s, routeObj: %v", c.name, routeMeta.Namespace,
+					routeMeta.Name, "rejected ADD route key because it couldn't pass through the filter", routeMeta)
+				continue
+			}
+			AddOrUpdateRouteStore(acceptedRouteStore, &route, c.name)
+		}
+	}
 }
 
 func checkGDPsAndInitialize() error {
@@ -140,7 +168,7 @@ func checkGDPsAndInitialize() error {
 }
 
 func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
-	gslbutils.Logf("Starting boot up sync, will sync all ingresses and services from all member clusters")
+	gslbutils.Logf("Starting boot up sync, will sync all ingresses, routes and services from all member clusters")
 
 	// add a GDP object
 	err := checkGDPsAndInitialize()
@@ -194,6 +222,9 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 		if c.informers.ServiceInformer != nil {
 			fetchAndApplyAllServices(c, selectedNamespaces)
 		}
+		if c.informers.RouteInformer != nil {
+			fetchAndApplyAllRoutes(c, selectedNamespaces)
+		}
 	}
 
 	// Generate models
@@ -205,6 +236,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 	gslbutils.Logf("will generate GS graphs from all accepted lists")
 	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
 	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
+	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
 
 	ingList := acceptedIngStore.GetAllClusterNSObjects()
 	for _, ingName := range ingList {
@@ -217,6 +249,13 @@ func GenerateModels(gsCache *avicache.AviCache) {
 		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
 			gslbutils.SvcType, svcName))
 	}
+
+	routeList := acceptedRouteStore.GetAllClusterNSObjects()
+	for _, routeName := range routeList {
+		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
+			gslbutils.RouteType, routeName))
+	}
+
 	gslbutils.Logf("keys for GS graphs published to layer 3")
 
 	sharedQ := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
