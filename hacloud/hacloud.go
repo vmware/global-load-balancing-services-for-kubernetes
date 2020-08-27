@@ -1,8 +1,8 @@
 package hacloud
 
 import (
-	containerutils "github.com/avinetworks/ako/pkg/utils"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
+	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"

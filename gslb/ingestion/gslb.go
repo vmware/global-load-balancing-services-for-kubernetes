@@ -28,10 +28,10 @@ import (
 
 	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
 
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/golang/glog"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

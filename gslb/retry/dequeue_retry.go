@@ -19,7 +19,7 @@ import (
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	"github.com/avinetworks/amko/gslb/nodes"
 
-	"github.com/avinetworks/ako/pkg/utils"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 func SyncFromRetryLayer(key string, wg *sync.WaitGroup) error {

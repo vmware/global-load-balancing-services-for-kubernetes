@@ -19,7 +19,7 @@ import (
 	"sync"
 	"testing"
 
-	containerutils "github.com/avinetworks/ako/pkg/utils"
+	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 const kubeConfigPath = "/tmp/gslb-kubeconfig"

@@ -30,8 +30,8 @@ import (
 
 	"github.com/avinetworks/amko/hacloud/hautils"
 
-	containerutils "github.com/avinetworks/ako/pkg/utils"
 	routev1 "github.com/openshift/api/route/v1"
+	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"

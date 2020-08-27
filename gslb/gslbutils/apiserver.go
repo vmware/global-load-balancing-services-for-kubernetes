@@ -15,8 +15,8 @@
 package gslbutils
 
 import (
-	"github.com/avinetworks/ako/pkg/api"
-	"github.com/avinetworks/ako/pkg/api/models"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 )
 
 var amkoAPI *api.ApiServer

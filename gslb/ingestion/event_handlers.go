@@ -21,9 +21,9 @@ import (
 
 	filter "github.com/avinetworks/amko/gslb/gdp_filter"
 
-	"github.com/avinetworks/ako/pkg/utils"
-	containerutils "github.com/avinetworks/ako/pkg/utils"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/client-go/tools/cache"

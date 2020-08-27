@@ -21,7 +21,7 @@ import (
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	"github.com/avinetworks/amko/gslb/k8sobjects"
 
-	"github.com/avinetworks/ako/pkg/utils"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 var aviGSGraphInstance *AviGSGraphLister

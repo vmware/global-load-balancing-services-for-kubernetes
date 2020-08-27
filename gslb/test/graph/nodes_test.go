@@ -25,8 +25,8 @@ import (
 	"github.com/avinetworks/amko/gslb/nodes"
 	"github.com/avinetworks/amko/gslb/test/ingestion"
 
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/onsi/gomega"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 const (

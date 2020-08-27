@@ -25,12 +25,12 @@ import (
 
 	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
-	apimodels "github.com/avinetworks/ako/pkg/api/models"
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/avinetworks/sdk/go/clients"
 	"github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
+	apimodels "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 var (

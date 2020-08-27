@@ -20,8 +20,8 @@ import (
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
 
-	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/avinetworks/sdk/go/clients"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 var aviClientInstance *utils.AviRestClientPool
