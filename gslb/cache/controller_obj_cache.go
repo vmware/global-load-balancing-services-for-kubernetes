@@ -25,6 +25,7 @@ import (
 
 	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
 
+	apimodels "github.com/avinetworks/ako/pkg/api/models"
 	"github.com/avinetworks/ako/pkg/utils"
 	"github.com/avinetworks/sdk/go/clients"
 	"github.com/avinetworks/sdk/go/models"
@@ -418,9 +419,11 @@ func VerifyVersion() error {
 	aviRestClientPool := SharedAviClients()
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
+		gslbutils.GetAmkoAPIServer().ShutDown()
 		return errors.New("no avi clients initialized")
 	}
 
+	apimodels.RestStatus.UpdateAviApiRestStatus(utils.AVIAPI_CONNECTED, nil)
 	aviClient := aviRestClientPool.AviClient[0]
 
 	if version == "" {

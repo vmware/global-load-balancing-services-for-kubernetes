@@ -1,4 +1,6 @@
-# github.com/avinetworks/ako v0.0.0-20200812191546-c50479c737bc
+# github.com/avinetworks/ako v0.0.0-20200818183048-9235bc726579
+github.com/avinetworks/ako/pkg/api
+github.com/avinetworks/ako/pkg/api/models
 github.com/avinetworks/ako/pkg/utils
 # github.com/avinetworks/sdk v0.0.0-20200812060914-ba100c75801c
 github.com/avinetworks/sdk/go/clients
@@ -36,6 +38,8 @@ github.com/google/gofuzz/bytesource
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
+# github.com/gorilla/mux v1.7.4
+github.com/gorilla/mux
 # github.com/hashicorp/golang-lru v0.5.4
 github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru

@@ -12,6 +12,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdko
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/avinetworks/ako v0.0.0-20200812191546-c50479c737bc h1:XDPj/+vonVHtED1sM/d33KvwYcqBKTg/1cF/oN6RtLU=
 github.com/avinetworks/ako v0.0.0-20200812191546-c50479c737bc/go.mod h1:20WGy9oYOx6KCHWy4p24iEWpmgNq7CaHqkQquTqKGGk=
+github.com/avinetworks/ako v0.0.0-20200818183048-9235bc726579 h1:y6DE4q0ZP0wqVcob21Xagp7oS36YbfpYxcJQRCLk1rk=
+github.com/avinetworks/ako v0.0.0-20200818183048-9235bc726579/go.mod h1:MBNVVsW57PgmLc1dkDbVXWYJlYV/+ciDioqIMDWKxjU=
 github.com/avinetworks/container-lib v0.0.0-20200805113307-80c6b5ecc46e h1:fBUMskRl+zuC6de9IRl3ChsQ7gCuoWUZLQx5zoVzinc=
 github.com/avinetworks/container-lib v0.0.0-20200805113307-80c6b5ecc46e/go.mod h1:wlslasV754w0HIvZMVzXn76U77IT2cH/QuEuutJ0ASE=
 github.com/avinetworks/sdk v0.0.0-20200724112835-36cadc631f7f/go.mod h1:BcllDeAFx8PtaMrPxvvuCUo7NRS2x6w+3W17WFDu0sk=
@@ -98,6 +100,7 @@ github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d/go.mod h1:sJBsC
 github.com/googleapis/gnostic v0.4.0 h1:BXDUo8p/DaxC+4FJY/SSx3gvnx9C1VdHNgaUkiEL5mk=
 github.com/googleapis/gnostic v0.4.0/go.mod h1:on+2t9HRStVgn95RSsFWFz+6Q0Snyqv1awfrALZdbtU=
 github.com/gophercloud/gophercloud v0.0.0-20190126172459-c818fa66e4c8/go.mod h1:3WdhXV3rUYy9p6AUW8d94kr+HS62Y4VL9mBnFxsD8q4=
+github.com/gorilla/mux v1.7.4 h1:VuZ8uybHlWmqV03+zRzdwKL4tUnIp1MAQtp1mIFE1bc=
 github.com/gorilla/mux v1.7.4/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
 github.com/gregjones/httpcache v0.0.0-20170728041850-787624de3eb7/go.mod h1:FecbI9+v66THATjSRHfNgh1IVFe/9kFxbXtjV0ctIMA=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=

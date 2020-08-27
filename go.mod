@@ -3,8 +3,9 @@ module github.com/avinetworks/amko
 go 1.13
 
 require (
-	github.com/avinetworks/ako v0.0.0-20200812191546-c50479c737bc
+	github.com/avinetworks/ako v0.0.0-20200818183048-9235bc726579
 	github.com/avinetworks/sdk v0.0.0-20200812060914-ba100c75801c
+	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.4.2 // indirect
