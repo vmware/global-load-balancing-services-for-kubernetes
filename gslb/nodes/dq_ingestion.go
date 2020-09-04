@@ -164,6 +164,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 	metaObj.UpdateHostMap(cname + "/" + ns + "/" + objName)
 
 	if !fullSync || gslbutils.IsControllerLeader() {
+
 		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
 	}
 }
@@ -203,6 +204,10 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	agl := SharedAviGSGraphLister()
 	found, aviGS := agl.Get(modelName)
 	if found {
+		if aviGS == nil {
+			gslbutils.Warnf("key: %s, msg: no avi graph found for this key", key)
+			return
+		}
 		uniqueMembersLen := len(aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs())
 		aviGS.(*AviGSObjectGraph).DeleteMember(cname, ns, objName, objType)
 		// delete the obj from the hostname map
@@ -212,7 +217,7 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 		}
 	} else {
 		// avi graph not found, return
-		gslbutils.Warnf("key: %s, msg: no avi graph found for this key", key)
+		gslbutils.Warnf("key: %s, msg: no gs key found in gs models", key)
 		return
 	}
 	aviGS.(*AviGSObjectGraph).SetRetryCounter()

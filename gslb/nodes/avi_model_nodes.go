@@ -173,6 +173,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	v.Tenant = utils.ADMIN_NS
 	v.DomainNames = hosts
 	v.MemberObjs = memberRoutes
+	v.RetryCount = gslbutils.DefaultRetryCount
 
 	port, err := metaObj.GetPort()
 	if err != nil {
