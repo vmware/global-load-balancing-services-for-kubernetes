@@ -582,10 +582,6 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 				gslbutils.Warnf("health monitor object %v malformed, can't delete", hmCacheObj)
 			}
 		}
-
-		// delete the GS name from the layer 2 cache here
-		// gslbutils.Warnf("key: %s, msg: deleting key from the layer 2 cache", key)
-		// nodes.SharedAviGSGraphLister().Delete(key)
 	}
 }
 
