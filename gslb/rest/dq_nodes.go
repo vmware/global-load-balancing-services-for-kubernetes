@@ -528,6 +528,7 @@ func (restOp *RestOperations) AviGsHmDel(uuid string, tenant string, key string,
 func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string) {
 	var restOps *utils.RestOp
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
+	gslbutils.Logf("key: %s, bucket: %d", key, bkt)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
@@ -581,10 +582,6 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 				gslbutils.Warnf("health monitor object %v malformed, can't delete", hmCacheObj)
 			}
 		}
-
-		// delete the GS name from the layer 2 cache here
-		gslbutils.Warnf("key: %s, msg: deleting key from the layer 2 cache", key)
-		nodes.SharedAviGSGraphLister().Delete(key)
 	}
 }
 
@@ -757,6 +754,8 @@ func SyncFromNodesLayer(key string, wg *sync.WaitGroup) error {
 	hmCache := avicache.GetAviHmCache()
 	aviclient := avicache.SharedAviClients()
 	restLayerF := NewRestOperations(cache, hmCache, aviclient)
+	gslbutils.Debugf("key: %s, msg: processing for key in rest layer")
 	restLayerF.DqNodes(key)
+	gslbutils.Debugf("key: %s, msg: processing for key is done in rest layer")
 	return nil
 }
