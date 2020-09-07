@@ -32,6 +32,8 @@ github.com/avinetworks/container-lib v0.0.0-20200805113307-80c6b5ecc46e/go.mod h
 github.com/avinetworks/sdk v0.0.0-20200724112835-36cadc631f7f/go.mod h1:BcllDeAFx8PtaMrPxvvuCUo7NRS2x6w+3W17WFDu0sk=
 github.com/avinetworks/sdk v0.0.0-20200812060914-ba100c75801c h1:GsvjuI/E65E35vcS69wUTMgLalYbP4T4vfCWR2NhKVI=
 github.com/avinetworks/sdk v0.0.0-20200812060914-ba100c75801c/go.mod h1:BcllDeAFx8PtaMrPxvvuCUo7NRS2x6w+3W17WFDu0sk=
+github.com/avinetworks/sdk v0.0.0-20200907081858-f883c20cce17 h1:urdOYt+6aRjdxFH6fEu3blQIITb13mGEA88v/gUpic4=
+github.com/avinetworks/sdk v0.0.0-20200907081858-f883c20cce17/go.mod h1:BcllDeAFx8PtaMrPxvvuCUo7NRS2x6w+3W17WFDu0sk=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/blang/semver v3.5.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

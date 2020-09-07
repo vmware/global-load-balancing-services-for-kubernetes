@@ -590,6 +590,12 @@ func StartGraphLayerWorkers() {
 func Initialize() {
 	initFlags()
 	flag.Parse()
+	if logfilepath := os.Getenv("LOG_FILE_PATH"); logfilepath != "" {
+		flag.Lookup("log_dir").Value.Set(logfilepath)
+	} else {
+		flag.Lookup("logtostderr").Value.Set("true")
+	}
+
 	stopCh = utils.SetupSignalHandler()
 	// Check if we are running inside kubernetes
 	cfg, err := rest.InClusterConfig()
