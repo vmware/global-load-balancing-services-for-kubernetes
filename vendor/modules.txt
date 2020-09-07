@@ -1,4 +1,4 @@
-# github.com/avinetworks/sdk v0.0.0-20200812060914-ba100c75801c
+# github.com/avinetworks/sdk v0.0.0-20200907081858-f883c20cce17
 github.com/avinetworks/sdk/go/clients
 github.com/avinetworks/sdk/go/models
 github.com/avinetworks/sdk/go/session

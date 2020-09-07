@@ -235,6 +235,7 @@ func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicach
 	}
 
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
+	gslbutils.Logf("key: %s, queue: %s, msg: handling error and updating cache", key, bkt)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 
 	switch errCode {
@@ -528,7 +529,7 @@ func (restOp *RestOperations) AviGsHmDel(uuid string, tenant string, key string,
 func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string) {
 	var restOps *utils.RestOp
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
-	gslbutils.Logf("key: %s, bucket: %d", key, bkt)
+	gslbutils.Logf("key: %s, queue: %d, msg: deleting GS object", key, bkt)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
