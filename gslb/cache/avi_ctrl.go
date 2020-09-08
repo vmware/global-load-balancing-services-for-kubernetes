@@ -53,7 +53,6 @@ func IsAviSiteLeader() (bool, error) {
 	}
 
 	aviClient := aviRestClientPool.AviClient[0]
-
 	clusterUuid, err := GetClusterUuid(aviClient)
 	if err != nil {
 		gslbutils.Errf("error in finding controller cluster uuid: %s", err.Error())

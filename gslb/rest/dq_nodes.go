@@ -95,6 +95,20 @@ func (restOp *RestOperations) DqNodes(key string) {
 				return
 			}
 
+			gslbutils.Logf("key: %s, msg: GslbService will be created/updated", key)
+			if aviModel == nil {
+				gslbutils.Warnf("key: %s, msg: %s", key, "no model exists for this GslbService")
+				return
+			}
+			restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
+
+			// Check if we need to delete the health monitor here
+			// if the cache obj was found, we shouldn't delete the health monitor
+			cacheObj := restOp.getGSCacheObj(gsKey, key)
+			if cacheObj != nil {
+				gslbutils.Debugf("key: %s, gsKey: %s, msg: GS wasn't deleted, so not deleting the health monitor")
+				return
+			}
 			hmCacheObjIntf, found := restOp.hmCache.AviHmCacheGet(avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName})
 			if found {
 				// health monitor found for this object, deleting
@@ -131,10 +145,42 @@ func (restOp *RestOperations) DqNodes(key string) {
 	restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
 }
 
+func (restOp *RestOperations) createUpdateGSHm(aviGSGraph *nodes.AviGSObjectGraph, gsCacheObj *avicache.AviGSCache, key string,
+	gsKey avicache.TenantName) {
+
+	var hmOperation *utils.RestOp
+	if aviGSGraph.IsHmTypeCustom() == false {
+		gslbutils.Debugf("key: %s, gsKey: %v, msg: default health monitor to be used")
+		return
+	}
+	// HM POST or DELETE-POST (PUT)?
+	// gslbutils.Debugf(spew.Sprintf("key: %s, gsMeta: %s, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
+
+	gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %v, msg: determining a post/put on the hm", key, gsKey, *aviGSGraph))
+	hm := restOp.getGSHmCacheObj(aviGSGraph.Name, aviGSGraph.Tenant, key)
+	if hm != nil {
+		// PUT required?
+		hmCksum := aviGSGraph.GetHmChecksum()
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %s, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
+			key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
+		if hmCksum != hm.CloudConfigCksum {
+			// PUT required
+			hmOperation = restOp.AviGsHmBuild(aviGSGraph, utils.RestPut, hm, key)
+			restOp.ExecuteRestAndPopulateCache(hmOperation, gsKey, key)
+		}
+		// no changes required
+	} else {
+		// POST operation
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %v, msg: will build a post call for hm", key, gsKey, *aviGSGraph))
+		hmOperation = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, hm, key)
+		restOp.ExecuteRestAndPopulateCache(hmOperation, gsKey, key)
+	}
+}
+
 func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *nodes.AviGSObjectGraph,
 	gsCacheObj *avicache.AviGSCache, key string) {
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
-	var operation, hmOperation *utils.RestOp
+	var operation *utils.RestOp
 
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: can't execute rest operation as controller is not a leader", gsKey)
@@ -143,40 +189,106 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	if gsCacheObj != nil {
 		var restOps []*utils.RestOp
 		var cksum uint32
+		if aviGSGraph.IsHmTypeCustom() {
+			hm := restOp.getGSHmCacheObj(aviGSGraph.Name, aviGSGraph.Tenant, key)
+			if hm != nil {
+				hmCksum := aviGSGraph.GetHmChecksum()
+				gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
+					key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
+				if hm.CloudConfigCksum != hmCksum {
+					// update gs, delete hm, create new hm and update gs
+					op := restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, false)
+					restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+					if op.Err != nil {
+						gslbutils.Debugf("key: %s, gsKey: %s, msg: error in rest operation: %v", key, gsKey, op)
+						return
+					}
+					op = restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
+					restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+					if op.Err != nil {
+						gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+						return
+					}
+					op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key)
+					restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+					if op.Err != nil {
+						gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+						return
+					}
+					op = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
+					restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+					if op.Err != nil {
+						gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+						return
+					}
+				}
+			} else {
+				// HM needs to be created
+				op := restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key)
+				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				if op.Err != nil {
+					gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+					return
+				}
+				op = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
+				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				if op.Err != nil {
+					gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+					return
+				}
+			}
+		}
+
 		cksum = aviGSGraph.GetChecksum()
+		// check if the GS needs an update
 		if gsCacheObj.CloudConfigCksum == cksum {
-			gslbutils.Debugf("key: %s, GSLBService: %s, msg: the checksums are same for the GSLB service, existing: %s, new: %s, ignoring",
+			gslbutils.Debugf("key: %s, GSLBService: %s, msg: the checksums are same for the GSLB service, existing: %d, new: %d, ignoring",
 				key, gsName, gsCacheObj.CloudConfigCksum, cksum)
 			return
 		}
-		gslbutils.Debugf("key: %s, GSLBService: %s, oldCksum: %s, newCksum: %s, msg: %s", key, gsName,
+		gslbutils.Debugf("key: %s, GSLBService: %s, oldCksum: %d, newCksum: %d, msg: %s", key, gsName,
 			gsCacheObj.CloudConfigCksum, cksum, "checksums are different for the GSLB Service")
 		// it should be a PUT call
-		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key)
+		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
 		gslbutils.Debugf("gsKey: %s, restOps: %v, operation: %v", gsKey, restOps, operation)
 	} else {
 		// its a post operation
 		// first see if we need a new health monitor
-		if aviGSGraph.Hm.Custom {
-			// HM POST or PUT?
-			hm := restOp.getGSHmCacheObj(aviGSGraph.Name, aviGSGraph.Tenant, key)
-			if hm != nil {
-				// PUT required?
-				cksum := gslbutils.GetGSLBHmChecksum(aviGSGraph.Hm.Name, aviGSGraph.Hm.Protocol, aviGSGraph.Hm.Port)
-				if cksum != hm.CloudConfigCksum {
-					// PUT required
-					hmOperation = restOp.AviGsHmBuild(aviGSGraph, utils.RestPut, hm, key)
-					restOp.ExecuteRestAndPopulateCache(hmOperation, gsKey, key)
+		hm := restOp.getGSHmCacheObj(aviGSGraph.Name, aviGSGraph.Tenant, key)
+		if aviGSGraph.IsHmTypeCustom() {
+			if hm == nil && aviGSGraph.IsHmTypeCustom() {
+				// create a new health monitor
+				op := restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key)
+				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				if op.Err != nil {
+					gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v")
+					return
 				}
-				// no changes required
+				gslbutils.Debugf("key: %s, gsKey: %s, msg: no new hm required")
 			} else {
-				// POST operation
-				hmOperation = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, hm, key)
-				restOp.ExecuteRestAndPopulateCache(hmOperation, gsKey, key)
+				// a health monitor already exists, see if we need to re-create it
+				hmCksum := aviGSGraph.GetHmChecksum()
+				gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %s, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
+					key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
+				if hm.CloudConfigCksum != hmCksum {
+					// delete hm, create new hm and update gs
+					op := restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
+					restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+					if op.Err != nil {
+						gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+						return
+					}
+					op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key)
+					restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+					if op.Err != nil {
+						gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+						return
+					}
+				}
 			}
 		}
 		gslbutils.Logf("key: %s, operation: POST, msg: GS not found in cache", key)
-		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPost, nil, key)
+		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPost, nil, key, true)
 	}
 	operation.ObjName = aviGSGraph.Name
 	restOp.ExecuteRestAndPopulateCache(operation, gsKey, key)
@@ -387,7 +499,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 }
 
 func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
-	cacheObj *avicache.AviGSCache, key string) *utils.RestOp {
+	cacheObj *avicache.AviGSCache, key string, hmRequired bool) *utils.RestOp {
 	gslbutils.Logf("key: %s, msg: creating rest operation", key)
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
@@ -459,8 +571,13 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		Description:                   &description,
 	}
 
-	// Assign a health monitor, if present
-	aviGslbSvc.HealthMonitorRefs = []string{"/api/healthmonitor?name=" + gsMeta.Hm.Name}
+	if hmRequired {
+		if gsMeta.Hm.Name == "" {
+			gslbutils.Errf("gs %s doesn't have a health monitor", gsMeta.Name)
+		}
+		// Assign a health monitor, if present
+		aviGslbSvc.HealthMonitorRefs = []string{"/api/healthmonitor?name=" + gsMeta.Hm.Name}
+	}
 
 	path := "/api/gslbservice/"
 
@@ -469,13 +586,14 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 
 	if restMethod == utils.RestPost {
 		operation.Method = utils.RestPost
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsMeta: %v, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
 		return &operation
 	}
 	// Else, its a PUT call
 	operation.Path = path + cacheObj.Uuid
 	operation.Method = utils.RestPut
 
-	gslbutils.Debugf(spew.Sprintf("key: %s, gsMeta: %s, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
+	gslbutils.Debugf(spew.Sprintf("key: %s, gsMeta: %v, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
 	return &operation
 }
 
@@ -588,13 +706,13 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 
 func (restOp *RestOperations) AviGSHmCacheDel(hmCache *avicache.AviHmCache, op *utils.RestOp, key string) {
 	hmKey := avicache.TenantName{Tenant: op.Tenant, Name: op.ObjName}
-	gslbutils.Logf("key: %s, hmKey: %v, msg: deleting gs cache", key, hmKey)
+	gslbutils.Logf("key: %s, hmKey: %v, msg: deleting from gs hm cache", key, hmKey)
 	hmCache.AviHmCacheDelete(hmKey)
 }
 
 func (restOp *RestOperations) AviGSCacheDel(gsCache *avicache.AviCache, op *utils.RestOp, key string) {
 	gsKey := avicache.TenantName{Tenant: op.Tenant, Name: op.ObjName}
-	gslbutils.Logf("key: %s, gsKey: %v, msg: deleting gs cache", key, gsKey)
+	gslbutils.Logf("key: %s, gsKey: %v, msg: deleting from gs cache", key, gsKey)
 	gsCache.AviCacheDelete(gsKey)
 }
 
@@ -755,8 +873,8 @@ func SyncFromNodesLayer(key string, wg *sync.WaitGroup) error {
 	hmCache := avicache.GetAviHmCache()
 	aviclient := avicache.SharedAviClients()
 	restLayerF := NewRestOperations(cache, hmCache, aviclient)
-	gslbutils.Debugf("key: %s, msg: processing for key in rest layer")
+	gslbutils.Debugf("key: %s, msg: processing for key in rest layer", key)
 	restLayerF.DqNodes(key)
-	gslbutils.Debugf("key: %s, msg: processing for key is done in rest layer")
+	gslbutils.Debugf("key: %s, msg: processing for key is done in rest layer", key)
 	return nil
 }

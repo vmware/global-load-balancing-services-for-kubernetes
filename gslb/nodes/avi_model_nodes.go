@@ -66,6 +66,9 @@ type AviGSK8sObj struct {
 	Namespace string
 	IPAddr    string
 	Weight    int32
+	// Port and protocol will be only used by LB service
+	Port  int32
+	Proto string
 }
 
 type HealthMonitor struct {
@@ -76,7 +79,6 @@ type HealthMonitor struct {
 }
 
 func (hm HealthMonitor) getChecksum() uint32 {
-	//func GetGSLBHmChecksum(name, hmType string, port int32) uint32 {
 	return gslbutils.GetGSLBHmChecksum(hm.Name, hm.Protocol, hm.Port)
 }
 
@@ -184,24 +186,73 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 		// for svc type load balancer objects
 		v.Hm.Name = "amko-hm-" + gsName
 		v.Hm.Port = port
+		v.MemberObjs[0].Port = port
 		v.Hm.Custom = true
 		protocol, _ := metaObj.GetProtocol()
-		switch protocol {
-		case gslbutils.ProtocolTCP:
-			v.Hm.Protocol = gslbutils.SystemHealthMonitorTypeTCP
-		case gslbutils.ProtocolUDP:
-			v.Hm.Protocol = gslbutils.SystemHealthMonitorTypeUDP
-		default:
-			gslbutils.Errf("unrecognized protocol for service, can't create a health monitor for this GSLB service graph")
+		v.MemberObjs[0].Proto = protocol
+		hmType, err := gslbutils.GetHmTypeForProtocol(protocol)
+		if err != nil {
+			gslbutils.Errf("can't create a health monitor for this GSLB Service graph: %s", err.Error())
+		} else {
+			v.Hm.Protocol = hmType
 		}
 	}
 	v.GetChecksum()
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
 }
 
+func (v *AviGSObjectGraph) checkAndUpdateHealthMonitor(objType string) {
+	if len(v.MemberObjs) <= 0 {
+		gslbutils.Errf("gsName: %s, no member objects for this avi gs, can't check the health monitor", v.Name)
+		return
+	}
+
+	if objType == gslbutils.SvcType {
+		v.Hm.Name = "amko-hm-" + v.Name
+		v.Hm.Custom = true
+	} else {
+		v.Hm.Name = gslbutils.SystemGslbHealthMonitorTCP
+		v.Hm.Custom = false
+		return
+	}
+
+	var newPort int32
+	var newProto string
+
+	for idx, member := range v.MemberObjs {
+		if idx == 0 {
+			newPort = member.Port
+			newProto = member.Proto
+		}
+		if newPort > member.Port {
+			newPort = member.Port
+			newProto = member.Proto
+		}
+	}
+	// overwrite the new minimum port and protocol
+	v.Hm.Port = newPort
+	hmType, err := gslbutils.GetHmTypeForProtocol(newProto)
+	if err != nil {
+		gslbutils.Errf("can't change the health monitor for gs %s, port: %d, protocol %s: %s", v.Name, newPort,
+			newProto, err.Error())
+	} else {
+		v.Hm.Protocol = hmType
+	}
+}
+
 func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
+
+	var svcPort int32
+	var svcProtocol, objType string
+
+	objType = metaObj.GetType()
+	if objType == gslbutils.SvcType {
+		svcPort, _ = metaObj.GetPort()
+		svcProtocol, _ = metaObj.GetProtocol()
+	}
+
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
 	for idx, memberObj := range v.MemberObjs {
 		if metaObj.GetType() != memberObj.ObjType {
@@ -219,6 +270,12 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		// if we reach here, it means this is the member we need to update
 		v.MemberObjs[idx].IPAddr = metaObj.GetIPAddr()
 		v.MemberObjs[idx].Weight = weight
+		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, metaObj.GetType())
+		if objType == gslbutils.SvcType {
+			v.MemberObjs[idx].Port = svcPort
+			v.MemberObjs[idx].Proto = svcProtocol
+			v.checkAndUpdateHealthMonitor(metaObj.GetType())
+		}
 		return
 	}
 
@@ -230,8 +287,13 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		IPAddr:    metaObj.GetIPAddr(),
 		Weight:    weight,
 		ObjType:   metaObj.GetType(),
+		Port:      svcPort,
+		Proto:     svcProtocol,
 	}
 	v.MemberObjs = append(v.MemberObjs, gsMember)
+	if objType == gslbutils.SvcType {
+		v.checkAndUpdateHealthMonitor(objType)
+	}
 }
 
 func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
@@ -250,6 +312,23 @@ func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
 	}
 	// Delete the member route
 	v.MemberObjs = append(v.MemberObjs[:idx], v.MemberObjs[idx+1:]...)
+	if len(v.MemberObjs) == 0 {
+		return
+	}
+
+	// check if the health monitor needs to be updated
+	for _, member := range v.MemberObjs {
+		if member.ObjType == gslbutils.SvcType {
+			v.checkAndUpdateHealthMonitor(member.ObjType)
+			return
+		}
+	}
+}
+
+func (v *AviGSObjectGraph) IsHmTypeCustom() bool {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+	return v.Hm.Custom
 }
 
 func (v *AviGSObjectGraph) MembersLen() int {

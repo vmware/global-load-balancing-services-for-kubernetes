@@ -20,6 +20,7 @@ import (
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	"github.com/avinetworks/amko/gslb/k8sobjects"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -143,21 +144,32 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		// Note: For now, the hostname is used as a way to create the GSLB services. This is on the
 		// assumption that the hostnames are same for a route across all clusters.
 		aviGS.(*AviGSObjectGraph).ConstructAviGSGraph(gsName, key, metaObj, memberWeight)
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
+			*(aviGS.(*AviGSObjectGraph))))
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	} else {
+		gsGraph := aviGS.(*AviGSObjectGraph)
+		prevHmChecksum := gsGraph.GetHmChecksum()
 		// since the object was found, fetch the current checksum
-		prevChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
+		prevChecksum = gsGraph.GetChecksum()
 		// GSGraph found, so, only need to update the member of the GSGraph's GSNode
 		aviGS.(*AviGSObjectGraph).UpdateGSMember(metaObj, memberWeight)
 		// Get the new checksum after the updates
-		newChecksum = aviGS.(*AviGSObjectGraph).GetChecksum()
-		if prevChecksum == newChecksum {
+		newChecksum = gsGraph.GetChecksum()
+		newHmChecksum := gsGraph.GetHmChecksum()
+
+		gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
+			newChecksum, prevHmChecksum, newHmChecksum, key)
+
+		if (prevChecksum == newChecksum) && (prevHmChecksum == newHmChecksum) {
 			// Checksums are same, return
-			gslbutils.Debugf("key: %s, model: %s, msg: %s", key, modelName,
-				"the model for this key has identical checksums")
+			gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, gsName, *gsGraph,
+				"the model for this key has identical checksums"))
 			return
 		}
 		aviGS.(*AviGSObjectGraph).SetRetryCounter()
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, gsName, *gsGraph,
+			"updated the model"))
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	}
 	// Update the hostname in the RouteHostMap
