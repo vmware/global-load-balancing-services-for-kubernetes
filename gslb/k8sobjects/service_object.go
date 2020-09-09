@@ -33,16 +33,28 @@ func getSvcPortProtocol(svc *corev1.Service) (int32, string, error) {
 		return 0, "", nil
 	}
 
-	for _, port := range svc.Spec.Ports {
+	var minPort int32
+	var minProto string
+
+	if len(svc.Spec.Ports) == 0 {
+		return 0, "", errors.New("service has no ports, will ignore")
+	}
+	for idx, port := range svc.Spec.Ports {
 		if port.Protocol != "" && (port.Protocol != gslbutils.ProtocolTCP && port.Protocol != gslbutils.ProtocolUDP) {
 			gslbutils.Errf("ns: %s, svc: %s, msg: can't enable health monitor for protocol %s, will use the default TCP health monitor",
 				svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, port.Protocol)
 			return port.Port, gslbutils.ProtocolTCP, nil
 		}
-		return port.Port, string(port.Protocol), nil
+		if idx == 0 {
+			minPort = port.Port
+			minProto = string(port.Protocol)
+		}
+		if minPort > port.Port {
+			minPort = port.Port
+			minProto = string(port.Protocol)
+		}
 	}
-
-	return 0, "", errors.New("service has no ports, will ignore")
+	return minPort, minProto, nil
 }
 
 func getSvcHostMap() *ObjHostMap {
@@ -89,6 +101,8 @@ func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
 		gslbutils.Errf("service rejected because of error: %s", err.Error())
 		return metaObj, false
 	}
+	gslbutils.Debugf("assigning port %d and protocol %s for service %s, ns %s in cluster %s", port, protocol,
+		metaObj.Name, metaObj.Namespace, metaObj.Cluster)
 	metaObj.Port = port
 	metaObj.Protocol = protocol
 

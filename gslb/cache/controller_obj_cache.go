@@ -403,24 +403,25 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	}
 
 	hmRefs := gsObj.HealthMonitorRefs
-	if len(hmRefs) == 0 {
-		return 0, nil, memberObjs, hm, errors.New("health monitor refs absent in gslb service")
+	if len(hmRefs) != 0 {
+		hmRefSplit := strings.Split(hmRefs[0], "/api/healthmonitor/")
+		if len(hmRefSplit) != 2 {
+			return 0, nil, memberObjs, hm, errors.New("health monitor name is absent in health monitor ref: " + hmRefs[0])
+		}
+		hmUUID := hmRefSplit[1]
+		hmCache := GetAviHmCache()
+		hmObjIntf, found := hmCache.AviHmCacheGetByUUID(hmUUID)
+		if !found {
+			gslbutils.Debugf("gsName: %s, msg: health monitor object is absent in the controller for GS", *gsObj.Name)
+		}
+		hmObj, ok := hmObjIntf.(*AviHmObj)
+		if !ok {
+			gslbutils.Debugf("gsName: %s, msg: health monitor cache object can't be parsed", *gsObj.Name)
+		}
+		hm = hmObj.Name
+	} else {
+		gslbutils.Debugf("gsName: %s, msg: health monitor refs absent in gslb service", *gsObj.Name)
 	}
-	hmRefSplit := strings.Split(hmRefs[0], "/api/healthmonitor/")
-	if len(hmRefSplit) != 2 {
-		return 0, nil, memberObjs, hm, errors.New("health monitor name is absent in health monitor ref: " + hmRefs[0])
-	}
-	hmUUID := hmRefSplit[1]
-	hmCache := GetAviHmCache()
-	hmObjIntf, found := hmCache.AviHmCacheGetByUUID(hmUUID)
-	if !found {
-		return 0, nil, memberObjs, hm, errors.New("health monitor object is absent in the controller for GS")
-	}
-	hmObj, ok := hmObjIntf.(*AviHmObj)
-	if !ok {
-		return 0, nil, memberObjs, hm, errors.New("health monitor cache object can't be parsed")
-	}
-	hm = hmObj.Name
 
 	for _, val := range groups {
 		group := *val
@@ -483,16 +484,17 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	}
 
 	hmRefs, ok := gslbSvcMap["health_monitor_refs"].([]interface{})
-	if !ok {
-		return 0, nil, memberObjs, hm, errors.New("health_monitor_refs absent in gslb service")
+	if ok {
+		hmRef := hmRefs[0].(string)
+		hmRefSplit := strings.Split(hmRef, "#")
+		if len(hmRefSplit) != 2 {
+			errStr := fmt.Sprintf("health monitor name is absent in health monitor ref: %v", hmRefSplit[0])
+			return 0, nil, memberObjs, hm, errors.New(errStr)
+		}
+		hm = hmRefSplit[1]
+	} else {
+		gslbutils.Debugf("gslbsvcmap: %v, health_monitor_refs absent in gslb service", gslbSvcMap)
 	}
-	hmRef := hmRefs[0].(string)
-	hmRefSplit := strings.Split(hmRef, "#")
-	if len(hmRefSplit) != 2 {
-		errStr := fmt.Sprintf("health monitor name is absent in health monitor ref: %v", hmRefSplit[0])
-		return 0, nil, memberObjs, hm, errors.New(errStr)
-	}
-	hm = hmRefSplit[1]
 
 	for _, val := range groups {
 		group, ok := val.(map[string]interface{})

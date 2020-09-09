@@ -488,3 +488,14 @@ func IsResyncRequired() bool {
 	defer resync.lock.RUnlock()
 	return resync.required
 }
+
+func GetHmTypeForProtocol(protocol string) (string, error) {
+	switch protocol {
+	case ProtocolTCP:
+		return SystemHealthMonitorTypeTCP, nil
+	case ProtocolUDP:
+		return SystemHealthMonitorTypeUDP, nil
+	default:
+		return "", errors.New("unrecognized protocol")
+	}
+}
