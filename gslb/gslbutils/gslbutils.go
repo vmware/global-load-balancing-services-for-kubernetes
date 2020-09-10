@@ -78,6 +78,9 @@ const (
 	SystemHealthMonitorTypeUDP  = "HEALTH_MONITOR_UDP"
 	SystemGslbHealthMonitorTCP  = "System-GSLB-TCP"
 	DefaultTCPHealthMonitorPort = "80"
+
+	// Timeout for rest operations
+	RestTimeoutSecs = 600
 )
 
 // InformersPerCluster is the number of informers per cluster

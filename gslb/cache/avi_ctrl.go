@@ -16,6 +16,7 @@ package cache
 
 import (
 	"errors"
+	"os"
 	"sync"
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
@@ -34,9 +35,10 @@ func SharedAviClients() *utils.AviRestClientPool {
 		var err error
 
 		ctrlCfg := gslbutils.GetAviConfig()
-		if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" {
+		if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" || ctrlCfg.Version == "" {
 			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
 		}
+		os.Setenv("CTRL_VERSION", ctrlCfg.Version)
 		aviClientInstance, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password)
 		if err != nil {
 			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)

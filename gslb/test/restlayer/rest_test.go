@@ -105,10 +105,12 @@ func verifyInAviCache(t *testing.T, gsGraph nodes.AviGSObjectGraph, deleteCase b
 
 func saveSyncAndVerify(t *testing.T, modelName string, gsGraph nodes.AviGSObjectGraph, deleteCase bool) {
 	gsGraph.SetRetryCounter()
-	agl := nodes.SharedAviGSGraphLister()
-	agl.Save(modelName, &gsGraph)
-	rest.SyncFromNodesLayer(gsGraph.Tenant+"/"+gsGraph.Name, &sync.WaitGroup{})
 
+	if !deleteCase {
+		agl := nodes.SharedAviGSGraphLister()
+		agl.Save(modelName, &gsGraph)
+	}
+	rest.SyncFromNodesLayer(gsGraph.Tenant+"/"+gsGraph.Name, &sync.WaitGroup{})
 	verifyInAviCache(t, gsGraph, deleteCase)
 }
 
@@ -156,8 +158,12 @@ func TestDeleteGS(t *testing.T) {
 	saveSyncAndVerify(t, modelName, gsGraph, false)
 
 	gsGraph.SetRetryCounter()
+
+	dgl := nodes.SharedDeleteGSGraphLister()
+	dgl.Save(modelName, &gsGraph)
+
 	agl := nodes.SharedAviGSGraphLister()
-	agl.Save(modelName, nil)
+	agl.Delete(modelName)
 	rest.SyncFromNodesLayer(gsGraph.Tenant+"/"+gsGraph.Name, &sync.WaitGroup{})
 
 	gsGraph.DeleteMember("foo", DefaultNS, names[0], v1alpha1.IngressObj)

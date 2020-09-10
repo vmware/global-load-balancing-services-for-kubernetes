@@ -213,6 +213,7 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	gsName := hostname
 	modelName := utils.ADMIN_NS + "/" + hostname
 
+	deleteGs := false
 	agl := SharedAviGSGraphLister()
 	found, aviGS := agl.Get(modelName)
 	if found {
@@ -227,13 +228,24 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 		if uniqueMembersLen != newUniqueMemberLen {
 			metaObj.DeleteMapByKey(clusterObj)
 		}
+		gslbutils.Debugf("key: %s, gsMembers: %d, msg: checking if its a GS deletion case", key,
+			aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs())
+		if len(aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs()) == 0 {
+			deleteGs = true
+		}
 	} else {
 		// avi graph not found, return
 		gslbutils.Warnf("key: %s, msg: no gs key found in gs models", key)
 		return
 	}
 	aviGS.(*AviGSObjectGraph).SetRetryCounter()
-	SharedAviGSGraphLister().Save(modelName, aviGS.(*AviGSObjectGraph))
+	if deleteGs {
+		// add the object to the delete cache and remove from the model cache
+		SharedDeleteGSGraphLister().Save(modelName, aviGS)
+		SharedAviGSGraphLister().Delete(modelName)
+	} else {
+		SharedAviGSGraphLister().Save(modelName, aviGS)
+	}
 	if gslbutils.IsControllerLeader() {
 		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
 	}

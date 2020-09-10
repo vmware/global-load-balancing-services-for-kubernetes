@@ -27,6 +27,20 @@ import (
 var aviGSGraphInstance *AviGSGraphLister
 var avionce sync.Once
 
+// deleteGSGraphInstance is only used as a delete cache between layer 2 and layer 3.
+// If a GS object is marked for deletion, layer 2 puts it into the delete cache and
+// removes it from aviGSGraphInstance.
+var deleteGSGraphInstance *AviGSGraphLister
+var deleteOnce sync.Once
+
+func SharedDeleteGSGraphLister() *AviGSGraphLister {
+	deleteOnce.Do(func() {
+		deleteGSGraphStore := gslbutils.NewObjectMapStore()
+		deleteGSGraphInstance = &AviGSGraphLister{AviGSGraphStore: deleteGSGraphStore}
+	})
+	return deleteGSGraphInstance
+}
+
 type AviGSGraphLister struct {
 	AviGSGraphStore *gslbutils.ObjectMapStore
 }
