@@ -1,4 +1,4 @@
-# github.com/avinetworks/sdk v0.0.0-20200907081858-f883c20cce17
+# github.com/avinetworks/sdk v0.0.0-20200910092938-580bed7585cb
 github.com/avinetworks/sdk/go/clients
 github.com/avinetworks/sdk/go/models
 github.com/avinetworks/sdk/go/session
@@ -77,7 +77,7 @@ github.com/openshift/client-go/route/listers/route/v1
 github.com/pkg/errors
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200827183850-3f0605c07567
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200911034242-702b866e87f2
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils

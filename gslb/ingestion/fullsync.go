@@ -263,21 +263,24 @@ func GenerateModels(gsCache *avicache.AviCache) {
 	gsKeys := gsCache.AviCacheGetAllKeys()
 	// find out the keys which are not already present in the list of created GS graphs
 	agl := nodes.SharedAviGSGraphLister()
+	dgl := nodes.SharedDeleteGSGraphLister()
 	for _, gsKey := range gsKeys {
 		key := gsKey.Tenant + "/" + gsKey.Name
 		found, _ := agl.Get(key)
-		if !found {
-			gslbutils.Warnf("didn't get a GS for this key: %s", key)
-			// create a new Graph with 0 members, this is only used for deletion cases
-			newGSGraph := nodes.NewAviGSObjectGraph()
-			newGSGraph.Name = gsKey.Name
-			newGSGraph.Tenant = gsKey.Tenant
-			newGSGraph.MemberObjs = []nodes.AviGSK8sObj{}
-			agl.Save(key, newGSGraph)
-
-			bkt := utils.Bkt(key, sharedQ.NumWorkers)
-			sharedQ.Workqueue[bkt].AddRateLimited(key)
-			gslbutils.Logf("process: fullSync, modelName: %s, msg: %s", gsKey, "published key to rest layer")
+		if found {
+			continue
 		}
+		gslbutils.Warnf("didn't get a GS for this key: %s", key)
+		// create a new Graph with 0 members, push it to the delete queue
+		newGSGraph := nodes.NewAviGSObjectGraph()
+		newGSGraph.Name = gsKey.Name
+		newGSGraph.Tenant = gsKey.Tenant
+		newGSGraph.MemberObjs = []nodes.AviGSK8sObj{}
+		newGSGraph.SetRetryCounter()
+		dgl.Save(key, newGSGraph)
+
+		bkt := utils.Bkt(key, sharedQ.NumWorkers)
+		sharedQ.Workqueue[bkt].AddRateLimited(key)
+		gslbutils.Logf("process: fullSync, modelName: %s, msg: %s", gsKey, "published key to rest layer")
 	}
 }

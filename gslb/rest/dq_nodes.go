@@ -18,12 +18,14 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	avicache "github.com/avinetworks/amko/gslb/cache"
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
 	"github.com/avinetworks/amko/gslb/nodes"
 
+	"github.com/avinetworks/sdk/go/clients"
 	avimodels "github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
@@ -54,21 +56,37 @@ func NewRestOperations(cache *avicache.AviCache, hmCache *avicache.AviHmCache, a
 func (restOp *RestOperations) DqNodes(key string) {
 	gslbutils.Logf("key: %s, msg: starting rest layer sync", key)
 	// got the key from graph layer, let's fetch the model
+	// if the key is only in the delete cache, then set deleteOp to true, else false
+	deleteOp := false
+
+	var deleteAviModelIntf interface{}
 	ok, aviModelIntf := nodes.SharedAviGSGraphLister().Get(key)
 	if !ok {
-		gslbutils.Logf("key: %s, msg: %s", key, "no model found for the key")
-		return
+		gslbutils.Logf("key: %s, msg: %s", key, "no model found for the key in the model cache")
+		ok, deleteAviModelIntf = nodes.SharedDeleteGSGraphLister().Get(key)
+		if !ok || deleteAviModelIntf == nil {
+			gslbutils.Logf("key: %s, msg: %s, deleteAviModelIntf: %v", key, "no model found for the key in the delete cache",
+				deleteAviModelIntf)
+			return
+		}
+		deleteOp = true
+	}
+
+	var aviModel *nodes.AviGSObjectGraph
+	if deleteOp {
+		aviModel = deleteAviModelIntf.(*nodes.AviGSObjectGraph)
+	} else {
+		if aviModelIntf == nil {
+			gslbutils.Errf("key: %s, msg: aviModelIntf is nil", key)
+			return
+		}
+		aviModel = aviModelIntf.(*nodes.AviGSObjectGraph)
 	}
 
 	tenant, gsName := utils.ExtractNamespaceObjectName(key)
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
 	gsCacheObj := restOp.getGSCacheObj(gsKey, key)
-	if aviModelIntf == nil {
-		gslbutils.Errf("key: %s, msg: model found is nil, unexpected error", key)
-		return
-	}
 
-	aviModel := aviModelIntf.(*nodes.AviGSObjectGraph)
 	ct := aviModel.GetRetryCounter()
 	if ct <= 0 {
 		aviModel.SetRetryCounter()
@@ -77,63 +95,13 @@ func (restOp *RestOperations) DqNodes(key string) {
 	}
 	aviModel.DecrementRetryCounter()
 
-	if aviModel.MembersLen() == 0 {
-		if gsCacheObj != nil {
-			gslbutils.Logf("key: %s, msg: %s", key, "no model found, will delete the GslbService")
-			// Delete case can have two sub-cases:
-			// 1. Just delete the IP if present
-			// 2. Delete the GS object only if this is the last IP present.
-			restOp.deleteGSOper(gsCacheObj, tenant, key)
-		} else {
-			// check if the gs health monitor is still dangling
-			hmName := "amko-hm-" + gsName
-			bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
-			aviclient := restOp.aviRestPoolClient.AviClient[bkt]
-			if !gslbutils.IsControllerLeader() {
-				gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
-				gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderErr)
-				return
-			}
-
-			gslbutils.Logf("key: %s, msg: GslbService will be created/updated", key)
-			if aviModel == nil {
-				gslbutils.Warnf("key: %s, msg: %s", key, "no model exists for this GslbService")
-				return
-			}
-			restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
-
-			// Check if we need to delete the health monitor here
-			// if the cache obj was found, we shouldn't delete the health monitor
-			cacheObj := restOp.getGSCacheObj(gsKey, key)
-			if cacheObj != nil {
-				gslbutils.Debugf("key: %s, gsKey: %s, msg: GS wasn't deleted, so not deleting the health monitor")
-				return
-			}
-			hmCacheObjIntf, found := restOp.hmCache.AviHmCacheGet(avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName})
-			if found {
-				// health monitor found for this object, deleting
-				hmCacheObj, ok := hmCacheObjIntf.(*avicache.AviHmObj)
-				if ok {
-					operation := restOp.AviGsHmDel(hmCacheObj.UUID, hmCacheObj.Tenant, key, hmCacheObj.Name)
-					restOps := operation
-					err := restOp.aviRestPoolClient.AviRestOperate(aviclient, []*utils.RestOp{restOps})
-					if err != nil {
-						gslbutils.Warnf("key: %s, HealthMonitor: %s, msg: %s", key, hmName, "failed to delete")
-						webSyncErr, ok := err.(*utils.WebSyncError)
-						if !ok {
-							gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, hmName, "got an improper web api error, returning")
-							return
-						}
-						gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
-						restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
-						return
-					}
-					restOp.AviGSHmCacheDel(restOp.hmCache, operation, key)
-				} else {
-					gslbutils.Warnf("health monitor object %v malformed, can't delete", hmCacheObj)
-				}
-			}
+	if deleteOp {
+		gslbutils.Logf("key: %s, msg: %s", key, "no model found, will delete the GslbService")
+		if gsCacheObj == nil {
+			gslbutils.Errf("key: %s, msg: %s", key, "no cache object for this GS was found, can't delete")
+			return
 		}
+		restOp.deleteGSOper(gsCacheObj, tenant, key)
 		return
 	}
 
@@ -154,8 +122,6 @@ func (restOp *RestOperations) createUpdateGSHm(aviGSGraph *nodes.AviGSObjectGrap
 		return
 	}
 	// HM POST or DELETE-POST (PUT)?
-	// gslbutils.Debugf(spew.Sprintf("key: %s, gsMeta: %s, msg: GS rest operation %v\n", key, *gsMeta, utils.Stringify(operation)))
-
 	gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %v, msg: determining a post/put on the hm", key, gsKey, *aviGSGraph))
 	hm := restOp.getGSHmCacheObj(aviGSGraph.Name, aviGSGraph.Tenant, key)
 	if hm != nil {
@@ -231,6 +197,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 					return
 				}
 				op = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
+
 				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
 				if op.Err != nil {
 					gslbutils.Debugf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
@@ -250,7 +217,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 			gsCacheObj.CloudConfigCksum, cksum, "checksums are different for the GSLB Service")
 		// it should be a PUT call
 		operation = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
-		gslbutils.Debugf("gsKey: %s, restOps: %v, operation: %v", gsKey, restOps, operation)
+		gslbutils.Debugf(spew.Sprintf("gsKey: %s, restOps: %v, operation: %v", gsKey, restOps, operation))
 	} else {
 		// its a post operation
 		// first see if we need a new health monitor
@@ -294,6 +261,23 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	restOp.ExecuteRestAndPopulateCache(operation, gsKey, key)
 }
 
+func AviRestOperateWrapper(restOp *RestOperations, aviClient *clients.AviClient, operation *utils.RestOp) error {
+	restTimeoutChan := make(chan error, 1)
+
+	go func() {
+		err := restOp.aviRestPoolClient.AviRestOperate(aviClient, []*utils.RestOp{operation})
+		restTimeoutChan <- err
+	}()
+
+	select {
+	case err := <-restTimeoutChan:
+		return err
+	case <-time.After(gslbutils.RestTimeoutSecs * time.Second):
+		gslbutils.Errf(spew.Sprintf("operation: %v, err: rest timeout occured", operation))
+		return errors.New("rest timeout occured")
+	}
+}
+
 func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestOp, gsKey avicache.TenantName, key string) {
 	// Choose a AVI client based on the model name hash. This would ensure that the same worker queue processes updates for a
 	// given GS everytime.
@@ -302,10 +286,15 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 
 	if len(restOp.aviRestPoolClient.AviClient) > 0 {
 		aviClient := restOp.aviRestPoolClient.AviClient[bkt]
-		err := restOp.aviRestPoolClient.AviRestOperate(aviClient, []*utils.RestOp{operation})
-
+		err := AviRestOperateWrapper(restOp, aviClient, operation)
+		gslbutils.Debugf("key: %s, queue: %d, msg: avi rest operate wrapper response, %v", key, bkt, err)
 		if err != nil {
-			gslbutils.Errf("key: %s, msg: rest operation error: %s", key, err)
+			gslbutils.Errf("key: %s, queue: %d, msg: rest operation error: %s", key, bkt, err)
+			if err.Error() == "rest timeout occured" {
+				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
+				restOp.PublishKeyToRetryLayer(gsKey, err)
+				return
+			}
 			webSyncErr, ok := err.(*utils.WebSyncError)
 			if !ok {
 				gslbutils.Errf("key: %s, msg: %s, err: %v", key, "got an improper web api error, returning", err)
@@ -373,8 +362,13 @@ func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicach
 func setRetryCounterForGraph(key string) error {
 	ok, aviModelIntf := nodes.SharedAviGSGraphLister().Get(key)
 	if !ok {
-		gslbutils.Warnf("key: %s, msg: %s", key, "no model found for this key")
-		return errors.New("no model for this key")
+		gslbutils.Warnf("key: %s, msg: %s", key, "no model found for this key in SharedAviGSGraphLister")
+		// check in the delete cache
+		ok, aviModelIntf = nodes.SharedDeleteGSGraphLister().Get(key)
+		if !ok {
+			gslbutils.Warnf("key: %s, msg: %s", key, "no model found for this key in SharedDeleteGSGraphLister")
+			return errors.New("no model for this key")
+		}
 	}
 	aviModel, ok := aviModelIntf.(*nodes.AviGSObjectGraph)
 	if !ok {
@@ -391,6 +385,13 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 
 	key := gsKey.Tenant + "/" + gsKey.Name
 
+	if webApiErr.Error() == "rest timeout occured" {
+		gslbutils.Errf("gsKey: %v, msg: timeout occured while doing rest call", gsKey)
+		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
+		gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
+		return
+	}
 	aviError, ok := webApiErr.(session.AviError)
 	if !ok {
 		gslbutils.Errf("error in parsing the web api error to avi error: %v", webApiErr)
@@ -538,7 +539,6 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// Now, build the GSLB service
 	ctrlHealthStatusEnabled := true
 	createdBy := gslbutils.AmkoUser
-	// TODO: description to be appropriately filled
 	gsEnabled := true
 	healthMonitorScope := "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS"
 	isFederated := true
@@ -655,19 +655,25 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 		return
 	}
 	gsName := gsCacheObj.Name
+	gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
 	if gsCacheObj != nil {
 		operation := restOp.AviGSDel(gsCacheObj.Uuid, tenant, key, gsCacheObj.Name)
 		restOps = operation
-		err := restOp.aviRestPoolClient.AviRestOperate(aviclient, []*utils.RestOp{restOps})
+		err := AviRestOperateWrapper(restOp, aviclient, restOps)
+		gslbutils.Debugf("key: %s, GSLBService: %s, msg: avi rest operate wrapper response %v", key, gsCacheObj.Uuid, err)
 		if err != nil {
-			gslbutils.Warnf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
+			gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
 				"failed to delete GSLB Service")
+			if err.Error() == "rest timeout occured" {
+				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
+				restOp.PublishKeyToRetryLayer(gsKey, err)
+				return
+			}
 			webSyncErr, ok := err.(*utils.WebSyncError)
 			if !ok {
 				gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid, "got an improper web api error, returning")
 				return
 			}
-			gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
 			restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
 			return
 		}
@@ -684,9 +690,15 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 			if ok {
 				operation := restOp.AviGsHmDel(hmCacheObj.UUID, hmCacheObj.Tenant, key, hmCacheObj.Name)
 				restOps = operation
-				err := restOp.aviRestPoolClient.AviRestOperate(aviclient, []*utils.RestOp{restOps})
+				err := AviRestOperateWrapper(restOp, aviclient, restOps)
 				if err != nil {
 					gslbutils.Warnf("key: %s, HealthMonitor: %s, msg: %s", key, hmName, "failed to delete")
+					if err.Error() == "rest timeout occured" {
+						gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
+						restOp.PublishKeyToRetryLayer(gsKey, err)
+						return
+					}
+
 					webSyncErr, ok := err.(*utils.WebSyncError)
 					if !ok {
 						gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, hmName, "got an improper web api error, returning")
@@ -701,6 +713,8 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 				gslbutils.Warnf("health monitor object %v malformed, can't delete", hmCacheObj)
 			}
 		}
+		gslbutils.Warnf("key: %s, msg: deleting key from layer 2 delete cache", key)
+		nodes.SharedDeleteGSGraphLister().Delete(key)
 	}
 }
 

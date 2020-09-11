@@ -3,7 +3,7 @@ module github.com/avinetworks/amko
 go 1.13
 
 require (
-	github.com/avinetworks/sdk v0.0.0-20200907081858-f883c20cce17
+	github.com/avinetworks/sdk v0.0.0-20200910092938-580bed7585cb
 	github.com/davecgh/go-spew v1.1.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.4.2 // indirect
@@ -17,7 +17,7 @@ require (
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298
 	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200827183850-3f0605c07567
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200911034242-702b866e87f2
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
