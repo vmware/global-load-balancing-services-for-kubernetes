@@ -270,7 +270,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 		if found {
 			continue
 		}
-		gslbutils.Warnf("didn't get a GS for this key: %s", key)
+		gslbutils.Logf("key: %s, msg: didn't get a GS in the model cache", key)
 		// create a new Graph with 0 members, push it to the delete queue
 		newGSGraph := nodes.NewAviGSObjectGraph()
 		newGSGraph.Name = gsKey.Name

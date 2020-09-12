@@ -289,7 +289,6 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 		err := AviRestOperateWrapper(restOp, aviClient, operation)
 		gslbutils.Debugf("key: %s, queue: %d, msg: avi rest operate wrapper response, %v", key, bkt, err)
 		if err != nil {
-			gslbutils.Errf("key: %s, queue: %d, msg: rest operation error: %s", key, bkt, err)
 			if err.Error() == "rest timeout occured" {
 				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
 				restOp.PublishKeyToRetryLayer(gsKey, err)
@@ -470,7 +469,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	}
 
 	if hmProto == gslbutils.SystemHealthMonitorTypeUDP {
-		udpRequest := ""
+		udpRequest := "created_by: amko, request string not required"
 		hmUDP := avimodels.HealthMonitorUDP{
 			UDPRequest: &udpRequest,
 		}
@@ -713,7 +712,7 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 				gslbutils.Warnf("health monitor object %v malformed, can't delete", hmCacheObj)
 			}
 		}
-		gslbutils.Warnf("key: %s, msg: deleting key from layer 2 delete cache", key)
+		gslbutils.Logf("key: %s, msg: deleting key from layer 2 delete cache", key)
 		nodes.SharedDeleteGSGraphLister().Delete(key)
 	}
 }
