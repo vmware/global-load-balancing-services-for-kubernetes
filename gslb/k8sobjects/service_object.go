@@ -152,6 +152,18 @@ func (svc SvcMeta) GetProtocol() (string, error) {
 	return svc.Protocol, nil
 }
 
+func (svc SvcMeta) GetPaths() ([]string, error) {
+	return []string{}, errors.New("service object has no paths configured")
+}
+
+func (svc SvcMeta) GetTLS() (bool, error) {
+	return false, errors.New("service object doesn't have attribute TLS")
+}
+
+func (svc SvcMeta) IsPassthrough() bool {
+	return false
+}
+
 func (svc SvcMeta) UpdateHostMap(key string) {
 	rhm := getSvcHostMap()
 	rhm.Lock.Lock()

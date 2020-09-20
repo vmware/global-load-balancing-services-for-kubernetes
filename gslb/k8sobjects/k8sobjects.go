@@ -29,8 +29,11 @@ type MetaObject interface {
 	UpdateHostMap(string)
 	GetHostnameFromHostMap(string) string
 	DeleteMapByKey(string)
+	GetPaths() ([]string, error)
 	GetPort() (int32, error)
 	GetProtocol() (string, error)
+	GetTLS() (bool, error)
+	IsPassthrough() bool
 }
 
 type FilterableObject interface {

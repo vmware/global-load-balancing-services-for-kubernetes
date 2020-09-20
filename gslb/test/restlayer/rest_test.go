@@ -32,8 +32,24 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
+func syncFuncForRetryTest(key string, wg *sync.WaitGroup) error {
+	keyChan <- key
+	return nil
+}
+
+func setupQueue(testCh <-chan struct{}) {
+	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
+	utils.SharedWorkQueue(slowRetryQParams)
+
+	slowRetryQ := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+	slowRetryQ.SyncFunc = syncFuncForRetryTest
+	slowRetryQ.Run(testCh, &sync.WaitGroup{})
+}
+
 func setUp() {
-	// testStopCh = utils.SetupSignalHandler()
+	testStopCh := utils.SetupSignalHandler()
+	setupQueue(testStopCh)
+
 	gslbutils.SetControllerAsLeader()
 	mockaviserver.NewAviMockAPIServer()
 	url := mockaviserver.GetMockServerURL()
@@ -60,8 +76,10 @@ func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType stri
 		DomainNames: []string{host},
 		MemberObjs:  memberObjs,
 		Hm: nodes.HealthMonitor{
-			Name:   gslbutils.SystemGslbHealthMonitorTCP,
-			Custom: false,
+			Custom:    true,
+			Protocol:  gslbutils.SystemGslbHealthMonitorHTTPS,
+			Port:      443,
+			PathNames: []string{"amko--https--host1.foo.com--/"},
 		},
 	}
 	gsGraph.GetChecksum()

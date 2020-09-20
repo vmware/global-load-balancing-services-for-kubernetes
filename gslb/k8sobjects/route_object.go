@@ -43,23 +43,52 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 		Hostname:  route.Spec.Host,
 		IPAddr:    ipAddr,
 		Cluster:   cname,
+		TLS:       false,
 	}
 	metaObj.Labels = make(map[string]string)
-	for key, value := range route.GetLabels() {
+	routeLabels := route.GetLabels()
+	for key, value := range routeLabels {
 		metaObj.Labels[key] = value
 	}
+
+	if route.Spec.TLS != nil {
+		// for passthrough routes, only set the port and protocol
+		if route.Spec.TLS.Termination == gslbutils.PassthroughRoute {
+			metaObj.Port = gslbutils.DefaultHTTPSHealthMonitorPort
+			metaObj.Protocol = gslbutils.ProtocolTCP
+			metaObj.Passthrough = true
+			return metaObj
+		}
+		// route is a TLS type
+		metaObj.TLS = true
+	}
+
+	pathList := []string{}
+	if route.Spec.Path != "" {
+		pathList = append(pathList, route.Spec.Path)
+	} else {
+		pathList = append(pathList, "/")
+	}
+	// only for passthrough routes, we won't add any paths
+	metaObj.Paths = pathList
+
 	return metaObj
 }
 
 // RouteMeta is the metadata for a route. It is the minimal information
 // that we maintain for each route, accepted or rejected.
 type RouteMeta struct {
-	Cluster   string
-	Name      string
-	Namespace string
-	Hostname  string
-	IPAddr    string
-	Labels    map[string]string
+	Cluster     string
+	Name        string
+	Namespace   string
+	Hostname    string
+	IPAddr      string
+	Labels      map[string]string
+	Paths       []string
+	TLS         bool
+	Port        int32
+	Protocol    string
+	Passthrough bool
 }
 
 func (route RouteMeta) GetType() string {
@@ -87,11 +116,34 @@ func (route RouteMeta) GetCluster() string {
 }
 
 func (route RouteMeta) GetPort() (int32, error) {
+	// we send the port (to be used only for passthrough routes)
+	if route.Passthrough {
+		return route.Port, nil
+	}
 	return 0, errors.New("route object doesn't support GetPort function")
 }
 
 func (route RouteMeta) GetProtocol() (string, error) {
+	// for passthrough routes, we send the protocol
+	if route.Passthrough {
+		return route.Protocol, nil
+	}
 	return "", errors.New("route object doesn't support GetProtocol support")
+}
+
+func (route RouteMeta) GetPaths() ([]string, error) {
+	if len(route.Paths) == 0 {
+		return route.Paths, errors.New("path list is empty for route " + route.Name)
+	}
+	return route.Paths, nil
+}
+
+func (route RouteMeta) GetTLS() (bool, error) {
+	return route.TLS, nil
+}
+
+func (route RouteMeta) IsPassthrough() bool {
+	return route.Passthrough
 }
 
 func (route RouteMeta) UpdateHostMap(key string) {

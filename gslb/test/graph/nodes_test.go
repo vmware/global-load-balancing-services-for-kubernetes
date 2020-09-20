@@ -122,6 +122,8 @@ func AddSvcMeta(t *testing.T, name, ns, host, svc, ip, cname string, create bool
 		Hostname:  host,
 		IPAddr:    ip,
 		Cluster:   cname,
+		Port:      80,
+		Protocol:  "TCP",
 	}
 	acceptedSvcStore.AddOrUpdate(svcMeta, cname, ns, objName)
 	addKeyToIngestionQueue(ns, key)
@@ -143,6 +145,8 @@ func AddIngressMeta(t *testing.T, name, ns, host, svc, ip, cname string, create 
 		IPAddr:    ip,
 		Cluster:   cname,
 		ObjName:   objName,
+		Paths:     []string{"/"},
+		TLS:       false,
 	}
 	acceptedIngStore.AddOrUpdate(ingExample, cname, ns, objName)
 	addKeyToIngestionQueue(ns, key)
