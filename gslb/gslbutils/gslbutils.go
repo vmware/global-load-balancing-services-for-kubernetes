@@ -46,9 +46,10 @@ const (
 	ObjectDelete = "DELETE"
 	ObjectUpdate = "UPDATE"
 	// Ingestion layer objects
-	RouteType   = gslbalphav1.RouteObj
-	IngressType = gslbalphav1.IngressObj
-	SvcType     = gslbalphav1.LBSvcObj
+	RouteType        = gslbalphav1.RouteObj
+	IngressType      = gslbalphav1.IngressObj
+	SvcType          = gslbalphav1.LBSvcObj
+	PassthroughRoute = "passthrough"
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
 	// Store types
@@ -74,10 +75,19 @@ const (
 	ProtocolUDP = "UDP"
 
 	// Health monitors
-	SystemHealthMonitorTypeTCP  = "HEALTH_MONITOR_TCP"
-	SystemHealthMonitorTypeUDP  = "HEALTH_MONITOR_UDP"
-	SystemGslbHealthMonitorTCP  = "System-GSLB-TCP"
-	DefaultTCPHealthMonitorPort = "80"
+	SystemHealthMonitorTypeTCP   = "HEALTH_MONITOR_TCP"
+	SystemHealthMonitorTypeUDP   = "HEALTH_MONITOR_UDP"
+	SystemGslbHealthMonitorTCP   = "System-GSLB-TCP"
+	SystemGslbHealthMonitorHTTP  = "HEALTH_MONITOR_HTTP"
+	SystemGslbHealthMonitorHTTPS = "HEALTH_MONITOR_HTTPS"
+
+	// default passthrough health monitor (TCP), to be used for all passthrough routes
+	SystemGslbHealthMonitorPassthrough = "amko--passthrough-hm-tcp"
+
+	// Ports for health monitoring
+	DefaultTCPHealthMonitorPort   = "80"
+	DefaultHTTPHealthMonitorPort  = 80
+	DefaultHTTPSHealthMonitorPort = 443
 
 	// Timeout for rest operations
 	RestTimeoutSecs = 600
@@ -252,14 +262,18 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string, hm string) uint32 {
+func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string, hmNames []string) uint32 {
 	sort.Strings(ipList)
 	sort.Strings(domainList)
 	sort.Strings(memberObjs)
+	sort.Strings(hmNames)
+
+	// checksum has to take into consideration the non-path HMs and the path based HMs
+
 	return utils.Hash(utils.Stringify(ipList)) +
 		utils.Hash(utils.Stringify(domainList)) +
 		utils.Hash(utils.Stringify(memberObjs)) +
-		utils.Hash(hm)
+		utils.Hash(utils.Stringify(hmNames))
 }
 
 func GetGSLBHmChecksum(name, hmType string, port int32) uint32 {
@@ -501,4 +515,33 @@ func GetHmTypeForProtocol(protocol string) (string, error) {
 	default:
 		return "", errors.New("unrecognized protocol")
 	}
+}
+
+func GetHmTypeForTLS(tls bool) string {
+	if tls {
+		return SystemGslbHealthMonitorHTTPS
+	}
+	return SystemGslbHealthMonitorHTTP
+}
+
+func BuildHmPathName(gsName, path string, isSec bool) string {
+	prefix := "amko--http--"
+	if isSec {
+		prefix = "amko--https--"
+	}
+	return prefix + gsName + "--" + path
+}
+
+func GetPathFromHmName(hmName string) string {
+	hmNameSplit := strings.Split(hmName, "--")
+	if len(hmNameSplit) != 4 {
+		Errf("hmName: %s, msg: hm is malformed, expected a path based hm", hmName)
+		return ""
+	}
+
+	return hmNameSplit[3]
+}
+
+func BuildNonPathHmName(gsName string) string {
+	return "amko--" + gsName
 }

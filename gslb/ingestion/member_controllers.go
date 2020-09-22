@@ -61,7 +61,7 @@ func (ctrl GSLBMemberController) GetName() string {
 func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 	route *routev1.Route, cname string) {
 	routeMeta := k8sobjects.GetRouteMeta(route, cname)
-	gslbutils.Debugf("route hostname: %s", routeMeta.Hostname)
+	gslbutils.Debugf("route meta object: %v", routeMeta)
 	clusterRouteStore.AddOrUpdate(routeMeta, cname, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 }
 

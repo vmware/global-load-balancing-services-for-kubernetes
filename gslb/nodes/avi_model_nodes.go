@@ -83,13 +83,16 @@ type AviGSK8sObj struct {
 	// Port and protocol will be only used by LB service
 	Port  int32
 	Proto string
+	TLS   bool
+	Paths []string
 }
 
 type HealthMonitor struct {
-	Name     string
-	Protocol string
-	Port     int32
-	Custom   bool
+	Name      string
+	Protocol  string
+	Port      int32
+	Custom    bool
+	PathNames []string
 }
 
 func (hm HealthMonitor) getChecksum() uint32 {
@@ -154,7 +157,13 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
 	}
 
-	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs, v.Hm.Name)
+	hmNames := []string{}
+	if v.Hm.Name != "" {
+		hmNames = append(hmNames, v.Hm.Name)
+	} else {
+		hmNames = v.Hm.PathNames
+	}
+	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs, hmNames)
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -170,10 +179,100 @@ func NewAviGSObjectGraph() *AviGSObjectGraph {
 	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount}
 }
 
+func (v *AviGSObjectGraph) buildHmPathList() {
+	// if any member object is TLS, we put HTTPS health monitors for the entire object, basically,
+	// TLS takes precedence
+	ifSec := false
+	for _, member := range v.MemberObjs {
+		if member.TLS {
+			ifSec = true
+		}
+	}
+	// clear out all path based HM names first
+	v.Hm.PathNames = make([]string, 0)
+
+	// add the member paths
+	for _, member := range v.MemberObjs {
+		for _, path := range member.Paths {
+			hmName := gslbutils.BuildHmPathName(v.Name, path, ifSec)
+			if gslbutils.PresentInList(hmName, v.Hm.PathNames) {
+				continue
+			}
+			v.Hm.PathNames = append(v.Hm.PathNames, hmName)
+		}
+	}
+	gslbutils.Debugf("gsName: %s, pathList: %v, msg: rebuilt path list for GS", v.Name, v.Hm.PathNames)
+}
+
+func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObject, key string) {
+	port, err := metaObj.GetPort()
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, msg: port not found for this object", key, v.Name)
+		return
+	}
+
+	if metaObj.IsPassthrough() {
+		v.Hm.Name = gslbutils.SystemGslbHealthMonitorPassthrough
+	} else {
+		v.Hm.Name = gslbutils.BuildNonPathHmName(v.Name)
+	}
+	v.Hm.Port = port
+	v.MemberObjs[0].Port = port
+	v.Hm.Custom = true
+	protocol, err := metaObj.GetProtocol()
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, msg: protocol not found for this object", key, v.Name)
+		return
+	}
+	v.MemberObjs[0].Proto = protocol
+	hmType, err := gslbutils.GetHmTypeForProtocol(protocol)
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, msg: can't create a health monitor for this GS graph %s", key,
+			v.Name, err.Error())
+	} else {
+		v.Hm.Protocol = hmType
+	}
+}
+
+func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaObject, key string) {
+	objType := metaObj.GetType()
+	if objType == gslbutils.SvcType {
+		v.buildNonPathHealthMonitor(metaObj, key)
+		return
+	}
+
+	// for objects other than service type load balancer
+	// check if its a non-path based route (passthrough route)
+	if metaObj.IsPassthrough() {
+		// we have a passthrough route here, build a non-path based hm and return
+		gslbutils.Debugf("key: %s, gsName: %s, msg: passthrough route, will build a non-path hm", key, v.Name)
+		v.buildNonPathHealthMonitor(metaObj, key)
+		return
+	}
+	// else other secure/insecure route
+	v.Hm.Custom = true
+	tls, err := metaObj.GetTLS()
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, msg: error in getting tls for object %s", key, v.Name, err.Error())
+		return
+	}
+	if tls {
+		v.Hm.Protocol = gslbutils.SystemGslbHealthMonitorHTTPS
+	} else {
+		v.Hm.Protocol = gslbutils.SystemGslbHealthMonitorHTTP
+	}
+}
+
 func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sobjects.MetaObject, memberWeight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	hosts := []string{metaObj.GetHostname()}
+	tls, _ := metaObj.GetTLS()
+	paths, err := metaObj.GetPaths()
+	if err != nil {
+		// for LB type services and passthrough routes, the path list will be empty
+		gslbutils.Debugf("key: %s, gsName: %s, msg: path list not available for object %s", key, gsName, err.Error())
+	}
 	memberRoutes := []AviGSK8sObj{
 		{
 			Cluster:   metaObj.GetCluster(),
@@ -182,6 +281,8 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 			Weight:    memberWeight,
 			Name:      metaObj.GetName(),
 			Namespace: metaObj.GetNamespace(),
+			TLS:       tls,
+			Paths:     paths,
 		},
 	}
 	// The GSLB service will be put into the admin tenant
@@ -191,44 +292,27 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	v.MemberObjs = memberRoutes
 	v.RetryCount = gslbutils.DefaultRetryCount
 
-	port, err := metaObj.GetPort()
-	if err != nil {
-		// for objects other than service type load balancer
-		v.Hm.Name = gslbutils.SystemGslbHealthMonitorTCP
-		v.Hm.Custom = false
-	} else {
-		// for svc type load balancer objects
-		v.Hm.Name = "amko-hm-" + gsName
-		v.Hm.Port = port
-		v.MemberObjs[0].Port = port
-		v.Hm.Custom = true
-		protocol, _ := metaObj.GetProtocol()
-		v.MemberObjs[0].Proto = protocol
-		hmType, err := gslbutils.GetHmTypeForProtocol(protocol)
-		if err != nil {
-			gslbutils.Errf("can't create a health monitor for this GSLB Service graph: %s", err.Error())
-		} else {
-			v.Hm.Protocol = hmType
-		}
-	}
+	v.buildHmPathList()
+	// Determine the health monitor(s) for this GS
+	v.buildAndAttachHealthMonitors(metaObj, key)
+
 	v.GetChecksum()
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
 }
 
-func (v *AviGSObjectGraph) checkAndUpdateHealthMonitor(objType string) {
+func (v *AviGSObjectGraph) checkAndUpdateNonPathHealthMonitor(objType string, isPassthrough bool) {
+	// this function has to be called only for LB service type members or passthrough route members
 	if len(v.MemberObjs) <= 0 {
 		gslbutils.Errf("gsName: %s, no member objects for this avi gs, can't check the health monitor", v.Name)
 		return
 	}
 
-	if objType == gslbutils.SvcType {
-		v.Hm.Name = "amko-hm-" + v.Name
-		v.Hm.Custom = true
+	if isPassthrough {
+		v.Hm.Name = gslbutils.SystemGslbHealthMonitorPassthrough
 	} else {
-		v.Hm.Name = gslbutils.SystemGslbHealthMonitorTCP
-		v.Hm.Custom = false
-		return
+		v.Hm.Name = gslbutils.BuildNonPathHmName(v.Name)
 	}
+	v.Hm.Custom = true
 
 	var newPort int32
 	var newProto string
@@ -254,6 +338,29 @@ func (v *AviGSObjectGraph) checkAndUpdateHealthMonitor(objType string) {
 	}
 }
 
+func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
+	v.buildHmPathList()
+	gslbutils.Debugf("gsName: %s, added path HMs to the gslb hm path list, path hm list: %v", v.Name, v.Hm.PathNames)
+
+	// protocol change required?
+	// protocol will only be changed only if the current protocol doesn't match any of the members' protocol
+	currProtocol := v.Hm.Protocol
+	idx := 0
+	var member AviGSK8sObj
+	for idx, member = range v.MemberObjs {
+		if gslbutils.GetHmTypeForTLS(member.TLS) == currProtocol {
+			break
+		}
+	}
+	if idx < len(v.MemberObjs)-1 || gslbutils.GetHmTypeForTLS(v.MemberObjs[idx].TLS) == currProtocol {
+		// no change required
+		return
+	} else {
+		// update the Hm protocol from any one of the member objects
+		v.Hm.Protocol = gslbutils.GetHmTypeForTLS(v.MemberObjs[0].TLS)
+	}
+}
+
 func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
@@ -261,8 +368,14 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 	var svcPort int32
 	var svcProtocol, objType string
 
+	paths, err := metaObj.GetPaths()
+	if err != nil {
+		// for LB type services and passthrough routes
+		gslbutils.Debugf("gsName: %s, msg: path list not available for object %s", v.Name, err.Error())
+	}
+
 	objType = metaObj.GetType()
-	if objType == gslbutils.SvcType {
+	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
 		svcPort, _ = metaObj.GetPort()
 		svcProtocol, _ = metaObj.GetProtocol()
 	}
@@ -285,10 +398,19 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		v.MemberObjs[idx].IPAddr = metaObj.GetIPAddr()
 		v.MemberObjs[idx].Weight = weight
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, metaObj.GetType())
-		if objType == gslbutils.SvcType {
+		if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
 			v.MemberObjs[idx].Port = svcPort
 			v.MemberObjs[idx].Proto = svcProtocol
-			v.checkAndUpdateHealthMonitor(metaObj.GetType())
+			v.checkAndUpdateNonPathHealthMonitor(metaObj.GetType(), metaObj.IsPassthrough())
+		} else {
+			tls, err := metaObj.GetTLS()
+			if err != nil {
+				gslbutils.Errf("gsName: %s, msg: didn't get tls value for this object %s", err.Error())
+				return
+			}
+			v.MemberObjs[idx].TLS = tls
+			v.MemberObjs[idx].Paths = paths
+			v.updateGSHmPathListAndProtocol()
 		}
 		return
 	}
@@ -303,10 +425,13 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		ObjType:   metaObj.GetType(),
 		Port:      svcPort,
 		Proto:     svcProtocol,
+		Paths:     paths,
 	}
 	v.MemberObjs = append(v.MemberObjs, gsMember)
-	if objType == gslbutils.SvcType {
-		v.checkAndUpdateHealthMonitor(objType)
+	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
+		v.checkAndUpdateNonPathHealthMonitor(objType, metaObj.IsPassthrough())
+	} else {
+		v.updateGSHmPathListAndProtocol()
 	}
 }
 
@@ -332,17 +457,33 @@ func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
 
 	// check if the health monitor needs to be updated
 	for _, member := range v.MemberObjs {
-		if member.ObjType == gslbutils.SvcType {
-			v.checkAndUpdateHealthMonitor(member.ObjType)
+		// update non path based health monitor only for LB services or non-path based members
+		isPassthrough := false
+		if member.ObjType != gslbutils.SvcType && len(member.Paths) == 0 {
+			// this is a passthrough member
+			isPassthrough = true
+		}
+		if member.ObjType == gslbutils.SvcType || isPassthrough {
+			v.checkAndUpdateNonPathHealthMonitor(member.ObjType, isPassthrough)
 			return
 		}
 	}
+	// if no members are services, then they must be routes/ingresses, so update the HM if required
+	v.updateGSHmPathListAndProtocol()
 }
 
 func (v *AviGSObjectGraph) IsHmTypeCustom() bool {
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 	return v.Hm.Custom
+}
+
+func (v *AviGSObjectGraph) GetHmPathNamesList() []string {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+
+	gslbutils.Debugf("gs object and its path names: %v, paths: %v", v, v.Hm.PathNames)
+	return v.Hm.PathNames
 }
 
 func (v *AviGSObjectGraph) MembersLen() int {

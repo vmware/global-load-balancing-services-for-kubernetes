@@ -16,6 +16,7 @@ package k8sobjects
 
 import (
 	"errors"
+	"sort"
 	"sync"
 
 	"github.com/avinetworks/amko/gslb/gslbutils"
@@ -35,10 +36,57 @@ func getIngHostMap() *ObjHostMap {
 	return &ihMap
 }
 
+func getPathsForHost(host string, ingress *v1beta1.Ingress) []string {
+	pathList := []string{}
+	for _, rule := range ingress.Spec.Rules {
+		if rule.Host != host {
+			continue
+		}
+		if rule.HTTP != nil {
+			for _, path := range rule.HTTP.Paths {
+				var pathKey string
+				if path.Path != "" {
+					pathKey = path.Path
+				} else {
+					pathKey = "/"
+				}
+				if gslbutils.PresentInList(pathKey, pathList) {
+					continue
+				}
+				pathList = append(pathList, pathKey)
+			}
+		}
+		if rule.Host == host {
+			break
+		}
+	}
+
+	// if nothing in the pathList, always add "/"
+	if len(pathList) == 0 {
+		pathList = append(pathList, "/")
+	}
+	return pathList
+}
+
+func getTLSHosts(ingress *v1beta1.Ingress) []string {
+	tlsHosts := []string{}
+
+	for _, hosts := range ingress.Spec.TLS {
+		for _, host := range hosts.Hosts {
+			if gslbutils.PresentInList(host, tlsHosts) {
+				continue
+			}
+			tlsHosts = append(tlsHosts, host)
+		}
+	}
+	return tlsHosts
+}
+
 // GetIngressHostMeta returns a ingress split into its backends
 func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMeta {
 	ingHostMetaList := []IngressHostMeta{}
 	hostIPList := gslbutils.IngressGetIPAddrs(ingress)
+	tlsHosts := getTLSHosts(ingress)
 	for _, hip := range hostIPList {
 		metaObj := IngressHostMeta{
 			IngName:   ingress.Name,
@@ -47,14 +95,21 @@ func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMet
 			IPAddr:    hip.IPAddr,
 			Cluster:   cname,
 			ObjName:   ingress.Name + "/" + hip.Hostname,
+			TLS:       false,
 		}
+		metaObj.Paths = make([]string, 0)
 		metaObj.Labels = make(map[string]string)
 		for key, value := range ingress.GetLabels() {
 			metaObj.Labels[key] = value
 		}
+		metaObj.Paths = getPathsForHost(hip.Hostname, ingress)
 
+		if gslbutils.PresentInList(hip.Hostname, tlsHosts) {
+			metaObj.TLS = true
+		}
 		ingHostMetaList = append(ingHostMetaList, metaObj)
 	}
+
 	return ingHostMetaList
 }
 
@@ -68,6 +123,8 @@ type IngressHostMeta struct {
 	Hostname  string
 	IPAddr    string
 	Labels    map[string]string
+	Paths     []string
+	TLS       bool
 }
 
 var clusterHostMeta map[string]map[string]IngressHostMeta
@@ -112,6 +169,23 @@ func (ing IngressHostMeta) GetProtocol() (string, error) {
 	return "", errors.New("ingress object doesn't support GetProtocol function")
 }
 
+func (ing IngressHostMeta) GetPaths() ([]string, error) {
+	pathList := []string{}
+	if len(ing.Paths) == 0 {
+		return pathList, errors.New("no paths for this ingress " + ing.ObjName)
+	}
+	copy(pathList, ing.Paths)
+	return ing.Paths, nil
+}
+
+func (ing IngressHostMeta) GetTLS() (bool, error) {
+	return ing.TLS, nil
+}
+
+func (ing IngressHostMeta) IsPassthrough() bool {
+	return false
+}
+
 func (ing IngressHostMeta) IngressHostInList(ihmList []IngressHostMeta) (IngressHostMeta, bool) {
 	var ihm IngressHostMeta
 	for _, ihm = range ihmList {
@@ -127,10 +201,12 @@ func (ing IngressHostMeta) GetIngressHostCksum() uint32 {
 	for lblKey, lblValue := range ing.Labels {
 		cksum += utils.Hash(lblKey) + utils.Hash(lblValue)
 	}
+	paths := ing.Paths
+	sort.Strings(paths)
 	// TODO: annotations will be checked in later
 	cksum += utils.Hash(ing.Cluster) + utils.Hash(ing.Namespace) +
 		utils.Hash(ing.IngName) + utils.Hash(ing.Hostname) +
-		utils.Hash(ing.IPAddr)
+		utils.Hash(ing.IPAddr) + utils.Hash(utils.Stringify(paths))
 	return cksum
 }
 
