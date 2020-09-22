@@ -788,7 +788,7 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 	var restOps *utils.RestOp
 
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
-	gslbutils.Logf("key: %s, hmName: %s, queue: %d, msg: deleting HM object", key, bkt)
+	gslbutils.Logf("key: %s, hmName: %s, queue: %d, msg: deleting HM object", key, hmName, bkt)
 	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
@@ -834,7 +834,7 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 		restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
 		return err
 	}
-	gslbutils.Debugf("key: %s, gsKey: %v, msg: will delete the key from hm cache")
+	gslbutils.Debugf("key: %s, gsKey: %v, msg: will delete the key from hm cache", key, gsKey)
 	restOp.AviGSHmCacheDel(restOp.hmCache, operation, key)
 	return nil
 }

@@ -364,8 +364,8 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 					op = gslbutils.ObjectAdd
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
-				// If the route was already part of rejected store, we need to remove from
-				// this route from the rejected store.
+				// If the route was already part of rejected store, we need to remove this
+				// route from the rejected store.
 				rejectedRouteStore.DeleteClusterNSObj(c.name, route.ObjectMeta.Namespace, route.ObjectMeta.Name)
 				// Add the key for this route to the queue.
 				publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
@@ -416,8 +416,8 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 			if !nsMeta.DeleteFromFilter() {
 				gslbutils.Debugf("no namespace exists in the filter, nothing to change")
 			}
-			// ns deleted from the filter, re-apply on the existing objects
-			WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
+			// ns deleted from the filter, delete all existing objects from all stores for this namespace
+			DeleteNamespacedObjsFromAllStores(c.workqueue, numWorkers, nsMeta)
 			DeleteFromNSStore(acceptedNSStore, ns, c.name)
 			DeleteFromNSStore(rejectedNSStore, ns, c.name)
 		},

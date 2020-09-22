@@ -332,6 +332,57 @@ func filterExists(f *gslbutils.GlobalFilter) bool {
 	return false
 }
 
+func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, cname, ns string) {
+	gslbutils.Logf("ns: %s, objType: %s, msg: checking if objects need to be deleted", ns, objType)
+	objKey, acceptedObjStore, rejectedObjStore, err := GetObjTypeStores(objType)
+	if err != nil {
+		gslbutils.Errf("objtype error: %s", err.Error())
+		return
+	}
+	if acceptedObjStore != nil {
+		objs := acceptedObjStore.GetAllClusterNSObjects()
+		for _, objName := range objs {
+			cluster, namespace, sname, err := splitName(objType, objName)
+			if err != nil {
+				gslbutils.Errf("cluster: %s, msg: couldn't process object, namespace: %s, name: %s, error: %s",
+					cluster, namespace, sname, err.Error())
+				continue
+			}
+			if cluster != cname || namespace != ns {
+				continue
+			}
+			acceptedObjStore.DeleteClusterNSObj(cname, ns, sname)
+			// publish the delete keys for these objects
+			bkt := utils.Bkt(ns, numWorkers)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cluster, namespace, sname)
+			k8swq[bkt].AddRateLimited(key)
+			gslbutils.Logf("cluster: %s, ns: %s, objType: %s, name: %s, key: %s, msg: added DELETE obj key", cluster, namespace,
+				objType, sname, key)
+		}
+	}
+	if rejectedObjStore != nil {
+		objs := rejectedObjStore.GetAllClusterNSObjects()
+		for _, objName := range objs {
+			cluster, namespace, sname, err := splitName(objType, objName)
+			if err != nil {
+				gslbutils.Errf("cluster: %s, msg: couldn't process object, namespace: %s, name: %s, error: %s",
+					cluster, namespace, sname, err.Error())
+				continue
+			}
+			if cluster != cname || namespace != ns {
+				continue
+			}
+			rejectedObjStore.DeleteClusterNSObj(cname, ns, sname)
+		}
+	}
+}
+
+func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, nsMeta k8sobjects.NSMeta) {
+	deleteNamespacedObjsAndWriteToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+	deleteNamespacedObjsAndWriteToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+	deleteNamespacedObjsAndWriteToQueue(gdpalphav1.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+}
+
 func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
 	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, trafficWeightChanged)
 	writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, trafficWeightChanged)

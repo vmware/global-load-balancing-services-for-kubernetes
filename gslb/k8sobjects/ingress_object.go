@@ -44,10 +44,16 @@ func getPathsForHost(host string, ingress *v1beta1.Ingress) []string {
 		}
 		if rule.HTTP != nil {
 			for _, path := range rule.HTTP.Paths {
-				if gslbutils.PresentInList(path.Path, pathList) {
+				var pathKey string
+				if path.Path != "" {
+					pathKey = path.Path
+				} else {
+					pathKey = "/"
+				}
+				if gslbutils.PresentInList(pathKey, pathList) {
 					continue
 				}
-				pathList = append(pathList, path.Path)
+				pathList = append(pathList, pathKey)
 			}
 		}
 		if rule.Host == host {
