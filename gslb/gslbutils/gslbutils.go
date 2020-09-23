@@ -168,6 +168,7 @@ func SplitMultiClusterNS(name string) (string, string, error) {
 }
 
 func RouteGetIPAddr(route *routev1.Route) (string, bool) {
+	hostname := route.Spec.Host
 	// Return true if the IP address is present in an route's status field, else return false
 	routeStatus := route.Status
 	for _, ingr := range routeStatus.Ingress {
@@ -176,6 +177,10 @@ func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 			continue
 		}
 		conditions := ingr.Conditions
+		// check the hostname with the route's status hostname field
+		if ingr.Host != hostname {
+			continue
+		}
 		for _, condition := range conditions {
 			// TODO: Check if the message field contains an IP address
 			if condition.Message == "" {
