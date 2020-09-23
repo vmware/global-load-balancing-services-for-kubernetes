@@ -58,6 +58,7 @@ func buildRouteObj(name, ns, svc, cname, host, ip string, withStatus bool) *rout
 						},
 					},
 					RouterName: "ako-test",
+					Host:       host,
 				},
 			},
 		}
