@@ -550,3 +550,14 @@ func GetPathFromHmName(hmName string) string {
 func BuildNonPathHmName(gsName string) string {
 	return "amko--" + gsName
 }
+
+func GetGSFromHmName(hmName string) (string, error) {
+	// for path based hms
+	hmNameSplit := strings.Split(hmName, "--")
+	if len(hmNameSplit) == 4 {
+		return hmNameSplit[2], nil
+	} else if len(hmNameSplit) == 2 {
+		return hmNameSplit[1], nil
+	}
+	return "", errors.New("error in parsing gs name, unexpected format")
+}

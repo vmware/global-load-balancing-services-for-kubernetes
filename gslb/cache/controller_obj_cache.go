@@ -79,6 +79,41 @@ func (h *AviHmCache) AviHmCacheGet(k interface{}) (interface{}, bool) {
 	return val, ok
 }
 
+func (h *AviHmCache) AviHmGetAllKeys() []interface{} {
+	var hmKeys []interface{}
+
+	h.cacheLock.RLock()
+	defer h.cacheLock.RUnlock()
+
+	for k := range h.Cache {
+		hmKeys = append(hmKeys, k)
+	}
+
+	return hmKeys
+}
+
+func (h *AviHmCache) AviHmCacheGetHmsForGS(tenant, gsName string) []interface{} {
+	var hmObjs []interface{}
+	hmObjs = make([]interface{}, 0)
+	h.cacheLock.RLock()
+	defer h.cacheLock.RUnlock()
+	for k, v := range h.Cache {
+		hmKey, ok := k.(TenantName)
+		if !ok {
+			gslbutils.Errf("tenant: %s, gsName: %s, error in parsing the hmkey", tenant, gsName)
+			continue
+		}
+		if hmKey.Tenant != tenant {
+			continue
+		}
+		searchStr := "--" + gsName
+		if strings.Contains(hmKey.Name, searchStr) {
+			hmObjs = append(hmObjs, v)
+		}
+	}
+	return hmObjs
+}
+
 func (h *AviHmCache) AviHmCacheGetByUUID(k string) (interface{}, bool) {
 	h.cacheLock.RLock()
 	defer h.cacheLock.RUnlock()
@@ -101,13 +136,15 @@ func (h *AviHmCache) AviHmCachePopulate(client *clients.AviClient,
 	h.AviHmObjCachePopulate(client)
 }
 
-func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient) error {
+func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...string) error {
 	var nextPageURI string
 	uri := "/api/healthmonitor?page_size=100"
 
 	// parse all pages with Health monitors till we hit the last page
 	for {
-		if nextPageURI != "" {
+		if len(hmname) == 1 {
+			uri = "/api/healthmonitor?name=" + hmname[0]
+		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
 		result, err := AviGetCollectionRaw(client, uri+"&is_federated=true")
@@ -132,7 +169,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient) error {
 			}
 
 			if hm.MonitorPort == nil {
-				// not a GSLB health monitor or isn't a TCP/UDP/HTTP/HTTPS health monitor
+				gslbutils.Warnf(spew.Sprintf("health monitor object doesn't have a monitor port, %v", hm))
 				continue
 			}
 

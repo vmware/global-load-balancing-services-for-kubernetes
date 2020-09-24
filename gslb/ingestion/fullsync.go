@@ -270,7 +270,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 		if found {
 			continue
 		}
-		gslbutils.Logf("key: %s, msg: didn't get a GS in the model cache", key)
+		gslbutils.Logf("key: %v, msg: didn't get a GS in the model cache", key)
 		// create a new Graph with 0 members, push it to the delete queue
 		newGSGraph := nodes.NewAviGSObjectGraph()
 		newGSGraph.Name = gsKey.Name
@@ -282,5 +282,31 @@ func GenerateModels(gsCache *avicache.AviCache) {
 		bkt := utils.Bkt(key, sharedQ.NumWorkers)
 		sharedQ.Workqueue[bkt].AddRateLimited(key)
 		gslbutils.Logf("process: fullSync, modelName: %s, msg: %s", gsKey, "published key to rest layer")
+	}
+
+	// clean up any stale health monitors as well
+	hmCache := avicache.GetAviHmCache()
+	hmCacheKeys := hmCache.AviHmGetAllKeys()
+	for _, hmKeyIntf := range hmCacheKeys {
+		hmKey, ok := hmKeyIntf.(avicache.TenantName)
+		if !ok {
+			gslbutils.Debugf("key: %v, msg: hmKey object malformed", hmKey)
+			continue
+		}
+		tenant, hmName := hmKey.Tenant, hmKey.Name
+		gsName, err := gslbutils.GetGSFromHmName(hmName)
+		if err != nil {
+			gslbutils.Debugf("key: %v, msg: can't get gs name from hm", hmKey)
+			continue
+		}
+		gsKey := tenant + "/" + gsName
+		found, _ := agl.Get(gsKey)
+		if found {
+			continue
+		}
+		gslbutils.Logf("key: %v, msg: didn't get a GS in the model cache", gsKey)
+		bkt := utils.Bkt(gsKey, sharedQ.NumWorkers)
+		sharedQ.Workqueue[bkt].AddRateLimited(gsKey)
+		gslbutils.Logf("process: fullSync, hmName: %s, modelName: %s, msg: published key to rest layer", hmName, gsName)
 	}
 }
