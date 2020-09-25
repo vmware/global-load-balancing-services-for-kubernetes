@@ -53,6 +53,33 @@ func NewRestOperations(cache *avicache.AviCache, hmCache *avicache.AviHmCache, a
 	return restLayer
 }
 
+func (restOp *RestOperations) deleteAllStaleHMsForGS(key string) {
+	gslbutils.Debugf("key: %s, msg: checking if any stale health monitors present for this key", key)
+	keySplit := strings.Split(key, "/")
+	if len(keySplit) != 2 {
+		gslbutils.Warnf("key: %s, msg: wrong key format, expecting the key to be <tenant>/<gsName>", key)
+		return
+	}
+	tenant, gsName := keySplit[0], keySplit[1]
+	hmObjs := restOp.hmCache.AviHmCacheGetHmsForGS(tenant, gsName)
+	if len(hmObjs) == 0 {
+		gslbutils.Debugf("key: %s, msg: no more health monitors for this key", key)
+		return
+	}
+	gslbutils.Debugf("key: %s, msg: %d health monitors found for this key", len(hmObjs))
+	for _, hmObj := range hmObjs {
+		hmCacheObj, ok := hmObj.(*avicache.AviHmObj)
+		if !ok {
+			gslbutils.Warnf("key: %s, msg: hm cache object malformed", key)
+			continue
+		}
+		err := restOp.deleteHmIfRequired(gsName, tenant, key, nil, avicache.TenantName{Tenant: tenant, Name: gsName}, hmCacheObj.Name)
+		if err != nil {
+			gslbutils.Errf("key: %s, msg: error in deleting hm for this key", key)
+		}
+	}
+}
+
 func (restOp *RestOperations) DqNodes(key string) {
 	gslbutils.Logf("key: %s, msg: starting rest layer sync", key)
 	// got the key from graph layer, let's fetch the model
@@ -67,6 +94,9 @@ func (restOp *RestOperations) DqNodes(key string) {
 		if !ok || deleteAviModelIntf == nil {
 			gslbutils.Logf("key: %s, msg: %s, deleteAviModelIntf: %v", key, "no model found for the key in the delete cache",
 				deleteAviModelIntf)
+			// it could be that the key published was for a stale health monitor too, so remove all the
+			// stale health monitor for this GS
+			restOp.deleteAllStaleHMsForGS(key)
 			return
 		}
 		deleteOp = true
@@ -99,6 +129,9 @@ func (restOp *RestOperations) DqNodes(key string) {
 		gslbutils.Logf("key: %s, msg: %s", key, "no model found, will delete the GslbService")
 		if gsCacheObj == nil {
 			gslbutils.Errf("key: %s, msg: %s", key, "no cache object for this GS was found, can't delete")
+			// it could be that the key published was for a stale health monitor too, so remove all the
+			// stale health monitor for this GS
+			restOp.deleteAllStaleHMsForGS(key)
 			return
 		}
 		restOp.deleteGSOper(gsCacheObj, tenant, key)
@@ -159,7 +192,7 @@ func (restOp *RestOperations) updateGsIfRequired(aviGSGraph *nodes.AviGSObjectGr
 	// it should be a PUT call
 	operation := restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
 	gslbutils.Debugf(spew.Sprintf("gsKey: %s, operation: %v", gsKey, operation))
-	restOp.ExecuteRestAndPopulateCache(operation, gsKey, key)
+	restOp.ExecuteRestAndPopulateCache(operation, &gsKey, nil, key)
 }
 
 func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObjectGraph, gsCacheObj *avicache.AviGSCache,
@@ -179,7 +212,12 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 					gslbutils.Errf("key: %s, msg: couldn't build a rest operation for health monitor, returning", key)
 					return errors.New("couldn't build a rest operation")
 				}
-				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName}
+				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
+				if op.Err != nil {
+					gslbutils.Errf("key: %s, hmKey: %v, msg: error while performing rest operation", key, hmKey)
+					return op.Err
+				}
 			}
 		}
 	}
@@ -207,53 +245,56 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 	gsKey avicache.TenantName, key string) error {
 	hm := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
 	if hm != nil {
+		hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hm.Name}
 		hmCksum := aviGSGraph.GetHmChecksum()
-		gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
-			key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
+		gslbutils.Debugf(spew.Sprintf("key: %s, hmKey: %v, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
+			key, hmKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 		if hm.CloudConfigCksum != hmCksum {
 			// update gs, delete hm, create new hm and update gs
 			op := restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, false)
-			restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 			if op.Err != nil {
-				gslbutils.Errf("key: %s, gsKey: %s, msg: error in rest operation: %v", key, gsKey, op)
+				gslbutils.Errf("key: %s, hmKey: %s, msg: error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
 			op = restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
-			restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 			if op.Err != nil {
-				gslbutils.Errf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+				gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
 			op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, "")
-			restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 			if op.Err != nil {
-				gslbutils.Errf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+				gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
 			op = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
-			restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 			if op.Err != nil {
-				gslbutils.Errf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+				gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
 		} else {
-			gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: no change in HM required",
-				key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
+			gslbutils.Debugf(spew.Sprintf("key: %s, hmKey: %s, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: no change in HM required",
+				key, hmKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 		}
 	} else {
 		// HM needs to be created
 		op := restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, "")
 		if op == nil {
-			gslbutils.Errf("key: %s, gsKey: %v, error in building avi hm object", key, gsKey)
+			gslbutils.Errf("key: %s, error in building avi hm object, won't retry", key)
+			return errors.New("error in building avi hm object")
 		}
-		restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+		hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: op.ObjName}
+		restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 		if op.Err != nil {
-			gslbutils.Errf("key: %s, gsKey: %v, error in rest operation: %v", key, gsKey, op)
+			gslbutils.Errf("key: %s, hmKey: %v, error in rest operation: %v", key, hmKey, op)
 			return op.Err
 		}
 		op = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
 
-		restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+		restOp.ExecuteRestAndPopulateCache(op, &gsKey, nil, key)
 		if op.Err != nil {
 			gslbutils.Errf("key: %s, gsKey: %v, error in rest operation: %v", key, gsKey, op)
 			return op.Err
@@ -295,6 +336,11 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	if len(pathNames) > 0 {
 		// path based HMs
 		err = restOp.createOrDeletePathHm(aviGSGraph, gsCacheObj, key, gsKey)
+		if err != nil {
+			gslbutils.Errf("key: %s, pathList: %v, msg: got an error for creating/deleting path based hms, %s", key,
+				pathNames, err.Error())
+			return
+		}
 	} else {
 		// non-path based HMs (System-GSLB-TCP/UDP)
 		hm := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
@@ -308,12 +354,13 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 					// won't retry in this case as this was a case of bad model we recieved from layer 2
 					return
 				}
-				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				hmKey := avicache.TenantName{Tenant: aviGSGraph.Tenant, Name: aviGSGraph.Hm.Name}
+				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
-					gslbutils.Errf("key: %s, gsKey: %v, error in rest operation: %v", key, gsKey, op.Err.Error())
+					gslbutils.Errf("key: %s, hmKey: %v, error in rest operation: %v", key, hmKey, op.Err.Error())
 					return
 				}
-				gslbutils.Debugf("key: %s, gsKey: %v, msg: no new hm required", key, gsKey)
+				gslbutils.Debugf("key: %s, hmKey: %v, msg: no new hm required", key, hmKey)
 			}
 			gslbutils.Debugf("key: %s, gsKey: %v, msg: nothing to be done for default HM", key, gsKey)
 		} else {
@@ -323,16 +370,17 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 				key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 			if hm.CloudConfigCksum != hmCksum {
 				// delete hm, create new hm and update gs
+				hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hm.Name}
 				op := restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
-				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
-					gslbutils.Errf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 					return
 				}
 				op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, aviGSGraph.Name)
-				restOp.ExecuteRestAndPopulateCache(op, gsKey, key)
+				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
-					gslbutils.Errf("key: %s, gsKey: %s, error in rest operation: %v", key, gsKey, op)
+					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 					return
 				}
 			}
@@ -343,7 +391,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	operation = restOp.AviGSBuild(aviGSGraph, utils.RestPost, nil, key, true)
 
 	operation.ObjName = aviGSGraph.Name
-	restOp.ExecuteRestAndPopulateCache(operation, gsKey, key)
+	restOp.ExecuteRestAndPopulateCache(operation, &gsKey, nil, key)
 }
 
 func AviRestOperateWrapper(restOp *RestOperations, aviClient *clients.AviClient, operation *utils.RestOp) error {
@@ -363,7 +411,8 @@ func AviRestOperateWrapper(restOp *RestOperations, aviClient *clients.AviClient,
 	}
 }
 
-func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestOp, gsKey avicache.TenantName, key string) {
+func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestOp, gsKey, hmKey *avicache.TenantName,
+	key string) {
 	// Choose a AVI client based on the model name hash. This would ensure that the same worker queue processes updates for a
 	// given GS everytime.
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
@@ -376,7 +425,7 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 		if err != nil {
 			if err.Error() == "rest timeout occured" {
 				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
-				restOp.PublishKeyToRetryLayer(gsKey, err)
+				restOp.PublishKeyToRetryLayer(gsKey, hmKey, err, key)
 				return
 			}
 			webSyncErr, ok := err.(*utils.WebSyncError)
@@ -384,7 +433,7 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 				gslbutils.Errf("key: %s, msg: %s, err: %v", key, "got an improper web api error, returning", err)
 				return
 			}
-			restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
+			restOp.PublishKeyToRetryLayer(gsKey, hmKey, webSyncErr.GetWebAPIError(), key)
 			return
 		}
 		// rest call executed successfully
@@ -413,7 +462,37 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	}
 }
 
-func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicache.TenantName, key string) {
+func (restOp *RestOperations) handleErrAndUpdateCacheForHm(errCode int, hmKey avicache.TenantName, key string) {
+	if len(restOp.aviRestPoolClient.AviClient) <= 0 {
+		gslbutils.Errf("invalid avi pool client configuration in restOp, key: %s", key)
+		return
+	}
+
+	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
+	gslbutils.Logf("key: %s, queue: %d, msg: handling error and updating cache", key, bkt)
+	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+
+	switch errCode {
+	case 409:
+		// case where the object configuration is mis-represented in the in-memory cache
+		// first fetch the object and then update it into the cache
+		gslbutils.Logf("httpStatus: %d, hmKey: %v, will delete the avi cache key and re-populate", errCode,
+			hmKey)
+		restOp.hmCache.AviHmCacheDelete(hmKey)
+		restOp.hmCache.AviHmObjCachePopulate(aviclient, hmKey.Name)
+		return
+
+	case 404:
+		// case where the object doesn't exist in Avi, delete that object
+		gslbutils.Logf("httpStatus: %d, gsKey: %v, will delete the avi hm cache key", errCode, hmKey)
+		restOp.hmCache.AviHmCacheDelete(hmKey)
+		return
+	}
+	gslbutils.Logf("httpStatus: %d, hmKey: %v, unhandled error code, avi hm cache unchanged")
+	return
+}
+
+func (restOp *RestOperations) handleErrAndUpdateCacheForGS(errCode int, gsKey avicache.TenantName, key string) {
 	if len(restOp.aviRestPoolClient.AviClient) <= 0 {
 		gslbutils.Errf("invalid avi pool client configuration in restOp, key: %s", key)
 		return
@@ -433,13 +512,13 @@ func (restOp *RestOperations) handleErrAndUpdateCache(errCode int, gsKey avicach
 		restOp.cache.AviObjGSCachePopulate(aviclient, gsKey.Name)
 		return
 
-	case 400, 404:
+	case 404:
 		// case where the object doesn't exist in Avi, delete that object
 		gslbutils.Logf("httpStatus: %d, gsKey: %v, will delete the avi cache key", errCode, gsKey)
 		restOp.cache.AviCacheDelete(gsKey)
 		return
 	}
-	gslbutils.Logf("httpStatus: %d, gsKey: %v, unhandled error code, avi cache unchanged")
+	gslbutils.Logf("httpStatus: %d, gsKey: %v, unhandled error code, avi gs cache unchanged", errCode, gsKey)
 	return
 }
 
@@ -463,34 +542,55 @@ func setRetryCounterForGraph(key string) error {
 	return nil
 }
 
-func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, webApiErr error) {
+func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.TenantName, webApiErr error, key string) {
 	var bkt uint32
 	bkt = 0
 
-	key := gsKey.Tenant + "/" + gsKey.Name
-
+	gslbutils.Debugf("key: %s, gsKey: %v, hmKey: %v, msg: evaluating whether to publish to retry queue",
+		key, gsKey, hmKey)
 	if webApiErr.Error() == "rest timeout occured" {
-		gslbutils.Errf("gsKey: %v, msg: timeout occured while doing rest call", gsKey)
+		gslbutils.Errf("gsKey: %v, hmKey: %v, msg: timeout occured while doing rest call", gsKey, hmKey)
+		// if this error occurs, we will reset the error counter, so it keeps on retrying until it has
+		// nothing to do for this key
+		err := setRetryCounterForGraph(key)
+		if err != nil {
+			gslbutils.Errf("can't set the retry counter for this key, will re-sync in the next full sync")
+			gslbutils.SetResyncRequired(true)
+			return
+		}
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
+		gslbutils.Logf("key: %s, msg: Published key to slow path retry queue", key)
 		return
 	}
 	aviError, ok := webApiErr.(session.AviError)
 	if !ok {
 		gslbutils.Errf("error in parsing the web api error to avi error: %v", webApiErr)
-		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+		err := setRetryCounterForGraph(key)
+		if err != nil {
+			gslbutils.Errf("can't set the retry counter for this key, will re-sync in the next full sync")
+			gslbutils.SetResyncRequired(true)
+			return
+		}
+		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
+		gslbutils.Logf("key: %s, msg: Published key to fast path retry queue", key)
 		return
 	}
 
 	gslbutils.Logf("key: %s, msg: Status code retrieved: %d", key, aviError.HttpStatusCode)
 	switch aviError.HttpStatusCode {
 	case 500, 501, 502, 503:
+		// Server errors, so we should keep on retrying
+		err := setRetryCounterForGraph(key)
+		if err != nil {
+			gslbutils.Errf("can't set the retry counter for this key, will re-sync in the next full sync")
+			gslbutils.SetResyncRequired(true)
+			return
+		}
 		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-		gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
+		gslbutils.Logf("key: %s, msg: Published key to slow path retry queue", key)
 
 	case 400:
 		// check if the message contains: "not a leader"
@@ -513,7 +613,7 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 			// else, publish the key to slowRetryQueue
 			slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 			slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
-			gslbutils.Logf("key: %s, msg: Published gskey to slow path retry queue", key)
+			gslbutils.Logf("key: %s, msg: Published key to slow path retry queue", key)
 			return
 		}
 		gslbutils.Errf("can't handle error code 400: %s, won't retry", *aviError.Message)
@@ -521,13 +621,18 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey avicache.TenantName, 
 	case 404, 409:
 		// however, if this controller is still the leader, we should retry
 		// for these error codes, we should first update the cache and put the key back to rest layer
-		restOp.handleErrAndUpdateCache(aviError.HttpStatusCode, gsKey, key)
+		if gsKey != nil {
+			restOp.handleErrAndUpdateCacheForGS(aviError.HttpStatusCode, *gsKey, key)
+		} else {
+			restOp.handleErrAndUpdateCacheForHm(aviError.HttpStatusCode, *hmKey, key)
+		}
 		fastRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.FastRetryQueue)
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		gslbutils.Logf("key: %s, msg: Published gskey to fast path retry queue", key)
 
 	default:
 		gslbutils.Warnf("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
+		// no retry, but this will be taken care of in the next full sync
 		gslbutils.SetResyncRequired(true)
 	}
 }
@@ -812,26 +917,28 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 	// health monitor found for this object, deleting
 	hmCacheObj, ok := hmCacheObjIntf.(*avicache.AviHmObj)
 	if !ok {
-		gslbutils.Warnf("key: %s, gsKey: %v, msg: health monitor object %v malformed, can't delete",
+		gslbutils.Warnf("key: %s, gsKey: %v, msg: health monitor object %v malformed, can't delete, won't retry",
 			key, gsKey, hmCacheObj)
 		return errors.New("hm cache object malformed")
 	}
+	hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName}
 	operation := restOp.AviGsHmDel(hmCacheObj.UUID, hmCacheObj.Tenant, key, hmCacheObj.Name)
 	restOps = operation
 	err := AviRestOperateWrapper(restOp, aviclient, restOps)
 	if err != nil {
-		gslbutils.Warnf("key: %s, HealthMonitor: %s, msg: %s", key, hmName, "failed to delete")
+		gslbutils.Warnf("key: %s, HealthMonitor: %s, msg: %s", key, hmName, "failed to delete, will retry")
 		if err.Error() == "rest timeout occured" {
 			gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
-			restOp.PublishKeyToRetryLayer(gsKey, err)
+			restOp.PublishKeyToRetryLayer(nil, &hmKey, err, key)
 			return err
 		}
 
 		webSyncErr, ok := err.(*utils.WebSyncError)
 		if !ok {
-			gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, hmName, "got an improper web api error, returning")
+			gslbutils.Errf("key: %s, HealthMonitor: %s, gsKey: %v, msg: %s", key, hmName,
+				gsKey, "got an improper web api error, will publish to retry queue")
 		}
-		restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
+		restOp.PublishKeyToRetryLayer(nil, &hmKey, webSyncErr.GetWebAPIError(), key)
 		return err
 	}
 	gslbutils.Debugf("key: %s, gsKey: %v, msg: will delete the key from hm cache", key, gsKey)
@@ -861,15 +968,15 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 				"failed to delete GSLB Service")
 			if err.Error() == "rest timeout occured" {
 				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
-				restOp.PublishKeyToRetryLayer(gsKey, err)
+				restOp.PublishKeyToRetryLayer(&gsKey, nil, err, key)
 				return
 			}
 			webSyncErr, ok := err.(*utils.WebSyncError)
 			if !ok {
-				gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid, "got an improper web api error, returning")
-				return
+				gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
+					"got an improper web api error, publishing to retry queue")
 			}
-			restOp.PublishKeyToRetryLayer(gsKey, webSyncErr.GetWebAPIError())
+			restOp.PublishKeyToRetryLayer(&gsKey, nil, webSyncErr.GetWebAPIError(), key)
 			return
 		}
 
