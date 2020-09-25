@@ -59,13 +59,11 @@ func NewAviRestClientPool(num uint32, api_ep string, username string,
 			AviLog.Warnf("NewAviClient returned err %v", err)
 			return &p, err
 		}
-		if err == nil && aviClient.AviSession != nil {
-			version, err := aviClient.AviSession.GetControllerVersion()
-			if err == nil && CtrlVersion == "" {
-				AviLog.Debugf("Setting the client version to %v", version)
-				session.SetVersion(version)
-				CtrlVersion = version
-			}
+		version, err := aviClient.AviSession.GetControllerVersion()
+		if err == nil && CtrlVersion == "" {
+			AviLog.Debugf("Setting the client version to %v", version)
+			session.SetVersion(version)
+			CtrlVersion = version
 		}
 
 		p.AviClient = append(p.AviClient, aviClient)

@@ -15,8 +15,10 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -95,7 +97,8 @@ func getFileName() string {
 	if input == "" {
 		input = DEFAULT_FILE_SUFFIX
 	}
-	return getFilePath() + getPodName() + input
+	fileName := fmt.Sprintf("%s%s%s.%d", getFilePath(), getPodName(), input, time.Now().Unix())
+	return fileName
 }
 
 func getFilePath() string {

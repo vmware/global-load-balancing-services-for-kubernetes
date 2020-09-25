@@ -17,7 +17,8 @@ require (
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298
 	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200911034242-702b866e87f2
+	github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618 // indirect
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200918095748-36994e7375fc
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
