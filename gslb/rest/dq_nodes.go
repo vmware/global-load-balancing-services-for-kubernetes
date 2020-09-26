@@ -102,7 +102,8 @@ func (restOp *RestOperations) DqNodes(key string) {
 		deleteOp = true
 	}
 
-	var aviModel *nodes.AviGSObjectGraph
+	var aviModel, aviModelCopy *nodes.AviGSObjectGraph
+
 	if deleteOp {
 		aviModel = deleteAviModelIntf.(*nodes.AviGSObjectGraph)
 	} else {
@@ -111,6 +112,7 @@ func (restOp *RestOperations) DqNodes(key string) {
 			return
 		}
 		aviModel = aviModelIntf.(*nodes.AviGSObjectGraph)
+		aviModelCopy = aviModel.GetCopy()
 	}
 
 	tenant, gsName := utils.ExtractNamespaceObjectName(key)
@@ -125,8 +127,12 @@ func (restOp *RestOperations) DqNodes(key string) {
 	}
 	aviModel.DecrementRetryCounter()
 
-	if deleteOp {
-		gslbutils.Logf("key: %s, msg: %s", key, "no model found, will delete the GslbService")
+	// Two ways a deletion can happen:
+	// 1. We get the model in the delete cache and not in the regular model cache.
+	// 2. Layer 2 might have pushed a key deciding its a UPDATE operation at the time, but before we
+	//    get to Layer 3, layer 2 could have again set the members to 0.
+	if deleteOp || (aviModelCopy != nil && aviModelCopy.MembersLen() == 0) {
+		gslbutils.Logf("key: %s, msg: %s", key, "no model or members found, will delete the GslbService")
 		if gsCacheObj == nil {
 			gslbutils.Errf("key: %s, msg: %s", key, "no cache object for this GS was found, can't delete")
 			// it could be that the key published was for a stale health monitor too, so remove all the
@@ -139,11 +145,11 @@ func (restOp *RestOperations) DqNodes(key string) {
 	}
 
 	gslbutils.Logf("key: %s, msg: GslbService will be created/updated", key)
-	if aviModel == nil {
-		gslbutils.Warnf("key: %s, msg: %s", key, "no model exists for this GslbService")
+	if aviModelCopy == nil {
+		gslbutils.Errf("key: %s, msg: %s", key, "unexpected error, no model exists for this GslbService")
 		return
 	}
-	restOp.RestOperation(gsName, tenant, aviModel, gsCacheObj, key)
+	restOp.RestOperation(gsName, tenant, aviModelCopy, gsCacheObj, key)
 }
 
 func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, gsCacheObj *avicache.AviGSCache) ([]string, []string) {

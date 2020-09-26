@@ -87,6 +87,24 @@ type AviGSK8sObj struct {
 	Paths []string
 }
 
+func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
+	paths := make([]string, len(gsk8sObj.Paths))
+	copy(paths, gsk8sObj.Paths)
+	obj := AviGSK8sObj{
+		Cluster:   gsk8sObj.Cluster,
+		ObjType:   gsk8sObj.ObjType,
+		Name:      gsk8sObj.Name,
+		Namespace: gsk8sObj.Namespace,
+		IPAddr:    gsk8sObj.IPAddr,
+		Weight:    gsk8sObj.Weight,
+		Port:      gsk8sObj.Port,
+		Proto:     gsk8sObj.Proto,
+		TLS:       gsk8sObj.TLS,
+		Paths:     paths,
+	}
+	return obj
+}
+
 type HealthMonitor struct {
 	Name      string
 	Protocol  string
@@ -97,6 +115,20 @@ type HealthMonitor struct {
 
 func (hm HealthMonitor) getChecksum() uint32 {
 	return gslbutils.GetGSLBHmChecksum(hm.Name, hm.Protocol, hm.Port)
+}
+
+func (hm HealthMonitor) getCopy() HealthMonitor {
+	pathNames := make([]string, len(hm.PathNames))
+	copy(pathNames, hm.PathNames)
+
+	hmObj := HealthMonitor{
+		Name:      hm.Name,
+		Protocol:  hm.Protocol,
+		Port:      hm.Port,
+		Custom:    hm.Custom,
+		PathNames: pathNames,
+	}
+	return hmObj
 }
 
 // AviGSObjectGraph is a graph constructed using AviGSNode. It is a one-to-one mapping between
@@ -541,4 +573,27 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 		memberVips = append(memberVips, memberObj.IPAddr)
 	}
 	return uniqueObjs
+}
+
+func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+
+	domainNames := make([]string, len(v.DomainNames))
+	copy(domainNames, v.DomainNames)
+
+	gsObjCopy := AviGSObjectGraph{
+		Name:          v.Name,
+		Tenant:        v.Tenant,
+		DomainNames:   domainNames,
+		GraphChecksum: v.GraphChecksum,
+		RetryCount:    v.RetryCount,
+		Hm:            v.Hm.getCopy(),
+	}
+
+	gsObjCopy.MemberObjs = make([]AviGSK8sObj, 0)
+	for _, memberObj := range v.MemberObjs {
+		gsObjCopy.MemberObjs = append(gsObjCopy.MemberObjs, memberObj.getCopy())
+	}
+	return &gsObjCopy
 }
