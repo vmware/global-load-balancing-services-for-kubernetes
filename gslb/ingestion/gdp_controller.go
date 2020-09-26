@@ -471,6 +471,12 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 
 	gf := gslbutils.GetGlobalFilter()
 	if filterExists(gf) {
+		// check if this is the same GDP as the already accepted GDP object
+		name, ns := gslbutils.GetGDPObj()
+		if name == gdp.ObjectMeta.GetName() && ns == gdp.ObjectMeta.GetNamespace() {
+			// this object is already added, no need to update the status, just return
+			return
+		}
 		msg := "a GDP object already exists, can't add another"
 		gslbutils.Errf(msg)
 		updateGDPStatus(gdp, msg)
