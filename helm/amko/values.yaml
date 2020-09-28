@@ -10,7 +10,7 @@ image:
 
 configs:
   gslbLeaderController: ""
-  controllerVersion: "18.2.9"
+  controllerVersion: "20.1.1"
   memberClusters:
     - clusterContext: "cluster1-admin"
     - clusterContext: "cluster2-admin"
