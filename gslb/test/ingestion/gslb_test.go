@@ -22,8 +22,6 @@ import (
 
 	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
 
-	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
-
 	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
 
 	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
@@ -56,37 +54,5 @@ func TestGSLBKubeConfig(t *testing.T) {
 	err = gslbingestion.GenerateKubeConfig()
 	if err != nil {
 		t.Fatalf("Failure in generating GSLB Kube config: %s", err.Error())
-	}
-}
-
-// Test the initialization of the member clusters.
-func TestMemberClusters(t *testing.T) {
-	clusterContexts := []string{"dev-default", "exp-scratch"}
-	memberClusters1 := make([]gslbalphav1.MemberCluster, 2)
-	for idx, clusterContext := range clusterContexts {
-		memberClusters1[idx].ClusterContext = clusterContext
-	}
-	gslbingestion.SetInformerListTimeout(1)
-	aviCtrlList := gslbingestion.InitializeGSLBClusters(kubeConfigPath, memberClusters1)
-	ctrlCount := 0
-	for _, ctrl := range aviCtrlList {
-		for _, ctx := range clusterContexts {
-			if ctrl.GetName() == ctx {
-				ctrlCount++
-			}
-		}
-	}
-	if ctrlCount != 2 {
-		t.Fatalf("Unexpected cluster controller set")
-	}
-
-	memberClusters2 := make([]gslbalphav1.MemberCluster, 2)
-	clusterContexts = []string{"fooCluster", "barCluster"}
-	for idx, clusterContext := range clusterContexts {
-		memberClusters2[idx].ClusterContext = clusterContext
-	}
-	aviCtrlList = gslbingestion.InitializeGSLBClusters(kubeConfigPath, memberClusters2)
-	if len(aviCtrlList) != 0 {
-		t.Fatalf("Unexpected cluster controller set")
 	}
 }
