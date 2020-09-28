@@ -70,6 +70,7 @@ const (
 	NoSecretMsg            = "error: secret object doesn't exist"
 	KubeConfigErr          = "error: provided kubeconfig has an error"
 	ControllerAPIErr       = "error: issue in connecting to the controller API"
+	ClusterHealthCheckErr  = "error: cluster healthcheck failed, "
 )
 
 type kubeClusterDetails struct {
@@ -540,7 +541,14 @@ func AddGSLBConfigObject(obj interface{}) {
 		return
 	}
 
-	aviCtrlList := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
+	aviCtrlList, err := InitializeGSLBClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
+	if err != nil {
+		gslbutils.Errf("couldn't initialize the kubernetes/openshift clusters: %s, returning", err.Error())
+		gslbutils.UpdateGSLBConfigStatus(ClusterHealthCheckErr + err.Error())
+		// shutdown the api server to let k8s/openshift restart the pod back up
+		gslbutils.GetAmkoAPIServer().ShutDown()
+		return
+	}
 
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncMsg)
 
@@ -706,9 +714,16 @@ func BuildContextConfig(kubeconfigPath, context string) (*restclient.Config, err
 		}).ClientConfig()
 }
 
-func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Clientset) []string {
+func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Clientset, cname string) ([]string, error) {
+
 	allInformers := []string{}
-	_, err := oclient.RouteV1().Routes("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	_, err := kclient.CoreV1().Services("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	if err != nil {
+		gslbutils.Errf("cname: %s, cluster api server health check failed, can't access the services api", cname)
+		return allInformers, errors.New("cluster " + cname + " health check failed, can't access the services api")
+	}
+	_, err = oclient.RouteV1().Routes("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	gslbutils.Debugf("cluster: %s, msg: checking if cluster has a route informer %v", cname, err)
 	if err == nil {
 		// Openshift cluster with route support, we will just add service informer
 		allInformers = append(allInformers, utils.RouteInformer)
@@ -719,11 +734,11 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 
 	allInformers = append(allInformers, utils.ServiceInformer)
 	allInformers = append(allInformers, utils.NSInformer)
-	return allInformers
+	return allInformers, nil
 }
 
 // InitializeGSLBClusters initializes the GSLB member clusters
-func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalphav1.MemberCluster) []*GSLBMemberController {
+func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalphav1.MemberCluster) ([]*GSLBMemberController, error) {
 	clusterDetails := loadClusterAccess(membersKubeConfig, memberClusters)
 	clients := make(map[string]*kubernetes.Clientset)
 
@@ -753,7 +768,11 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 		}
 		informersArg[utils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
 		informersArg[utils.INFORMERS_INSTANTIATE_ONCE] = false
-		registeredInformers := InformersToRegister(oshiftClient, kubeClient)
+		registeredInformers, err := InformersToRegister(oshiftClient, kubeClient, cluster.clusterName)
+		if err != nil {
+			gslbutils.Errf("error in initializing informers")
+			return aviCtrlList, err
+		}
 		if len(registeredInformers) == 0 {
 			gslbutils.Errf("No informers available for this cluster %s, returning", cluster.clusterName)
 			continue
@@ -769,7 +788,7 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 		aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)
 	}
-	return aviCtrlList
+	return aviCtrlList, nil
 }
 
 func loadClusterAccess(membersKubeConfig string, memberClusters []gslbalphav1.MemberCluster) []kubeClusterDetails {
