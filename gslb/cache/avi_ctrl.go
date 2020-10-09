@@ -135,6 +135,11 @@ func GetGslbLeaderUuid(client *clients.AviClient) (string, error) {
 			restResp["results"])
 		return "", errors.New("results not of type []interface{}")
 	}
+
+	if len(results) == 0 {
+		gslbutils.Logf("object: GslbConfig, msg: results length is zero, probably controller not a part of gslb config")
+		return "", errors.New("no results for uri " + uri)
+	}
 	// results[0] contains the GSLB information
 	gslbIntf := results[0]
 	gslbConfig := gslbIntf.(map[string]interface{})
