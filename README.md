@@ -8,7 +8,7 @@ GSLB - Load balancing across instances of the application that have been deploye
 ## Prerequisites
 Few things are needed before we can kickstart AMKO:
 1. Atleast one kubernetes/openshift cluster.
-2. Atleast one AVI controller which manages the above kubernetes/openshift cluster. Additional controllers with openshift/kubernetes clusters can be added. 
+2. Atleast one AVI controller which manages the above kubernetes/openshift cluster. Additional controllers with openshift/kubernetes clusters can be added.
 3. One controller (site) designated as the GSLB leader site. Enable GSLB on the required controller and the other controllers (sites) as the follower nodes.
 4. AMKO assumes that it has connectivity to all the member clusters' kubernetes API servers. Without this, AMKO wouldn't be able to watch over the ingress/route/services objects in the member kubernetes clusters.
 5. Designate one openshift/kubernetes cluster which will be communicating with the GSLB leader. All the configs for `amko` will be added to this cluster. We will call this cluster, `cluster-amko`.
@@ -16,7 +16,7 @@ Few things are needed before we can kickstart AMKO:
 ```
 kubectl create ns avi-system
 ```
-6. Create a kubeconfig file with the permissions to read the service and ingress/route objects for multiple clusters. See how to create a kubeconfig file for multiple clusters [here](#Multi-cluster-kubeconfig). Name this file `gslb-members` and generate a secret with the kubeconfig file in `cluster-amko` by following:
+7. Create a kubeconfig file with the permissions to read the service and ingress/route objects for multiple clusters. See how to create a kubeconfig file for multiple clusters [here](#Multi-cluster-kubeconfig). Name this file `gslb-members` and generate a secret with the kubeconfig file in `cluster-amko` by following:
 ```
 kubectl --kubeconfig my-config create secret generic gslb-config-secret --from-file gslb-members -n avi-system
 ```
@@ -42,7 +42,7 @@ kubectl delete gdp -n avi-system <gdp_name>
 ## parameters
 | **Parameter**                                                 | **Description**                                                                                                          | **Default**                           |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `configs.gslbLeaderController`                                | GSLB leader controller version                                                                                           | 18.2.9                                |
+| `configs.gslbLeaderController`                                | GSLB leader controller version                                                                                           | 20.1.1                                |
 | `gslbLeaderCredentials.username`                              | GSLB leader controller username                                                                                          | `admin`                               |
 | `gslbLeaderCredentials.password`                              | GSLB leader controller password                                                                                          | `avi123`                              |
 | `configs.memberClusters.clusterContext`                       | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
