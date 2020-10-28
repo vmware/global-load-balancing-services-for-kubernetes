@@ -26,7 +26,7 @@ CHARTS_PATH="$(get_git_ws)/helm/amko"
 
 build_version=$(bash $BUILD_VERSION_SCRIPT "dummy" $BUILD_NUMBER)
 
-target_path=/mnt/builds/amko/$BRANCH/ci-build-$build_version
+target_path=/mnt/builds/amko_OS/$BRANCH/ci-build-$build_version
 
 sudo mkdir -p $target_path
 

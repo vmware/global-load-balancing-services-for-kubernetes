@@ -76,7 +76,7 @@ amko_map = get_essential_mapping("${amko_branch}",
                                 "amko-${amko_branch}-ci-build", 
                                 "${amko_build_num}",
                                 "${AMKO_NO_UPSTREAM_GIT_HASH}",
-                                "/mnt/builds/amko/${amko_branch}")
+                                "/mnt/builds/amko_OS/${amko_branch}")
 
 
 
