@@ -31,7 +31,17 @@ endif
 ifndef BUILD_TAG
 		$(eval BUILD_TAG=$(shell ./hack/jenkins/get_build_version.sh "dummy" 0))
 endif
-		sudo docker build -t $(AMKO_BIN):latest --label "BUILD_TAG=$(BUILD_TAG)" --label "BUILD_TIME=$(BUILD_TIME)" -f Dockerfile.amko . 
+ifdef GOLANG_SRC_REPO
+	$(eval BUILD_ARG_GOLANG=--build-arg golang_src_repo=$(GOLANG_SRC_REPO))
+else
+	$(eval BUILD_ARG_GOLANG=)
+endif
+ifdef PHOTON_SRC_REPO
+	$(eval BUILD_ARG_PHOTON=--build-arg photon_src_repo=$(PHOTON_SRC_REPO))
+else
+	$(eval BUILD_ARG_PHOTON=)
+endif
+	sudo docker build -t $(AMKO_BIN):latest --label "BUILD_TAG=$(BUILD_TAG)" --label "BUILD_TIME=$(BUILD_TIME)" $(BUILD_ARG_GOLANG) $(BUILD_ARG_PHOTON) -f Dockerfile.amko .
 
 .PHONY: ingestion_test
 ingestion_test:
