@@ -71,6 +71,10 @@ service:
   type: ClusterIP
   port: 80
 
+rbac:
+  # creates the pod security policy if set to true
+  pspEnable: false
+
 persistentVolumeClaim: ""
 mountPath: "/log"
 logFile: "amko.log"

@@ -18,3 +18,15 @@ rules:
   - apiGroups: ["amko.vmware.com"]
     resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status"]
     verbs: ["get","watch","list","patch", "update"]
+
+{{- if .Values.rbac.pspEnable }}
+  - apiGroups:
+    - policy
+    - extensions
+    resources:
+    - podsecuritypolicies
+    verbs:
+    - use
+    resourceNames:
+    - {{ template "amko.name" . }}
+{{- end }}
