@@ -154,3 +154,53 @@ type TrafficSplitElem struct {
 type GDPStatus struct {
 	ErrorStatus string `json:"errorStatus,omitempty"`
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// GSLBHostRule is the top-level type which allows a user to override certain
+// fields of a GSLB Service.
+type GSLBHostRule struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// spec for GSLB Config
+	Spec GSLBHostRuleSpec `json:"spec,omitempty"`
+	// +optional
+	Status GSLBHostRuleStatus `json:"status,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// GSLBHostRuleList is a list of GDP resources
+type GSLBHostRuleList struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []GSLBHostRule `json:"items"`
+}
+
+// GSLBHostRuleSpec defines all the properties of a GSLB Service that can be overriden
+// by a user.
+type GSLBHostRuleSpec struct {
+	// GSFqdn is the fqdn of the GSLB Service for which the below properties can be
+	// changed.
+	GSFqdn string `json:"gsFqdn,omitempty"`
+	// TTL is Time To Live in seconds. This tells a DNS resolver how long to hold this DNS
+	// record.
+	TTL int `json:"ttl,omitempty"`
+	// SitePersistenceEnabled if set to true, enables stickiness to the same site where
+	// the connection from the client was initiated to.
+	SitePersistenceEnabled bool `json:"sitePersistenceEnabled"`
+	// HealthMonitoreRefs is a list of custom health monitors which will monitor the
+	// GSLB Service's pool members.
+	HealthMonitorRefs []string `json:"hmRefs,omitempty"`
+	// TrafficSplit defines the weightage of traffic that can be routed to each cluster.
+	TrafficSplit []TrafficSplitElem `json:"trafficSplit,omitempty"`
+}
+
+// GSLBHostRuleStatus contains the current state of the GSLBHostRule resource. If the
+// current state is rejected, then an error message is also shown in the Error field.
+type GSLBHostRuleStatus struct {
+	Error  string `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
+}

@@ -20,10 +20,10 @@ import (
 	"sync"
 	"time"
 
-	avicache "github.com/avinetworks/amko/gslb/cache"
+	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	"github.com/avinetworks/amko/gslb/nodes"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
 	"github.com/avinetworks/sdk/go/clients"
 	avimodels "github.com/avinetworks/sdk/go/models"

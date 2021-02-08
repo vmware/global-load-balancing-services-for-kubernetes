@@ -18,8 +18,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	routev1 "github.com/openshift/api/route/v1"
 )

@@ -18,12 +18,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
-	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
-	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
-	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
-	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
+	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/fake"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
 
 	"github.com/onsi/gomega"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"

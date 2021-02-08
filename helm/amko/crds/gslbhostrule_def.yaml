@@ -1,0 +1,62 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gslbhostrules.amko.vmware.com
+spec:
+  conversion:
+    strategy: None
+  group: amko.vmware.com
+  names:
+    kind: GSLBHostRule
+    listKind: GSLBConfigList
+    plural: gslbhostrules
+    shortNames:
+    - ghr
+    singular: gslbhostrule
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              gsFqdn:
+                description: "FQDN of the GslbService to which this set of rule applies."
+                type: string
+              ttl:
+                description: "Time To Live. Specify in seconds how long to hold a DNS record."
+                type: integer
+              sitePersistenceEnabled:
+                description: "Maintain stickiness to the same site where the connection was initiated."
+                type: boolean
+              healthMonitorRefs:
+                description: "List of Custom Health Monitors that will monitor the Gslb Service pool members."
+                type: array
+                items:
+                  type: string
+              trafficSplit:
+                description: "Weights for each pool member. Each pool member belong to one of the sites."
+                type: array
+                items:
+                  type: object
+                  properties:
+                    cluster:
+                      description: "Cluster context name"
+                      type: string
+                    weight:
+                      description: "Weight out of 20"
+                      type: integer
+          status:
+            type: "object"
+            properties:
+              error:
+                type: "string"
+              status:
+                type: "string"
+        required:
+        - spec
+    served: true
+    storage: true

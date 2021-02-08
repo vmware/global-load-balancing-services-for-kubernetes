@@ -23,11 +23,11 @@ import (
 	sync "sync"
 	time "time"
 
-	internalinterfaces "github.com/avinetworks/amko/internal/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/internalinterfaces"
 
-	amko "github.com/avinetworks/amko/internal/client/informers/externalversions/amko"
+	amko "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/amko"
 
-	versioned "github.com/avinetworks/amko/internal/client/clientset/versioned"
+	versioned "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

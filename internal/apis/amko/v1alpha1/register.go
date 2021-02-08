@@ -52,6 +52,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&GSLBConfigList{},
 		&GlobalDeploymentPolicy{},
 		&GlobalDeploymentPolicyList{},
+		&GSLBHostRule{},
+		&GSLBHostRuleList{},
 	)
 
 	scheme.AddKnownTypes(

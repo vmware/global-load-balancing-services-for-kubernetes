@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"sync"
 
-	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )

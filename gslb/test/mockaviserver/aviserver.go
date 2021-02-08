@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 
 type InjectFault func(w http.ResponseWriter, r *http.Request)

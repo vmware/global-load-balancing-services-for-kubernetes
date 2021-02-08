@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	internalinterfaces "github.com/avinetworks/amko/internal/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

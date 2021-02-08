@@ -15,8 +15,8 @@
 package k8sobjects
 
 import (
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	gdpv1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 )

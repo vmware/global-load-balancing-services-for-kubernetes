@@ -21,10 +21,10 @@ package v1alpha1
 import (
 	time "time"
 
-	amkov1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
-	versioned "github.com/avinetworks/amko/internal/client/clientset/versioned"
-	internalinterfaces "github.com/avinetworks/amko/internal/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/avinetworks/amko/internal/client/listers/amko/v1alpha1"
+	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	versioned "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
+	internalinterfaces "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/listers/amko/v1alpha1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

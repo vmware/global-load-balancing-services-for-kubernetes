@@ -18,8 +18,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	"github.com/avinetworks/amko/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
