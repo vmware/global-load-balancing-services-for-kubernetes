@@ -19,8 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
-	"github.com/avinetworks/amko/internal/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/scheme"
 
 	rest "k8s.io/client-go/rest"
 )

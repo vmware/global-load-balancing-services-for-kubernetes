@@ -17,7 +17,7 @@ package rest
 import (
 	"errors"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )

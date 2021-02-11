@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/avinetworks/amko/internal/client/clientset/versioned"
-	amkov1alpha1 "github.com/avinetworks/amko/internal/client/clientset/versioned/typed/amko/v1alpha1"
-	fakeamkov1alpha1 "github.com/avinetworks/amko/internal/client/clientset/versioned/typed/amko/v1alpha1/fake"
+	clientset "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
+	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha1"
+	fakeamkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha1/fake"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"

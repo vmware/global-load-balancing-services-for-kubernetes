@@ -21,7 +21,7 @@ package versioned
 import (
 	"fmt"
 
-	amkov1alpha1 "github.com/avinetworks/amko/internal/client/clientset/versioned/typed/amko/v1alpha1"
+	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha1"
 
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"

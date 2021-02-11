@@ -20,11 +20,11 @@ import (
 	"testing"
 	"time"
 
-	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
+	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
-	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
+	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/fake"
 
-	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 )

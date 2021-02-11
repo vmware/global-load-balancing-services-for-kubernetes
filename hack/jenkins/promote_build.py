@@ -95,7 +95,7 @@ GIT_USER = 'nobody'
 GIT_PASS = 'my-very-private-password'
 
 # Partial Github URL to amko GIT repository
-URL_GITHUB_AVI_DEV = 'github.com/avinetworks/amko.git'
+URL_GITHUB_AVI_DEV = 'github.com/vmware/global-load-balancing-services-for-kubernetes.git'
 
 
 def _setup_logging():

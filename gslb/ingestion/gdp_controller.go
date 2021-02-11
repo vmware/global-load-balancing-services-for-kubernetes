@@ -18,16 +18,16 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	"github.com/avinetworks/amko/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 
-	filter "github.com/avinetworks/amko/gslb/gdp_filter"
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
 
-	gdpalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
-	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
-	gdpscheme "github.com/avinetworks/amko/internal/client/clientset/versioned/scheme"
-	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
-	gdplisters "github.com/avinetworks/amko/internal/client/listers/amko/v1alpha1"
+	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
+	gdpscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/scheme"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
+	gdplisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/listers/amko/v1alpha1"
 
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"

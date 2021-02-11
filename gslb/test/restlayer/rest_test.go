@@ -19,17 +19,17 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	"github.com/avinetworks/amko/gslb/nodes"
-	"github.com/avinetworks/amko/gslb/rest"
-	"github.com/avinetworks/amko/gslb/test/mockaviserver"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
 
-	"github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	"github.com/onsi/gomega"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 
-	avicache "github.com/avinetworks/amko/gslb/cache"
+	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 )
 
 const (

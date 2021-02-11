@@ -5,7 +5,7 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOTEST=$(GOCMD) test
 AMKO_BIN=amko
-AMKO_REL_PATH=github.com/avinetworks/amko/cmd/gslb
+AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/gslb
 
 .PHONY: all
 all: vendor build
@@ -60,3 +60,7 @@ test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
+
+.PHONY: gen-clientsets
+codegen:
+		hack/update-codegen-amkocrd.sh

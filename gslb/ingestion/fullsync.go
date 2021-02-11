@@ -17,13 +17,13 @@ package ingestion
 import (
 	"errors"
 
-	filter "github.com/avinetworks/amko/gslb/gdp_filter"
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	"github.com/avinetworks/amko/gslb/k8sobjects"
-	"github.com/avinetworks/amko/gslb/nodes"
-	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
-	avicache "github.com/avinetworks/amko/gslb/cache"
+	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"

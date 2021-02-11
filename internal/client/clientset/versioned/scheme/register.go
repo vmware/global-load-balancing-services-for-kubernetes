@@ -19,7 +19,7 @@ limitations under the License.
 package scheme
 
 import (
-	amkov1alpha1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

@@ -15,11 +15,11 @@
 package ingestion
 
 import (
-	"github.com/avinetworks/amko/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
-	filter "github.com/avinetworks/amko/gslb/gdp_filter"
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"

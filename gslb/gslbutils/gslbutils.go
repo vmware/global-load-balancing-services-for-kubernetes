@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
-	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
-	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
+	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"

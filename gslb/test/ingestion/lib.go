@@ -19,16 +19,16 @@ import (
 	"testing"
 	"time"
 
-	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
-	gslbfake "github.com/avinetworks/amko/internal/client/clientset/versioned/fake"
+	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/fake"
 
 	oshiftfake "github.com/openshift/client-go/route/clientset/versioned/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	gslbingestion "github.com/avinetworks/amko/gslb/ingestion"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )

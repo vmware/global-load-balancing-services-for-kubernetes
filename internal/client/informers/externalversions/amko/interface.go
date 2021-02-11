@@ -19,8 +19,8 @@ limitations under the License.
 package amko
 
 import (
-	v1alpha1 "github.com/avinetworks/amko/internal/client/informers/externalversions/amko/v1alpha1"
-	internalinterfaces "github.com/avinetworks/amko/internal/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/amko/v1alpha1"
+	internalinterfaces "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

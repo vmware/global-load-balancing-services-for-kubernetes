@@ -23,10 +23,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/avinetworks/amko/gslb/gslbutils"
-	"github.com/avinetworks/amko/gslb/nodes"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
-	gslbcs "github.com/avinetworks/amko/internal/client/clientset/versioned"
+	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
 
 	"github.com/golang/glog"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
@@ -41,18 +41,18 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	gslbalphav1 "github.com/avinetworks/amko/internal/apis/amko/v1alpha1"
-	gslbscheme "github.com/avinetworks/amko/internal/client/clientset/versioned/scheme"
-	gslbinformers "github.com/avinetworks/amko/internal/client/informers/externalversions"
-	gslblisters "github.com/avinetworks/amko/internal/client/listers/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gslbscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/scheme"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
+	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/listers/amko/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	avicache "github.com/avinetworks/amko/gslb/cache"
+	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
-	avirest "github.com/avinetworks/amko/gslb/rest"
-	aviretry "github.com/avinetworks/amko/gslb/retry"
+	avirest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
+	aviretry "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/retry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
