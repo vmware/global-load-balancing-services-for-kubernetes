@@ -29,6 +29,7 @@ spec:
               ttl:
                 description: "Time To Live. Specify in seconds how long to hold a DNS record."
                 type: integer
+                minimum: 0
               sitePersistenceEnabled:
                 description: "Maintain stickiness to the same site where the connection was initiated."
                 type: boolean
@@ -49,6 +50,8 @@ spec:
                     weight:
                       description: "Weight out of 20"
                       type: integer
+                      maximum: 20
+                      minimum: 1
           status:
             type: "object"
             properties:
