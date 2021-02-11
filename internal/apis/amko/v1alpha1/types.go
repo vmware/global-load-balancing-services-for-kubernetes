@@ -182,9 +182,9 @@ type GSLBHostRuleList struct {
 // GSLBHostRuleSpec defines all the properties of a GSLB Service that can be overriden
 // by a user.
 type GSLBHostRuleSpec struct {
-	// GSFqdn is the fqdn of the GSLB Service for which the below properties can be
+	// Fqdn is the fqdn of the GSLB Service for which the below properties can be
 	// changed.
-	GSFqdn string `json:"gsFqdn,omitempty"`
+	Fqdn string `json:"fqdn,omitempty"`
 	// TTL is Time To Live in seconds. This tells a DNS resolver how long to hold this DNS
 	// record.
 	TTL int `json:"ttl,omitempty"`
@@ -203,4 +203,10 @@ type GSLBHostRuleSpec struct {
 type GSLBHostRuleStatus struct {
 	Error  string `json:"error,omitempty"`
 	Status string `json:"status,omitempty"`
+}
+
+// SitePersistence
+type SitePersistence struct {
+	Enabled    bool   `json:"enabled,omitempty"`
+	ProfileRef string `json:"profileRef,omitempty"`
 }

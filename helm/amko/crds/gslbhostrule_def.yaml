@@ -23,16 +23,23 @@ spec:
           spec:
             type: object
             properties:
-              gsFqdn:
+              fqdn:
                 description: "FQDN of the GslbService to which this set of rule applies."
                 type: string
               ttl:
                 description: "Time To Live. Specify in seconds how long to hold a DNS record."
                 type: integer
                 minimum: 0
-              sitePersistenceEnabled:
+              sitePersistence:
                 description: "Maintain stickiness to the same site where the connection was initiated."
-                type: boolean
+                type: object
+                properties:
+                  enabled:
+                    description: "Enable/Disable GSLB site persistence"
+                    type: boolean
+                  profileRef:
+                    description: "Custom site persistence profile reference, will be applied on the GSLB Service"
+                    type: string
               healthMonitorRefs:
                 description: "List of Custom Health Monitors that will monitor the Gslb Service pool members."
                 type: array

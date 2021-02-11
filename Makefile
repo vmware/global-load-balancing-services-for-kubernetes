@@ -62,5 +62,5 @@ test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
 
 .PHONY: gen-clientsets
-gen-clientsets:
+codegen:
 		hack/update-codegen-amkocrd.sh
