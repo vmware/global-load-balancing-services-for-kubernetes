@@ -54,6 +54,8 @@ spec:
                       type: string
                     weight:
                       type: integer
+                      minimum : 1
+                      maximum: 20
                 type: array
           status:
             type: "object"
