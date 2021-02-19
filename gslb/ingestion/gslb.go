@@ -719,7 +719,7 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 	allInformers := []string{}
 	_, err := kclient.CoreV1().Services("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	if err != nil {
-		gslbutils.Errf("cname: %s, cluster api server health check failed, can't access the services api", cname)
+		gslbutils.Errf("can't access the services api for cluster %s, error : %s", cname, err)
 		return allInformers, errors.New("cluster " + cname + " health check failed, can't access the services api")
 	}
 	_, err = oclient.RouteV1().Routes("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
