@@ -39,6 +39,7 @@ type GSLBHostRulesGetter interface {
 type GSLBHostRuleInterface interface {
 	Create(*v1alpha1.GSLBHostRule) (*v1alpha1.GSLBHostRule, error)
 	Update(*v1alpha1.GSLBHostRule) (*v1alpha1.GSLBHostRule, error)
+	UpdateStatus(*v1alpha1.GSLBHostRule) (*v1alpha1.GSLBHostRule, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
 	Get(name string, options v1.GetOptions) (*v1alpha1.GSLBHostRule, error)
@@ -126,6 +127,22 @@ func (c *gSLBHostRules) Update(gSLBHostRule *v1alpha1.GSLBHostRule) (result *v1a
 		Namespace(c.ns).
 		Resource("gslbhostrules").
 		Name(gSLBHostRule.Name).
+		Body(gSLBHostRule).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *gSLBHostRules) UpdateStatus(gSLBHostRule *v1alpha1.GSLBHostRule) (result *v1alpha1.GSLBHostRule, err error) {
+	result = &v1alpha1.GSLBHostRule{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("gslbhostrules").
+		Name(gSLBHostRule.Name).
+		SubResource("status").
 		Body(gSLBHostRule).
 		Do().
 		Into(result)
