@@ -32,6 +32,10 @@ func (c *FakeAmkoV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInte
 	return &FakeGSLBConfigs{c, namespace}
 }
 
+func (c *FakeAmkoV1alpha1) GSLBHostRules(namespace string) v1alpha1.GSLBHostRuleInterface {
+	return &FakeGSLBHostRules{c, namespace}
+}
+
 func (c *FakeAmkoV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {
 	return &FakeGlobalDeploymentPolicies{c, namespace}
 }
