@@ -27,6 +27,7 @@ import (
 type AmkoV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	GSLBConfigsGetter
+	GSLBHostRulesGetter
 	GlobalDeploymentPoliciesGetter
 }
 
@@ -37,6 +38,10 @@ type AmkoV1alpha1Client struct {
 
 func (c *AmkoV1alpha1Client) GSLBConfigs(namespace string) GSLBConfigInterface {
 	return newGSLBConfigs(c, namespace)
+}
+
+func (c *AmkoV1alpha1Client) GSLBHostRules(namespace string) GSLBHostRuleInterface {
+	return newGSLBHostRules(c, namespace)
 }
 
 func (c *AmkoV1alpha1Client) GlobalDeploymentPolicies(namespace string) GlobalDeploymentPolicyInterface {

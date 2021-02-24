@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// GSLBConfigs returns a GSLBConfigInformer.
 	GSLBConfigs() GSLBConfigInformer
+	// GSLBHostRules returns a GSLBHostRuleInformer.
+	GSLBHostRules() GSLBHostRuleInformer
 	// GlobalDeploymentPolicies returns a GlobalDeploymentPolicyInformer.
 	GlobalDeploymentPolicies() GlobalDeploymentPolicyInformer
 }
@@ -44,6 +46,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // GSLBConfigs returns a GSLBConfigInformer.
 func (v *version) GSLBConfigs() GSLBConfigInformer {
 	return &gSLBConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// GSLBHostRules returns a GSLBHostRuleInformer.
+func (v *version) GSLBHostRules() GSLBHostRuleInformer {
+	return &gSLBHostRuleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // GlobalDeploymentPolicies returns a GlobalDeploymentPolicyInformer.

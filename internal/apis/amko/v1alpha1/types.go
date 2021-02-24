@@ -155,7 +155,9 @@ type GDPStatus struct {
 	ErrorStatus string `json:"errorStatus,omitempty"`
 }
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
 
 // GSLBHostRule is the top-level type which allows a user to override certain
 // fields of a GSLB Service.
