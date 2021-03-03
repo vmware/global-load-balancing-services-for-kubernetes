@@ -16,6 +16,7 @@ package gslbutils
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -61,6 +62,18 @@ var (
 	gfOnce sync.Once
 )
 
+const (
+	// SyncTypeVirtualServices only syncs the virtual service uuids with the controller uuids.
+	SyncTypeVirtualServices = 0
+	// SyncTypeThirdPartyVips syncs the IP addresses present in the ingress/service/route objects.
+	SyncTypeThirdPartyVips = 1
+)
+
+// ClusterProperties contains the properties for a cluster.
+type ClusterProperties struct {
+	SyncType int
+}
+
 // GlobalFilter is all the filters at one place. It also holds a list of ApplicableClusters
 // to which all the filters are applicable. This list cannot be empty.
 type GlobalFilter struct {
@@ -72,7 +85,7 @@ type GlobalFilter struct {
 	TrafficSplit []ClusterTraffic
 	// ApplicableClusters contain the list of clusters on which the filters
 	// will be applicable
-	ApplicableClusters []string
+	ApplicableClusters map[string]ClusterProperties
 	Checksum           uint32
 	// Respective filters for the namespaces.
 	// NSFilterMap map[string]*NSFilter
@@ -114,7 +127,7 @@ func (gf *GlobalFilter) IsClusterAllowed(cname string) bool {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 
-	if PresentInList(cname, gf.ApplicableClusters) {
+	if ClusterContextPresentInList(cname, gf.ApplicableClusters) {
 		return true
 	}
 	return false
@@ -130,6 +143,17 @@ func (gf *GlobalFilter) AddNSToNSFilter(cname, ns string) error {
 	gf.NSFilter.AddNS(cname, ns)
 
 	return nil
+}
+
+func (gf *GlobalFilter) GetSyncTypeForCluster(cname string) (int, error) {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	cp, ok := gf.ApplicableClusters[cname]
+	if !ok {
+		return SyncTypeVirtualServices, fmt.Errorf("cluster name %s not part of applicable clusters in the global filter", cname)
+	}
+	return cp.SyncType, nil
 }
 
 type AppFilter struct {
@@ -203,8 +227,7 @@ func createNewNSFilter(lbl map[string]string) *NamespaceFilter {
 }
 
 // AddToFilter handles creation of new filters, cluster or otherwise.
-// Each namespace can have only one GDP object and one filter respectively, this is
-// taken care of in the admission controller.
+// Only one GDP object allowed per-cluster.
 func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) {
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
@@ -221,8 +244,24 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) {
 	if len(gdp.Spec.MatchRules.NamespaceSelector.Label) == 1 {
 		gf.NSFilter = createNewNSFilter(gdp.Spec.MatchRules.NamespaceSelector.Label)
 	}
+
+	// Find out the list of clusters which need 3rd party vips syncing, assume SyncTypeVirtualServices
+	// to be defailt.
+	thirdPartyVips := make(map[string]struct{})
+	for _, cluster := range gdp.Spec.SyncVips {
+		thirdPartyVips[cluster] = struct{}{}
+	}
+
+	if len(gf.ApplicableClusters) == 0 {
+		gf.ApplicableClusters = make(map[string]ClusterProperties)
+	}
 	// Add applicable clusters
-	gf.ApplicableClusters = gdp.Spec.MatchClusters
+	for _, cluster := range gdp.Spec.MatchClusters {
+		gf.ApplicableClusters[cluster] = ClusterProperties{SyncTypeVirtualServices}
+		if _, ok := thirdPartyVips[cluster]; ok {
+			gf.ApplicableClusters[cluster] = ClusterProperties{SyncTypeThirdPartyVips}
+		}
+	}
 	// Add traffic split
 	for _, ts := range gdp.Spec.TrafficSplit {
 		ct := ClusterTraffic{
@@ -244,8 +283,8 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	if gf.NSFilter != nil {
 		cksum += gf.NSFilter.GetChecksum()
 	}
-	for _, c := range gf.ApplicableClusters {
-		cksum += utils.Hash(c)
+	for c, s := range gf.ApplicableClusters {
+		cksum += utils.Hash(c) + utils.Hash(utils.Stringify(s.SyncType))
 	}
 	for _, ts := range gf.TrafficSplit {
 		cksum += utils.Hash(ts.ClusterName + strconv.Itoa(int(ts.Weight)))
@@ -268,6 +307,15 @@ func (gf *GlobalFilter) GetTrafficWeight(ns, cname string) (int32, error) {
 func PresentInList(key string, strList []string) bool {
 	for _, str := range strList {
 		if str == key {
+			return true
+		}
+	}
+	return false
+}
+
+func ClusterContextPresentInList(key string, clusterProperties map[string]ClusterProperties) bool {
+	for cluster := range clusterProperties {
+		if cluster == key {
 			return true
 		}
 	}
@@ -338,7 +386,7 @@ func (gf *GlobalFilter) DeleteFromGlobalFilter(gdp *gdpv1alpha1.GlobalDeployment
 	defer gf.GlobalLock.Unlock()
 	gf.AppFilter = nil
 	gf.NSFilter = nil
-	gf.ApplicableClusters = []string{}
+	gf.ApplicableClusters = make(map[string]ClusterProperties)
 	gf.Checksum = 0
 	gf.TrafficSplit = []ClusterTraffic{}
 }
@@ -351,7 +399,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		AppFilter:          nil,
 		NSFilter:           nil,
 		TrafficSplit:       []ClusterTraffic{},
-		ApplicableClusters: []string{},
+		ApplicableClusters: make(map[string]ClusterProperties),
 	}
 	return gf
 }

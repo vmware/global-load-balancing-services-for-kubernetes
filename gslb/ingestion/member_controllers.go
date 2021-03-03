@@ -40,6 +40,7 @@ type GSLBMemberController struct {
 	worker_id_mutex sync.Mutex
 	informers       *containerutils.Informers
 	workqueue       []workqueue.RateLimitingInterface
+	syncType        int
 }
 
 // GetAviController sets config for an AviController

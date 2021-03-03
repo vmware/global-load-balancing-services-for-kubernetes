@@ -267,15 +267,15 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-func GetGSLBServiceChecksum(ipList, domainList, memberObjs []string, hmNames []string) uint32 {
-	sort.Strings(ipList)
+func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string) uint32 {
+
+	sort.Strings(serverList)
 	sort.Strings(domainList)
 	sort.Strings(memberObjs)
 	sort.Strings(hmNames)
 
 	// checksum has to take into consideration the non-path HMs and the path based HMs
-
-	return utils.Hash(utils.Stringify(ipList)) +
+	return utils.Hash(utils.Stringify(serverList)) +
 		utils.Hash(utils.Stringify(domainList)) +
 		utils.Hash(utils.Stringify(memberObjs)) +
 		utils.Hash(utils.Stringify(hmNames))

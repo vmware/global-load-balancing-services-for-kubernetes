@@ -15,7 +15,9 @@
 package k8sobjects
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -82,20 +84,53 @@ func getTLSHosts(ingress *v1beta1.Ingress) []string {
 	return tlsHosts
 }
 
+func parseVSAndControllerAnnotations(annotations map[string]string) (map[string]string, string, error) {
+	vsUUIDs, controllerUUID := make(map[string]string), ""
+	if len(annotations) == 0 {
+		return vsUUIDs, controllerUUID, nil
+	}
+	vsAnnotations, exists := annotations[VSAnnotation]
+	if !exists {
+		gslbutils.Debugf("No VS Annotations exist for object, annotations: %v", annotations)
+		return vsUUIDs, controllerUUID, nil
+	}
+	controllerUUID, exists = annotations[ControllerAnnotation]
+	if !exists {
+		gslbutils.Debugf("No Controller Annotation exist for object, annotations: %v", annotations)
+		return vsUUIDs, controllerUUID, nil
+	}
+	if err := json.Unmarshal([]byte(vsAnnotations), &vsUUIDs); err != nil {
+		return vsUUIDs, controllerUUID, fmt.Errorf("error in unmarshalling VS annotations: %v", err)
+	}
+
+	return vsUUIDs, controllerUUID, nil
+}
+
 // GetIngressHostMeta returns a ingress split into its backends
 func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMeta {
 	ingHostMetaList := []IngressHostMeta{}
 	hostIPList := gslbutils.IngressGetIPAddrs(ingress)
 	tlsHosts := getTLSHosts(ingress)
+	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(ingress.Annotations)
+	if err != nil {
+		gslbutils.Errf("error in parsing VS and Controller annotations for ingress %s/%s: %v",
+			ingress.Namespace, ingress.Name, err)
+	}
 	for _, hip := range hostIPList {
+		vsUUID, ok := vsUUIDs[hip.Hostname]
+		if !ok {
+			vsUUID = ""
+		}
 		metaObj := IngressHostMeta{
-			IngName:   ingress.Name,
-			Namespace: ingress.ObjectMeta.Namespace,
-			Hostname:  hip.Hostname,
-			IPAddr:    hip.IPAddr,
-			Cluster:   cname,
-			ObjName:   ingress.Name + "/" + hip.Hostname,
-			TLS:       false,
+			IngName:            ingress.Name,
+			Namespace:          ingress.ObjectMeta.Namespace,
+			Hostname:           hip.Hostname,
+			IPAddr:             hip.IPAddr,
+			Cluster:            cname,
+			ObjName:            ingress.Name + "/" + hip.Hostname,
+			TLS:                false,
+			VirtualServiceUUID: vsUUID,
+			ControllerUUID:     controllerUUID,
 		}
 		metaObj.Paths = make([]string, 0)
 		metaObj.Labels = make(map[string]string)
@@ -116,15 +151,17 @@ func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMet
 // IngressHostMeta is the metadata for an ingress. It is the minimal information
 // that we maintain for each ingress, accepted or rejected.
 type IngressHostMeta struct {
-	Cluster   string
-	IngName   string
-	ObjName   string
-	Namespace string
-	Hostname  string
-	IPAddr    string
-	Labels    map[string]string
-	Paths     []string
-	TLS       bool
+	Cluster            string
+	IngName            string
+	ObjName            string
+	Namespace          string
+	Hostname           string
+	IPAddr             string
+	VirtualServiceUUID string
+	ControllerUUID     string
+	Labels             map[string]string
+	Paths              []string
+	TLS                bool
 }
 
 var clusterHostMeta map[string]map[string]IngressHostMeta
@@ -186,6 +223,14 @@ func (ing IngressHostMeta) IsPassthrough() bool {
 	return false
 }
 
+func (ing IngressHostMeta) GetVirtualServiceUUID() string {
+	return ing.VirtualServiceUUID
+}
+
+func (ing IngressHostMeta) GetControllerUUID() string {
+	return ing.ControllerUUID
+}
+
 func (ing IngressHostMeta) IngressHostInList(ihmList []IngressHostMeta) (IngressHostMeta, bool) {
 	var ihm IngressHostMeta
 	for _, ihm = range ihmList {
@@ -206,7 +251,8 @@ func (ing IngressHostMeta) GetIngressHostCksum() uint32 {
 	// TODO: annotations will be checked in later
 	cksum += utils.Hash(ing.Cluster) + utils.Hash(ing.Namespace) +
 		utils.Hash(ing.IngName) + utils.Hash(ing.Hostname) +
-		utils.Hash(ing.IPAddr) + utils.Hash(utils.Stringify(paths))
+		utils.Hash(ing.IPAddr) + utils.Hash(utils.Stringify(paths)) +
+		utils.Hash(ing.VirtualServiceUUID) + utils.Hash(ing.ControllerUUID)
 	return cksum
 }
 
@@ -243,7 +289,7 @@ func (ihm IngressHostMeta) ApplyFilter() bool {
 	gf.GlobalLock.RLock()
 	gf.GlobalLock.RUnlock()
 
-	if !gslbutils.PresentInList(ihm.Cluster, gf.ApplicableClusters) {
+	if !gslbutils.ClusterContextPresentInList(ihm.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: Ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
 			ihm.Cluster, ihm.Namespace, ihm.ObjName)
 		return false

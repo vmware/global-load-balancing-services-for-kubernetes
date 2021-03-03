@@ -27,8 +27,10 @@ spec:
                 type: array
                 items:
                   type: string
-                  # object:
-                  #   type: string
+              syncVips:
+                type: array
+                items:
+                  type: string
               matchRules:
                 type: object
                 properties:

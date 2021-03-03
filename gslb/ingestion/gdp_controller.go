@@ -591,14 +591,11 @@ func InitializeGDPController(kubeclientset kubernetes.Interface,
 	k8sWorkqueue := k8sQueue.Workqueue
 	numWorkers := k8sQueue.NumWorkers
 
-	//recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "gdp-controller"})
 	gdpController := &GDPController{
 		kubeclientset: kubeclientset,
 		gdpclientset:  gdpclientset,
 		gdpLister:     gdpInformer.Lister(),
 		gdpSynced:     gdpInformer.Informer().HasSynced,
-		// workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gdps"),
-		//recorder:      recorder,
 	}
 	gslbutils.Logf("object: GDPController, msg: %s", "setting up event handlers")
 	// Event handlers for GDP change

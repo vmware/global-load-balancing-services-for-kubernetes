@@ -753,11 +753,15 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		ipVersion := "V4"
 		ipAddr := member.IPAddr
 		ratio := member.Weight
+		clusterUUID := member.ControllerUUID
+		vsUUID := member.VirtualServiceUUID
 
 		gslbPoolMember := avimodels.GslbPoolMember{
-			Enabled: &enabled,
-			IP:      &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
-			Ratio:   &ratio,
+			Enabled:     &enabled,
+			Ratio:       &ratio,
+			IP:          &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
+			ClusterUUID: &clusterUUID,
+			VsUUID:      &vsUUID,
 		}
 		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
 	}

@@ -59,7 +59,7 @@ func (ns NSMeta) ApplyFilter() bool {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 
-	if !gslbutils.PresentInList(ns.Cluster, gf.ApplicableClusters) {
+	if !gslbutils.ClusterContextPresentInList(ns.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: Namespace, cluster: %s, name: %s, msg: namespace rejected because cluster was not selected",
 			ns.Cluster, ns.Name)
 		return false

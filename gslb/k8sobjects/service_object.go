@@ -65,25 +65,38 @@ func getSvcHostMap() *ObjHostMap {
 }
 
 type SvcMeta struct {
-	Cluster   string
-	Name      string
-	Namespace string
-	Hostname  string
-	IPAddr    string
-	Labels    map[string]string
-	Port      int32
-	Protocol  string
+	Cluster            string
+	Name               string
+	Namespace          string
+	Hostname           string
+	IPAddr             string
+	Labels             map[string]string
+	Port               int32
+	Protocol           string
+	VirtualServiceUUID string
+	ControllerUUID     string
 }
 
 // GetSvcMeta returns a trimmed down version of a svc
 func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
+	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(svc.Annotations)
+	if err != nil {
+		gslbutils.Errf("error in parsing VS and Controller annotations for service %s/%s: %s",
+			svc.Namespace, svc.Name, err)
+	}
 	ip, hostname := GetSvcStatusIPHostname(svc)
+	vsUUID, ok := vsUUIDs[hostname]
+	if !ok {
+		vsUUID = ""
+	}
 	metaObj := SvcMeta{
-		Name:      svc.Name,
-		Namespace: svc.ObjectMeta.Namespace,
-		Hostname:  hostname,
-		IPAddr:    ip,
-		Cluster:   cname,
+		Name:               svc.Name,
+		Namespace:          svc.ObjectMeta.Namespace,
+		Hostname:           hostname,
+		IPAddr:             ip,
+		Cluster:            cname,
+		VirtualServiceUUID: vsUUID,
+		ControllerUUID:     controllerUUID,
 	}
 	metaObj.Labels = make(map[string]string)
 	for key, value := range svc.GetLabels() {
@@ -164,6 +177,14 @@ func (svc SvcMeta) IsPassthrough() bool {
 	return false
 }
 
+func (svc SvcMeta) GetVirtualServiceUUID() string {
+	return svc.VirtualServiceUUID
+}
+
+func (svc SvcMeta) GetControllerUUID() string {
+	return svc.ControllerUUID
+}
+
 func (svc SvcMeta) UpdateHostMap(key string) {
 	rhm := getSvcHostMap()
 	rhm.Lock.Lock()
@@ -197,7 +218,7 @@ func (svc SvcMeta) ApplyFilter() bool {
 	gf.GlobalLock.RLock()
 	gf.GlobalLock.RUnlock()
 
-	if !gslbutils.PresentInList(svc.Cluster, gf.ApplicableClusters) {
+	if !gslbutils.ClusterContextPresentInList(svc.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
 			svc.Cluster, svc.Namespace, svc.Name)
 		return false
