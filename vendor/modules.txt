@@ -77,7 +77,7 @@ github.com/openshift/client-go/route/listers/route/v1
 github.com/pkg/errors
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20200918095748-36994e7375fc
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20201202162822-164c07c06579
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils
