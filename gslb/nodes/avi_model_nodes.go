@@ -21,6 +21,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 
+	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -144,11 +145,14 @@ type AviGSObjectGraph struct {
 	Tenant      string
 	DomainNames []string
 	// MemberObjs is a list of K8s/openshift objects from which this AviGS was built.
-	MemberObjs    []AviGSK8sObj
-	GraphChecksum uint32
-	RetryCount    int
-	Hm            HealthMonitor
-	Lock          sync.RWMutex
+	MemberObjs      []AviGSK8sObj
+	GraphChecksum   uint32
+	RetryCount      int
+	Hm              HealthMonitor
+	HmRefs          []string
+	SitePersistence gdpv1alpha1.SitePersistence
+	TTL             *int
+	Lock            sync.RWMutex
 }
 
 func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
@@ -202,12 +206,19 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	hmNames := []string{}
-	if v.Hm.Name != "" {
-		hmNames = append(hmNames, v.Hm.Name)
+	if len(v.HmRefs) > 0 {
+		if v.Hm.Name != "" {
+			hmNames = append(hmNames, v.Hm.Name)
+		} else {
+			hmNames = v.Hm.PathNames
+		}
 	} else {
-		hmNames = v.Hm.PathNames
+		hmNames = make([]string, len(v.HmRefs))
+		copy(hmNames, v.HmRefs)
 	}
-	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames)
+
+	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
+		v.SitePersistence.Enabled, v.SitePersistence.ProfileRef, v.TTL)
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -351,7 +362,14 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	v.DomainNames = hosts
 	v.MemberObjs = memberRoutes
 	v.RetryCount = gslbutils.DefaultRetryCount
-
+	v.HmRefs = gf.GetAviHmRefs()
+	sp := gf.GetSitePersistence()
+	if sp != "" {
+		v.SitePersistence = gdpv1alpha1.SitePersistence{Enabled: true, ProfileRef: sp}
+	} else {
+		v.SitePersistence = gdpv1alpha1.SitePersistence{Enabled: false}
+	}
+	v.TTL = gf.GetTTL()
 	v.buildHmPathList()
 	// Determine the health monitor(s) for this GS
 	v.buildAndAttachHealthMonitors(metaObj, key)
@@ -399,6 +417,7 @@ func (v *AviGSObjectGraph) checkAndUpdateNonPathHealthMonitor(objType string, is
 }
 
 func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
+	// build the path based health monitor list
 	v.buildHmPathList()
 	gslbutils.Debugf("gsName: %s, added path HMs to the gslb hm path list, path hm list: %v", v.Name, v.Hm.PathNames)
 
@@ -428,6 +447,22 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 	var svcPort int32
 	var svcProtocol, objType string
 
+	gf := gslbutils.GetGlobalFilter()
+
+	// Update the GS fields
+	if ttl := gf.GetTTL(); ttl != nil {
+		v.TTL = ttl
+	}
+
+	// We are just looking at the profile ref, because if it is empty, that means,
+	// site persistence is disabled. This is a non-ambiguous case as the user is
+	// not allowed to put an empty ref for persistence profile is site persistence
+	// is enabled.
+	if profileRef := gf.GetSitePersistence(); profileRef != "" {
+		v.SitePersistence.Enabled = true
+		v.SitePersistence.ProfileRef = profileRef
+	}
+
 	paths, err := metaObj.GetPaths()
 	if err != nil {
 		// for LB type services and passthrough routes
@@ -441,12 +476,29 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 	}
 
 	cname := metaObj.GetCluster()
-	gf := gslbutils.GetGlobalFilter()
 	syncVIPOnly, err := gf.IsClusterSyncVIPOnly(cname)
 	if err != nil {
 		gslbutils.Errf("gsName: %s, cluster: %s, msg: couldn't find the sync type for member: %v",
 			v.Name, cname, err)
 		return
+	}
+	// custom health monitor refs and the default path/non-path based health monitors are an ex-or
+	// of each other.
+	// Transition cases:
+	// 1. If user has provided Hm refs via the GDP object, remove the default Hms from the GS graph.
+	//    Add the user provided Hm refs to the GS graph.
+	// 2. If user hasn't provided any Hm refs in the GDP object, add the default Hm, and remove the
+	//    pre-existing Hm refs from the GS graph (if any).
+	var userProvidedHmRefs bool
+	hmRefs := gf.GetAviHmRefs()
+	if len(hmRefs) > 0 {
+		v.HmRefs = make([]string, len(hmRefs))
+		copy(v.HmRefs, hmRefs)
+		// set the previous path based health monitor to empty
+		v.Hm = HealthMonitor{}
+		userProvidedHmRefs = true
+	} else {
+		v.HmRefs = []string{}
 	}
 
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
@@ -478,7 +530,9 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
 			v.MemberObjs[idx].Port = svcPort
 			v.MemberObjs[idx].Proto = svcProtocol
-			v.checkAndUpdateNonPathHealthMonitor(metaObj.GetType(), metaObj.IsPassthrough())
+			if !userProvidedHmRefs {
+				v.checkAndUpdateNonPathHealthMonitor(metaObj.GetType(), metaObj.IsPassthrough())
+			}
 		} else {
 			tls, err := metaObj.GetTLS()
 			if err != nil {
@@ -487,7 +541,9 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 			}
 			v.MemberObjs[idx].TLS = tls
 			v.MemberObjs[idx].Paths = paths
-			v.updateGSHmPathListAndProtocol()
+			if !userProvidedHmRefs {
+				v.updateGSHmPathListAndProtocol()
+			}
 		}
 		return
 	}
@@ -649,6 +705,14 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 		RetryCount:    v.RetryCount,
 		Hm:            v.Hm.getCopy(),
 	}
+	var ttl int
+	if v.TTL != nil {
+		ttl = *v.TTL
+	}
+	gsObjCopy.TTL = &ttl
+	gsObjCopy.HmRefs = make([]string, len(v.HmRefs))
+	copy(gsObjCopy.HmRefs, v.HmRefs)
+	gsObjCopy.SitePersistence = v.SitePersistence
 
 	gsObjCopy.MemberObjs = make([]AviGSK8sObj, 0)
 	for _, memberObj := range v.MemberObjs {

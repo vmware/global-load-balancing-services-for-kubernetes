@@ -419,6 +419,9 @@ func parseDescription(description string) ([]string, error) {
 func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, error) {
 	var serverList, domainList, memberObjs, hms []string
 	var gsMembers []GSMember
+	var persistenceProfileRef string
+	var sitePersistenceRequired bool
+	var ttl *int
 
 	domainNames := gsObj.DomainNames
 	if len(domainNames) == 0 {
@@ -459,6 +462,15 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		}
 		hm := hmObj.Name
 		hms = append(hms, hm)
+	}
+
+	sitePersistenceRequired = *gsObj.SitePersistenceEnabled
+	if sitePersistenceRequired {
+		persistenceProfileRef = *gsObj.ApplicationPersistenceProfileRef
+	}
+	if gsObj.TTL != nil {
+		ttlVal := int(*gsObj.TTL)
+		ttl = &ttlVal
 	}
 
 	for _, val := range groups {
@@ -506,13 +518,15 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms)
+	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
+		sitePersistenceRequired, persistenceProfileRef, ttl)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 
 func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []string, error) {
 	var serverList, domainList, memberObjs, hms []string
 	var gsMembers []GSMember
+	var ttl *int
 
 	domainNames, ok := gslbSvcMap["domain_names"].([]interface{})
 	if !ok {
@@ -545,6 +559,26 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		}
 	} else {
 		gslbutils.Debugf("gslbsvcmap: %v, health_monitor_refs absent in gslb service", gslbSvcMap)
+	}
+
+	sitePersistenceEnabled, ok := gslbSvcMap["site_persistence_enabled"].(bool)
+	if !ok {
+		return 0, nil, memberObjs, hms, errors.New("site_persistence_enabled absent in gslb service")
+	}
+
+	var persistenceProfileRef string
+	if sitePersistenceEnabled == true {
+		var ok bool
+		persistenceProfileRef, ok = gslbSvcMap["application_persistence_profile_ref"].(string)
+		if !ok {
+			return 0, nil, memberObjs, hms,
+				errors.New("application_persistence_profile_ref absent in gslb service")
+		}
+	}
+
+	ttlVal, ok := gslbSvcMap["ttl"].(int)
+	if ok {
+		ttl = &ttlVal
 	}
 
 	for _, val := range groups {
@@ -611,7 +645,8 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms)
+	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
+		sitePersistenceEnabled, persistenceProfileRef, ttl)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 

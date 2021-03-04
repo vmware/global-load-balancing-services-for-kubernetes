@@ -49,6 +49,24 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+              # gslbAlgorithm:
+              #   type: string
+              #   enum:
+              healthMonitorRefs:
+                type: array
+                items:
+                  type: string
+              ttl:
+                type: integer
+                minimum: 0
+                maximum: 86400
+              sitePersistence:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  profileRef:
+                    type: string
               trafficSplit:
                 items:
                   type: object

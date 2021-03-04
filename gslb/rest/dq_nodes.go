@@ -164,8 +164,18 @@ func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, 
 		return toBeAdded, toBeDeleted
 	}
 
+	// create a map of health monitors in the existing GS object and the new GS object
+	existingHms := make(map[string]struct{})
+	for _, hmName := range gsCacheObj.HealthMonitorNames {
+		existingHms[hmName] = struct{}{}
+	}
+	newHms := make(map[string]struct{})
 	for _, hmName := range hmNameList {
-		if !gslbutils.PresentInList(hmName, gsCacheObj.HealthMonitorNames) {
+		newHms[hmName] = struct{}{}
+	}
+
+	for _, hmName := range hmNameList {
+		if _, exists := existingHms[hmName]; !exists {
 			toBeAdded = append(toBeAdded, hmName)
 		}
 	}
@@ -174,7 +184,7 @@ func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, 
 		if path == "" {
 			continue
 		}
-		if !gslbutils.PresentInList(gsHmName, hmNameList) {
+		if _, exists := newHms[gsHmName]; !exists {
 			toBeDeleted = append(toBeDeleted, gsHmName)
 		}
 	}
@@ -322,10 +332,16 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	var err error
 	if gsCacheObj != nil {
 		if len(pathNames) > 0 {
-			// path based HMs
+			// path based default HMs
 			err = restOp.createOrDeletePathHm(aviGSGraph, gsCacheObj, key, gsKey)
-		} else {
+		} else if aviGSGraph.Hm.Protocol != "" {
+			// non-path based default Hms
 			err = restOp.createOrUpdateNonPathHm(aviGSGraph, gsCacheObj, gsKey, key)
+		} else {
+			// user provided custom HM Refs
+			gslbutils.Logf("key: %s, msg: user provided HM refs will be attached to GS", gsKey)
+			restOp.updateGsIfRequired(aviGSGraph, gsCacheObj, gsKey, key)
+			restOp.deleteAllStaleHMsForGS(gsKey.Tenant + "/" + gsKey.Name)
 		}
 		if err != nil {
 			// the key for this graph would have been already published to the retry queue, so just return
@@ -335,7 +351,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 		restOp.updateGsIfRequired(aviGSGraph, gsCacheObj, gsKey, key)
 		return
 	}
-	// its a post operation for a GS
+	// its a POST operation for a GS
 	// first, see if we need new health monitor(s)
 
 	gslbutils.Debugf("key: %s, pathList: %v, msg: path based HM name list of the GS", key, pathNames)
@@ -744,6 +760,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
 	var gslbSvcGroups []*avimodels.GslbPool
+	var persistenceProfileRef string
 	memberObjs := gsMeta.GetUniqueMemberObjs()
 	for _, member := range memberObjs {
 		if member.IPAddr == "" {
@@ -793,45 +810,66 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	gsName := gsMeta.Name
 	poolAlgorithm := "GSLB_SERVICE_ALGORITHM_PRIORITY"
 	resolveCname := false
-	sitePersistenceEnabled := false
+	sitePersistenceEnabled := gsMeta.SitePersistence.Enabled
+	if gsMeta.SitePersistence.Enabled {
+		persistenceProfileRef = "/api/applicationpersistenceprofile?name=" + gsMeta.SitePersistence.ProfileRef
+	}
 	tenantRef := gslbutils.GetAviAdminTenantRef()
 	useEdnsClientSubnet := true
 	wildcardMatch := false
 	description := strings.Join(gsMeta.GetMemberObjList(), ",")
-
-	aviGslbSvc := avimodels.GslbService{
-		ControllerHealthStatusEnabled: &ctrlHealthStatusEnabled,
-		CreatedBy:                     &createdBy,
-		DomainNames:                   gsMeta.DomainNames,
-		Enabled:                       &gsEnabled,
-		Groups:                        gslbSvcGroups,
-		HealthMonitorScope:            &healthMonitorScope,
-		IsFederated:                   &isFederated,
-		MinMembers:                    &minMembers,
-		Name:                          &gsName,
-		PoolAlgorithm:                 &poolAlgorithm,
-		ResolveCname:                  &resolveCname,
-		SitePersistenceEnabled:        &sitePersistenceEnabled,
-		UseEdnsClientSubnet:           &useEdnsClientSubnet,
-		WildcardMatch:                 &wildcardMatch,
-		TenantRef:                     &tenantRef,
-		Description:                   &description,
+	var hmRefs []string
+	if len(gsMeta.HmRefs) > 0 {
+		copy(hmRefs, gsMeta.HmRefs)
+	}
+	var ttl int32
+	if gsMeta.TTL != nil {
+		ttl = int32(*gsMeta.TTL)
 	}
 
-	hmApi := "/api/healthmonitor?name="
+	aviGslbSvc := avimodels.GslbService{
+		ControllerHealthStatusEnabled:    &ctrlHealthStatusEnabled,
+		CreatedBy:                        &createdBy,
+		DomainNames:                      gsMeta.DomainNames,
+		Enabled:                          &gsEnabled,
+		Groups:                           gslbSvcGroups,
+		HealthMonitorScope:               &healthMonitorScope,
+		IsFederated:                      &isFederated,
+		MinMembers:                       &minMembers,
+		Name:                             &gsName,
+		PoolAlgorithm:                    &poolAlgorithm,
+		ResolveCname:                     &resolveCname,
+		SitePersistenceEnabled:           &sitePersistenceEnabled,
+		UseEdnsClientSubnet:              &useEdnsClientSubnet,
+		WildcardMatch:                    &wildcardMatch,
+		TenantRef:                        &tenantRef,
+		Description:                      &description,
+		TTL:                              &ttl,
+		ApplicationPersistenceProfileRef: &persistenceProfileRef,
+	}
 
-	if hmRequired {
+	hmAPI := "/api/healthmonitor?name="
+
+	// Add the default health monitor(s) only if custom health monitor refs are not provided
+	if hmRequired && len(gsMeta.HmRefs) == 0 {
 		// check if path based (HTTP(S)) HMs are required or just a single non-path based (TCP/UDP) HM
 		if len(gsMeta.Hm.PathNames) == 0 {
 			if gsMeta.Hm.Name == "" {
 				gslbutils.Errf("gs %s doesn't have a health monitor", gsMeta.Name)
 			}
-			aviGslbSvc.HealthMonitorRefs = []string{"/api/healthmonitor?name=" + gsMeta.Hm.Name}
+			aviGslbSvc.HealthMonitorRefs = []string{hmAPI + gsMeta.Hm.Name}
 		} else {
 			aviGslbSvc.HealthMonitorRefs = []string{}
 			for _, hmName := range gsMeta.Hm.PathNames {
-				aviGslbSvc.HealthMonitorRefs = append(aviGslbSvc.HealthMonitorRefs, hmApi+hmName)
+				aviGslbSvc.HealthMonitorRefs = append(aviGslbSvc.HealthMonitorRefs, hmAPI+hmName)
 			}
+		}
+	} else if len(gsMeta.HmRefs) > 0 {
+		// Add the custom health monitors here
+		aviGslbSvc.HealthMonitorRefs = []string{}
+		for _, hmName := range gsMeta.HmRefs {
+			aviGslbSvc.HealthMonitorRefs = append(aviGslbSvc.HealthMonitorRefs,
+				hmAPI+hmName)
 		}
 	}
 
