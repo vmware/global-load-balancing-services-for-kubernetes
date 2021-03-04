@@ -186,9 +186,7 @@ func (v *AviGSObjectGraph) GetHmChecksum() uint32 {
 
 func (v *AviGSObjectGraph) CalculateChecksum() {
 	// A sum of fields for this GS
-	// var memberIPs []string
 	var memberObjs []string
-	// var memberVSs []string
 	var memberAddrs []string
 
 	for _, gsMember := range v.MemberObjs {
@@ -199,9 +197,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 			server = gsMember.IPAddr
 		}
 		memberAddrs = append(memberAddrs, server+"-"+strconv.Itoa(int(gsMember.Weight)))
-		// memberIPs = append(memberIPs, gsMember.IPAddr+"-"+strconv.Itoa(int(gsMember.Weight)))
 		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
-		// memberVSs = append(memberVSs, gsMember.VirtualServiceUUID)
 	}
 
 	hmNames := []string{}
