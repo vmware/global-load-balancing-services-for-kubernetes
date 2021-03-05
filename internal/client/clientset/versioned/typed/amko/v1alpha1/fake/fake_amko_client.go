@@ -20,7 +20,6 @@ package fake
 
 import (
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha1"
-
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
@@ -31,6 +30,10 @@ type FakeAmkoV1alpha1 struct {
 
 func (c *FakeAmkoV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInterface {
 	return &FakeGSLBConfigs{c, namespace}
+}
+
+func (c *FakeAmkoV1alpha1) GSLBHostRules(namespace string) v1alpha1.GSLBHostRuleInterface {
+	return &FakeGSLBHostRules{c, namespace}
 }
 
 func (c *FakeAmkoV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {

@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -56,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=amko.vmware.com, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("gslbconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GSLBConfigs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("gslbhostrules"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GSLBHostRules().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("globaldeploymentpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GlobalDeploymentPolicies().Informer()}, nil
 

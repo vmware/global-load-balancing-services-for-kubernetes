@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// GSLBConfigInformer provides access to a shared informer and lister for
-// GSLBConfigs.
-type GSLBConfigInformer interface {
+// GSLBHostRuleInformer provides access to a shared informer and lister for
+// GSLBHostRules.
+type GSLBHostRuleInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.GSLBConfigLister
+	Lister() v1alpha1.GSLBHostRuleLister
 }
 
-type gSLBConfigInformer struct {
+type gSLBHostRuleInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewGSLBConfigInformer constructs a new informer for GSLBConfig type.
+// NewGSLBHostRuleInformer constructs a new informer for GSLBHostRule type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewGSLBConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredGSLBConfigInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewGSLBHostRuleInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredGSLBHostRuleInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredGSLBConfigInformer constructs a new informer for GSLBConfig type.
+// NewFilteredGSLBHostRuleInformer constructs a new informer for GSLBHostRule type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredGSLBConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredGSLBHostRuleInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AmkoV1alpha1().GSLBConfigs(namespace).List(options)
+				return client.AmkoV1alpha1().GSLBHostRules(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AmkoV1alpha1().GSLBConfigs(namespace).Watch(options)
+				return client.AmkoV1alpha1().GSLBHostRules(namespace).Watch(options)
 			},
 		},
-		&amkov1alpha1.GSLBConfig{},
+		&amkov1alpha1.GSLBHostRule{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *gSLBConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredGSLBConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *gSLBHostRuleInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredGSLBHostRuleInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *gSLBConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&amkov1alpha1.GSLBConfig{}, f.defaultInformer)
+func (f *gSLBHostRuleInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&amkov1alpha1.GSLBHostRule{}, f.defaultInformer)
 }
 
-func (f *gSLBConfigInformer) Lister() v1alpha1.GSLBConfigLister {
-	return v1alpha1.NewGSLBConfigLister(f.Informer().GetIndexer())
+func (f *gSLBHostRuleInformer) Lister() v1alpha1.GSLBHostRuleLister {
+	return v1alpha1.NewGSLBHostRuleLister(f.Informer().GetIndexer())
 }
