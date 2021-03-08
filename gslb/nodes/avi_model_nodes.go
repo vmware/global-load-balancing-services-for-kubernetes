@@ -87,7 +87,6 @@ type AviGSK8sObj struct {
 	Paths              []string
 	VirtualServiceUUID string
 	ControllerUUID     string
-	SyncType           int
 }
 
 func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
@@ -191,7 +190,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 
 	for _, gsMember := range v.MemberObjs {
 		var server string
-		if gsMember.SyncType == gslbutils.SyncTypeVirtualServices {
+		if gsMember.VirtualServiceUUID != "" {
 			server = gsMember.VirtualServiceUUID + "-" + gsMember.ControllerUUID
 		} else {
 			server = gsMember.IPAddr
@@ -316,12 +315,6 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 		// for LB type services and passthrough routes, the path list will be empty
 		gslbutils.Debugf("key: %s, gsName: %s, msg: path list not available for object %s", key, gsName, err.Error())
 	}
-	// get sync type for this GS member
-	gf := gslbutils.GetGlobalFilter()
-	syncType, err := gf.GetSyncTypeForCluster(metaObj.GetCluster())
-	if err != nil {
-		gslbutils.Errf("key: %s, gsName: %s, msg: error in getting sync type for object: %v", key, gsName, err)
-	}
 	memberRoutes := []AviGSK8sObj{
 		{
 			Cluster:            metaObj.GetCluster(),
@@ -334,7 +327,6 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 			Paths:              paths,
 			VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
 			ControllerUUID:     metaObj.GetControllerUUID(),
-			SyncType:           syncType,
 		},
 	}
 	// The GSLB service will be put into the admin tenant
@@ -432,14 +424,6 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		svcProtocol, _ = metaObj.GetProtocol()
 	}
 
-	// get the sync type of this member
-	gf := gslbutils.GetGlobalFilter()
-	syncType, err := gf.GetSyncTypeForCluster(metaObj.GetCluster())
-	if err != nil {
-		gslbutils.Errf("gsName: %s, msg: error in getting the sync type for this object: %v, will use the default",
-			v.Name, err)
-	}
-
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
 	for idx, memberObj := range v.MemberObjs {
 		if metaObj.GetType() != memberObj.ObjType {
@@ -459,7 +443,6 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		v.MemberObjs[idx].Weight = weight
 		v.MemberObjs[idx].ControllerUUID = metaObj.GetControllerUUID()
 		v.MemberObjs[idx].VirtualServiceUUID = metaObj.GetVirtualServiceUUID()
-		v.MemberObjs[idx].SyncType = syncType
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, metaObj.GetType())
 		if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
 			v.MemberObjs[idx].Port = svcPort
@@ -491,7 +474,6 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		Paths:              paths,
 		VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
 		ControllerUUID:     metaObj.GetControllerUUID(),
-		SyncType:           syncType,
 	}
 	v.MemberObjs = append(v.MemberObjs, gsMember)
 	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
@@ -606,7 +588,6 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 			Weight:             memberObj.Weight,
 			ControllerUUID:     memberObj.ControllerUUID,
 			VirtualServiceUUID: memberObj.VirtualServiceUUID,
-			SyncType:           memberObj.SyncType,
 		})
 		memberVips = append(memberVips, memberObj.IPAddr)
 	}

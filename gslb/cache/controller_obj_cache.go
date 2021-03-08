@@ -214,7 +214,6 @@ type GSMember struct {
 	Weight     int32
 	VsUUID     string
 	Controller string
-	SyncType   int
 }
 
 type AviGSCache struct {
@@ -488,16 +487,11 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 				server = ipAddr
 			}
 			serverList = append(serverList, server+"-"+strconv.Itoa(int(weight)))
-			var syncType int
-			if *member.VsUUID == "" {
-				syncType = gslbutils.SyncTypeThirdPartyVips
-			}
 			gsMember := GSMember{
 				IPAddr:     ipAddr,
 				Weight:     weight,
 				VsUUID:     *member.VsUUID,
 				Controller: *member.ClusterUUID,
-				SyncType:   syncType,
 			}
 			gsMembers = append(gsMembers, gsMember)
 		}
@@ -586,10 +580,6 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 				gslbutils.Warnf("couldn't parse the vs uuid, assigning \"\": %v", member)
 				vsUUID = ""
 			}
-			var syncType int
-			if vsUUID == "" {
-				syncType = gslbutils.SyncTypeThirdPartyVips
-			}
 			controllerUUID, ok := member["cluster_uuid"].(string)
 			if !ok {
 				gslbutils.Warnf("couldn't parse the controller cluster uuid, assigning \"\": %v", member)
@@ -607,7 +597,6 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 				Weight:     weightI,
 				Controller: controllerUUID,
 				VsUUID:     vsUUID,
-				SyncType:   syncType,
 			}
 			gsMembers = append(gsMembers, gsMember)
 		}
