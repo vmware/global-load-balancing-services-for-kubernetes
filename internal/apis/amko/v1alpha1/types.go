@@ -192,9 +192,9 @@ type GSLBHostRuleSpec struct {
 	TTL int `json:"ttl,omitempty"`
 	// SitePersistenceEnabled if set to true, enables stickiness to the same site where
 	// the connection from the client was initiated to.
-	SitePersistence []SitePersistence `json:"sitePersistence"`
+	SitePersistence SitePersistence `json:"sitePersistence,omitempty"`
 	// ThirdPartyMembers is a list of third party members site
-	ThirdPartyMembers []ThirdPartyMember `json:"thirdPartyMembers"`
+	ThirdPartyMembers []ThirdPartyMember `json:"thirdPartyMembers,omitempty"`
 	// HealthMonitoreRefs is a list of custom health monitors which will monitor the
 	// GSLB Service's pool members.
 	HealthMonitorRefs []string `json:"healthMonitorRefs,omitempty"`
@@ -216,6 +216,6 @@ type SitePersistence struct {
 }
 
 type ThirdPartyMember struct {
-	VIP  string `json:"vip"`
-	Site string `json:"site"`
+	VIP  string `json:"vip,omitempty"`
+	Site string `json:"site,omitempty"`
 }

@@ -32,16 +32,14 @@ spec:
                 minimum: 0
               sitePersistence:
                 description: "Maintain stickiness to the same site where the connection was initiated."
-                type: array
-                items:
-                  type: object
-                  properties:
-                    enabled:
-                      description: "Enable/Disable GSLB site persistence"
-                      type: boolean
-                    profileRef:
-                      description: "Custom site persistence profile reference, will be applied on the GSLB Service"
-                      type: string
+                type: object
+                properties:
+                  enabled:
+                    description: "Enable/Disable GSLB site persistence"
+                    type: boolean
+                  profileRef:
+                    description: "Custom site persistence profile reference, will be applied on the GSLB Service"
+                    type: string
               thirdPartyMembers:
                 description: "ThirdPartyMembers is a list of third party members site"
                 type: array

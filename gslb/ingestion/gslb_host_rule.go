@@ -16,10 +16,8 @@ package ingestion
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net"
-	"reflect"
-	"strconv"
 
 	"github.com/avinetworks/sdk/go/models"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -42,7 +40,8 @@ import (
 )
 
 const (
-	GSLBHostRuleSuccess = "success"
+	GslbHostRuleAccepted = "Accepted"
+	GslbHostRuleRejected = "Rejected"
 )
 
 type AddDelGSLBHostRulefn func(obj interface{})
@@ -66,55 +65,55 @@ func (gslbHostRuleController *GSLBHostRuleController) Run(stopCh <-chan struct{}
 	return nil
 }
 
-// func updateGSLBHostRuleList(gslbhr *gslbhralphav1.GSLBHostRule) {
-// 	gslbHostRuleListers.GSLBHostRuleLister.GSLBHostRules(gslbhr.ObjectMeta.Namespace).Get()
+func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string) {
+	gslbhr.Status.Error = msg
+	gslbhr.Status.Status = status
+	obj, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbhr.ObjectMeta.Namespace).Update(gslbhr)
+	if updateErr != nil {
+		gslbutils.Errf("Error is updating the GSLBHostRules status object %v : %s", obj, updateErr)
+	}
+}
 
-// 	// gslbhr.Status.Status = msg
-// 	// if !gslbutils.PublishGSLBHostRuleStatus {
-// 	// 	return
-// 	// }
-// 	// obj, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbhr.ObjectMeta.Namespace).Update(gslbhr)
-// 	// if updateErr != nil {
-// 	// 	gslbutils.Errf("Error in updating the GSLBHostRule status object %v: %s", obj, updateErr)
-// 	// }
-// }
-
-func isSitePersistenceProfilePresent(profileName string) bool {
+func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profileName string) bool {
+	// Check if the profile mentioned in gslbHostRule are present as application persistence profile on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "/api/applicationpersistenceprofile?name=" + profileName
 	result, err := aviClient.AviSession.GetCollectionRaw(uri)
 	if err != nil {
-		gslbutils.Errf("Error getting Site Persistent Profiles")
+		gslbutils.Errf("Error getting Site Persistent Profile : %s", err)
 		return false
 	}
-	if result.Count <= 0 {
-		gslbutils.Errf("Site Persistent Profile " + profileName + " doesnot exist")
+	if result.Count == 0 {
+		gslbutils.Errf("Site Persistent Profile %s does not exist", profileName)
 		return false
 	}
+
 	return true
 }
 
-func isHealthMonitorRefPresent(refName string) bool {
+func isHealthMonitorRefPresent(gslbhr *gslbhralphav1.GSLBHostRule, refName string) bool {
+	// Check if the health monitors mentioned in gslbHostRule are present on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "/api/healthmonitor?name=" + refName
 	result, err := aviClient.AviSession.GetCollectionRaw(uri)
 	if err != nil {
-		gslbutils.Errf("Error getting Health Monitor Refs")
+		gslbutils.Errf("Error getting Health Monitor Refs : %s", err)
 		return false
 	}
-	if result.Count <= 0 {
-		gslbutils.Errf("Health Monitor " + refName + " doesnot exist")
+	if result.Count == 0 {
+		gslbutils.Errf("Health Monitor %s does not exist", refName)
 		return false
 	}
 	return true
 }
 
-func isThirdPartyMemberSitePresent(siteName string) bool {
+func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName string) bool {
+	// Verify the presence of the third party member sites on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "/api/gslb"
 	result, err := aviClient.AviSession.GetCollectionRaw(uri)
 	if err != nil {
-		gslbutils.Errf("Error getting Health Monitor Refs")
+		gslbutils.Errf("Error getting Third Party Member Site : %s", err)
 		return false
 	}
 	elems := make([]json.RawMessage, result.Count)
@@ -125,6 +124,9 @@ func isThirdPartyMemberSitePresent(siteName string) bool {
 	for _, elem := range elems {
 		gslb := models.Gslb{}
 		err = json.Unmarshal(elem, &gslb)
+		if err != nil {
+			gslbutils.Errf("Failed to unmarshal GSLB data, err: %v", err)
+		}
 		tpms := gslb.ThirdPartySites
 		for _, tpm := range tpms {
 			if *tpm.Name == siteName {
@@ -132,54 +134,49 @@ func isThirdPartyMemberSitePresent(siteName string) bool {
 			}
 		}
 	}
+	gslbutils.Errf("Third Party Member Site %s does not exist", siteName)
 	return false
 }
 
 func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 	gslbhrName := gslbhr.ObjectMeta.Name
 	gslbhrSpec := gslbhr.Spec
+	var errmsg string
 	if gslbhrSpec.Fqdn == "" {
-		return errors.New("GSFqdn missing for " + gslbhrName + " GSLBHostRule")
-	}
-	//TTL needs to be an integer
-	if reflect.TypeOf(gslbhrSpec.TTL).Kind() != reflect.Int {
-		return errors.New("value of TTL should an integer for " + gslbhrName + " GSLBHostRule")
+		errmsg = "GSFqdn missing for " + gslbhrName + " GSLBHostRule"
+		updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
+		return fmt.Errorf(errmsg)
 	}
 
-	sitePersistences := gslbhrSpec.SitePersistence
-	for _, site := range sitePersistences {
-		if reflect.TypeOf(site.Enabled).Kind() != reflect.Bool {
-			return errors.New("Site Persistence enable value should be a bool for " + gslbhrName + " GSLBHostRule")
-		}
-		sitePersistenceProfileName := site.ProfileRef
-		if site.Enabled == true && isSitePersistenceProfilePresent(sitePersistenceProfileName) != true {
-			return errors.New("SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule")
-		}
+	sitePersistence := gslbhrSpec.SitePersistence
+
+	sitePersistenceProfileName := sitePersistence.ProfileRef
+	if sitePersistence.Enabled == true && isSitePersistenceProfilePresent(gslbhr, sitePersistenceProfileName) != true {
+		errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
+		updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
+		return fmt.Errorf(errmsg)
 	}
 
 	thirdPartyMembers := gslbhrSpec.ThirdPartyMembers
-	gslbutils.Logf("Verifying thirdPartyMembers!!!")
 	for _, tpmember := range thirdPartyMembers {
 		if vip := net.ParseIP(tpmember.VIP); vip == nil {
-			return errors.New("Invalid VIP for thirdPartyMember site " + tpmember.Site + ", " + gslbhrName + " GSLBHostRule (expecting IP address")
+			errmsg := "Invalid VIP for thirdPartyMember site " + tpmember.Site + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
+			updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
+			return fmt.Errorf(errmsg)
 		}
-		if isThirdPartyMemberSitePresent(tpmember.Site) != true {
-			return errors.New("ThirdPartyMember site " + tpmember.Site + " doesnot exist for " + gslbhrName + " GSLBHostRule")
+		if isThirdPartyMemberSitePresent(gslbhr, tpmember.Site) != true {
+			errmsg = "ThirdPartyMember site " + tpmember.Site + " does not exist for " + gslbhrName + " GSLBHostRule"
+			updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
+			return fmt.Errorf(errmsg)
 		}
-		gslbutils.Logf("Verified thirdPartyMembers!!!")
 	}
-	gslbutils.Logf("Verified thirdPartyMembers!!!")
 
 	healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
 	for _, ref := range healthMonitorRefs {
-		if isHealthMonitorRefPresent(ref) != true {
-			return errors.New("Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule")
-		}
-	}
-
-	for _, tp := range gslbhrSpec.TrafficSplit {
-		if tp.Weight < 1 || tp.Weight > 20 {
-			return errors.New("traffic weight " + strconv.Itoa(int(tp.Weight)) + " must be between 1 and 20")
+		if isHealthMonitorRefPresent(gslbhr, ref) != true {
+			errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
+			updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
+			return fmt.Errorf(errmsg)
 		}
 	}
 	return nil
@@ -203,7 +200,7 @@ func AddGSLBHostRuleObj(obj interface{}) {
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gslbhr.ObjectMeta.Name, err.Error())
 		return
 	}
-
+	updateGSLBHR(gslbhr, "", GslbHostRuleAccepted)
 	gslbutils.Logf("ns: %s, gslbhostrule: %s, msg: %s", gslbhr.ObjectMeta.Namespace, gslbhr.ObjectMeta.Name,
 		"GSLBHostRule object added")
 }
@@ -211,19 +208,20 @@ func AddGSLBHostRuleObj(obj interface{}) {
 func UpdateGSLBHostRuleObj(old, new interface{}) {
 	oldGslbhr := old.(*gslbhralphav1.GSLBHostRule)
 	newGslbhr := new.(*gslbhralphav1.GSLBHostRule)
+
+	// Return if there's no change in the object
 	if oldGslbhr.ObjectMeta.ResourceVersion == newGslbhr.ObjectMeta.ResourceVersion {
 		return
 	}
-	if oldGslbhr.ObjectMeta.Namespace != newGslbhr.ObjectMeta.Namespace {
-		gslbutils.Errf("Namespace of GSLBHostRule " + newGslbhr.ObjectMeta.Name + " changed")
-		return
-	}
+
 	//Validate GSLBHostRule
 	err := ValidateGSLBHostRule(newGslbhr)
 	if err != nil {
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", newGslbhr.ObjectMeta.Name, err.Error())
 		return
 	}
+
+	updateGSLBHR(newGslbhr, "", GslbHostRuleAccepted)
 	gslbutils.Logf("GSLBHostRule %s updated", newGslbhr.ObjectMeta.Name)
 }
 
@@ -251,11 +249,9 @@ func InitializeGSLBHostRuleController(kubeclientset kubernetes.Interface,
 		gslbhrclientset: gslbhrclientset,
 		gslbhrLister:    gslbhrInformer.Lister(),
 		gslbhrSynced:    gslbhrInformer.Informer().HasSynced,
-		// workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gslbhr"),
-		//recorder:      recorder,
 	}
-	gslbutils.Logf("object: GSLBHRController, msg: %s", "setting up event handlers")
-	// Event handlers for GSLBHR change
+	gslbutils.Logf("object: GSLBHostRuleController, msg: %s", "setting up event handlers")
+	// Event handlers for GSLBHostRuleController change
 	gslbhrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			AddGSLBHostRuleObj(obj)
