@@ -21,9 +21,9 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/fake"
-	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	gdpfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned/fake"
+	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
 
 	"github.com/onsi/gomega"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -35,8 +35,8 @@ import (
 // Test the GDP controller initialization.
 func TestGDPNewController(t *testing.T) {
 	gdpKubeClient := k8sfake.NewSimpleClientset()
-	gdpClient := gslbfake.NewSimpleClientset()
-	gdpInformerFactory := gslbinformers.NewSharedInformerFactory(gdpClient, time.Second*30)
+	gdpClient := gdpfake.NewSimpleClientset()
+	gdpInformerFactory := gdpinformers.NewSharedInformerFactory(gdpClient, time.Second*30)
 	gdpCtrl := gslbingestion.InitializeGDPController(gdpKubeClient, gdpClient, gdpInformerFactory, addSomething, updateSomething,
 		addSomething)
 	if gdpCtrl == nil {
@@ -54,8 +54,11 @@ func updateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterfa
 
 }
 
-func updateTestGDPObject(gdp *gslbalphav1.GlobalDeploymentPolicy, clusterList []string, version string) {
-	gdp.Spec.MatchClusters = clusterList
+func updateTestGDPObject(gdp *gdpalphav2.GlobalDeploymentPolicy, clusterList []string, version string) {
+	gdp.Spec.MatchClusters = make([]gdpalphav2.ClusterProperty, len(clusterList))
+	for idx, c := range clusterList {
+		gdp.Spec.MatchClusters[idx].Cluster = c
+	}
 	gdp.ObjectMeta.ResourceVersion = version
 }
 
@@ -168,7 +171,10 @@ func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	gdp.Spec.MatchRules.AppSelector.Label["key"] = "value"
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []string{"cluster1", "cluster2"}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{
+		{Cluster: "cluster1"},
+		{Cluster: "cluster2"},
+	}
 
 	AddTestGDPObj(gdp)
 
@@ -212,7 +218,7 @@ func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	gdp := getTestGDPObject(true, false)
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []string{cname1, cname2}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1}, {Cluster: cname2}}
 
 	AddTestGDPObj(gdp)
 
@@ -272,7 +278,7 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	// "key":"value1" won't select any objects.
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value1")
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []string{cname1, cname2}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1}, {Cluster: cname2}}
 	AddTestGDPObj(gdp)
 
 	// Adding the ingreeses
@@ -336,7 +342,7 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 
 	// Empty matchClusters, don't select any cluster
-	gdp.Spec.MatchClusters = []string{}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{}
 
 	AddTestGDPObj(gdp)
 
@@ -348,7 +354,7 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 	oldGdp := gdp.DeepCopy()
 	gdp.ResourceVersion = "101"
 	// Only select cluster 1
-	gdp.Spec.MatchClusters = []string{"cluster1"}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "cluster1"}}
 	UpdateTestGDPObj(oldGdp, gdp)
 
 	// Now, there should be two keys, both from cluster1 ingress objects
@@ -388,7 +394,7 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	gdp := getTestGDPObject(true, false)
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select only one cluster
-	gdp.Spec.MatchClusters = []string{cname1}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1}}
 
 	AddTestGDPObj(gdp)
 
@@ -405,7 +411,7 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	oldGdp := gdp.DeepCopy()
 	gdp.ResourceVersion = "101"
 	// Only select cluster 1
-	gdp.Spec.MatchClusters = []string{"cluster2"}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "cluster2"}}
 	UpdateTestGDPObj(oldGdp, gdp)
 
 	// Now, cluster 2 keys should be added, and cluster 1 keys should be deleted
@@ -458,7 +464,7 @@ func TestGDPMisnameClusters(t *testing.T) {
 	// add a matchRule for Ingress object with correct label
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select misnamed clusters (clusters not present in GSLBConfig object)
-	gdp.Spec.MatchClusters = []string{"abc", "xyz"}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "abc"}, {Cluster: "xyz"}}
 
 	AddTestGDPObj(gdp)
 
@@ -496,7 +502,7 @@ func TestGDPSelectNoClusters(t *testing.T) {
 	gdp.ObjectMeta.SetNamespace(gslbutils.AVISystem)
 
 	// But, remove the match clusters from the spec
-	gdp.Spec.MatchClusters = []string{}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{}
 
 	t.Logf("gdp object: %v", gdp)
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
@@ -574,14 +580,14 @@ func DeleteMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingList []*ext
 	}
 }
 
-func UpdateGDPMatchRuleAppLabel(gdp *gslbalphav1.GlobalDeploymentPolicy, key, value string) {
+func UpdateGDPMatchRuleAppLabel(gdp *gdpalphav2.GlobalDeploymentPolicy, key, value string) {
 	if len(gdp.Spec.MatchRules.AppSelector.Label) == 0 {
 		gdp.Spec.MatchRules.AppSelector.Label = make(map[string]string)
 	}
 	gdp.Spec.MatchRules.AppSelector.Label[key] = value
 }
 
-func AddTestGDPObj(gdp *gslbalphav1.GlobalDeploymentPolicy) {
+func AddTestGDPObj(gdp *gdpalphav2.GlobalDeploymentPolicy) {
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
 }
@@ -596,7 +602,7 @@ func VerifyAllKeys(t *testing.T, allKeys []string, timeoutExpected bool) {
 	}
 }
 
-func UpdateTestGDPObj(oldGdp, gdp *gslbalphav1.GlobalDeploymentPolicy) {
+func UpdateTestGDPObj(oldGdp, gdp *gdpalphav2.GlobalDeploymentPolicy) {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	gslbingestion.UpdateGDPObj(oldGdp, gdp, ingestionQ.Workqueue, 2)
 }
