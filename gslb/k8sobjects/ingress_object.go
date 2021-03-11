@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/api/networking/v1beta1"
@@ -167,7 +167,7 @@ type IngressHostMeta struct {
 var clusterHostMeta map[string]map[string]IngressHostMeta
 
 func (ing IngressHostMeta) GetType() string {
-	return gdpv1alpha1.IngressObj
+	return gdpv1alpha2.IngressObj
 }
 
 func (ing IngressHostMeta) GetName() string {

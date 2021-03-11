@@ -25,8 +25,10 @@ import (
 	"time"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
-	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
+	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
+	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -46,9 +48,9 @@ const (
 	ObjectDelete = "DELETE"
 	ObjectUpdate = "UPDATE"
 	// Ingestion layer objects
-	RouteType        = gslbalphav1.RouteObj
-	IngressType      = gslbalphav1.IngressObj
-	SvcType          = gslbalphav1.LBSvcObj
+	RouteType        = gdpalphav2.RouteObj
+	IngressType      = gdpalphav2.IngressObj
+	SvcType          = gdpalphav2.LBSvcObj
 	PassthroughRoute = "passthrough"
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
@@ -364,6 +366,7 @@ func SetGSLBConfig(value bool) {
 
 var GlobalKubeClient *kubernetes.Clientset
 var GlobalGslbClient *gslbcs.Clientset
+var GlobalGdpClient *gdpcs.Clientset
 var PublishGDPStatus bool
 var PublishGSLBStatus bool
 

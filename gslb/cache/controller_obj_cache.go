@@ -24,7 +24,7 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	"github.com/avinetworks/sdk/go/clients"
 	"github.com/avinetworks/sdk/go/models"
@@ -397,15 +397,15 @@ func parseDescription(description string) ([]string, error) {
 	for _, obj := range objList {
 		seg := strings.Split(obj, "/")
 		switch seg[0] {
-		case gdpv1alpha1.IngressObj:
+		case gdpv1alpha2.IngressObj:
 			if len(seg) != 5 {
 				return []string{}, errors.New("description field has malformed ingress: " + description)
 			}
-		case gdpv1alpha1.LBSvcObj:
+		case gdpv1alpha2.LBSvcObj:
 			if len(seg) != 4 {
 				return []string{}, errors.New("description field has malformed LB service: " + description)
 			}
-		case gdpv1alpha1.RouteObj:
+		case gdpv1alpha2.RouteObj:
 			if len(seg) != 4 {
 				return []string{}, errors.New("description field has malformed route: " + description)
 			}

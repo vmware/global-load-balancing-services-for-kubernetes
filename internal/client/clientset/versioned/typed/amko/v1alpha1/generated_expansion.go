@@ -21,5 +21,3 @@ package v1alpha1
 type GSLBConfigExpansion interface{}
 
 type GSLBHostRuleExpansion interface{}
-
-type GlobalDeploymentPolicyExpansion interface{}

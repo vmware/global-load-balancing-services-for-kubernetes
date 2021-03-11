@@ -16,6 +16,7 @@ package ingestion
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -23,11 +24,11 @@ import (
 
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
 
-	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
-	gdpscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/scheme"
-	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
-	gdplisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/listers/amko/v1alpha1"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
+	gdpscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned/scheme"
+	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
+	gdplisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/listers/amko/v1alpha2"
 
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -56,7 +57,7 @@ type GDPUpdfn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface
 // handling GDP events.
 type GDPController struct {
 	kubeclientset kubernetes.Interface
-	gdpclientset  gslbcs.Interface
+	gdpclientset  gdpcs.Interface
 	gdpLister     gdplisters.GlobalDeploymentPolicyLister
 	gdpSynced     cache.InformerSynced
 	workqueue     workqueue.RateLimitingInterface
@@ -134,7 +135,7 @@ func MoveObjs(objList []string, fromStore *gslbutils.ClusterStore, toStore *gslb
 func splitName(objType, objName string) (string, string, string, error) {
 	var cname, ns, sname, hostname string
 	var err error
-	if objType == gdpalphav1.IngressObj {
+	if objType == gdpalphav2.IngressObj {
 		cname, ns, sname, hostname, err = gslbutils.SplitMultiClusterIngHostName(objName)
 		sname += "/" + hostname
 	} else {
@@ -148,15 +149,15 @@ func GetObjTypeStores(objType string) (string, *gslbutils.ClusterStore, *gslbuti
 	var acceptedObjStore *gslbutils.ClusterStore
 	var rejectedObjStore *gslbutils.ClusterStore
 
-	if objType == gdpalphav1.RouteObj {
+	if objType == gdpalphav2.RouteObj {
 		acceptedObjStore = gslbutils.GetAcceptedRouteStore()
 		rejectedObjStore = gslbutils.GetRejectedRouteStore()
 		objKey = gslbutils.RouteType
-	} else if objType == gdpalphav1.LBSvcObj {
+	} else if objType == gdpalphav2.LBSvcObj {
 		acceptedObjStore = gslbutils.GetAcceptedLBSvcStore()
 		rejectedObjStore = gslbutils.GetRejectedLBSvcStore()
 		objKey = gslbutils.SvcType
-	} else if objType == gdpalphav1.IngressObj {
+	} else if objType == gdpalphav2.IngressObj {
 		acceptedObjStore = gslbutils.GetAcceptedIngressStore()
 		rejectedObjStore = gslbutils.GetRejectedIngressStore()
 		objKey = gslbutils.IngressType
@@ -243,7 +244,7 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 }
 
 func validObjectType(objType string) bool {
-	if objType == gdpalphav1.IngressObj || objType == gdpalphav1.LBSvcObj || objType == gdpalphav1.RouteObj {
+	if objType == gdpalphav2.IngressObj || objType == gdpalphav2.LBSvcObj || objType == gdpalphav2.RouteObj {
 		return true
 	}
 	return false
@@ -261,7 +262,7 @@ func validLabel(label map[string]string) error {
 	return nil
 }
 
-func GDPSanityChecks(gdp *gdpalphav1.GlobalDeploymentPolicy) error {
+func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 	// MatchRules checks
 	mr := gdp.Spec.MatchRules
 	// no app selector and no namespace selector means, no objects selected
@@ -278,8 +279,8 @@ func GDPSanityChecks(gdp *gdpalphav1.GlobalDeploymentPolicy) error {
 
 	// MatchClusters checks, empty matchClusters are allowed
 	for _, cluster := range gdp.Spec.MatchClusters {
-		if !gslbutils.IsClusterContextPresent(cluster) {
-			return errors.New("cluster context " + cluster + " not present in GSLBConfig")
+		if !gslbutils.IsClusterContextPresent(cluster.Cluster) {
+			return fmt.Errorf("cluster context %s not present in GSLBConfig", cluster.Cluster)
 		}
 	}
 
@@ -295,7 +296,7 @@ func GDPSanityChecks(gdp *gdpalphav1.GlobalDeploymentPolicy) error {
 	return nil
 }
 
-func updateGDPStatus(gdp *gdpalphav1.GlobalDeploymentPolicy, msg string) {
+func updateGDPStatus(gdp *gdpalphav2.GlobalDeploymentPolicy, msg string) {
 	gdp.Status.ErrorStatus = msg
 
 	// Always check this flag before writing the status on the GDP object. The reason is, for unit tests,
@@ -303,7 +304,7 @@ func updateGDPStatus(gdp *gdpalphav1.GlobalDeploymentPolicy, msg string) {
 	if !gslbutils.PublishGDPStatus {
 		return
 	}
-	obj, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GlobalDeploymentPolicies(gdp.GetObjectMeta().GetNamespace()).Update(gdp)
+	obj, updateErr := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(gdp)
 	if updateErr != nil {
 		gslbutils.Errf("Error in updating the GDP status object %v: %s", obj, updateErr)
 	}
@@ -378,15 +379,15 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 }
 
 func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, nsMeta k8sobjects.NSMeta) {
-	deleteNamespacedObjsAndWriteToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
-	deleteNamespacedObjsAndWriteToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
-	deleteNamespacedObjsAndWriteToQueue(gdpalphav1.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 }
 
 func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
-	writeChangedObjToQueue(gdpalphav1.RouteObj, k8swq, numWorkers, trafficWeightChanged)
-	writeChangedObjToQueue(gdpalphav1.LBSvcObj, k8swq, numWorkers, trafficWeightChanged)
-	writeChangedObjToQueue(gdpalphav1.IngressObj, k8swq, numWorkers, trafficWeightChanged)
+	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, trafficWeightChanged)
+	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, trafficWeightChanged)
+	writeChangedObjToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, trafficWeightChanged)
 }
 
 func applyAndUpdateNamespaces() {
@@ -425,7 +426,7 @@ func applyAndUpdateNamespaces() {
 	}
 }
 
-func applyAndRejectNamespaces(gf *gslbutils.GlobalFilter, gdp *gdpalphav1.GlobalDeploymentPolicy) {
+func applyAndRejectNamespaces(gf *gslbutils.GlobalFilter, gdp *gdpalphav2.GlobalDeploymentPolicy) {
 	acceptedNSStore := gslbutils.GetAcceptedNSStore()
 	rejectedNSStore := gslbutils.GetRejectedNSStore()
 
@@ -458,7 +459,7 @@ func applyAndAcceptNamespaces() {
 // AddGDPObj creates a new GlobalFilter if not present on the first GDP object. Subsequent
 // adds for GDP objects must fail as only one GDP object is allowed globally.
 func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
-	gdp, ok := obj.(*gdpalphav1.GlobalDeploymentPolicy)
+	gdp, ok := obj.(*gdpalphav2.GlobalDeploymentPolicy)
 	if !ok {
 		gslbutils.Errf("object added is not of type GDP")
 		return
@@ -511,8 +512,8 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 // and added or deleted based on whether or not, they pass the new fitler objects.
 // TODO: Optimize the filter process a bit more based on how the filters are processed.
 func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
-	oldGdp := old.(*gdpalphav1.GlobalDeploymentPolicy)
-	newGdp := new.(*gdpalphav1.GlobalDeploymentPolicy)
+	oldGdp := old.(*gdpalphav2.GlobalDeploymentPolicy)
+	newGdp := new.(*gdpalphav2.GlobalDeploymentPolicy)
 	if oldGdp.ObjectMeta.ResourceVersion == newGdp.ObjectMeta.ResourceVersion {
 		return
 	}
@@ -550,7 +551,7 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 // this filter again to find out which filter is applicable, the global one or the
 // local one.
 func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
-	gdp := obj.(*gdpalphav1.GlobalDeploymentPolicy)
+	gdp := obj.(*gdpalphav2.GlobalDeploymentPolicy)
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"deleted GDP object")
 
@@ -576,12 +577,12 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 // InitializeGDPController handles initialization of a controller which handles
 // GDP object events. Also, starts the required informers for this.
 func InitializeGDPController(kubeclientset kubernetes.Interface,
-	gdpclientset gslbcs.Interface,
-	gslbInformerFactory gslbinformers.SharedInformerFactory,
+	gdpclientset gdpcs.Interface,
+	gslbInformerFactory gdpinformers.SharedInformerFactory,
 	AddGDPFunc GDPAddDelfn, UpdateGDPFunc GDPUpdfn,
 	DeleteGDPFunc GDPAddDelfn) *GDPController {
 
-	gdpInformer := gslbInformerFactory.Amko().V1alpha1().GlobalDeploymentPolicies()
+	gdpInformer := gslbInformerFactory.Amko().V1alpha2().GlobalDeploymentPolicies()
 	gdpscheme.AddToScheme(scheme.Scheme)
 	gslbutils.Logf("object: GDPController, msg: %s", "creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()

@@ -18,8 +18,15 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [ $# -ne 1 ]; then
+	echo "Codegen needs a version parameter, e.g.: v1alpha1"
+	exit 1
+fi
+
+echo "Generating clientsets and informers for $1"
+
 # configurable envs
-readonly AMKOCRD_VERSION=v1alpha1
+readonly AMKOCRD_VERSION=$1
 readonly AMKO_PACKAGE=github.com/vmware/global-load-balancing-services-for-kubernetes
 
 ###

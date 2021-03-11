@@ -28,7 +28,6 @@ type AmkoV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	GSLBConfigsGetter
 	GSLBHostRulesGetter
-	GlobalDeploymentPoliciesGetter
 }
 
 // AmkoV1alpha1Client is used to interact with features provided by the amko.vmware.com group.
@@ -42,10 +41,6 @@ func (c *AmkoV1alpha1Client) GSLBConfigs(namespace string) GSLBConfigInterface {
 
 func (c *AmkoV1alpha1Client) GSLBHostRules(namespace string) GSLBHostRuleInterface {
 	return newGSLBHostRules(c, namespace)
-}
-
-func (c *AmkoV1alpha1Client) GlobalDeploymentPolicies(namespace string) GlobalDeploymentPolicyInterface {
-	return newGlobalDeploymentPolicies(c, namespace)
 }
 
 // NewForConfig creates a new AmkoV1alpha1Client for the given config.

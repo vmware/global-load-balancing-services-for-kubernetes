@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	routev1 "github.com/openshift/api/route/v1"
 )
@@ -105,7 +105,7 @@ type RouteMeta struct {
 }
 
 func (route RouteMeta) GetType() string {
-	return gdpv1alpha1.RouteObj
+	return gdpv1alpha2.RouteObj
 }
 
 func (route RouteMeta) GetName() string {

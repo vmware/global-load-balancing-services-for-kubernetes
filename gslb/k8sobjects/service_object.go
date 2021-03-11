@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -134,7 +134,7 @@ func GetSvcStatusIPHostname(svc *corev1.Service) (string, string) {
 }
 
 func (svc SvcMeta) GetType() string {
-	return gdpv1alpha1.LBSvcObj
+	return gdpv1alpha2.LBSvcObj
 }
 
 func (svc SvcMeta) GetName() string {

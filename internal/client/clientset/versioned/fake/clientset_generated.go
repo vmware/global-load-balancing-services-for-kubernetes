@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
-	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha1"
-	fakeamkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha1/fake"
+	amkov1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha2"
+	fakeamkov1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,7 +76,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// AmkoV1alpha1 retrieves the AmkoV1alpha1Client
-func (c *Clientset) AmkoV1alpha1() amkov1alpha1.AmkoV1alpha1Interface {
-	return &fakeamkov1alpha1.FakeAmkoV1alpha1{Fake: &c.Fake}
+// AmkoV1alpha2 retrieves the AmkoV1alpha2Client
+func (c *Clientset) AmkoV1alpha2() amkov1alpha2.AmkoV1alpha2Interface {
+	return &fakeamkov1alpha2.FakeAmkoV1alpha2{Fake: &c.Fake}
 }

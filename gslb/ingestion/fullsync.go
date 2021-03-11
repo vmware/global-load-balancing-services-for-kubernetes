@@ -21,7 +21,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
@@ -142,7 +142,7 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 }
 
 func checkGDPsAndInitialize() error {
-	gdpList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GlobalDeploymentPolicies(gslbutils.AVISystem).List(metav1.ListOptions{})
+	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(metav1.ListOptions{})
 	if err != nil {
 		return nil
 	}
@@ -153,7 +153,7 @@ func checkGDPsAndInitialize() error {
 	}
 
 	// check if any of these GDP objects have "success" in their fields
-	var successGDP *gslbalphav1.GlobalDeploymentPolicy
+	var successGDP *gdpalphav1.GlobalDeploymentPolicy
 
 	for _, gdp := range gdpList.Items {
 		if gdp.Status.ErrorStatus == GDPSuccess {

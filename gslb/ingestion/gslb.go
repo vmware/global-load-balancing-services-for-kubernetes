@@ -26,8 +26,6 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
-	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
-
 	"github.com/golang/glog"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
@@ -42,10 +40,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gslbscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/scheme"
-	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions"
-	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/listers/amko/v1alpha1"
+	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
+	gslbscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/scheme"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
+	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/listers/amko/v1alpha1"
 
+	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
+	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -633,6 +634,12 @@ func Initialize() {
 		panic("error building gslb config clientset: " + err.Error())
 	}
 	gslbutils.GlobalGslbClient = gslbClient
+
+	gdpClient, err := gdpcs.NewForConfig(cfg)
+	if err != nil {
+		panic("error building gdp clientset: " + err.Error())
+	}
+	gslbutils.GlobalGdpClient = gdpClient
 	// required to publish the GDP status, the reason we need this is because, during unit tests, we don't
 	// traverse this path and hence we don't initialize GlobalGslbClient, and hence, we can't update the
 	// status of the GDP object. Always check this flag before updating the status.
@@ -661,7 +668,6 @@ func Initialize() {
 	fastRetryQueue.SyncFunc = aviretry.SyncFromRetryLayer
 	fastRetryQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGFastRetry))
 
-	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)
 
 	gslbController := GetNewController(kubeClient, gslbClient, gslbInformerFactory,
@@ -683,11 +689,12 @@ func Initialize() {
 	gcChan := gslbutils.GetGSLBConfigObjectChan()
 	<-*gcChan
 
-	gdpCtrl := InitializeGDPController(kubeClient, gslbClient, gslbInformerFactory, AddGDPObj,
+	gdpInformerFactory := gdpinformers.NewSharedInformerFactory(gdpClient, time.Second*30)
+	gdpCtrl := InitializeGDPController(kubeClient, gdpClient, gdpInformerFactory, AddGDPObj,
 		UpdateGDPObj, DeleteGDPObj)
 
 	// Start the informer for the GDP controller
-	gdpInformer := gslbInformerFactory.Amko().V1alpha1().GlobalDeploymentPolicies()
+	gdpInformer := gdpInformerFactory.Amko().V1alpha2().GlobalDeploymentPolicies()
 	go gdpInformer.Informer().Run(stopCh)
 
 	gslbhrCtrl := InitializeGSLBHostRuleController(kubeClient, gslbClient, gslbInformerFactory,

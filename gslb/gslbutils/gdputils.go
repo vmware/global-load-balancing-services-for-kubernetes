@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"sync"
 
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -228,7 +228,7 @@ func createNewNSFilter(lbl map[string]string) *NamespaceFilter {
 
 // AddToFilter handles creation of new filters, cluster or otherwise.
 // Only one GDP object allowed per-cluster.
-func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) {
+func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
 	if len(gdp.Spec.MatchRules.AppSelector.Label) == 1 {
@@ -257,9 +257,9 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) {
 	}
 	// Add applicable clusters
 	for _, cluster := range gdp.Spec.MatchClusters {
-		gf.ApplicableClusters[cluster] = ClusterProperties{SyncTypeVirtualServices}
-		if _, ok := thirdPartyVips[cluster]; ok {
-			gf.ApplicableClusters[cluster] = ClusterProperties{SyncTypeThirdPartyVips}
+		gf.ApplicableClusters[cluster.Cluster] = ClusterProperties{SyncTypeVirtualServices}
+		if _, ok := thirdPartyVips[cluster.Cluster]; ok {
+			gf.ApplicableClusters[cluster.Cluster] = ClusterProperties{SyncTypeThirdPartyVips}
 		}
 	}
 	// Add traffic split
@@ -322,7 +322,7 @@ func ClusterContextPresentInList(key string, clusterProperties map[string]Cluste
 	return false
 }
 
-func isTrafficWeightChanged(new, old *gdpv1alpha1.GlobalDeploymentPolicy) bool {
+func isTrafficWeightChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	// There are 3 conditions when a cluster traffic ratio is different between the old
 	// and new GDP objects:
 	// 1. Length of the Traffic Split elements is different between the two.
@@ -353,7 +353,7 @@ func isTrafficWeightChanged(new, old *gdpv1alpha1.GlobalDeploymentPolicy) bool {
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
 // whether a change is required to any of the filters. If yes, it changes either the cluster
 // filter or one of the namespace filters.
-func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha1.GlobalDeploymentPolicy) (bool, bool) {
+func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDeploymentPolicy) (bool, bool) {
 	// Need to check for the NSFilterMap
 	nf := GetNewGlobalFilter()
 	nf.AddToFilter(newGDP)
@@ -381,7 +381,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha1.GlobalDep
 }
 
 // DeleteFromGlobalFilter deletes a filter pertaining to gdp.
-func (gf *GlobalFilter) DeleteFromGlobalFilter(gdp *gdpv1alpha1.GlobalDeploymentPolicy) {
+func (gf *GlobalFilter) DeleteFromGlobalFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 	gf.GlobalLock.Lock()
 	defer gf.GlobalLock.Unlock()
 	gf.AppFilter = nil

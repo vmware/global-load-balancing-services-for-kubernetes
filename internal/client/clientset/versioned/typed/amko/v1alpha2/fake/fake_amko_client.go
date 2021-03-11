@@ -19,30 +19,22 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/typed/amko/v1alpha1"
+	v1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/typed/amko/v1alpha2"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeAmkoV1alpha1 struct {
+type FakeAmkoV1alpha2 struct {
 	*testing.Fake
 }
 
-func (c *FakeAmkoV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInterface {
-	return &FakeGSLBConfigs{c, namespace}
-}
-
-func (c *FakeAmkoV1alpha1) GSLBHostRules(namespace string) v1alpha1.GSLBHostRuleInterface {
-	return &FakeGSLBHostRules{c, namespace}
-}
-
-func (c *FakeAmkoV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {
+func (c *FakeAmkoV1alpha2) GlobalDeploymentPolicies(namespace string) v1alpha2.GlobalDeploymentPolicyInterface {
 	return &FakeGlobalDeploymentPolicies{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeAmkoV1alpha1) RESTClient() rest.Interface {
+func (c *FakeAmkoV1alpha2) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
