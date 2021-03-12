@@ -325,6 +325,11 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 			key, gsName, cname, err)
 		return
 	}
+	if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
+		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't add member",
+			v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
+		return
+	}
 	memberRoutes := []AviGSK8sObj{
 		{
 			Cluster:            metaObj.GetCluster(),
