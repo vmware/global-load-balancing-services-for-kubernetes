@@ -8,7 +8,7 @@ spec:
   group: amko.vmware.com
   names:
     kind: GSLBHostRule
-    listKind: GSLBConfigList
+    listKind: GSLBHostRuleList
     plural: gslbhostrules
     shortNames:
     - ghr
@@ -40,6 +40,18 @@ spec:
                   profileRef:
                     description: "Custom site persistence profile reference, will be applied on the GSLB Service"
                     type: string
+              thirdPartyMembers:
+                description: "ThirdPartyMembers is a list of third party members site"
+                type: array
+                items:
+                  type: object
+                  properties: 
+                    vip:
+                      description: IP of the thirdPartyMember site
+                      type: string
+                    site: 
+                      description: Site name of the thirdPartyMember site
+                      type: string
               healthMonitorRefs:
                 description: "List of Custom Health Monitors that will monitor the Gslb Service pool members."
                 type: array

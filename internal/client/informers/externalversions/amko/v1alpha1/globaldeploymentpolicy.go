@@ -25,7 +25,6 @@ import (
 	versioned "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned"
 	internalinterfaces "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/listers/amko/v1alpha1"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

@@ -15,8 +15,11 @@
 package utils
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 
@@ -37,6 +40,7 @@ func SharedAVIClients() *AviRestClientPool {
 	ctrlUsername := os.Getenv("CTRL_USERNAME")
 	ctrlPassword := os.Getenv("CTRL_PASSWORD")
 	ctrlIpAddress := os.Getenv("CTRL_IPADDRESS")
+
 	if ctrlUsername == "" || ctrlPassword == "" || ctrlIpAddress == "" {
 		AviLog.Fatal(`AVI controller information missing. Update them in kubernetes secret or via environment variables.`)
 	}
@@ -49,27 +53,66 @@ func SharedAVIClients() *AviRestClientPool {
 
 func NewAviRestClientPool(num uint32, api_ep string, username string,
 	password string) (*AviRestClientPool, error) {
-	var p AviRestClientPool
+	var clientPool AviRestClientPool
+	var wg sync.WaitGroup
+	var globalErr error
 
-	for i := uint32(0); i < num; i++ {
-		// Retry 20 times with an interval of 10 seconds each.
-		aviClient, err := clients.NewAviClient(api_ep, username,
-			session.SetPassword(password), session.SetNoControllerStatusCheck, session.SetInsecure)
-		if err != nil {
-			AviLog.Warnf("NewAviClient returned err %v", err)
-			return &p, err
-		}
-		version, err := aviClient.AviSession.GetControllerVersion()
-		if err == nil && CtrlVersion == "" {
-			AviLog.Debugf("Setting the client version to %v", version)
-			session.SetVersion(version)
-			CtrlVersion = version
-		}
+	rootPEMCerts := os.Getenv("CTRL_CA_DATA")
+	var transport *http.Transport
+	if rootPEMCerts != "" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM([]byte(rootPEMCerts))
 
-		p.AviClient = append(p.AviClient, aviClient)
+		transport =
+			&http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: caCertPool,
+				},
+			}
 	}
 
-	return &p, nil
+	for i := uint32(0); i < num; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if globalErr != nil {
+				return
+			}
+
+			var aviClient *clients.AviClient
+			var err error
+
+			if rootPEMCerts != "" {
+				aviClient, err = clients.NewAviClient(api_ep, username,
+					session.SetPassword(password), session.SetNoControllerStatusCheck, session.SetTransport(transport))
+			} else {
+				aviClient, err = clients.NewAviClient(api_ep, username,
+					session.SetPassword(password), session.SetNoControllerStatusCheck, session.SetTransport(transport), session.SetInsecure)
+			}
+			if err != nil {
+				AviLog.Warnf("NewAviClient returned err %v", err)
+				globalErr = err
+				return
+			}
+			if err == nil && aviClient.AviSession != nil {
+				version, err := aviClient.AviSession.GetControllerVersion()
+				if err == nil && CtrlVersion == "" {
+					AviLog.Infof("Setting the client version to the current controller version %v", version)
+					session.SetVersion(version)
+					CtrlVersion = version
+				}
+			}
+
+			clientPool.AviClient = append(clientPool.AviClient, aviClient)
+		}()
+	}
+
+	wg.Wait()
+	if globalErr != nil {
+		return &clientPool, globalErr
+	}
+
+	return &clientPool, nil
 }
 
 func (p *AviRestClientPool) AviRestOperate(c *clients.AviClient, rest_ops []*RestOp) error {
@@ -95,14 +138,13 @@ func (p *AviRestClientPool) AviRestOperate(c *clients.AviClient, rest_ops []*Res
 			op.Err = fmt.Errorf("Unknown RestOp %v", op.Method)
 		}
 		if op.Err != nil {
-			AviLog.Warnf(`RestOp method %v path %v tenant %v Obj %s 
-                    returned err %v`, op.Method, op.Path, op.Tenant,
-				spew.Sprint(op.Obj), Stringify(op.Response))
+			AviLog.Warnf(`RestOp method %v path %v tenant %v Obj %s returned err %s with response %s`,
+				op.Method, op.Path, op.Tenant, spew.Sprint(op.Obj), Stringify(op.Err), Stringify(op.Response))
 			for j := i + 1; j < len(rest_ops); j++ {
 				rest_ops[j].Err = errors.New("Aborted due to prev error")
 			}
 			// Wrap the error into a websync error.
-			err := &WebSyncError{err: op.Err, operation: string(op.Method)}
+			err := &WebSyncError{Err: op.Err, Operation: string(op.Method)}
 			return err
 		} else {
 			AviLog.Debugf(`RestOp method %v path %v tenant %v response %v`,

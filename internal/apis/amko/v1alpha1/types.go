@@ -173,7 +173,7 @@ type GSLBHostRule struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// GSLBHostRuleList is a list of GDP resources
+// GSLBHostRuleList is a list of GSLBHostRule resources
 type GSLBHostRuleList struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -192,10 +192,12 @@ type GSLBHostRuleSpec struct {
 	TTL int `json:"ttl,omitempty"`
 	// SitePersistenceEnabled if set to true, enables stickiness to the same site where
 	// the connection from the client was initiated to.
-	SitePersistenceEnabled bool `json:"sitePersistenceEnabled"`
+	SitePersistence SitePersistence `json:"sitePersistence,omitempty"`
+	// ThirdPartyMembers is a list of third party members site
+	ThirdPartyMembers []ThirdPartyMember `json:"thirdPartyMembers,omitempty"`
 	// HealthMonitoreRefs is a list of custom health monitors which will monitor the
 	// GSLB Service's pool members.
-	HealthMonitorRefs []string `json:"hmRefs,omitempty"`
+	HealthMonitorRefs []string `json:"healthMonitorRefs,omitempty"`
 	// TrafficSplit defines the weightage of traffic that can be routed to each cluster.
 	TrafficSplit []TrafficSplitElem `json:"trafficSplit,omitempty"`
 }
@@ -211,4 +213,9 @@ type GSLBHostRuleStatus struct {
 type SitePersistence struct {
 	Enabled    bool   `json:"enabled,omitempty"`
 	ProfileRef string `json:"profileRef,omitempty"`
+}
+
+type ThirdPartyMember struct {
+	VIP  string `json:"vip,omitempty"`
+	Site string `json:"site,omitempty"`
 }

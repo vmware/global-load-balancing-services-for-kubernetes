@@ -16,6 +16,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"time"
 
 	avimodels "github.com/avinetworks/sdk/go/models"
 	oshiftclientset "github.com/openshift/client-go/route/clientset/versioned"
@@ -26,6 +27,8 @@ import (
 )
 
 type EvType string
+
+var InformerDefaultResync = 12 * time.Hour
 
 const (
 	CreateEv            EvType = "CREATE"
@@ -54,6 +57,9 @@ const (
 	INFORMERS_INSTANTIATE_ONCE string = "instantiateOnce"
 	INFORMERS_OPENSHIFT_CLIENT string = "oshiftClient"
 	INFORMERS_NAMESPACE        string = "namespace"
+	INFORMERS_ADVANCED_L4      string = "informersAdvL4"
+	VMWARE_SYSTEM_AKO          string = "vmware-system-ako"
+	AKO_DEFAULT_NS             string = "avi-system"
 )
 
 type KubeClientIntf struct {
@@ -98,6 +104,7 @@ type RestOp struct {
 	PatchOp  string
 	Response interface{}
 	Err      error
+	Message  string // Optional field - can be used to carry forward err/msgs to k8s objects
 	Model    string
 	Version  string
 	ObjName  string // Optional field - right only to be used for delete.
@@ -246,13 +253,13 @@ type SkipSyncError struct {
 }
 
 type WebSyncError struct {
-	err       error
-	operation string
+	Err       error
+	Operation string
 }
 
-func (e *WebSyncError) Error() string         { return fmt.Sprintf("Error during %s: %v", e.operation, e.err) }
+func (e *WebSyncError) Error() string         { return fmt.Sprintf("Error during %s: %v", e.Operation, e.Err) }
 func (e *SkipSyncError) Error() string        { return e.Msg }
-func (e *WebSyncError) GetWebAPIError() error { return e.err }
+func (e *WebSyncError) GetWebAPIError() error { return e.Err }
 
 var CloudName string
 

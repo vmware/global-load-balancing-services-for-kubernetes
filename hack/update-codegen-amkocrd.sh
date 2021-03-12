@@ -38,7 +38,7 @@ export GO111MODULE GOFLAGS GOPATH
 mkdir -p "$GOPATH/src/github.com/vmware"
 ln -s "${SCRIPT_ROOT}" "$GOPATH/src/${AMKO_PACKAGE}"
 
-readonly OUTPUT_PKG="${AMKO_PACKAGE}/internal/client/${AMKOCRD_VERSION}"
+readonly OUTPUT_PKG="${AMKO_PACKAGE}/internal/client"
 readonly FQ_APIS="${AMKO_PACKAGE}/internal/apis/amko/${AMKOCRD_VERSION}"
 readonly APIS_PKG=AMKO_PACKAGE
 readonly CLIENTSET_NAME=versioned
