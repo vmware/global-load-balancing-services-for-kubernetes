@@ -697,28 +697,18 @@ func Initialize() {
 	gdpInformer := gdpInformerFactory.Amko().V1alpha2().GlobalDeploymentPolicies()
 	go gdpInformer.Informer().Run(stopCh)
 
-	gslbhrCtrl := InitializeGSLBHostRuleController(kubeClient, gslbClient, gslbInformerFactory,
-		AddGSLBHostRuleObj, UpdateGSLBHostRuleObj, DeleteGSLBHostRuleObj)
-
-	gslbhrInformer := gslbInformerFactory.Amko().V1alpha1().GSLBHostRules()
-	go gslbhrInformer.Informer().Run(stopCh)
-
-	go RunControllers(gslbController, gdpCtrl, gslbhrCtrl, stopCh)
+	go RunGDPAndGSLBControllers(gslbController, gdpCtrl, stopCh)
 	<-stopCh
 	gslbutils.WaitForWorkersToExit()
 }
 
-func RunControllers(gslbController *GSLBConfigController, gdpController *GDPController, gslbhrCtrl *GSLBHostRuleController, stopCh <-chan struct{}) {
+func RunGDPAndGSLBControllers(gslbController *GSLBConfigController, gdpController *GDPController, stopCh <-chan struct{}) {
 	if err := gslbController.Run(stopCh); err != nil {
 		panic("error running GSLB Controller: " + err.Error())
 	}
 
 	if err := gdpController.Run(stopCh); err != nil {
 		panic("error running GDP Controller: " + err.Error())
-	}
-
-	if err := gslbhrCtrl.Run(stopCh); err != nil {
-		panic("error running GSLBHostRule Controller: " + err.Error())
 	}
 }
 
