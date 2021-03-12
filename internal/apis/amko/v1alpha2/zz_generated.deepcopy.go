@@ -72,11 +72,6 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 		*out = make([]ClusterProperty, len(*in))
 		copy(*out, *in)
 	}
-	if in.SyncVips != nil {
-		in, out := &in.SyncVips, &out.SyncVips
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.TrafficSplit != nil {
 		in, out := &in.TrafficSplit, &out.TrafficSplit
 		*out = make([]TrafficSplitElem, len(*in))

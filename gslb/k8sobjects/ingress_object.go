@@ -87,17 +87,17 @@ func getTLSHosts(ingress *v1beta1.Ingress) []string {
 func parseVSAndControllerAnnotations(annotations map[string]string) (map[string]string, string, error) {
 	vsUUIDs, controllerUUID := make(map[string]string), ""
 	if len(annotations) == 0 {
-		return vsUUIDs, controllerUUID, nil
+		return vsUUIDs, controllerUUID, fmt.Errorf("empty annotations")
 	}
 	vsAnnotations, exists := annotations[VSAnnotation]
 	if !exists {
 		gslbutils.Debugf("No VS Annotations exist for object, annotations: %v", annotations)
-		return vsUUIDs, controllerUUID, nil
+		return vsUUIDs, controllerUUID, fmt.Errorf("no VS UUID annotations for this object: %v", annotations)
 	}
 	controllerUUID, exists = annotations[ControllerAnnotation]
 	if !exists {
 		gslbutils.Debugf("No Controller Annotation exist for object, annotations: %v", annotations)
-		return vsUUIDs, controllerUUID, nil
+		return vsUUIDs, controllerUUID, fmt.Errorf("no Controller UUID annotation for this object: %v", annotations)
 	}
 	if err := json.Unmarshal([]byte(vsAnnotations), &vsUUIDs); err != nil {
 		return vsUUIDs, controllerUUID, fmt.Errorf("error in unmarshalling VS annotations: %v", err)
@@ -111,15 +111,34 @@ func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMet
 	ingHostMetaList := []IngressHostMeta{}
 	hostIPList := gslbutils.IngressGetIPAddrs(ingress)
 	tlsHosts := getTLSHosts(ingress)
-	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(ingress.Annotations)
+
+	gf := gslbutils.GetGlobalFilter()
+
+	// we don't return because of errors here, as we need these objects in the our internal cache,
+	// so that, when the GDP object gets changed, we can re-apply these objects back again.
+	// The errors for syncVIPsOnly are taken care of in the graph layer.
+	syncVIPsOnly, err := gf.IsClusterSyncVIPOnly(cname)
 	if err != nil {
-		gslbutils.Errf("error in parsing VS and Controller annotations for ingress %s/%s: %v",
+		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: skipping ingress because of error: %v",
+			cname, ingress.Namespace, ingress.Name, err)
+	}
+	var vsUUIDs map[string]string
+	var controllerUUID string
+
+	vsUUIDs, controllerUUID, err = parseVSAndControllerAnnotations(ingress.Annotations)
+	if err != nil && !syncVIPsOnly {
+		gslbutils.Logf("ns: %s, ingress: %s, msg: skipping ingress because of error: %v",
 			ingress.Namespace, ingress.Name, err)
+	}
+	if (controllerUUID == "" || len(vsUUIDs) == 0) && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: skipping ingress because controller UUID absent in annotations",
+			cname, ingress.Namespace, ingress.Name)
 	}
 	for _, hip := range hostIPList {
 		vsUUID, ok := vsUUIDs[hip.Hostname]
-		if !ok {
-			vsUUID = ""
+		if !ok && !syncVIPsOnly {
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: hostname %s missing from VS UUID annotations",
+				cname, ingress.Namespace, ingress.Name, hip.Hostname)
 		}
 		metaObj := IngressHostMeta{
 			IngName:            ingress.Name,

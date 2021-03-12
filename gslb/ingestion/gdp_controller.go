@@ -168,7 +168,9 @@ func GetObjTypeStores(objType string) (string, *gslbutils.ClusterStore, *gslbuti
 	return objKey, acceptedObjStore, rejectedObjStore, nil
 }
 
-func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
+func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32,
+	trafficWeightChanged bool, clustersToBeSynced []string) {
+
 	var cname, ns, sname string
 	var err error
 
@@ -208,6 +210,24 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 				cname, ns, sname, err = splitName(objType, objName)
 				if err != nil {
 					gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
+					continue
+				}
+				bkt := utils.Bkt(ns, numWorkers)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
+				k8swq[bkt].AddRateLimited(key)
+				gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added key",
+					cname, ns, objType, sname, key)
+			}
+		}
+		// Only sync the accepted objects for the following clusters, as a re-sync is required
+		for _, c := range clustersToBeSynced {
+			for _, objName := range acceptedList {
+				cname, ns, sname, err = splitName(objType, objName)
+				if err != nil {
+					gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
+					continue
+				}
+				if c != cname {
 					continue
 				}
 				bkt := utils.Bkt(ns, numWorkers)
@@ -384,10 +404,11 @@ func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, 
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 }
 
-func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool) {
-	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, trafficWeightChanged)
-	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, trafficWeightChanged)
-	writeChangedObjToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, trafficWeightChanged)
+func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool,
+	clustersToBeSynced []string) {
+	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
+	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
+	writeChangedObjToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
 }
 
 func applyAndUpdateNamespaces() {
@@ -501,7 +522,7 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 	// for bootup sync, k8swq will be nil, in which case, the movement of objects will be taken
 	// care of by the bootupSync function
 	if k8swq != nil {
-		WriteChangedObjsToQueue(k8swq, numWorkers, false)
+		WriteChangedObjsToQueue(k8swq, numWorkers, false, []string{})
 	}
 	gslbutils.SetGDPObj(gdp.GetObjectMeta().GetName(), gdp.GetObjectMeta().GetNamespace())
 }
@@ -538,11 +559,11 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't update")
 		return
 	}
-	if gdpChanged, trafficWeightChanged := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
+	if gdpChanged, trafficWeightChanged, clustersToBeSynced := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
 		gslbutils.Logf("GDP object changed, will go through the objects again")
 		// first apply and update the namespaces in the filter
 		applyAndUpdateNamespaces()
-		WriteChangedObjsToQueue(k8swq, numWorkers, trafficWeightChanged)
+		WriteChangedObjsToQueue(k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
 	}
 }
 
@@ -569,7 +590,7 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 	gf.DeleteFromGlobalFilter(gdp)
 	// remove all namespaces from filter and re-apply
 	k8sobjects.RemoveAllSelectedNamespaces()
-	WriteChangedObjsToQueue(k8swq, numWorkers, false)
+	WriteChangedObjsToQueue(k8swq, numWorkers, false, []string{})
 
 	gslbutils.SetGDPObj("", "")
 }

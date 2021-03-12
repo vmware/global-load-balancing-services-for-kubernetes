@@ -36,14 +36,25 @@ func getRouteHostMap() *ObjHostMap {
 
 // GetRouteMeta returns a trimmed down version of a route
 func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
-	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(route.Annotations)
+	gf := gslbutils.GetGlobalFilter()
+	syncVIPsOnly, err := gf.IsClusterSyncVIPOnly(cname)
 	if err != nil {
-		gslbutils.Errf("error in parsing VS and Controller annotations for route %s/%s: %v",
-			route.Namespace, route.Name, err)
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
+			cname, route.Namespace, route.Name, err)
+	}
+	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(route.Annotations)
+	if err != nil && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
+			cname, route.Namespace, route.Name, err)
+	}
+	if (len(vsUUIDs) == 0 || controllerUUID == "") && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because either VS UUID or controller UUID missing from annotations: %v",
+			cname, route.Namespace, route.Name, route.Annotations)
 	}
 	vsUUID, ok := vsUUIDs[route.Spec.Host]
-	if !ok {
-		vsUUID = ""
+	if !ok && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: hostname %s is missing from VS UUID annotations",
+			cname, route.Namespace, route.Name, route.Spec.Host)
 	}
 	ipAddr, _ := gslbutils.RouteGetIPAddr(route)
 	metaObj := RouteMeta{

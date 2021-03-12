@@ -79,15 +79,27 @@ type SvcMeta struct {
 
 // GetSvcMeta returns a trimmed down version of a svc
 func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
-	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(svc.Annotations)
+	gf := gslbutils.GetGlobalFilter()
+	syncVIPsOnly, err := gf.IsClusterSyncVIPOnly(cname)
 	if err != nil {
-		gslbutils.Errf("error in parsing VS and Controller annotations for service %s/%s: %s",
-			svc.Namespace, svc.Name, err)
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error: %v",
+			cname, svc.Namespace, svc.Name, err)
 	}
+	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(svc.Annotations)
+	if err != nil && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error in parsing VS and Controller annotations: %v",
+			cname, svc.Namespace, svc.Name, err)
+	}
+	if (controllerUUID == "" || len(vsUUIDs) == 0) && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because controllerUUID or vsUUID missing from annotations: %v",
+			cname, svc.Namespace, svc.Name, svc.Annotations)
+	}
+
 	ip, hostname := GetSvcStatusIPHostname(svc)
 	vsUUID, ok := vsUUIDs[hostname]
-	if !ok {
-		vsUUID = ""
+	if !ok && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because hostname %s missing from annotations: %v",
+			cname, svc.Namespace, svc.Name, hostname, svc.Annotations)
 	}
 	metaObj := SvcMeta{
 		Name:               svc.Name,

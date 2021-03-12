@@ -58,6 +58,7 @@ func updateTestGDPObject(gdp *gdpalphav2.GlobalDeploymentPolicy, clusterList []s
 	gdp.Spec.MatchClusters = make([]gdpalphav2.ClusterProperty, len(clusterList))
 	for idx, c := range clusterList {
 		gdp.Spec.MatchClusters[idx].Cluster = c
+		gdp.Spec.MatchClusters[idx].SyncVipOnly = true
 	}
 	gdp.ObjectMeta.ResourceVersion = version
 }
@@ -172,8 +173,8 @@ func TestGDPSelectAllObjsFromAllClusters(t *testing.T) {
 	gdp.Spec.MatchRules.AppSelector.Label["key"] = "value"
 	// Select both the clusters
 	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{
-		{Cluster: "cluster1"},
-		{Cluster: "cluster2"},
+		{Cluster: "cluster1", SyncVipOnly: true},
+		{Cluster: "cluster2", SyncVipOnly: true},
 	}
 
 	AddTestGDPObj(gdp)
@@ -218,7 +219,8 @@ func TestMultipleGDPObjectsForSameNS(t *testing.T) {
 	gdp := getTestGDPObject(true, false)
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1}, {Cluster: cname2}}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1, SyncVipOnly: true},
+		{Cluster: cname2, SyncVipOnly: true}}
 
 	AddTestGDPObj(gdp)
 
@@ -278,7 +280,8 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	// "key":"value1" won't select any objects.
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value1")
 	// Select both the clusters
-	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1}, {Cluster: cname2}}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1, SyncVipOnly: true},
+		{Cluster: cname2, SyncVipOnly: true}}
 	AddTestGDPObj(gdp)
 
 	// Adding the ingreeses
@@ -354,7 +357,7 @@ func TestUpdateGDPSelectFromOneCluster(t *testing.T) {
 	oldGdp := gdp.DeepCopy()
 	gdp.ResourceVersion = "101"
 	// Only select cluster 1
-	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "cluster1"}}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "cluster1", SyncVipOnly: true}}
 	UpdateTestGDPObj(oldGdp, gdp)
 
 	// Now, there should be two keys, both from cluster1 ingress objects
@@ -394,7 +397,7 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	gdp := getTestGDPObject(true, false)
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select only one cluster
-	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1}}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: cname1, SyncVipOnly: true}}
 
 	AddTestGDPObj(gdp)
 
@@ -404,14 +407,14 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 	ingList2, keys2 := CreateMultipleIngresses(t, barKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname2)
 
 	// Only cluster1 has been added in the GDP, so we will verify keys only for that cluster
-	t.Logf("verifying cluster 1 keys")
+	t.Logf("verifying cluster1 keys")
 	VerifyAllKeys(t, keys1, false)
 
 	// Let's now update the GDP object
 	oldGdp := gdp.DeepCopy()
 	gdp.ResourceVersion = "101"
-	// Only select cluster 1
-	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "cluster2"}}
+	// Switch to cluster 2
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "cluster2", SyncVipOnly: true}}
 	UpdateTestGDPObj(oldGdp, gdp)
 
 	// Now, cluster 2 keys should be added, and cluster 1 keys should be deleted
@@ -421,7 +424,7 @@ func TestUpdateGDPSwitchClusters(t *testing.T) {
 			ing.Status.LoadBalancer.Ingress[0].Hostname))
 	}
 	allKeys := append(delKeys, keys2...)
-	t.Logf("verifying cluster 2 keys")
+	t.Logf("verifying cluster2 keys")
 	VerifyAllKeys(t, allKeys, false)
 
 	t.Logf("verifying GDP status")
@@ -464,7 +467,8 @@ func TestGDPMisnameClusters(t *testing.T) {
 	// add a matchRule for Ingress object with correct label
 	UpdateGDPMatchRuleAppLabel(gdp, "key", "value")
 	// Select misnamed clusters (clusters not present in GSLBConfig object)
-	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "abc"}, {Cluster: "xyz"}}
+	gdp.Spec.MatchClusters = []gdpalphav2.ClusterProperty{{Cluster: "abc", SyncVipOnly: true},
+		{Cluster: "xyz", SyncVipOnly: true}}
 
 	AddTestGDPObj(gdp)
 

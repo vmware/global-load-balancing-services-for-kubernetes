@@ -480,19 +480,24 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 				gslbutils.Warnf("invalid weight present, assigning 0: %v", member)
 				weight = 0
 			}
+			gsMember := GSMember{
+				IPAddr: ipAddr,
+				Weight: weight,
+			}
+			// Compute which server to add for this member (for checksum calculation)
 			var server string
-			if *member.VsUUID != "" {
-				server = *member.VsUUID + "-" + *member.ClusterUUID
-			} else {
+			if member.VsUUID != nil {
+				gsMember.VsUUID = *member.VsUUID
+				server = *member.VsUUID
+			}
+			if member.ClusterUUID != nil {
+				gsMember.Controller = *member.ClusterUUID
+				server += "-" + *member.ClusterUUID
+			}
+			if server == "" {
 				server = ipAddr
 			}
 			serverList = append(serverList, server+"-"+strconv.Itoa(int(weight)))
-			gsMember := GSMember{
-				IPAddr:     ipAddr,
-				Weight:     weight,
-				VsUUID:     *member.VsUUID,
-				Controller: *member.ClusterUUID,
-			}
 			gsMembers = append(gsMembers, gsMember)
 		}
 	}

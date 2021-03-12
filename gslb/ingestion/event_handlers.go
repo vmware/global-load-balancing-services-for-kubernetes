@@ -403,7 +403,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 					"ns didn't pass through the filter, adding to rejected list")
 				return
 			}
-			WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
+			WriteChangedObjsToQueue(c.workqueue, numWorkers, false, []string{})
 			AddOrUpdateNSStore(acceptedNSStore, ns, c.name)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -441,7 +441,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 				}
 				// filter changed, re-apply
 				gslbutils.Logf("namespace: %s, msg: namespace changed in filter, will re-apply", ns.Name)
-				WriteChangedObjsToQueue(c.workqueue, numWorkers, false)
+				WriteChangedObjsToQueue(c.workqueue, numWorkers, false, []string{})
 
 				// determine if the new namespace is accepted or rejected
 				if newNSMeta.ApplyFilter() {

@@ -98,10 +98,12 @@ func getTestGDPObject(appLabelReq, nsLabelReq bool) *gdpalphav2.GlobalDeployment
 		MatchRules: matchRules,
 		MatchClusters: []gdpalphav2.ClusterProperty{
 			{
-				Cluster: "cluster1",
+				Cluster:     "cluster1",
+				SyncVipOnly: true,
 			},
 			{
-				Cluster: "cluster2",
+				Cluster:     "cluster2",
+				SyncVipOnly: true,
 			},
 		},
 	}

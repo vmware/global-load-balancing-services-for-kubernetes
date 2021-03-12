@@ -71,7 +71,8 @@ const (
 
 // ClusterProperties contains the properties for a cluster.
 type ClusterProperties struct {
-	SyncType int
+	// SyncVipsOnly advises AMKO to sync only the VIPs of the member objects of a GS
+	SyncVipsOnly bool
 }
 
 // GlobalFilter is all the filters at one place. It also holds a list of ApplicableClusters
@@ -143,17 +144,6 @@ func (gf *GlobalFilter) AddNSToNSFilter(cname, ns string) error {
 	gf.NSFilter.AddNS(cname, ns)
 
 	return nil
-}
-
-func (gf *GlobalFilter) GetSyncTypeForCluster(cname string) (int, error) {
-	gf.GlobalLock.RLock()
-	defer gf.GlobalLock.RUnlock()
-
-	cp, ok := gf.ApplicableClusters[cname]
-	if !ok {
-		return SyncTypeVirtualServices, fmt.Errorf("cluster name %s not part of applicable clusters in the global filter", cname)
-	}
-	return cp.SyncType, nil
 }
 
 type AppFilter struct {
@@ -245,22 +235,12 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		gf.NSFilter = createNewNSFilter(gdp.Spec.MatchRules.NamespaceSelector.Label)
 	}
 
-	// Find out the list of clusters which need 3rd party vips syncing, assume SyncTypeVirtualServices
-	// to be defailt.
-	thirdPartyVips := make(map[string]struct{})
-	for _, cluster := range gdp.Spec.SyncVips {
-		thirdPartyVips[cluster] = struct{}{}
-	}
-
 	if len(gf.ApplicableClusters) == 0 {
 		gf.ApplicableClusters = make(map[string]ClusterProperties)
 	}
 	// Add applicable clusters
 	for _, cluster := range gdp.Spec.MatchClusters {
-		gf.ApplicableClusters[cluster.Cluster] = ClusterProperties{SyncTypeVirtualServices}
-		if _, ok := thirdPartyVips[cluster.Cluster]; ok {
-			gf.ApplicableClusters[cluster.Cluster] = ClusterProperties{SyncTypeThirdPartyVips}
-		}
+		gf.ApplicableClusters[cluster.Cluster] = ClusterProperties{cluster.SyncVipOnly}
 	}
 	// Add traffic split
 	for _, ts := range gdp.Spec.TrafficSplit {
@@ -284,7 +264,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 		cksum += gf.NSFilter.GetChecksum()
 	}
 	for c, s := range gf.ApplicableClusters {
-		cksum += utils.Hash(c) + utils.Hash(utils.Stringify(s.SyncType))
+		cksum += utils.Hash(c) + utils.Hash(utils.Stringify(s.SyncVipsOnly))
 	}
 	for _, ts := range gf.TrafficSplit {
 		cksum += utils.Hash(ts.ClusterName + strconv.Itoa(int(ts.Weight)))
@@ -302,6 +282,17 @@ func (gf *GlobalFilter) GetTrafficWeight(ns, cname string) (int32, error) {
 	}
 	Logf("cname: %s, msg: no weight available for this cluster", cname)
 	return 0, errors.New("no weight available for cluster " + cname)
+}
+
+func (gf *GlobalFilter) IsClusterSyncVIPOnly(cname string) (bool, error) {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	properties, exists := gf.ApplicableClusters[cname]
+	if !exists {
+		return false, fmt.Errorf("cluster %s not present in global filter", cname)
+	}
+	return properties.SyncVipsOnly, nil
 }
 
 func PresentInList(key string, strList []string) bool {
@@ -350,10 +341,32 @@ func isTrafficWeightChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return false
 }
 
+func isSyncTypeChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) []string {
+	// Return a list of clusters for which the sync type has changed
+	clustersToBeSynced := []string{}
+	clusters := make(map[string]bool)
+	for _, c := range old.Spec.MatchClusters {
+		clusters[c.Cluster] = c.SyncVipOnly
+	}
+
+	for _, c := range new.Spec.MatchClusters {
+		oldSyncType, exists := clusters[c.Cluster]
+		if !exists {
+			// cluster doesn't exist in the new gdp, it will be taken care of in the accepted/rejected
+			// logic anyway, so just continue
+			continue
+		}
+		if c.SyncVipOnly != oldSyncType {
+			clustersToBeSynced = append(clustersToBeSynced, c.Cluster)
+		}
+	}
+	return clustersToBeSynced
+}
+
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
 // whether a change is required to any of the filters. If yes, it changes either the cluster
 // filter or one of the namespace filters.
-func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDeploymentPolicy) (bool, bool) {
+func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDeploymentPolicy) (bool, bool, []string) {
 	// Need to check for the NSFilterMap
 	nf := GetNewGlobalFilter()
 	nf.AddToFilter(newGDP)
@@ -365,7 +378,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	Debugf("old checksum: %d, new checksum: %d", gf.Checksum, nf.Checksum)
 	if gf.Checksum == nf.Checksum {
 		// No updates needed, just return
-		return false, false
+		return false, false, []string{}
 	}
 	Logf("ns: %s, gdp: %s, object: filter, msg: %s", oldGDP.ObjectMeta.Namespace, oldGDP.ObjectMeta.Name,
 		"filter changed, will update filter and re-evaluate objects")
@@ -377,7 +390,8 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.Checksum = nf.Checksum
 
 	trafficWeightChanged := isTrafficWeightChanged(newGDP, oldGDP)
-	return true, trafficWeightChanged
+	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)
+	return true, trafficWeightChanged, clustersToBeSynced
 }
 
 // DeleteFromGlobalFilter deletes a filter pertaining to gdp.

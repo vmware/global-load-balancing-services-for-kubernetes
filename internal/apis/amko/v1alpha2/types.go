@@ -48,7 +48,6 @@ type GlobalDeploymentPolicyList struct {
 type GDPSpec struct {
 	MatchRules    MatchRules         `json:"matchRules,omitempty"`
 	MatchClusters []ClusterProperty  `json:"matchClusters,omitempty"`
-	SyncVips      []string           `json:"syncVips,omitempty"`
 	TrafficSplit  []TrafficSplitElem `json:"trafficSplit,omitempty"`
 }
 

@@ -757,11 +757,13 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		vsUUID := member.VirtualServiceUUID
 
 		gslbPoolMember := avimodels.GslbPoolMember{
-			Enabled:     &enabled,
-			Ratio:       &ratio,
-			IP:          &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
-			ClusterUUID: &clusterUUID,
-			VsUUID:      &vsUUID,
+			Enabled: &enabled,
+			Ratio:   &ratio,
+			IP:      &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
+		}
+		if !member.SyncVIPOnly {
+			gslbPoolMember.ClusterUUID = &clusterUUID
+			gslbPoolMember.VsUUID = &vsUUID
 		}
 		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
 	}
