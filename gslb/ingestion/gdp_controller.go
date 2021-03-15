@@ -315,10 +315,8 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 	}
 
 	// Site persistence check
-	if gdp.Spec.SitePersistence.Enabled == true {
-		if gdp.Spec.SitePersistence.ProfileRef == "" {
-			return fmt.Errorf("Site Persistence is enabled but no profile refs provided")
-		}
+	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
+		return fmt.Errorf("empty string as site persistence reference not supported")
 	}
 	return nil
 }

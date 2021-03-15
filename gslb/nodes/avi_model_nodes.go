@@ -21,7 +21,6 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -145,14 +144,14 @@ type AviGSObjectGraph struct {
 	Tenant      string
 	DomainNames []string
 	// MemberObjs is a list of K8s/openshift objects from which this AviGS was built.
-	MemberObjs      []AviGSK8sObj
-	GraphChecksum   uint32
-	RetryCount      int
-	Hm              HealthMonitor
-	HmRefs          []string
-	SitePersistence gdpv1alpha1.SitePersistence
-	TTL             *int
-	Lock            sync.RWMutex
+	MemberObjs         []AviGSK8sObj
+	GraphChecksum      uint32
+	RetryCount         int
+	Hm                 HealthMonitor
+	HmRefs             []string
+	SitePersistenceRef *string
+	TTL                *int
+	Lock               sync.RWMutex
 }
 
 func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
@@ -218,7 +217,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
-		v.SitePersistence.Enabled, v.SitePersistence.ProfileRef, v.TTL)
+		v.SitePersistenceRef, v.TTL)
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -363,12 +362,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	v.MemberObjs = memberRoutes
 	v.RetryCount = gslbutils.DefaultRetryCount
 	v.HmRefs = gf.GetAviHmRefs()
-	sp := gf.GetSitePersistence()
-	if sp != "" {
-		v.SitePersistence = gdpv1alpha1.SitePersistence{Enabled: true, ProfileRef: sp}
-	} else {
-		v.SitePersistence = gdpv1alpha1.SitePersistence{Enabled: false}
-	}
+	v.SitePersistenceRef = gf.GetSitePersistence()
 	v.TTL = gf.GetTTL()
 	v.buildHmPathList()
 	// Determine the health monitor(s) for this GS
@@ -454,14 +448,7 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		v.TTL = ttl
 	}
 
-	// We are just looking at the profile ref, because if it is empty, that means,
-	// site persistence is disabled. This is a non-ambiguous case as the user is
-	// not allowed to put an empty ref for persistence profile is site persistence
-	// is enabled.
-	if profileRef := gf.GetSitePersistence(); profileRef != "" {
-		v.SitePersistence.Enabled = true
-		v.SitePersistence.ProfileRef = profileRef
-	}
+	v.SitePersistenceRef = gf.GetSitePersistence()
 
 	paths, err := metaObj.GetPaths()
 	if err != nil {
@@ -712,7 +699,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	gsObjCopy.TTL = &ttl
 	gsObjCopy.HmRefs = make([]string, len(v.HmRefs))
 	copy(gsObjCopy.HmRefs, v.HmRefs)
-	gsObjCopy.SitePersistence = v.SitePersistence
+	gsObjCopy.SitePersistenceRef = v.SitePersistenceRef
 
 	gsObjCopy.MemberObjs = make([]AviGSK8sObj, 0)
 	for _, memberObj := range v.MemberObjs {

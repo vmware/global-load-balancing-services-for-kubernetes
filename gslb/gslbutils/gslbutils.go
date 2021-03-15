@@ -272,8 +272,8 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string, sitePersistenceEnabled bool,
-	persistenceProfileRef string, ttl *int) uint32 {
+func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
+	persistenceProfileRef *string, ttl *int) uint32 {
 
 	sort.Strings(serverList)
 	sort.Strings(domainList)
@@ -290,11 +290,9 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 	}
 	// TODO: verify if this affects the existing GSs
 
-	cksum += utils.Hash(utils.Stringify(sitePersistenceEnabled))
-	if sitePersistenceEnabled {
-		cksum += utils.Hash(persistenceProfileRef)
+	if persistenceProfileRef != nil {
+		cksum += utils.Hash(*persistenceProfileRef)
 	}
-
 	return cksum
 }
 

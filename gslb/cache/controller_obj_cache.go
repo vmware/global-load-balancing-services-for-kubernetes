@@ -420,6 +420,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	var serverList, domainList, memberObjs, hms []string
 	var gsMembers []GSMember
 	var persistenceProfileRef string
+	var persistenceProfileRefPtr *string
 	var sitePersistenceRequired bool
 	var ttl *int
 
@@ -467,6 +468,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	sitePersistenceRequired = *gsObj.SitePersistenceEnabled
 	if sitePersistenceRequired {
 		persistenceProfileRef = *gsObj.ApplicationPersistenceProfileRef
+		persistenceProfileRefPtr = &persistenceProfileRef
 	}
 	if gsObj.TTL != nil {
 		ttlVal := int(*gsObj.TTL)
@@ -519,7 +521,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	}
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		sitePersistenceRequired, persistenceProfileRef, ttl)
+		persistenceProfileRefPtr, ttl)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 
@@ -567,6 +569,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	}
 
 	var persistenceProfileRef string
+	var persistenceProfileRefPtr *string
 	if sitePersistenceEnabled == true {
 		var ok bool
 		persistenceProfileRef, ok = gslbSvcMap["application_persistence_profile_ref"].(string)
@@ -574,6 +577,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			return 0, nil, memberObjs, hms,
 				errors.New("application_persistence_profile_ref absent in gslb service")
 		}
+		persistenceProfileRefPtr = &persistenceProfileRef
 	}
 
 	ttlVal, ok := gslbSvcMap["ttl"].(int)
@@ -646,7 +650,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	}
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		sitePersistenceEnabled, persistenceProfileRef, ttl)
+		persistenceProfileRefPtr, ttl)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 

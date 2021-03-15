@@ -760,7 +760,6 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// description field needs references
 	var gslbPoolMembers []*avimodels.GslbPoolMember
 	var gslbSvcGroups []*avimodels.GslbPool
-	var persistenceProfileRef string
 	memberObjs := gsMeta.GetUniqueMemberObjs()
 	for _, member := range memberObjs {
 		if member.IPAddr == "" {
@@ -810,10 +809,6 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	gsName := gsMeta.Name
 	poolAlgorithm := "GSLB_SERVICE_ALGORITHM_PRIORITY"
 	resolveCname := false
-	sitePersistenceEnabled := gsMeta.SitePersistence.Enabled
-	if gsMeta.SitePersistence.Enabled {
-		persistenceProfileRef = "/api/applicationpersistenceprofile?name=" + gsMeta.SitePersistence.ProfileRef
-	}
 	tenantRef := gslbutils.GetAviAdminTenantRef()
 	useEdnsClientSubnet := true
 	wildcardMatch := false
@@ -828,24 +823,28 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	}
 
 	aviGslbSvc := avimodels.GslbService{
-		ControllerHealthStatusEnabled:    &ctrlHealthStatusEnabled,
-		CreatedBy:                        &createdBy,
-		DomainNames:                      gsMeta.DomainNames,
-		Enabled:                          &gsEnabled,
-		Groups:                           gslbSvcGroups,
-		HealthMonitorScope:               &healthMonitorScope,
-		IsFederated:                      &isFederated,
-		MinMembers:                       &minMembers,
-		Name:                             &gsName,
-		PoolAlgorithm:                    &poolAlgorithm,
-		ResolveCname:                     &resolveCname,
-		SitePersistenceEnabled:           &sitePersistenceEnabled,
-		UseEdnsClientSubnet:              &useEdnsClientSubnet,
-		WildcardMatch:                    &wildcardMatch,
-		TenantRef:                        &tenantRef,
-		Description:                      &description,
-		TTL:                              &ttl,
-		ApplicationPersistenceProfileRef: &persistenceProfileRef,
+		ControllerHealthStatusEnabled: &ctrlHealthStatusEnabled,
+		CreatedBy:                     &createdBy,
+		DomainNames:                   gsMeta.DomainNames,
+		Enabled:                       &gsEnabled,
+		Groups:                        gslbSvcGroups,
+		HealthMonitorScope:            &healthMonitorScope,
+		IsFederated:                   &isFederated,
+		MinMembers:                    &minMembers,
+		Name:                          &gsName,
+		PoolAlgorithm:                 &poolAlgorithm,
+		ResolveCname:                  &resolveCname,
+		UseEdnsClientSubnet:           &useEdnsClientSubnet,
+		WildcardMatch:                 &wildcardMatch,
+		TenantRef:                     &tenantRef,
+		Description:                   &description,
+		TTL:                           &ttl,
+	}
+	if gsMeta.SitePersistenceRef != nil {
+		sitePersistenceEnabled := true
+		persistenceProfileRef := "/api/applicationpersistenceprofile?name=" + *gsMeta.SitePersistenceRef
+		aviGslbSvc.SitePersistenceEnabled = &sitePersistenceEnabled
+		aviGslbSvc.ApplicationPersistenceProfileRef = &persistenceProfileRef
 	}
 
 	hmAPI := "/api/healthmonitor?name="

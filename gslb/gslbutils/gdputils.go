@@ -84,7 +84,7 @@ type GlobalFilter struct {
 	// List of health monitors to be attached to all the GSs
 	HealthMonitorRefs []string
 	// Site Persistence properties to be applied to all the GSs
-	SitePersistence gdpv1alpha2.SitePersistence
+	SitePersistenceRef *string
 	// Time To Live value for each fqdn
 	TTL      *int
 	Checksum uint32
@@ -155,13 +155,11 @@ func (gf *GlobalFilter) GetAviHmRefs() []string {
 	return aviHmRefs
 }
 
-func (gf *GlobalFilter) GetSitePersistence() string {
+func (gf *GlobalFilter) GetSitePersistence() *string {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
-	if gf.SitePersistence.Enabled {
-		return gf.SitePersistence.ProfileRef
-	}
-	return ""
+
+	return gf.SitePersistenceRef
 }
 
 func (gf *GlobalFilter) GetTTL() *int {
@@ -282,9 +280,7 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 	}
 
 	gf.TTL = gdp.Spec.TTL
-	// The below copies by value as there are no non-primitive members inside SitePersistence
-	// struct.
-	gf.SitePersistence = gdp.Spec.SitePersistence
+	gf.SitePersistenceRef = gdp.Spec.SitePersistenceRef
 
 	gf.ComputeChecksum()
 	Logf("ns: %s, object: NSFilter, msg: added/changed the global filter", gdp.ObjectMeta.Namespace)
@@ -306,9 +302,8 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	for _, ts := range gf.TrafficSplit {
 		cksum += utils.Hash(ts.ClusterName + strconv.Itoa(int(ts.Weight)))
 	}
-	if gf.SitePersistence.Enabled {
-		cksum += utils.Hash(utils.Stringify(gf.SitePersistence.Enabled)) +
-			utils.Hash(utils.Stringify(gf.SitePersistence.ProfileRef))
+	if gf.SitePersistenceRef != nil {
+		cksum += utils.Hash(*gf.SitePersistenceRef)
 	}
 	if gf.TTL != nil {
 		cksum += utils.Hash(utils.Stringify(*gf.TTL))
@@ -431,16 +426,14 @@ func isHmRefsChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 }
 
 func isSitePersistenceChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
-	newSp := new.Spec.SitePersistence
-	oldSp := old.Spec.SitePersistence
-	if (newSp.Enabled == oldSp.Enabled) && (newSp.Enabled == true) {
-		// if both are true, we check the profile ref value
-		if newSp.ProfileRef != oldSp.ProfileRef {
-			return true
-		}
-		return false
-	} else if newSp.Enabled != oldSp.Enabled {
-		// else, check for any change in the enabled property
+	newSp := new.Spec.SitePersistenceRef
+	oldSp := old.Spec.SitePersistenceRef
+
+	if newSp != nil && oldSp == nil {
+		return true
+	} else if newSp == nil && oldSp != nil {
+		return true
+	} else if newSp != nil && oldSp != nil && *newSp != *oldSp {
 		return true
 	}
 	return false
@@ -487,7 +480,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.TrafficSplit = nf.TrafficSplit
 	gf.ApplicableClusters = nf.ApplicableClusters
 	gf.TTL = nf.TTL
-	gf.SitePersistence = nf.SitePersistence
+	gf.SitePersistenceRef = nf.SitePersistenceRef
 	gf.HealthMonitorRefs = nf.HealthMonitorRefs
 	gf.Checksum = nf.Checksum
 
@@ -518,7 +511,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		ApplicableClusters: make(map[string]ClusterProperties),
 		HealthMonitorRefs:  []string{},
 		TTL:                nil,
-		SitePersistence:    gdpv1alpha2.SitePersistence{Enabled: false, ProfileRef: ""},
+		SitePersistenceRef: nil,
 	}
 	return gf
 }

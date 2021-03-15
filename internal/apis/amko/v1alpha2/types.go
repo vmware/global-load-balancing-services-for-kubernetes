@@ -46,12 +46,12 @@ type GlobalDeploymentPolicyList struct {
 
 // GDPSpec encloses all the properties of a GDP object.
 type GDPSpec struct {
-	MatchRules        MatchRules         `json:"matchRules,omitempty"`
-	MatchClusters     []ClusterProperty  `json:"matchClusters,omitempty"`
-	TrafficSplit      []TrafficSplitElem `json:"trafficSplit,omitempty"`
-	HealthMonitorRefs []string           `json:"healthMonitorRefs,omitempty"`
-	TTL               *int               `json:"ttl,omitempty"`
-	SitePersistence   SitePersistence    `json:"sitePersistence,omitempty"`
+	MatchRules         MatchRules         `json:"matchRules,omitempty"`
+	MatchClusters      []ClusterProperty  `json:"matchClusters,omitempty"`
+	TrafficSplit       []TrafficSplitElem `json:"trafficSplit,omitempty"`
+	HealthMonitorRefs  []string           `json:"healthMonitorRefs,omitempty"`
+	TTL                *int               `json:"ttl,omitempty"`
+	SitePersistenceRef *string            `json:"sitePersistenceRef,omitempty"`
 }
 
 // ClusterProperty specifies all the properties required for a Cluster. Cluster is the cluster
@@ -100,12 +100,4 @@ type TrafficSplitElem struct {
 // GDPStatus gives the current status of the policy object.
 type GDPStatus struct {
 	ErrorStatus string `json:"errorStatus,omitempty"`
-}
-
-// SitePersistence has the required properties to enable site persistence for a GS.
-// If it needs to be enabled, `Enabled` must be set to true, and a persistence profile
-// ref has to be specified.
-type SitePersistence struct {
-	Enabled    bool   `json:"enabled,omitempty"`
-	ProfileRef string `json:"profileRef,omitempty"`
 }
