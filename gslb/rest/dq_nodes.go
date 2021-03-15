@@ -845,6 +845,9 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		persistenceProfileRef := "/api/applicationpersistenceprofile?name=" + *gsMeta.SitePersistenceRef
 		aviGslbSvc.SitePersistenceEnabled = &sitePersistenceEnabled
 		aviGslbSvc.ApplicationPersistenceProfileRef = &persistenceProfileRef
+	} else {
+		sitePersistenceEnabled := false
+		aviGslbSvc.SitePersistenceEnabled = &sitePersistenceEnabled
 	}
 
 	hmAPI := "/api/healthmonitor?name="
