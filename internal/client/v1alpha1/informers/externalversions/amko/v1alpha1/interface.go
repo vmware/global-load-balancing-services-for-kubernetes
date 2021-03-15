@@ -28,8 +28,6 @@ type Interface interface {
 	GSLBConfigs() GSLBConfigInformer
 	// GSLBHostRules returns a GSLBHostRuleInformer.
 	GSLBHostRules() GSLBHostRuleInformer
-	// GlobalDeploymentPolicies returns a GlobalDeploymentPolicyInformer.
-	GlobalDeploymentPolicies() GlobalDeploymentPolicyInformer
 }
 
 type version struct {
@@ -51,9 +49,4 @@ func (v *version) GSLBConfigs() GSLBConfigInformer {
 // GSLBHostRules returns a GSLBHostRuleInformer.
 func (v *version) GSLBHostRules() GSLBHostRuleInformer {
 	return &gSLBHostRuleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// GlobalDeploymentPolicies returns a GlobalDeploymentPolicyInformer.
-func (v *version) GlobalDeploymentPolicies() GlobalDeploymentPolicyInformer {
-	return &globalDeploymentPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -36,10 +36,6 @@ func (c *FakeAmkoV1alpha1) GSLBHostRules(namespace string) v1alpha1.GSLBHostRule
 	return &FakeGSLBHostRules{c, namespace}
 }
 
-func (c *FakeAmkoV1alpha1) GlobalDeploymentPolicies(namespace string) v1alpha1.GlobalDeploymentPolicyInterface {
-	return &FakeGlobalDeploymentPolicies{c, namespace}
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeAmkoV1alpha1) RESTClient() rest.Interface {

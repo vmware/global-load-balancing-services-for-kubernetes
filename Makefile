@@ -63,4 +63,5 @@ test:
 
 .PHONY: gen-clientsets
 codegen:
-		hack/update-codegen-amkocrd.sh
+		hack/update-codegen-amkocrd.sh v1alpha1
+		hack/update-codegen-amkocrd.sh v1alpha2

@@ -15,7 +15,7 @@ spec:
     singular: globaldeploymentpolicy
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         type: object
@@ -26,9 +26,12 @@ spec:
               matchClusters:
                 type: array
                 items:
-                  type: string
-                  # object:
-                  #   type: string
+                  type: object
+                  properties:
+                    cluster:
+                      type: string
+                    syncVipOnly:
+                      type: boolean
               matchRules:
                 type: object
                 properties:

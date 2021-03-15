@@ -63,6 +63,10 @@ func setUp() {
 	keyChan = make(chan string)
 
 	setupQueue(testStopCh)
+	gf := gslbutils.GetGlobalFilter()
+	gf.ApplicableClusters = make(map[string]gslbutils.ClusterProperties)
+	gf.ApplicableClusters[FooCluster] = gslbutils.ClusterProperties{true}
+	gf.ApplicableClusters[BarCluster] = gslbutils.ClusterProperties{true}
 }
 
 func graphSyncFuncForTest(key string, wg *sync.WaitGroup) error {

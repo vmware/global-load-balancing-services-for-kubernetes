@@ -16,7 +16,7 @@ package k8sobjects
 
 import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -43,7 +43,7 @@ type NSMeta struct {
 }
 
 func (nsObj NSMeta) GetType() string {
-	return gdpv1alpha1.NSObj
+	return gdpv1alpha2.NSObj
 }
 
 func (nsObj NSMeta) GetName() string {
@@ -59,7 +59,7 @@ func (ns NSMeta) ApplyFilter() bool {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 
-	if !gslbutils.PresentInList(ns.Cluster, gf.ApplicableClusters) {
+	if !gslbutils.ClusterContextPresentInList(ns.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: Namespace, cluster: %s, name: %s, msg: namespace rejected because cluster was not selected",
 			ns.Cluster, ns.Name)
 		return false

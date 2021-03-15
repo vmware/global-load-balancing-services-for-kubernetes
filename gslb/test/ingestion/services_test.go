@@ -17,12 +17,11 @@ package ingestion
 import (
 	"testing"
 
+	"github.com/onsi/gomega"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-
-	"github.com/onsi/gomega"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +33,7 @@ const (
 	rejectedSvcStore = false
 )
 
-func addGDPAndGSLBForSvc(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
+func addGDPAndGSLBForSvc(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(true, false)
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)

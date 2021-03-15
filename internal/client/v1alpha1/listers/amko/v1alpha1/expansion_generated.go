@@ -33,11 +33,3 @@ type GSLBHostRuleListerExpansion interface{}
 // GSLBHostRuleNamespaceListerExpansion allows custom methods to be added to
 // GSLBHostRuleNamespaceLister.
 type GSLBHostRuleNamespaceListerExpansion interface{}
-
-// GlobalDeploymentPolicyListerExpansion allows custom methods to be added to
-// GlobalDeploymentPolicyLister.
-type GlobalDeploymentPolicyListerExpansion interface{}
-
-// GlobalDeploymentPolicyNamespaceListerExpansion allows custom methods to be added to
-// GlobalDeploymentPolicyNamespaceLister.
-type GlobalDeploymentPolicyNamespaceListerExpansion interface{}

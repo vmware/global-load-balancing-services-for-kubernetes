@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -65,25 +65,50 @@ func getSvcHostMap() *ObjHostMap {
 }
 
 type SvcMeta struct {
-	Cluster   string
-	Name      string
-	Namespace string
-	Hostname  string
-	IPAddr    string
-	Labels    map[string]string
-	Port      int32
-	Protocol  string
+	Cluster            string
+	Name               string
+	Namespace          string
+	Hostname           string
+	IPAddr             string
+	Labels             map[string]string
+	Port               int32
+	Protocol           string
+	VirtualServiceUUID string
+	ControllerUUID     string
 }
 
 // GetSvcMeta returns a trimmed down version of a svc
 func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
+	gf := gslbutils.GetGlobalFilter()
+	syncVIPsOnly, err := gf.IsClusterSyncVIPOnly(cname)
+	if err != nil {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error: %v",
+			cname, svc.Namespace, svc.Name, err)
+	}
+	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(svc.Annotations)
+	if err != nil && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error in parsing VS and Controller annotations: %v",
+			cname, svc.Namespace, svc.Name, err)
+	}
+	if (controllerUUID == "" || len(vsUUIDs) == 0) && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because controllerUUID or vsUUID missing from annotations: %v",
+			cname, svc.Namespace, svc.Name, svc.Annotations)
+	}
+
 	ip, hostname := GetSvcStatusIPHostname(svc)
+	vsUUID, ok := vsUUIDs[hostname]
+	if !ok && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because hostname %s missing from annotations: %v",
+			cname, svc.Namespace, svc.Name, hostname, svc.Annotations)
+	}
 	metaObj := SvcMeta{
-		Name:      svc.Name,
-		Namespace: svc.ObjectMeta.Namespace,
-		Hostname:  hostname,
-		IPAddr:    ip,
-		Cluster:   cname,
+		Name:               svc.Name,
+		Namespace:          svc.ObjectMeta.Namespace,
+		Hostname:           hostname,
+		IPAddr:             ip,
+		Cluster:            cname,
+		VirtualServiceUUID: vsUUID,
+		ControllerUUID:     controllerUUID,
 	}
 	metaObj.Labels = make(map[string]string)
 	for key, value := range svc.GetLabels() {
@@ -121,7 +146,7 @@ func GetSvcStatusIPHostname(svc *corev1.Service) (string, string) {
 }
 
 func (svc SvcMeta) GetType() string {
-	return gdpv1alpha1.LBSvcObj
+	return gdpv1alpha2.LBSvcObj
 }
 
 func (svc SvcMeta) GetName() string {
@@ -164,6 +189,14 @@ func (svc SvcMeta) IsPassthrough() bool {
 	return false
 }
 
+func (svc SvcMeta) GetVirtualServiceUUID() string {
+	return svc.VirtualServiceUUID
+}
+
+func (svc SvcMeta) GetControllerUUID() string {
+	return svc.ControllerUUID
+}
+
 func (svc SvcMeta) UpdateHostMap(key string) {
 	rhm := getSvcHostMap()
 	rhm.Lock.Lock()
@@ -197,7 +230,7 @@ func (svc SvcMeta) ApplyFilter() bool {
 	gf.GlobalLock.RLock()
 	gf.GlobalLock.RUnlock()
 
-	if !gslbutils.PresentInList(svc.Cluster, gf.ApplicableClusters) {
+	if !gslbutils.ClusterContextPresentInList(svc.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
 			svc.Cluster, svc.Namespace, svc.Name)
 		return false

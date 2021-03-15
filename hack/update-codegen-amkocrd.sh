@@ -18,8 +18,15 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [ $# -ne 1 ]; then
+	echo "Codegen needs a version parameter, e.g.: v1alpha1"
+	exit 1
+fi
+
+echo "Generating clientsets and informers for $1"
+
 # configurable envs
-readonly AMKOCRD_VERSION=v1alpha1
+readonly AMKOCRD_VERSION=$1
 readonly AMKO_PACKAGE=github.com/vmware/global-load-balancing-services-for-kubernetes
 
 ###
@@ -38,7 +45,7 @@ export GO111MODULE GOFLAGS GOPATH
 mkdir -p "$GOPATH/src/github.com/vmware"
 ln -s "${SCRIPT_ROOT}" "$GOPATH/src/${AMKO_PACKAGE}"
 
-readonly OUTPUT_PKG="${AMKO_PACKAGE}/internal/client"
+readonly OUTPUT_PKG="${AMKO_PACKAGE}/internal/client/${AMKOCRD_VERSION}"
 readonly FQ_APIS="${AMKO_PACKAGE}/internal/apis/amko/${AMKOCRD_VERSION}"
 readonly APIS_PKG=AMKO_PACKAGE
 readonly CLIENTSET_NAME=versioned

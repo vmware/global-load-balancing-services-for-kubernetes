@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	routev1 "github.com/openshift/api/route/v1"
 )
@@ -36,14 +36,36 @@ func getRouteHostMap() *ObjHostMap {
 
 // GetRouteMeta returns a trimmed down version of a route
 func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
+	gf := gslbutils.GetGlobalFilter()
+	syncVIPsOnly, err := gf.IsClusterSyncVIPOnly(cname)
+	if err != nil {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
+			cname, route.Namespace, route.Name, err)
+	}
+	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(route.Annotations)
+	if err != nil && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
+			cname, route.Namespace, route.Name, err)
+	}
+	if (len(vsUUIDs) == 0 || controllerUUID == "") && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because either VS UUID or controller UUID missing from annotations: %v",
+			cname, route.Namespace, route.Name, route.Annotations)
+	}
+	vsUUID, ok := vsUUIDs[route.Spec.Host]
+	if !ok && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: hostname %s is missing from VS UUID annotations",
+			cname, route.Namespace, route.Name, route.Spec.Host)
+	}
 	ipAddr, _ := gslbutils.RouteGetIPAddr(route)
 	metaObj := RouteMeta{
-		Name:      route.Name,
-		Namespace: route.ObjectMeta.Namespace,
-		Hostname:  route.Spec.Host,
-		IPAddr:    ipAddr,
-		Cluster:   cname,
-		TLS:       false,
+		Name:               route.Name,
+		Namespace:          route.ObjectMeta.Namespace,
+		Hostname:           route.Spec.Host,
+		IPAddr:             ipAddr,
+		Cluster:            cname,
+		TLS:                false,
+		VirtualServiceUUID: vsUUID,
+		ControllerUUID:     controllerUUID,
 	}
 	metaObj.Labels = make(map[string]string)
 	routeLabels := route.GetLabels()
@@ -78,21 +100,23 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 // RouteMeta is the metadata for a route. It is the minimal information
 // that we maintain for each route, accepted or rejected.
 type RouteMeta struct {
-	Cluster     string
-	Name        string
-	Namespace   string
-	Hostname    string
-	IPAddr      string
-	Labels      map[string]string
-	Paths       []string
-	TLS         bool
-	Port        int32
-	Protocol    string
-	Passthrough bool
+	Cluster            string
+	Name               string
+	Namespace          string
+	Hostname           string
+	IPAddr             string
+	Labels             map[string]string
+	Paths              []string
+	TLS                bool
+	Port               int32
+	Protocol           string
+	Passthrough        bool
+	VirtualServiceUUID string
+	ControllerUUID     string
 }
 
 func (route RouteMeta) GetType() string {
-	return gdpv1alpha1.RouteObj
+	return gdpv1alpha2.RouteObj
 }
 
 func (route RouteMeta) GetName() string {
@@ -146,6 +170,14 @@ func (route RouteMeta) IsPassthrough() bool {
 	return route.Passthrough
 }
 
+func (route RouteMeta) GetVirtualServiceUUID() string {
+	return route.VirtualServiceUUID
+}
+
+func (route RouteMeta) GetControllerUUID() string {
+	return route.ControllerUUID
+}
+
 func (route RouteMeta) UpdateHostMap(key string) {
 	rhm := getRouteHostMap()
 	rhm.Lock.Lock()
@@ -179,7 +211,7 @@ func (route RouteMeta) ApplyFilter() bool {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 
-	if !gslbutils.PresentInList(route.Cluster, gf.ApplicableClusters) {
+	if !gslbutils.ClusterContextPresentInList(route.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: Route, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",
 			route.Cluster, route.Namespace, route.Name)
 		return false

@@ -81,26 +81,32 @@ type AviGSK8sObj struct {
 	IPAddr    string
 	Weight    int32
 	// Port and protocol will be only used by LB service
-	Port  int32
-	Proto string
-	TLS   bool
-	Paths []string
+	Port               int32
+	Proto              string
+	TLS                bool
+	Paths              []string
+	VirtualServiceUUID string
+	ControllerUUID     string
+	SyncVIPOnly        bool
 }
 
 func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 	paths := make([]string, len(gsk8sObj.Paths))
 	copy(paths, gsk8sObj.Paths)
 	obj := AviGSK8sObj{
-		Cluster:   gsk8sObj.Cluster,
-		ObjType:   gsk8sObj.ObjType,
-		Name:      gsk8sObj.Name,
-		Namespace: gsk8sObj.Namespace,
-		IPAddr:    gsk8sObj.IPAddr,
-		Weight:    gsk8sObj.Weight,
-		Port:      gsk8sObj.Port,
-		Proto:     gsk8sObj.Proto,
-		TLS:       gsk8sObj.TLS,
-		Paths:     paths,
+		Cluster:            gsk8sObj.Cluster,
+		ObjType:            gsk8sObj.ObjType,
+		Name:               gsk8sObj.Name,
+		Namespace:          gsk8sObj.Namespace,
+		IPAddr:             gsk8sObj.IPAddr,
+		Weight:             gsk8sObj.Weight,
+		Port:               gsk8sObj.Port,
+		Proto:              gsk8sObj.Proto,
+		TLS:                gsk8sObj.TLS,
+		Paths:              paths,
+		VirtualServiceUUID: gsk8sObj.VirtualServiceUUID,
+		ControllerUUID:     gsk8sObj.ControllerUUID,
+		SyncVIPOnly:        gsk8sObj.SyncVIPOnly,
 	}
 	return obj
 }
@@ -181,11 +187,17 @@ func (v *AviGSObjectGraph) GetHmChecksum() uint32 {
 
 func (v *AviGSObjectGraph) CalculateChecksum() {
 	// A sum of fields for this GS
-	var memberIPs []string
 	var memberObjs []string
+	var memberAddrs []string
 
 	for _, gsMember := range v.MemberObjs {
-		memberIPs = append(memberIPs, gsMember.IPAddr+"-"+strconv.Itoa(int(gsMember.Weight)))
+		var server string
+		if !gsMember.SyncVIPOnly {
+			server = gsMember.VirtualServiceUUID + "-" + gsMember.ControllerUUID
+		} else {
+			server = gsMember.IPAddr
+		}
+		memberAddrs = append(memberAddrs, server+"-"+strconv.Itoa(int(gsMember.Weight)))
 		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
 	}
 
@@ -195,7 +207,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	} else {
 		hmNames = v.Hm.PathNames
 	}
-	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberIPs, v.DomainNames, memberObjs, hmNames)
+	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames)
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -305,16 +317,32 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 		// for LB type services and passthrough routes, the path list will be empty
 		gslbutils.Debugf("key: %s, gsName: %s, msg: path list not available for object %s", key, gsName, err.Error())
 	}
+	cname := metaObj.GetCluster()
+	gf := gslbutils.GetGlobalFilter()
+	syncVIPOnly, err := gf.IsClusterSyncVIPOnly(cname)
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, cluster: %s, msg: error in getting the sync type for cluster: %v",
+			key, gsName, cname, err)
+		return
+	}
+	if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
+		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't add member",
+			v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
+		return
+	}
 	memberRoutes := []AviGSK8sObj{
 		{
-			Cluster:   metaObj.GetCluster(),
-			ObjType:   metaObj.GetType(),
-			IPAddr:    metaObj.GetIPAddr(),
-			Weight:    memberWeight,
-			Name:      metaObj.GetName(),
-			Namespace: metaObj.GetNamespace(),
-			TLS:       tls,
-			Paths:     paths,
+			Cluster:            metaObj.GetCluster(),
+			ObjType:            metaObj.GetType(),
+			IPAddr:             metaObj.GetIPAddr(),
+			Weight:             memberWeight,
+			Name:               metaObj.GetName(),
+			Namespace:          metaObj.GetNamespace(),
+			TLS:                tls,
+			Paths:              paths,
+			VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
+			ControllerUUID:     metaObj.GetControllerUUID(),
+			SyncVIPOnly:        syncVIPOnly,
 		},
 	}
 	// The GSLB service will be put into the admin tenant
@@ -412,6 +440,15 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		svcProtocol, _ = metaObj.GetProtocol()
 	}
 
+	cname := metaObj.GetCluster()
+	gf := gslbutils.GetGlobalFilter()
+	syncVIPOnly, err := gf.IsClusterSyncVIPOnly(cname)
+	if err != nil {
+		gslbutils.Errf("gsName: %s, cluster: %s, msg: couldn't find the sync type for member: %v",
+			v.Name, cname, err)
+		return
+	}
+
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
 	for idx, memberObj := range v.MemberObjs {
 		if metaObj.GetType() != memberObj.ObjType {
@@ -427,6 +464,14 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 			continue
 		}
 		// if we reach here, it means this is the member we need to update
+		if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
+			gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
+				v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
+			return
+		}
+		v.MemberObjs[idx].VirtualServiceUUID = metaObj.GetVirtualServiceUUID()
+		v.MemberObjs[idx].ControllerUUID = metaObj.GetControllerUUID()
+		v.MemberObjs[idx].SyncVIPOnly = syncVIPOnly
 		v.MemberObjs[idx].IPAddr = metaObj.GetIPAddr()
 		v.MemberObjs[idx].Weight = weight
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, metaObj.GetType())
@@ -449,16 +494,26 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 
 	// We reach here only if a new member needs to be created, so create and append
 	gsMember := AviGSK8sObj{
-		Cluster:   metaObj.GetCluster(),
-		Namespace: metaObj.GetNamespace(),
-		Name:      metaObj.GetName(),
-		IPAddr:    metaObj.GetIPAddr(),
-		Weight:    weight,
-		ObjType:   metaObj.GetType(),
-		Port:      svcPort,
-		Proto:     svcProtocol,
-		Paths:     paths,
+		Cluster:            metaObj.GetCluster(),
+		Namespace:          metaObj.GetNamespace(),
+		Name:               metaObj.GetName(),
+		IPAddr:             metaObj.GetIPAddr(),
+		Weight:             weight,
+		ObjType:            metaObj.GetType(),
+		Port:               svcPort,
+		Proto:              svcProtocol,
+		Paths:              paths,
+		VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
+		ControllerUUID:     metaObj.GetControllerUUID(),
+		SyncVIPOnly:        syncVIPOnly,
 	}
+	// if we reach here, it means this is the member we need to update
+	if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
+		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't add member",
+			v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
+		return
+	}
+
 	v.MemberObjs = append(v.MemberObjs, gsMember)
 	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
 		v.checkAndUpdateNonPathHealthMonitor(objType, metaObj.IsPassthrough())
@@ -550,7 +605,8 @@ func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 	return objs
 }
 
-// GetUniqueMemberList returns a non-duplicated list of objects, uniqueness is checked by the IPAddr
+// GetUniqueMemberObjs returns a non-duplicated list of objects, uniqueness is checked by the IPAddr
+// TODO: Check the uniqueness depending on the member type (vip or vs uuid)
 func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
@@ -563,12 +619,15 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 			continue
 		}
 		uniqueObjs = append(uniqueObjs, AviGSK8sObj{
-			Cluster:   memberObj.Cluster,
-			ObjType:   memberObj.ObjType,
-			Name:      memberObj.Name,
-			Namespace: memberObj.Namespace,
-			IPAddr:    memberObj.IPAddr,
-			Weight:    memberObj.Weight,
+			Cluster:            memberObj.Cluster,
+			ObjType:            memberObj.ObjType,
+			Name:               memberObj.Name,
+			Namespace:          memberObj.Namespace,
+			IPAddr:             memberObj.IPAddr,
+			Weight:             memberObj.Weight,
+			ControllerUUID:     memberObj.ControllerUUID,
+			VirtualServiceUUID: memberObj.VirtualServiceUUID,
+			SyncVIPOnly:        memberObj.SyncVIPOnly,
 		})
 		memberVips = append(memberVips, memberObj.IPAddr)
 	}

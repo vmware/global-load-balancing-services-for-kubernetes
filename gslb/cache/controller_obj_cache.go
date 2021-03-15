@@ -24,7 +24,7 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
-	gdpv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	"github.com/avinetworks/sdk/go/clients"
 	"github.com/avinetworks/sdk/go/models"
@@ -210,8 +210,10 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 }
 
 type GSMember struct {
-	IPAddr string
-	Weight int32
+	IPAddr     string
+	Weight     int32
+	VsUUID     string
+	Controller string
 }
 
 type AviGSCache struct {
@@ -395,15 +397,15 @@ func parseDescription(description string) ([]string, error) {
 	for _, obj := range objList {
 		seg := strings.Split(obj, "/")
 		switch seg[0] {
-		case gdpv1alpha1.IngressObj:
+		case gdpv1alpha2.IngressObj:
 			if len(seg) != 5 {
 				return []string{}, errors.New("description field has malformed ingress: " + description)
 			}
-		case gdpv1alpha1.LBSvcObj:
+		case gdpv1alpha2.LBSvcObj:
 			if len(seg) != 4 {
 				return []string{}, errors.New("description field has malformed LB service: " + description)
 			}
-		case gdpv1alpha1.RouteObj:
+		case gdpv1alpha2.RouteObj:
 			if len(seg) != 4 {
 				return []string{}, errors.New("description field has malformed route: " + description)
 			}
@@ -415,11 +417,8 @@ func parseDescription(description string) ([]string, error) {
 }
 
 func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, error) {
-	var ipList []string
-	var domainList []string
+	var serverList, domainList, memberObjs, hms []string
 	var gsMembers []GSMember
-	var memberObjs []string
-	var hms []string
 
 	domainNames := gsObj.DomainNames
 	if len(domainNames) == 0 {
@@ -481,11 +480,24 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 				gslbutils.Warnf("invalid weight present, assigning 0: %v", member)
 				weight = 0
 			}
-			ipList = append(ipList, ipAddr+"-"+strconv.Itoa(int(weight)))
 			gsMember := GSMember{
 				IPAddr: ipAddr,
 				Weight: weight,
 			}
+			// Compute which server to add for this member (for checksum calculation)
+			var server string
+			if member.VsUUID != nil {
+				gsMember.VsUUID = *member.VsUUID
+				server = *member.VsUUID
+			}
+			if member.ClusterUUID != nil {
+				gsMember.Controller = *member.ClusterUUID
+				server += "-" + *member.ClusterUUID
+			}
+			if server == "" {
+				server = ipAddr
+			}
+			serverList = append(serverList, server+"-"+strconv.Itoa(int(weight)))
 			gsMembers = append(gsMembers, gsMember)
 		}
 	}
@@ -494,16 +506,13 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs, hms)
+	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 
 func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []string, error) {
-	var ipList []string
-	var domainList []string
+	var serverList, domainList, memberObjs, hms []string
 	var gsMembers []GSMember
-	var memberObjs []string
-	var hms []string
 
 	domainNames, ok := gslbSvcMap["domain_names"].([]interface{})
 	if !ok {
@@ -571,10 +580,28 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 				weight = 0
 			}
 			weightI := int32(weight)
-			ipList = append(ipList, ipAddr+"-"+strconv.Itoa(int(weightI)))
+			vsUUID, ok := member["vs_uuid"].(string)
+			if !ok {
+				gslbutils.Warnf("couldn't parse the vs uuid, assigning \"\": %v", member)
+				vsUUID = ""
+			}
+			controllerUUID, ok := member["cluster_uuid"].(string)
+			if !ok {
+				gslbutils.Warnf("couldn't parse the controller cluster uuid, assigning \"\": %v", member)
+				controllerUUID = ""
+			}
+			var server string
+			if vsUUID != "" {
+				server = vsUUID + "-" + controllerUUID
+			} else {
+				server = ipAddr
+			}
+			serverList = append(serverList, server+"-"+strconv.Itoa(int(weightI)))
 			gsMember := GSMember{
-				IPAddr: ipAddr,
-				Weight: weightI,
+				IPAddr:     ipAddr,
+				Weight:     weightI,
+				Controller: controllerUUID,
+				VsUUID:     vsUUID,
 			}
 			gsMembers = append(gsMembers, gsMember)
 		}
@@ -584,7 +611,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(ipList, domainList, memberObjs, hms)
+	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 

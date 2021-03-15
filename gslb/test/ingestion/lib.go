@@ -20,8 +20,9 @@ import (
 	"time"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
-	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/clientset/versioned/fake"
+	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/fake"
 
 	oshiftfake "github.com/openshift/client-go/route/clientset/versioned/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,11 +78,11 @@ func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 	return gslbConfigObj
 }
 
-func getTestGDPObject(appLabelReq, nsLabelReq bool) *gslbalphav1.GlobalDeploymentPolicy {
+func getTestGDPObject(appLabelReq, nsLabelReq bool) *gdpalphav2.GlobalDeploymentPolicy {
 	ns := gslbutils.AVISystem
-	matchRules := gslbalphav1.MatchRules{
-		AppSelector:       gslbalphav1.AppSelector{},
-		NamespaceSelector: gslbalphav1.NamespaceSelector{},
+	matchRules := gdpalphav2.MatchRules{
+		AppSelector:       gdpalphav2.AppSelector{},
+		NamespaceSelector: gdpalphav2.NamespaceSelector{},
 	}
 
 	if appLabelReq {
@@ -93,17 +94,25 @@ func getTestGDPObject(appLabelReq, nsLabelReq bool) *gslbalphav1.GlobalDeploymen
 		matchRules.NamespaceSelector.Label["ns"] = "value"
 	}
 
-	matchClusters := []string{"cluster1", "cluster2"}
-	gdpSpec := gslbalphav1.GDPSpec{
-		MatchRules:    matchRules,
-		MatchClusters: matchClusters,
+	gdpSpec := gdpalphav2.GDPSpec{
+		MatchRules: matchRules,
+		MatchClusters: []gdpalphav2.ClusterProperty{
+			{
+				Cluster:     "cluster1",
+				SyncVipOnly: true,
+			},
+			{
+				Cluster:     "cluster2",
+				SyncVipOnly: true,
+			},
+		},
 	}
 	gdpMeta := metav1.ObjectMeta{
 		Name:            "test-gdp-1",
 		Namespace:       ns,
 		ResourceVersion: "100",
 	}
-	gdp := gslbalphav1.GlobalDeploymentPolicy{
+	gdp := gdpalphav2.GlobalDeploymentPolicy{
 		ObjectMeta: gdpMeta,
 		Spec:       gdpSpec,
 	}
@@ -232,7 +241,7 @@ func buildRouteKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, n
 	}
 }
 
-func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
+func addGDPAndGSLBForIngress(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	gslbObj := getTestGSLBObject()
 	gc, err := gslbingestion.IsGSLBConfigValid(gslbObj)
 	if err != nil {
@@ -249,7 +258,7 @@ func addGDPAndGSLBForIngress(t *testing.T) *gslbalphav1.GlobalDeploymentPolicy {
 	return gdp
 }
 
-func DeleteTestGDPObj(gdp *gslbalphav1.GlobalDeploymentPolicy) {
+func DeleteTestGDPObj(gdp *gdpalphav2.GlobalDeploymentPolicy) {
 	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	gslbingestion.DeleteGDPObj(gdp, ingestionQ.Workqueue, 2)
 }
