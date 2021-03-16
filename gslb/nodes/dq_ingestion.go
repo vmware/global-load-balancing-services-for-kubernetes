@@ -152,7 +152,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		prevHmChecksum := gsGraph.GetHmChecksum()
 		// since the object was found, fetch the current checksum
 		prevChecksum = gsGraph.GetChecksum()
-		// GSGraph found, so, only need to update the member of the GSGraph's GSNode
+		// Update the member of the GSGraph's GSNode
 		aviGS.(*AviGSObjectGraph).UpdateGSMember(metaObj, memberWeight)
 		// Get the new checksum after the updates
 		newChecksum = gsGraph.GetChecksum()

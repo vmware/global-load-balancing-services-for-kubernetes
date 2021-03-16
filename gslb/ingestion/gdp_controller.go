@@ -313,6 +313,11 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 			return errors.New("traffic weight " + strconv.Itoa(int(tp.Weight)) + " must be between 1 and 20")
 		}
 	}
+
+	// Site persistence check
+	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
+		return fmt.Errorf("empty string as site persistence reference not supported")
+	}
 	return nil
 }
 
@@ -404,11 +409,11 @@ func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, 
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 }
 
-func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, trafficWeightChanged bool,
+func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, allGSPropertyChanged bool,
 	clustersToBeSynced []string) {
-	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
-	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
-	writeChangedObjToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
+	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
+	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
+	writeChangedObjToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
 }
 
 func applyAndUpdateNamespaces() {
@@ -559,11 +564,11 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't update")
 		return
 	}
-	if gdpChanged, trafficWeightChanged, clustersToBeSynced := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
+	if gdpChanged, allGSPropertyChanged, clustersToBeSynced := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
 		gslbutils.Logf("GDP object changed, will go through the objects again")
 		// first apply and update the namespaces in the filter
 		applyAndUpdateNamespaces()
-		WriteChangedObjsToQueue(k8swq, numWorkers, trafficWeightChanged, clustersToBeSynced)
+		WriteChangedObjsToQueue(k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
 	}
 }
 

@@ -141,7 +141,9 @@ type GSLBHostRuleStatus struct {
 	Status string `json:"status,omitempty"`
 }
 
-// SitePersistence
+// SitePersistence has the required properties to enable site persistence for a GS.
+// If it needs to be enabled, `Enabled` must be set to true, and a persistence profile
+// ref has to be specified.
 type SitePersistence struct {
 	Enabled    bool   `json:"enabled,omitempty"`
 	ProfileRef string `json:"profileRef,omitempty"`

@@ -46,9 +46,12 @@ type GlobalDeploymentPolicyList struct {
 
 // GDPSpec encloses all the properties of a GDP object.
 type GDPSpec struct {
-	MatchRules    MatchRules         `json:"matchRules,omitempty"`
-	MatchClusters []ClusterProperty  `json:"matchClusters,omitempty"`
-	TrafficSplit  []TrafficSplitElem `json:"trafficSplit,omitempty"`
+	MatchRules         MatchRules         `json:"matchRules,omitempty"`
+	MatchClusters      []ClusterProperty  `json:"matchClusters,omitempty"`
+	TrafficSplit       []TrafficSplitElem `json:"trafficSplit,omitempty"`
+	HealthMonitorRefs  []string           `json:"healthMonitorRefs,omitempty"`
+	TTL                *int               `json:"ttl,omitempty"`
+	SitePersistenceRef *string            `json:"sitePersistenceRef,omitempty"`
 }
 
 // ClusterProperty specifies all the properties required for a Cluster. Cluster is the cluster

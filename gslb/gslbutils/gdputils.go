@@ -17,6 +17,7 @@ package gslbutils
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -62,13 +63,6 @@ var (
 	gfOnce sync.Once
 )
 
-const (
-	// SyncTypeVirtualServices only syncs the virtual service uuids with the controller uuids.
-	SyncTypeVirtualServices = 0
-	// SyncTypeThirdPartyVips syncs the IP addresses present in the ingress/service/route objects.
-	SyncTypeThirdPartyVips = 1
-)
-
 // ClusterProperties contains the properties for a cluster.
 type ClusterProperties struct {
 	// SyncVipsOnly advises AMKO to sync only the VIPs of the member objects of a GS
@@ -87,7 +81,13 @@ type GlobalFilter struct {
 	// ApplicableClusters contain the list of clusters on which the filters
 	// will be applicable
 	ApplicableClusters map[string]ClusterProperties
-	Checksum           uint32
+	// List of health monitors to be attached to all the GSs
+	HealthMonitorRefs []string
+	// Site Persistence properties to be applied to all the GSs
+	SitePersistenceRef *string
+	// Time To Live value for each fqdn
+	TTL      *int
+	Checksum uint32
 	// Respective filters for the namespaces.
 	// NSFilterMap map[string]*NSFilter
 	// GlobalLock is locked before accessing any of the filters.
@@ -144,6 +144,29 @@ func (gf *GlobalFilter) AddNSToNSFilter(cname, ns string) error {
 	gf.NSFilter.AddNS(cname, ns)
 
 	return nil
+}
+
+func (gf *GlobalFilter) GetAviHmRefs() []string {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	aviHmRefs := make([]string, len(gf.HealthMonitorRefs))
+	copy(aviHmRefs, gf.HealthMonitorRefs)
+	return aviHmRefs
+}
+
+func (gf *GlobalFilter) GetSitePersistence() *string {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.SitePersistenceRef
+}
+
+func (gf *GlobalFilter) GetTTL() *int {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.TTL
 }
 
 type AppFilter struct {
@@ -250,12 +273,22 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		}
 		gf.TrafficSplit = append(gf.TrafficSplit, ct)
 	}
+
+	if len(gdp.Spec.HealthMonitorRefs) > 0 {
+		gf.HealthMonitorRefs = make([]string, len(gdp.Spec.HealthMonitorRefs))
+		copy(gf.HealthMonitorRefs, gdp.Spec.HealthMonitorRefs)
+	}
+
+	gf.TTL = gdp.Spec.TTL
+	gf.SitePersistenceRef = gdp.Spec.SitePersistenceRef
+
 	gf.ComputeChecksum()
 	Logf("ns: %s, object: NSFilter, msg: added/changed the global filter", gdp.ObjectMeta.Namespace)
 }
 
 func (gf *GlobalFilter) ComputeChecksum() {
 	var cksum uint32
+	var hmRefs []string
 
 	if gf.AppFilter != nil {
 		cksum += utils.Hash(gf.AppFilter.Key + gf.AppFilter.Value)
@@ -269,6 +302,19 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	for _, ts := range gf.TrafficSplit {
 		cksum += utils.Hash(ts.ClusterName + strconv.Itoa(int(ts.Weight)))
 	}
+	if gf.SitePersistenceRef != nil {
+		cksum += utils.Hash(*gf.SitePersistenceRef)
+	}
+	if gf.TTL != nil {
+		cksum += utils.Hash(utils.Stringify(*gf.TTL))
+	}
+	if len(gf.HealthMonitorRefs) > 0 {
+		hmRefs = make([]string, len(gf.HealthMonitorRefs))
+		copy(hmRefs, gf.HealthMonitorRefs)
+		sort.Strings(hmRefs)
+		cksum += utils.Hash(utils.Stringify(hmRefs))
+	}
+
 	gf.Checksum = cksum
 }
 
@@ -363,6 +409,52 @@ func isSyncTypeChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) []string {
 	return clustersToBeSynced
 }
 
+func isHmRefsChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	if len(old.Spec.HealthMonitorRefs) != len(new.Spec.HealthMonitorRefs) {
+		return true
+	}
+	oldHmRefs := make(map[string]struct{})
+	for _, hmRef := range old.Spec.HealthMonitorRefs {
+		oldHmRefs[hmRef] = struct{}{}
+	}
+	for _, hmRef := range new.Spec.HealthMonitorRefs {
+		if _, exists := oldHmRefs[hmRef]; !exists {
+			return true
+		}
+	}
+	return false
+}
+
+func isSitePersistenceChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	newSp := new.Spec.SitePersistenceRef
+	oldSp := old.Spec.SitePersistenceRef
+
+	if newSp != nil && oldSp == nil {
+		return true
+	} else if newSp == nil && oldSp != nil {
+		return true
+	} else if newSp != nil && oldSp != nil && *newSp != *oldSp {
+		return true
+	}
+	return false
+}
+
+func isTTLChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	if new.Spec.TTL == nil && old.Spec.TTL != nil {
+		return true
+	} else if new.Spec.TTL != nil && old.Spec.TTL == nil {
+		return true
+	} else if new.Spec.TTL != nil && old.Spec.TTL != nil && *new.Spec.TTL != *old.Spec.TTL {
+		return true
+	}
+	return false
+}
+
+func isAllGSPropertyChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	return isHmRefsChanged(old, new) || isSitePersistenceChanged(old, new) ||
+		isTTLChanged(old, new) || isTrafficWeightChanged(new, old)
+}
+
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
 // whether a change is required to any of the filters. If yes, it changes either the cluster
 // filter or one of the namespace filters.
@@ -387,11 +479,14 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.NSFilter = nf.NSFilter
 	gf.TrafficSplit = nf.TrafficSplit
 	gf.ApplicableClusters = nf.ApplicableClusters
+	gf.TTL = nf.TTL
+	gf.SitePersistenceRef = nf.SitePersistenceRef
+	gf.HealthMonitorRefs = nf.HealthMonitorRefs
 	gf.Checksum = nf.Checksum
 
-	trafficWeightChanged := isTrafficWeightChanged(newGDP, oldGDP)
 	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)
-	return true, trafficWeightChanged, clustersToBeSynced
+
+	return true, isAllGSPropertyChanged(newGDP, oldGDP), clustersToBeSynced
 }
 
 // DeleteFromGlobalFilter deletes a filter pertaining to gdp.
@@ -414,6 +509,9 @@ func GetNewGlobalFilter() *GlobalFilter {
 		NSFilter:           nil,
 		TrafficSplit:       []ClusterTraffic{},
 		ApplicableClusters: make(map[string]ClusterProperties),
+		HealthMonitorRefs:  []string{},
+		TTL:                nil,
+		SitePersistenceRef: nil,
 	}
 	return gf
 }

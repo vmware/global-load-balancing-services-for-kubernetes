@@ -93,6 +93,9 @@ const (
 
 	// Timeout for rest operations
 	RestTimeoutSecs = 600
+
+	// Env vars
+	GslbLeader = "GSLB_CTRL_IP_ADDRESS"
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -269,7 +272,8 @@ var (
 	RejectedNSStore      *ObjectStore
 )
 
-func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string) uint32 {
+func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
+	persistenceProfileRef *string, ttl *int) uint32 {
 
 	sort.Strings(serverList)
 	sort.Strings(domainList)
@@ -277,10 +281,19 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 	sort.Strings(hmNames)
 
 	// checksum has to take into consideration the non-path HMs and the path based HMs
-	return utils.Hash(utils.Stringify(serverList)) +
+	cksum := utils.Hash(utils.Stringify(serverList)) +
 		utils.Hash(utils.Stringify(domainList)) +
 		utils.Hash(utils.Stringify(memberObjs)) +
 		utils.Hash(utils.Stringify(hmNames))
+	if ttl != nil {
+		cksum += utils.Hash(utils.Stringify(*ttl))
+	}
+	// TODO: verify if this affects the existing GSs
+
+	if persistenceProfileRef != nil {
+		cksum += utils.Hash(*persistenceProfileRef)
+	}
+	return cksum
 }
 
 func GetGSLBHmChecksum(name, hmType string, port int32) uint32 {
