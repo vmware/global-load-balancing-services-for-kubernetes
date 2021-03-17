@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 
@@ -137,41 +136,7 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendResponseForObjects(objects []string, w http.ResponseWriter, r *http.Request) {
-	switch objects[1] {
-	case "gslbservice":
-		if len(objects) > 1 {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error": "resource not found"}`))
-			return
-		}
-		FeedMockGSData(w, r)
-	case "cloud":
-		FeedMockCloudData(w, r)
-	case "cluster":
-		FeedMockClusterData(w, r)
-	case "gslb":
-		FeedMockGslbData(w, r)
-	case "healthmonitor":
-		FeedMockHMData(w, r)
-	default:
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "resource not found"}`))
-	}
-
-}
-
-func GetMockFilePath(mockFileName string) string {
-	mockDir := os.Getenv("MOCK_DATA_DIR")
-	if mockDir != "" {
-		return mockDir + mockFileName
-	}
-
-	return "../avimockobjects/" + mockFileName
-}
-
-func FeedMockGSData(w http.ResponseWriter, r *http.Request) {
-	mockFilePath := GetMockFilePath("gslbservice_mock.json")
+func FeedMockData(w http.ResponseWriter, r *http.Request, mockFilePath string) {
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {

@@ -19,6 +19,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -48,4 +50,8 @@ func setUp() {
 	keyChan = make(chan string)
 
 	setupQueue(testStopCh)
+	gslbutils.SetControllerAsLeader()
+	mockaviserver.NewAviMockAPIServer()
+	url := mockaviserver.GetMockServerURL()
+	gslbutils.NewAviControllerConfig("admin", "admin", url, "20.1.1")
 }
