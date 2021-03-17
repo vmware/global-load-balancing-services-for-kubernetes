@@ -48,10 +48,12 @@ const (
 	ObjectDelete = "DELETE"
 	ObjectUpdate = "UPDATE"
 	// Ingestion layer objects
-	RouteType        = gdpalphav2.RouteObj
-	IngressType      = gdpalphav2.IngressObj
-	SvcType          = gdpalphav2.LBSvcObj
-	PassthroughRoute = "passthrough"
+	RouteType            = gdpalphav2.RouteObj
+	IngressType          = gdpalphav2.IngressObj
+	SvcType              = gdpalphav2.LBSvcObj
+	GSFQDNType           = "GSFqdn"
+	PassthroughRoute     = "passthrough"
+	ThirdPartyMemberType = "ThirdPartyMember"
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
 	// Store types
@@ -61,6 +63,7 @@ const (
 	// Multi-cluster key lengths
 	IngMultiClusterKeyLen = 6
 	MultiClusterKeyLen    = 5
+	GSFQDNKeyLen          = 3
 
 	// Default values for Retry Operations
 	SlowSyncTime      = 120
@@ -133,8 +136,14 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 		}
 	} else if len(segments) == MultiClusterKeyLen {
 		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
+	} else if len(segments) == GSFQDNKeyLen {
+		operation, objType, name = segments[0], segments[1], segments[2]
 	}
 	return operation, objType, cluster, ns, name
+}
+
+func GSFQDNKey(operation, objType, gsFqdn string) string {
+	return operation + "/" + objType + "/" + gsFqdn
 }
 
 func SplitMultiClusterObjectName(name string) (string, string, string, error) {

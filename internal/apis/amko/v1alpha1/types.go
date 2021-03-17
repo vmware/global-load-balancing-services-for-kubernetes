@@ -121,10 +121,12 @@ type GSLBHostRuleSpec struct {
 	Fqdn string `json:"fqdn,omitempty"`
 	// TTL is Time To Live in seconds. This tells a DNS resolver how long to hold this DNS
 	// record.
-	TTL int `json:"ttl,omitempty"`
-	// SitePersistenceEnabled if set to true, enables stickiness to the same site where
-	// the connection from the client was initiated to.
-	SitePersistence SitePersistence `json:"sitePersistence,omitempty"`
+	TTL *int `json:"ttl,omitempty"`
+
+	// To maintain stickiness to the site where the connection was initiated, the site persistence has
+	// to be enabled and a profile ref has to be provided.
+	SitePersistence *SitePersistence `json:"sitePersistence,omitempty"`
+
 	// ThirdPartyMembers is a list of third party members site
 	ThirdPartyMembers []ThirdPartyMember `json:"thirdPartyMembers,omitempty"`
 	// HealthMonitoreRefs is a list of custom health monitors which will monitor the
@@ -134,19 +136,19 @@ type GSLBHostRuleSpec struct {
 	TrafficSplit []TrafficSplitElem `json:"trafficSplit,omitempty"`
 }
 
-// GSLBHostRuleStatus contains the current state of the GSLBHostRule resource. If the
-// current state is rejected, then an error message is also shown in the Error field.
-type GSLBHostRuleStatus struct {
-	Error  string `json:"error,omitempty"`
-	Status string `json:"status,omitempty"`
-}
-
 // SitePersistence has the required properties to enable site persistence for a GS.
 // If it needs to be enabled, `Enabled` must be set to true, and a persistence profile
 // ref has to be specified.
 type SitePersistence struct {
 	Enabled    bool   `json:"enabled,omitempty"`
 	ProfileRef string `json:"profileRef,omitempty"`
+}
+
+// GSLBHostRuleStatus contains the current state of the GSLBHostRule resource. If the
+// current state is rejected, then an error message is also shown in the Error field.
+type GSLBHostRuleStatus struct {
+	Error  string `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 type ThirdPartyMember struct {

@@ -318,7 +318,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	gf.Checksum = cksum
 }
 
-func (gf *GlobalFilter) GetTrafficWeight(ns, cname string) (int32, error) {
+func (gf *GlobalFilter) GetTrafficWeight(cname string) (int32, error) {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 	for _, ts := range gf.TrafficSplit {

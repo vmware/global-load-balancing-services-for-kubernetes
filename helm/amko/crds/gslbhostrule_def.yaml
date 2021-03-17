@@ -30,15 +30,18 @@ spec:
                 description: "Time To Live. Specify in seconds how long to hold a DNS record."
                 type: integer
                 minimum: 0
+                maximum: 86400
               sitePersistence:
-                description: "Maintain stickiness to the same site where the connection was initiated."
+                description: "Maintain stickiness to the same site where the connection was initiated. Provide the profile ref for site persistence."
                 type: object
                 properties:
                   enabled:
-                    description: "Enable/Disable GSLB site persistence"
+                    description: enable/disable Site Persistence, if enabled but no profile given, this will error out. If disabled,
+                                then Site Persistence will be disabled. If sitePersistence itself is absent, the site persistence
+                                will be derived from the GDP object
                     type: boolean
                   profileRef:
-                    description: "Custom site persistence profile reference, will be applied on the GSLB Service"
+                    description: "Custom Site Persistence profile reference, will be applied on the applicable GSLB Service"
                     type: string
               thirdPartyMembers:
                 description: "ThirdPartyMembers is a list of third party members site"

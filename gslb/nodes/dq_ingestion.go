@@ -46,7 +46,7 @@ func GetObjTrafficRatio(ns, cname string) int32 {
 		gslbutils.Errf("ns: %s, cname: %s, msg: global filter can't be nil at this stage", ns, cname)
 		return 1
 	}
-	val, err := globalFilter.GetTrafficWeight(ns, cname)
+	val, err := globalFilter.GetTrafficWeight(cname)
 	if err != nil {
 		gslbutils.Warnf("ns: %s, cname: %s, msg: error occured while fetching traffic info for this cluster, %s",
 			ns, cname, err.Error())
@@ -112,6 +112,40 @@ func PublishAllGraphKeys() {
 		sharedQ.Workqueue[bkt].AddRateLimited(key)
 		gslbutils.Logf("process: resyncNodes, modelName: %s, msg: published key to rest layer", key)
 	}
+}
+
+func AddUpdateGSFqdnOperation(key, objType, objName string, wq *utils.WorkerQueue, agl *AviGSGraphLister) {
+	modelName := utils.ADMIN_NS + "/" + objName
+	found, aviGS := agl.Get(modelName)
+	if !found {
+		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "checking if a new model is required")
+		aviGS = NewAviGSObjectGraph()
+		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, true)
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
+			*(aviGS.(*AviGSObjectGraph))))
+		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
+	} else {
+		gsGraph := aviGS.(*AviGSObjectGraph)
+		prevHmChecksum := gsGraph.GetHmChecksum()
+		prevChecksum := gsGraph.GetChecksum()
+		// update the GS graph
+		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false)
+		newChecksum := gsGraph.GetChecksum()
+		newHmChecksum := gsGraph.GetHmChecksum()
+		gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
+			newChecksum, prevHmChecksum, newHmChecksum, key)
+		if (prevChecksum == newChecksum) && (prevHmChecksum == newHmChecksum) {
+			// Checksums are same, return
+			gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, objName, *gsGraph,
+				"the model for this key has identical checksums"))
+			return
+		}
+		aviGS.(*AviGSObjectGraph).SetRetryCounter()
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, objName, *gsGraph,
+			"updated the model"))
+		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
+	}
+	PublishKeyToRestLayer(utils.ADMIN_NS, objName, key, wq)
 }
 
 func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue,
@@ -252,7 +286,8 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 }
 
 func isAcceptableObject(objType string) bool {
-	return objType == gslbutils.RouteType || objType == gslbutils.IngressType || objType == gslbutils.SvcType
+	return objType == gslbutils.RouteType || objType == gslbutils.IngressType || objType == gslbutils.SvcType ||
+		objType == gslbutils.GSFQDNType
 }
 
 func DequeueIngestion(key string) {
@@ -266,11 +301,23 @@ func DequeueIngestion(key string) {
 	}
 	switch objectOperation {
 	case gslbutils.ObjectAdd:
-		AddUpdateObjOperation(key, cname, ns, objType, objName, sharedQueue, false, SharedAviGSGraphLister())
+		if objType == gslbutils.GSFQDNType {
+			AddUpdateGSFqdnOperation(key, objType, objName, sharedQueue, SharedAviGSGraphLister())
+		} else {
+			AddUpdateObjOperation(key, cname, ns, objType, objName, sharedQueue, false, SharedAviGSGraphLister())
+		}
 	case gslbutils.ObjectDelete:
-		deleteObjOperation(key, cname, ns, objType, objName, sharedQueue)
+		if objType == gslbutils.GSFQDNType {
+			AddUpdateGSFqdnOperation(key, objType, objName, sharedQueue, SharedAviGSGraphLister())
+		} else {
+			deleteObjOperation(key, cname, ns, objType, objName, sharedQueue)
+		}
 	case gslbutils.ObjectUpdate:
-		AddUpdateObjOperation(key, cname, ns, objType, objName, sharedQueue, false, SharedAviGSGraphLister())
+		if objType == gslbutils.GSFQDNType {
+			AddUpdateGSFqdnOperation(key, objType, objName, sharedQueue, SharedAviGSGraphLister())
+		} else {
+			AddUpdateObjOperation(key, cname, ns, objType, objName, sharedQueue, false, SharedAviGSGraphLister())
+		}
 	}
 }
 

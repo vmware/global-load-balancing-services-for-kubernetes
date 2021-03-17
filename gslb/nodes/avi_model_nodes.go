@@ -137,6 +137,11 @@ func (hm HealthMonitor) getCopy() HealthMonitor {
 	return hmObj
 }
 
+type ThirdPartyMember struct {
+	Site string
+	VIP  string
+}
+
 // AviGSObjectGraph is a graph constructed using AviGSNode. It is a one-to-one mapping between
 // the name of the object and the GSLB Model node.
 type AviGSObjectGraph struct {
@@ -201,6 +206,9 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 			server = gsMember.IPAddr
 		}
 		memberAddrs = append(memberAddrs, server+"-"+strconv.Itoa(int(gsMember.Weight)))
+		if gsMember.ObjType == gslbutils.ThirdPartyMemberType {
+			continue
+		}
 		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
 	}
 
@@ -224,6 +232,9 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 func (v *AviGSObjectGraph) GetMemberObjList() []string {
 	var memberObjs []string
 	for _, obj := range v.MemberObjs {
+		if obj.ObjType == gslbutils.ThirdPartyMemberType {
+			continue
+		}
 		memberObjs = append(memberObjs, obj.ObjType+"/"+obj.Cluster+"/"+obj.Namespace+"/"+obj.Name)
 	}
 	return memberObjs
@@ -317,6 +328,32 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 }
 
+func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool) {
+	v.Lock.Lock()
+	defer v.Lock.Unlock()
+
+	// Since this GSGraph is constructed because of a GSLBHostRule, we need to only fetch the
+	// GSLBHostRule for this fqdn, the GSLBHostRule MUST be present for this fqdn, otherwise we
+	// log an error and return
+	gsHostRuleList := gslbutils.GetGSHostRulesList()
+	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsFqdn); ghRulesForFqdn != nil {
+		setGSLBPropertiesForGS(gsFqdn, v, false)
+		if !newObj {
+			v.RetryCount = gslbutils.DefaultRetryCount
+			v.CalculateChecksum()
+			return
+		}
+		v.Name = gsFqdn
+		v.Tenant = utils.ADMIN_NS
+		v.RetryCount = gslbutils.DefaultRetryCount
+		v.CalculateChecksum()
+		return
+	}
+	// error case
+	gslbutils.Errf("gsFqdn: %s, msg: can't construct a GS Graph if GSLBHostRule for fqdn is empty",
+		gsFqdn)
+}
+
 func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sobjects.MetaObject, memberWeight int32) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
@@ -340,12 +377,32 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 			v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
 		return
 	}
+
+	// check if a GSLB Host Rule has been defined for this fqdn (gsName)
+	gsHostRuleList := gslbutils.GetGSHostRulesList()
+	var ghRules gslbutils.GSHostRules
+	var ghRulesExists bool
+
+	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsName); ghRulesForFqdn != nil {
+		ghRulesForFqdn.DeepCopyInto(&ghRules)
+		ghRulesExists = true
+	}
+
+	var weight int32
+	weight = int32(-1)
+	if ghRulesExists == true {
+		for _, c := range ghRules.TrafficSplit {
+			if c.Cluster == cname {
+				weight = int32(c.Weight)
+			}
+		}
+	}
+
 	memberRoutes := []AviGSK8sObj{
 		{
 			Cluster:            metaObj.GetCluster(),
 			ObjType:            metaObj.GetType(),
 			IPAddr:             metaObj.GetIPAddr(),
-			Weight:             memberWeight,
 			Name:               metaObj.GetName(),
 			Namespace:          metaObj.GetNamespace(),
 			TLS:                tls,
@@ -361,9 +418,40 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sob
 	v.DomainNames = hosts
 	v.MemberObjs = memberRoutes
 	v.RetryCount = gslbutils.DefaultRetryCount
-	v.HmRefs = gf.GetAviHmRefs()
-	v.SitePersistenceRef = gf.GetSitePersistence()
-	v.TTL = gf.GetTTL()
+
+	if weight != -1 {
+		v.MemberObjs[0].Weight = weight
+	} else {
+		v.MemberObjs[0].Weight = memberWeight
+	}
+
+	if ghRulesExists && ghRules.TTL != nil {
+		v.TTL = ghRules.TTL
+	} else {
+		v.TTL = gf.GetTTL()
+	}
+
+	if ghRulesExists && ghRules.HmRefs != nil && len(ghRules.HmRefs) != 0 {
+		v.HmRefs = make([]string, len(ghRules.HmRefs))
+		copy(v.HmRefs, ghRules.HmRefs)
+	} else {
+		v.HmRefs = gf.GetAviHmRefs()
+	}
+
+	v.SitePersistenceRef = getSitePersistence(ghRulesExists, &ghRules, gf)
+
+	if ghRulesExists && ghRules.ThirdPartyMembers != nil && len(ghRules.ThirdPartyMembers) != 0 {
+		for _, tpm := range ghRules.ThirdPartyMembers {
+			memberObj := AviGSK8sObj{
+				ObjType:     "ThirdParty",
+				IPAddr:      tpm.VIP,
+				Name:        tpm.Site,
+				SyncVIPOnly: true,
+			}
+			v.MemberObjs = append(v.MemberObjs, memberObj)
+		}
+	}
+
 	v.buildHmPathList()
 	// Determine the health monitor(s) for this GS
 	v.buildAndAttachHealthMonitors(metaObj, key)
@@ -444,11 +532,33 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 	gf := gslbutils.GetGlobalFilter()
 
 	// Update the GS fields
-	if ttl := gf.GetTTL(); ttl != nil {
-		v.TTL = ttl
+	gsHostRuleList := gslbutils.GetGSHostRulesList()
+	var ghRules gslbutils.GSHostRules
+	var ghRulesExists bool
+
+	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(v.Name); ghRulesForFqdn != nil {
+		ghRulesForFqdn.DeepCopyInto(&ghRules)
+		ghRulesExists = true
 	}
 
-	v.SitePersistenceRef = gf.GetSitePersistence()
+	clusterWeightMap := make(map[string]int32)
+	for _, c := range ghRules.TrafficSplit {
+		clusterWeightMap[c.Cluster] = int32(c.Weight)
+	}
+
+	if ghRulesExists && ghRules.TTL != nil {
+		v.TTL = ghRules.TTL
+	} else {
+		v.TTL = gf.GetTTL()
+	}
+	v.SitePersistenceRef = getSitePersistence(ghRulesExists, &ghRules, gf)
+
+	if ghRulesExists && ghRules.HmRefs != nil && len(ghRules.HmRefs) != 0 {
+		v.HmRefs = make([]string, len(ghRules.HmRefs))
+		copy(v.HmRefs, ghRules.HmRefs)
+	} else {
+		v.HmRefs = gf.GetAviHmRefs()
+	}
 
 	paths, err := metaObj.GetPaths()
 	if err != nil {
@@ -485,7 +595,7 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		v.Hm = HealthMonitor{}
 		userProvidedHmRefs = true
 	} else {
-		v.HmRefs = []string{}
+		v.HmRefs = nil
 	}
 
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
@@ -512,7 +622,11 @@ func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight 
 		v.MemberObjs[idx].ControllerUUID = metaObj.GetControllerUUID()
 		v.MemberObjs[idx].SyncVIPOnly = syncVIPOnly
 		v.MemberObjs[idx].IPAddr = metaObj.GetIPAddr()
-		v.MemberObjs[idx].Weight = weight
+		if w, ok := clusterWeightMap[metaObj.GetCluster()]; ok {
+			v.MemberObjs[idx].Weight = w
+		} else {
+			v.MemberObjs[idx].Weight = weight
+		}
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, metaObj.GetType())
 		if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
 			v.MemberObjs[idx].Port = svcPort
