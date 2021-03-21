@@ -15,6 +15,7 @@
 package gslbutils
 
 import (
+	"context"
 	"errors"
 	"net"
 	"os"
@@ -33,6 +34,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/api/networking/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -365,7 +367,7 @@ func UpdateGSLBConfigStatus(msg string) error {
 	}
 
 	updateGSLBConfigStatusMsg(msg)
-	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(gcObj.configObj)
+	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(context.TODO(), gcObj.configObj, metav1.UpdateOptions{})
 	if updateErr != nil {
 		Errf("error in updating the GSLBConfig object: %s", updateErr.Error())
 		return errors.New("error in GSLBConfig object update, " + updateErr.Error())

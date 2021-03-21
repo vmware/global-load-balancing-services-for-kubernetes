@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"errors"
 
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
@@ -37,41 +38,15 @@ func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.Namespace
 	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
 	rejectedIngStore := gslbutils.GetRejectedIngressStore()
 
-	switch c.informers.IngressVersion {
-	case utils.CoreV1IngressInformer:
-		for _, namespace := range nsList.Items {
-			objList, err := c.informers.ClientSet.NetworkingV1beta1().Ingresses(namespace.Name).List(metav1.ListOptions{})
-			if err != nil {
-				gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
-					namespace.Name, err.Error())
-				continue
-			}
-			for _, obj := range objList.Items {
-				ingObj, ok := utils.ToNetworkingIngress(&obj)
-				if !ok {
-					gslbutils.Errf("process: fullsync, namespace: %s, msg: unable to convert obj to ingress")
-					continue
-				}
-				ingList = append(ingList, ingObj.DeepCopy())
-			}
+	for _, namespace := range nsList.Items {
+		objList, err := c.informers.ClientSet.NetworkingV1beta1().Ingresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
+				namespace.Name, err.Error())
+			continue
 		}
-	case utils.ExtV1IngressInformer:
-		for _, namespace := range nsList.Items {
-			objList, err := c.informers.ClientSet.ExtensionsV1beta1().Ingresses(namespace.Name).List(metav1.ListOptions{})
-			if err != nil {
-				gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
-					namespace.Name, err.Error())
-				continue
-			}
-			for _, obj := range objList.Items {
-				ingObj, ok := utils.ToNetworkingIngress(&obj)
-				if !ok {
-					gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
-						namespace.Name, err.Error())
-					continue
-				}
-				ingList = append(ingList, ingObj)
-			}
+		for _, obj := range objList.Items {
+			ingList = append(ingList, obj.DeepCopy())
 		}
 	}
 	for _, ing := range ingList {
@@ -85,7 +60,7 @@ func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceL
 	rejectedLBSvcStore := gslbutils.GetRejectedLBSvcStore()
 
 	for _, namespace := range nsList.Items {
-		svcList, err := c.informers.ClientSet.CoreV1().Services(namespace.Name).List(metav1.ListOptions{})
+		svcList, err := c.informers.ClientSet.CoreV1().Services(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the service list, %s",
 				namespace.Name, err.Error())
@@ -117,7 +92,7 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 	rejectedRotueStore := gslbutils.GetRejectedRouteStore()
 
 	for _, namespace := range nsList.Items {
-		routeList, err := c.informers.OshiftClient.RouteV1().Routes(namespace.Name).List(metav1.ListOptions{})
+		routeList, err := c.informers.OshiftClient.RouteV1().Routes(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the  list, %s",
 				namespace.Name, err.Error())
@@ -142,7 +117,7 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 }
 
 func checkGDPsAndInitialize() error {
-	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(metav1.ListOptions{})
+	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil
 	}
@@ -203,7 +178,7 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 			continue
 		}
 		// get all namespaces
-		selectedNamespaces, err := c.informers.ClientSet.CoreV1().Namespaces().List(metav1.ListOptions{})
+		selectedNamespaces, err := c.informers.ClientSet.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("cluster: %s, error in fetching namespaces, %s", c.name, err.Error())
 			return

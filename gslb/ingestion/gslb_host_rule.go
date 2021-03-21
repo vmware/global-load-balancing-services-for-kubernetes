@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -31,6 +32,7 @@ import (
 	gslbHostRuleListers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/listers/amko/v1alpha1"
 
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -68,7 +70,7 @@ func (gslbHostRuleController *GSLBHostRuleController) Run(stopCh <-chan struct{}
 func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string) {
 	gslbhr.Status.Error = msg
 	gslbhr.Status.Status = status
-	obj, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbhr.ObjectMeta.Namespace).Update(gslbhr)
+	obj, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbhr.ObjectMeta.Namespace).Update(context.TODO(), gslbhr, metav1.UpdateOptions{})
 	if updateErr != nil {
 		gslbutils.Errf("Error is updating the GSLBHostRules status object %v : %s", obj, updateErr)
 	}

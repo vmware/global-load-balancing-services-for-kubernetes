@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -33,6 +34,7 @@ import (
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -329,7 +331,7 @@ func updateGDPStatus(gdp *gdpalphav2.GlobalDeploymentPolicy, msg string) {
 	if !gslbutils.PublishGDPStatus {
 		return
 	}
-	obj, updateErr := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(gdp)
+	obj, updateErr := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
 	if updateErr != nil {
 		gslbutils.Errf("Error in updating the GDP status object %v: %s", obj, updateErr)
 	}

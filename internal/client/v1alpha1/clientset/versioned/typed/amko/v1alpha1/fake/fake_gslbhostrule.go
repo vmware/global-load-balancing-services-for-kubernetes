@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var gslbhostrulesResource = schema.GroupVersionResource{Group: "amko.vmware.com"
 var gslbhostrulesKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha1", Kind: "GSLBHostRule"}
 
 // Get takes name of the gSLBHostRule, and returns the corresponding gSLBHostRule object, and an error if there is any.
-func (c *FakeGSLBHostRules) Get(name string, options v1.GetOptions) (result *v1alpha1.GSLBHostRule, err error) {
+func (c *FakeGSLBHostRules) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.GSLBHostRule, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(gslbhostrulesResource, c.ns, name), &v1alpha1.GSLBHostRule{})
 
@@ -50,7 +52,7 @@ func (c *FakeGSLBHostRules) Get(name string, options v1.GetOptions) (result *v1a
 }
 
 // List takes label and field selectors, and returns the list of GSLBHostRules that match those selectors.
-func (c *FakeGSLBHostRules) List(opts v1.ListOptions) (result *v1alpha1.GSLBHostRuleList, err error) {
+func (c *FakeGSLBHostRules) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.GSLBHostRuleList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(gslbhostrulesResource, gslbhostrulesKind, c.ns, opts), &v1alpha1.GSLBHostRuleList{})
 
@@ -72,14 +74,14 @@ func (c *FakeGSLBHostRules) List(opts v1.ListOptions) (result *v1alpha1.GSLBHost
 }
 
 // Watch returns a watch.Interface that watches the requested gSLBHostRules.
-func (c *FakeGSLBHostRules) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeGSLBHostRules) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(gslbhostrulesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a gSLBHostRule and creates it.  Returns the server's representation of the gSLBHostRule, and an error, if there is any.
-func (c *FakeGSLBHostRules) Create(gSLBHostRule *v1alpha1.GSLBHostRule) (result *v1alpha1.GSLBHostRule, err error) {
+func (c *FakeGSLBHostRules) Create(ctx context.Context, gSLBHostRule *v1alpha1.GSLBHostRule, opts v1.CreateOptions) (result *v1alpha1.GSLBHostRule, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(gslbhostrulesResource, c.ns, gSLBHostRule), &v1alpha1.GSLBHostRule{})
 
@@ -90,7 +92,7 @@ func (c *FakeGSLBHostRules) Create(gSLBHostRule *v1alpha1.GSLBHostRule) (result 
 }
 
 // Update takes the representation of a gSLBHostRule and updates it. Returns the server's representation of the gSLBHostRule, and an error, if there is any.
-func (c *FakeGSLBHostRules) Update(gSLBHostRule *v1alpha1.GSLBHostRule) (result *v1alpha1.GSLBHostRule, err error) {
+func (c *FakeGSLBHostRules) Update(ctx context.Context, gSLBHostRule *v1alpha1.GSLBHostRule, opts v1.UpdateOptions) (result *v1alpha1.GSLBHostRule, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(gslbhostrulesResource, c.ns, gSLBHostRule), &v1alpha1.GSLBHostRule{})
 
@@ -102,7 +104,7 @@ func (c *FakeGSLBHostRules) Update(gSLBHostRule *v1alpha1.GSLBHostRule) (result 
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeGSLBHostRules) UpdateStatus(gSLBHostRule *v1alpha1.GSLBHostRule) (*v1alpha1.GSLBHostRule, error) {
+func (c *FakeGSLBHostRules) UpdateStatus(ctx context.Context, gSLBHostRule *v1alpha1.GSLBHostRule, opts v1.UpdateOptions) (*v1alpha1.GSLBHostRule, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(gslbhostrulesResource, "status", c.ns, gSLBHostRule), &v1alpha1.GSLBHostRule{})
 
@@ -113,7 +115,7 @@ func (c *FakeGSLBHostRules) UpdateStatus(gSLBHostRule *v1alpha1.GSLBHostRule) (*
 }
 
 // Delete takes name of the gSLBHostRule and deletes it. Returns an error if one occurs.
-func (c *FakeGSLBHostRules) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeGSLBHostRules) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(gslbhostrulesResource, c.ns, name), &v1alpha1.GSLBHostRule{})
 
@@ -121,15 +123,15 @@ func (c *FakeGSLBHostRules) Delete(name string, options *v1.DeleteOptions) error
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeGSLBHostRules) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(gslbhostrulesResource, c.ns, listOptions)
+func (c *FakeGSLBHostRules) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(gslbhostrulesResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.GSLBHostRuleList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched gSLBHostRule.
-func (c *FakeGSLBHostRules) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.GSLBHostRule, err error) {
+func (c *FakeGSLBHostRules) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.GSLBHostRule, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(gslbhostrulesResource, c.ns, name, pt, data, subresources...), &v1alpha1.GSLBHostRule{})
 

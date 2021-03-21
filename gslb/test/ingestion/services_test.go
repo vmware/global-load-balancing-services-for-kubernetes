@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -103,7 +104,7 @@ func TestSvcWithLabelNotSelected(t *testing.T) {
 	t.Log("Adding and testing service")
 	svcObj := BuildSvcObj(svcName, ns, cname, host, ipAddr, true, corev1.ServiceTypeLoadBalancer)
 	svcObj.ObjectMeta.Labels["key"] = "value1"
-	_, err := fooKubeClient.CoreV1().Services(ns).Create(svcObj)
+	_, err := fooKubeClient.CoreV1().Services(ns).Create(context.TODO(), svcObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating service: %v", err)
 	}
@@ -237,7 +238,7 @@ func K8sAddSvc(t *testing.T, kc *k8sfake.Clientset, name string, ns string, cnam
 	ip string, svcType corev1.ServiceType) *corev1.Service {
 
 	svcObj := BuildSvcObj(name, ns, cname, host, ip, true, svcType)
-	_, err := kc.CoreV1().Services(ns).Create(svcObj)
+	_, err := kc.CoreV1().Services(ns).Create(context.TODO(), svcObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating service: %v", err)
 	}
@@ -287,14 +288,14 @@ func verifyInSvcStore(g *gomega.WithT, accepted bool, present bool, svcName, ns,
 }
 
 func K8sUpdateSvc(t *testing.T, kc *k8sfake.Clientset, ns, cname string, svcObj *corev1.Service) {
-	_, err := kc.CoreV1().Services(ns).Update(svcObj)
+	_, err := kc.CoreV1().Services(ns).Update(context.TODO(), svcObj, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("failed to update service: %v\n", err)
 	}
 }
 
 func K8sDeleteSvc(t *testing.T, kc *k8sfake.Clientset, name, ns string) {
-	err := kc.CoreV1().Services(ns).Delete(name, &metav1.DeleteOptions{})
+	err := kc.CoreV1().Services(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in deleting service: %v", err)
 	}

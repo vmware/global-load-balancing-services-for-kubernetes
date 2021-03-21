@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -614,7 +616,7 @@ func UpdateTestGDPObj(oldGdp, gdp *gdpalphav2.GlobalDeploymentPolicy) {
 func CreateIngressObjWithLabel(t *testing.T, kc *k8sfake.Clientset, name, ns, svc, cname string, hostIPs map[string]string, withStatus bool, labelKey, labelValue string) *extensionv1beta1.Ingress {
 	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, withStatus)
 	ingObj.Labels[labelKey] = labelValue
-	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}

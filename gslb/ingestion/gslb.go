@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"os"
@@ -263,7 +264,7 @@ func CheckAcceptedGSLBConfigAndInitalize(gcList *gslbalphav1.GSLBConfigList) (bo
 // 2. add a GSLBConfig object if only one GSLBConfig object (in non-accepted state).
 // 3. returns if there was an error on either of the above two conditions.
 func CheckGSLBConfigsAndInitialize() {
-	gcList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	gcList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	if err != nil {
 		gslbutils.Errf("ns: %s, error in listing the GSLBConfig objects, %s, %s", gslbutils.AVISystem,
 			err.Error(), "can't do a full sync")
@@ -449,7 +450,7 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 		return errors.New("invalid leader secret")
 	}
 
-	secretObj, err := gslbutils.GlobalKubeClient.CoreV1().Secrets(gslbutils.AVISystem).Get(leaderSecret, metav1.GetOptions{})
+	secretObj, err := gslbutils.GlobalKubeClient.CoreV1().Secrets(gslbutils.AVISystem).Get(context.TODO(), leaderSecret, metav1.GetOptions{})
 	if err != nil || secretObj == nil {
 		gslbutils.Errf("Error in fetching leader controller secret %s in namespace %s, can't initialize controller",
 			leaderSecret, gslbutils.AVISystem)
@@ -481,7 +482,7 @@ func AddGSLBConfigObject(obj interface{}) {
 		// else, populate the status field with an error message
 		gslbutils.Errf("GSLB configuration is set already, can't change it. Delete and re-create the GSLB config object.")
 		gslbObj.Status.State = AlreadySetMsg
-		_, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbObj.Namespace).Update(gslbObj)
+		_, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbObj.Namespace).Update(context.TODO(), gslbObj, metav1.UpdateOptions{})
 		if updateErr != nil {
 			gslbutils.Errf("error in updating the status field of GSLB Config object %s in %s namespace",
 				gslbObj.GetObjectMeta().GetName(), gslbObj.GetObjectMeta().GetNamespace())
@@ -654,7 +655,7 @@ func Initialize() {
 	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
 	fastRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.FastRetryQueue}
 
-	utils.SharedWorkQueue(ingestionQueueParams, graphQueueParams, slowRetryQParams, fastRetryQParams)
+	utils.SharedWorkQueue(&ingestionQueueParams, &graphQueueParams, &slowRetryQParams, &fastRetryQParams)
 
 	// Set workers for layer 3 (REST layer)
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
@@ -735,12 +736,12 @@ func BuildContextConfig(kubeconfigPath, context string) (*restclient.Config, err
 func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Clientset, cname string) ([]string, error) {
 
 	allInformers := []string{}
-	_, err := kclient.CoreV1().Services("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	_, err := kclient.CoreV1().Services("").List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	if err != nil {
 		gslbutils.Errf("can't access the services api for cluster %s, error : %s", cname, err)
 		return allInformers, errors.New("cluster " + cname + " health check failed, can't access the services api")
 	}
-	_, err = oclient.RouteV1().Routes("").List(metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+	_, err = oclient.RouteV1().Routes("").List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	gslbutils.Debugf("cluster: %s, msg: checking if cluster has a route informer %v", cname, err)
 	if err == nil {
 		// Openshift cluster with route support, we will just add service informer

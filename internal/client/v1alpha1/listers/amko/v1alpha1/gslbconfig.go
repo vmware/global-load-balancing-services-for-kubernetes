@@ -26,8 +26,10 @@ import (
 )
 
 // GSLBConfigLister helps list GSLBConfigs.
+// All objects returned here must be treated as read-only.
 type GSLBConfigLister interface {
 	// List lists all GSLBConfigs in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.GSLBConfig, err error)
 	// GSLBConfigs returns an object that can list and get GSLBConfigs.
 	GSLBConfigs(namespace string) GSLBConfigNamespaceLister
@@ -58,10 +60,13 @@ func (s *gSLBConfigLister) GSLBConfigs(namespace string) GSLBConfigNamespaceList
 }
 
 // GSLBConfigNamespaceLister helps list and get GSLBConfigs.
+// All objects returned here must be treated as read-only.
 type GSLBConfigNamespaceLister interface {
 	// List lists all GSLBConfigs in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.GSLBConfig, err error)
 	// Get retrieves the GSLBConfig from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.GSLBConfig, error)
 	GSLBConfigNamespaceListerExpansion
 }

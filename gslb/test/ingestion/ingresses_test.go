@@ -15,6 +15,7 @@
 package ingestion
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
@@ -739,7 +740,7 @@ func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
 	newResVer = strconv.Itoa(resVerInt + 1)
 	ingObj.ResourceVersion = newResVer
 
-	_, err = kc.ExtensionsV1beta1().Ingresses(ns).Update(ingObj)
+	_, err = kc.ExtensionsV1beta1().Ingresses(ns).Update(context.TODO(), ingObj, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("failed to update ingress: %v\n", err)
 	}
@@ -747,7 +748,7 @@ func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
 
 func k8sDeleteIngress(t *testing.T, kc *k8sfake.Clientset, name, ns string) {
 	t.Logf("Deleting ingress %s in ns: %s", name, ns)
-	err := kc.ExtensionsV1beta1().Ingresses(ns).Delete(name, &metav1.DeleteOptions{})
+	err := kc.ExtensionsV1beta1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in deleting ingress: %v", err)
 	}
@@ -757,7 +758,7 @@ func k8sAddIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, 
 	cname string, hostIPs map[string]string) *extensionv1beta1.Ingress {
 
 	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, true)
-	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -780,7 +781,7 @@ func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns strin
 
 	var hosts []string
 	secretObj := buildk8sSecret(ns)
-	_, err := kc.CoreV1().Secrets(ns).Create(secretObj)
+	_, err := kc.CoreV1().Secrets(ns).Create(context.TODO(), secretObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating secret: %v", err)
 	}
@@ -793,7 +794,7 @@ func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns strin
 		SecretName: secretObj.Name,
 	}
 	ingObj.Spec.TLS = []v1beta1.IngressTLS{ingTLSObj}
-	_, err = kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	_, err = kc.ExtensionsV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -802,11 +803,11 @@ func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns strin
 }
 
 func k8sDeleteTLSIngress(t *testing.T, kc *k8sfake.Clientset, ingName, ns string) {
-	err := kc.ExtensionsV1beta1().Ingresses(ns).Delete(ingName, &metav1.DeleteOptions{})
+	err := kc.ExtensionsV1beta1().Ingresses(ns).Delete(context.TODO(), ingName, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Error in deleting ingress: %v", err)
 	}
-	err = kc.CoreV1().Secrets(ns).Delete("test-secret", &metav1.DeleteOptions{})
+	err = kc.CoreV1().Secrets(ns).Delete(context.TODO(), "test-secret", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Error in deleting secret: %v", err)
 	}
@@ -816,7 +817,7 @@ func k8sAddIngressWithoutStatus(t *testing.T, kc *k8sfake.Clientset, name string
 	cname string, hostIPs map[string]string) *extensionv1beta1.Ingress {
 
 	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, false)
-	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(ingObj)
+	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}

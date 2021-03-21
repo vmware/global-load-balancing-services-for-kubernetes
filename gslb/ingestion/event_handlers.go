@@ -22,10 +22,10 @@ import (
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
 
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -255,7 +255,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 	gslbutils.Logf("Adding Ingress handler")
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ingr, ok := utils.ToNetworkingIngress(obj)
+			ingr, ok := obj.(*networkingv1beta1.Ingress)
 			if !ok {
 				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
@@ -266,7 +266,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			filterAndAddIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers, false)
 		},
 		DeleteFunc: func(obj interface{}) {
-			ingr, ok := utils.ToNetworkingIngress(obj)
+			ingr, ok := obj.(*networkingv1beta1.Ingress)
 			if !ok {
 				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
@@ -276,8 +276,8 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		UpdateFunc: func(old, curr interface{}) {
-			oldIngr, okOld := utils.ToNetworkingIngress(old)
-			ingr, okNew := utils.ToNetworkingIngress(curr)
+			oldIngr, okOld := old.(*networkingv1beta1.Ingress)
+			ingr, okNew := curr.(*networkingv1beta1.Ingress)
 			if !okOld || !okNew {
 				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
