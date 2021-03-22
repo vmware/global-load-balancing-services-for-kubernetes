@@ -25,6 +25,7 @@ import (
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -384,6 +385,14 @@ func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, 
 		cname, namespace, objType, op, name, key)
 }
 
+func publishKeyToGraphLayerForHostRule(numWorkers uint32, objType, cname, namespace, op, lfqdn, gfqdn string, wq []workqueue.RateLimitingInterface) {
+	key := gslbutils.MultiClusterKeyForHostRule(op, objType, cname, namespace, lfqdn, gfqdn)
+	bkt := containerutils.Bkt(lfqdn, numWorkers)
+	wq[bkt].AddRateLimited(key)
+	gslbutils.Logf("cluster: %s, ns: %s, objType: %s, op: %s, lfqdn: %s, gfqdn: %s, msg: added %s key ",
+		cname, namespace, objType, op, lfqdn, gfqdn, op)
+}
+
 func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	acceptedNSStore := gslbutils.GetAcceptedNSStore()
 	rejectedNSStore := gslbutils.GetRejectedNSStore()
@@ -455,4 +464,90 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 		},
 	}
 	return ingressEventHandler
+}
+
+func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+	hrStore := gslbutils.GetHostRuleStore()
+
+	gslbutils.Logf("cluster: %s, msg: adding handlers for host rule objects", c.name)
+	hrEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			hr, ok := obj.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, obj)
+				return
+			}
+			if !isHostRuleAcceptable(hr) {
+				gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
+					c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
+				return
+			}
+			gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+			lFqdn := hr.Spec.VirtualHost.Fqdn
+			AddOrUpdateHostRuleStore(hrStore, hr, c.name)
+			publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, hr.Namespace, gslbutils.ObjectAdd,
+				lFqdn, gFqdn, c.workqueue)
+		},
+		DeleteFunc: func(obj interface{}) {
+			hr, ok := obj.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, obj)
+				return
+			}
+			if !isHostRuleAcceptable(hr) {
+				gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
+					c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
+				return
+			}
+			// write a delete event to graph layer
+			gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+			lFqdn := hr.Spec.VirtualHost.Fqdn
+			DeleteFromHostRuleStore(hrStore, hr, c.name)
+			publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, hr.Namespace, gslbutils.ObjectDelete,
+				lFqdn, gFqdn, c.workqueue)
+		},
+		UpdateFunc: func(old, curr interface{}) {
+			oldHr, ok := old.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, old)
+				return
+			}
+			newHr, ok := curr.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, curr)
+				return
+			}
+			if oldHr.ResourceVersion == newHr.ResourceVersion {
+				// no updates to object
+				return
+			}
+			oldHrAccepted := isHostRuleAcceptable(oldHr)
+			newHrAccepted := isHostRuleAcceptable(newHr)
+			if oldHrAccepted && newHrAccepted && newHrAccepted == true {
+				// check if an update is required?
+				if !isHostRuleUpdated(oldHr, newHr) {
+					// no updates to the gs fqdn, so return
+					return
+				}
+				// gs fqdn is updated, write a DELETE event for the previous fqdn and an ADD event
+				// for the new fqdn
+				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, oldHr.Namespace, gslbutils.ObjectDelete,
+					oldHr.Spec.VirtualHost.Fqdn, oldHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
+				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, newHr.Namespace, gslbutils.ObjectAdd,
+					newHr.Spec.VirtualHost.Fqdn, newHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
+			} else if oldHrAccepted && !newHrAccepted {
+				// delete the old gs fqdn
+				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, oldHr.Namespace, gslbutils.ObjectDelete,
+					oldHr.Spec.VirtualHost.Fqdn, oldHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
+			} else if !oldHrAccepted && newHrAccepted {
+				// add the new gs fqdn
+				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, newHr.Namespace, gslbutils.ObjectAdd,
+					newHr.Spec.VirtualHost.Fqdn, newHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
+			}
+		},
+	}
+	return hrEventHandler
 }

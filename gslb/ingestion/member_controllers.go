@@ -23,6 +23,9 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	routev1 "github.com/openshift/api/route/v1"
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+
+	hrinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/ako/v1alpha1"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -39,16 +42,19 @@ type GSLBMemberController struct {
 	worker_id       uint32
 	worker_id_mutex sync.Mutex
 	informers       *containerutils.Informers
+	hrInformer      *hrinformer.HostRuleInformer
 	workqueue       []workqueue.RateLimitingInterface
 	syncType        int
 }
 
 // GetAviController sets config for an AviController
-func GetGSLBMemberController(clusterName string, informersInstance *containerutils.Informers) GSLBMemberController {
+func GetGSLBMemberController(clusterName string, informersInstance *containerutils.Informers,
+	hrInformer *hrinformer.HostRuleInformer) GSLBMemberController {
 	return GSLBMemberController{
-		name:      clusterName,
-		worker_id: (uint32(1) << containerutils.NumWorkersIngestion) - 1,
-		informers: informersInstance,
+		name:       clusterName,
+		worker_id:  (uint32(1) << containerutils.NumWorkersIngestion) - 1,
+		informers:  informersInstance,
+		hrInformer: hrInformer,
 	}
 }
 
@@ -133,6 +139,12 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		nsEventHandler := AddNamespaceEventHandler(numWorkers, c)
 		c.informers.NSInformer.Informer().AddEventHandler(nsEventHandler)
 	}
+
+	if c.hrInformer != nil {
+		hrInformer := *c.hrInformer
+		hrEventHandler := AddHostRuleEventHandler(numWorkers, c)
+		hrInformer.Informer().AddEventHandler(hrEventHandler)
+	}
 }
 
 func isSvcTypeLB(svc *corev1.Service) bool {
@@ -164,6 +176,45 @@ func DeleteFromLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
 	clusterSvcStore.DeleteClusterNSObj(cname, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 }
 
+func isHostRuleAcceptable(hr *akov1alpha1.HostRule) bool {
+	if hr.Spec.VirtualHost.Gslb.Fqdn == "" || hr.Status.Status == gslbutils.HostRuleRejected ||
+		hr.Spec.VirtualHost.Fqdn == "" {
+		return false
+	}
+	return true
+}
+
+func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule) bool {
+	if oldHr.Spec.VirtualHost.Gslb.Fqdn != newHr.Spec.VirtualHost.Gslb.Fqdn {
+		return true
+	}
+	return false
+}
+
+// AddOrUpdateHostRuleStore traverses through the cluster store for cluster name cname,
+// and then to ns store for the HostRule's namespace and then adds/updates the GS FQDN obj
+// in the object map store.
+func AddOrUpdateHostRuleStore(clusterHRStore *gslbutils.ClusterStore,
+	hr *akov1alpha1.HostRule, cname string) {
+
+	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn)
+	gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, updating hostrule store: %s", cname,
+		hr.Namespace, hr.Name, hr.Spec.VirtualHost.Fqdn)
+	clusterHRStore.AddOrUpdate(hrMeta, cname, hr.Namespace, hr.Spec.VirtualHost.Fqdn)
+}
+
+// DeleteFromHostRuleStore traverses through the cluster store for cluster name cname,
+// and then ns store for the HostRule's namespace and then deletes the HostRule key from
+// the object map store.
+func DeleteFromHostRuleStore(hrStore *gslbutils.ClusterStore,
+	hr *akov1alpha1.HostRule, cname string) {
+	if hrStore == nil {
+		// Store is empty, so, noop
+		return
+	}
+	hrStore.DeleteClusterNSObj(cname, hr.Namespace, hr.Spec.VirtualHost.Fqdn)
+}
+
 func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 	var cacheSyncParam []cache.InformerSynced
 
@@ -189,6 +240,13 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting namespace informer")
 		go c.informers.NSInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, c.informers.NSInformer.Informer().HasSynced)
+	}
+
+	if c.hrInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting hostrule informer")
+		hrInformer := *c.hrInformer
+		go hrInformer.Informer().Run(stopCh)
+		cacheSyncParam = append(cacheSyncParam, hrInformer.Informer().HasSynced)
 	}
 
 	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {

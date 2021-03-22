@@ -112,6 +112,16 @@ func GetRejectedNSStore() *ObjectStore {
 	return RejectedNSStore
 }
 
+var hrOnce sync.Once
+
+// GetHostRuleStore initializes and returns an initialized HostRule Store
+func GetHostRuleStore() *ClusterStore {
+	hrOnce.Do(func() {
+		HostRuleStore = NewClusterStore()
+	})
+	return HostRuleStore
+}
+
 // NewClusterStore initializes and returns a new cluster store.
 func NewClusterStore() *ClusterStore {
 	clusterStore := &ClusterStore{}

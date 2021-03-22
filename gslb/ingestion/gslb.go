@@ -56,6 +56,8 @@ import (
 	avirest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
 	aviretry "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/retry"
 
+	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	akoinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
@@ -802,7 +804,15 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			registeredInformers,
 			informersArg)
 		clients[cluster.clusterName] = kubeClient
-		aviCtrl := GetGSLBMemberController(cluster.clusterName, informerInstance)
+		hrClient, err := hrcs.NewForConfig(cfg)
+		if err != nil {
+			gslbutils.Warnf("cluster: %s, msg: couldn't initialize clientset for host rule", cluster.clusterName)
+			continue
+		}
+		akoInformerFactory := akoinformer.NewSharedInformerFactory(hrClient, time.Second*30)
+		hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
+
+		aviCtrl := GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
 		gslbutils.AddClusterContext(cluster.clusterName)
 		aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)

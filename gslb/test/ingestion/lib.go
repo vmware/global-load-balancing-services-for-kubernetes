@@ -170,7 +170,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 
 	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer}
 	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{fooKubeClient}, fooRegisteredInformers, fooInformersArg)
-	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance)
+	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance, nil)
 	fooCtrl.Start(testStopCh)
 	fooCtrl.SetupEventHandlers(gslbingestion.K8SInformers{fooKubeClient})
 
@@ -183,7 +183,7 @@ func addGSLBTestConfigObject(obj interface{}) {
 
 	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer}
 	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{barKubeClient}, barRegisteredInformers, barInformersArg)
-	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance)
+	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance, nil)
 	barCtrl.Start(testStopCh)
 	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{barKubeClient})
 }

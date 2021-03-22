@@ -168,7 +168,7 @@ func GetSvcKey(op string, svc k8sobjects.SvcMeta) string {
 func verifyGsGraph(t *testing.T, metaObj k8sobjects.MetaObject, present bool, nMembers int, memberCheck bool) {
 	g := gomega.NewGomegaWithT(t)
 
-	modelName := utils.ADMIN_NS + "/" + nodes.DeriveGSLBServiceName(metaObj.GetHostname())
+	modelName := utils.ADMIN_NS + "/" + nodes.DeriveGSLBServiceName(metaObj.GetHostname(), "")
 	ok, aviModelIntf := nodes.SharedAviGSGraphLister().Get(modelName)
 	if present == false {
 		g.Expect(ok).To(gomega.Equal(present))

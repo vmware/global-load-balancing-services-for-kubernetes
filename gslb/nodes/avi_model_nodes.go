@@ -15,6 +15,7 @@
 package nodes
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -74,12 +75,13 @@ func (a *AviGSGraphLister) Delete(gsName string) {
 
 // AviGSK8sObj represents a K8S/Openshift object from which a GS was built.
 type AviGSK8sObj struct {
-	Cluster   string
-	ObjType   string
-	Name      string
-	Namespace string
-	IPAddr    string
-	Weight    int32
+	Cluster       string
+	ObjType       string
+	Name          string
+	Namespace     string
+	IPAddr        string
+	Weight        int32
+	IsPassthrough bool
 	// Port and protocol will be only used by LB service
 	Port               int32
 	Proto              string
@@ -107,6 +109,7 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 		VirtualServiceUUID: gsk8sObj.VirtualServiceUUID,
 		ControllerUUID:     gsk8sObj.ControllerUUID,
 		SyncVIPOnly:        gsk8sObj.SyncVIPOnly,
+		IsPassthrough:      gsk8sObj.IsPassthrough,
 	}
 	return obj
 }
@@ -269,6 +272,25 @@ func (v *AviGSObjectGraph) buildHmPathList() {
 	gslbutils.Debugf("gsName: %s, pathList: %v, msg: rebuilt path list for GS", v.Name, v.Hm.PathNames)
 }
 
+func (v *AviGSObjectGraph) buildNonPathHealthMonitorFromObj(port int32, isPassthrough bool, protocol, key string) {
+	if isPassthrough {
+		v.Hm.Name = gslbutils.SystemGslbHealthMonitorPassthrough
+	} else {
+		v.Hm.Name = gslbutils.BuildNonPathHmName(v.Name)
+	}
+	v.Hm.Port = port
+	v.MemberObjs[0].Port = port
+	v.Hm.Custom = true
+	v.MemberObjs[0].Proto = protocol
+	hmType, err := gslbutils.GetHmTypeForProtocol(protocol)
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, msg: can't create a health monitor for this GS graph %s", key,
+			v.Name, err.Error())
+	} else {
+		v.Hm.Protocol = hmType
+	}
+}
+
 func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObject, key string) {
 	port, err := metaObj.GetPort()
 	if err != nil {
@@ -296,6 +318,31 @@ func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObje
 			v.Name, err.Error())
 	} else {
 		v.Hm.Protocol = hmType
+	}
+}
+
+func (v *AviGSObjectGraph) buildAndAttachHealthMonitorsFromObj(obj AviGSK8sObj, key string) {
+	objType := obj.ObjType
+	if objType == gslbutils.SvcType {
+		v.buildNonPathHealthMonitorFromObj(obj.Port, obj.IsPassthrough, obj.Proto, key)
+		return
+	}
+
+	// for objects other than service type load balancer
+	// check if its a non-path based route (passthrough route)
+	if obj.IsPassthrough {
+		// we have a passthrough route here, build a non-path based hm and return
+		gslbutils.Debugf("key: %s, gsName: %s, msg: passthrough route, will build a non-path hm", key, v.Name)
+		v.buildNonPathHealthMonitorFromObj(obj.Port, obj.IsPassthrough, obj.Proto, key)
+		return
+	}
+	// else other secure/insecure route
+	v.Hm.Custom = true
+	tls := obj.TLS
+	if tls {
+		v.Hm.Protocol = gslbutils.SystemGslbHealthMonitorHTTPS
+	} else {
+		v.Hm.Protocol = gslbutils.SystemGslbHealthMonitorHTTP
 	}
 }
 
@@ -354,110 +401,51 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool
 		gsFqdn)
 }
 
-func (v *AviGSObjectGraph) ConstructAviGSGraph(gsName, key string, metaObj k8sobjects.MetaObject, memberWeight int32) {
+func (v *AviGSObjectGraph) GetGSMembersByCluster(cname string) []AviGSK8sObj {
+	v.Lock.RLock()
+	defer v.Lock.RUnlock()
+
+	members := []AviGSK8sObj{}
+	for _, m := range v.MemberObjs {
+		members = append(members, m.getCopy())
+	}
+	return members
+}
+
+func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []AviGSK8sObj) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
-	hosts := []string{metaObj.GetHostname()}
-	tls, _ := metaObj.GetTLS()
-	paths, err := metaObj.GetPaths()
-	if err != nil {
-		// for LB type services and passthrough routes, the path list will be empty
-		gslbutils.Debugf("key: %s, gsName: %s, msg: path list not available for object %s", key, gsName, err.Error())
-	}
-	cname := metaObj.GetCluster()
-	gf := gslbutils.GetGlobalFilter()
-	syncVIPOnly, err := gf.IsClusterSyncVIPOnly(cname)
-	if err != nil {
-		gslbutils.Errf("key: %s, gsName: %s, cluster: %s, msg: error in getting the sync type for cluster: %v",
-			key, gsName, cname, err)
-		return
-	}
-	if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
-		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't add member",
-			v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
-		return
-	}
 
-	// check if a GSLB Host Rule has been defined for this fqdn (gsName)
-	gsHostRuleList := gslbutils.GetGSHostRulesList()
-	var ghRules gslbutils.GSHostRules
-	var ghRulesExists bool
-
-	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsName); ghRulesForFqdn != nil {
-		ghRulesForFqdn.DeepCopyInto(&ghRules)
-		ghRulesExists = true
-	}
-
-	var weight int32
-	weight = int32(-1)
-	if ghRulesExists == true {
-		for _, c := range ghRules.TrafficSplit {
-			if c.Cluster == cname {
-				weight = int32(c.Weight)
-			}
-		}
-	}
-
-	memberRoutes := []AviGSK8sObj{
-		{
-			Cluster:            metaObj.GetCluster(),
-			ObjType:            metaObj.GetType(),
-			IPAddr:             metaObj.GetIPAddr(),
-			Name:               metaObj.GetName(),
-			Namespace:          metaObj.GetNamespace(),
-			TLS:                tls,
-			Paths:              paths,
-			VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
-			ControllerUUID:     metaObj.GetControllerUUID(),
-			SyncVIPOnly:        syncVIPOnly,
-		},
-	}
 	// The GSLB service will be put into the admin tenant
-	v.Name = gsName
+	v.Name = gsFqdn
 	v.Tenant = utils.ADMIN_NS
-	v.DomainNames = hosts
-	v.MemberObjs = memberRoutes
+	v.DomainNames = []string{gsFqdn}
+	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 
-	if weight != -1 {
-		v.MemberObjs[0].Weight = weight
-	} else {
-		v.MemberObjs[0].Weight = memberWeight
+	// set the GS properties according to the GSLBHostRule or GDP
+	setGSLBPropertiesForGS(gsFqdn, v, true)
+
+	if v.HmRefs == nil || len(v.HmRefs) == 0 {
+		// Build the list of health monitors
+		v.buildHmPathList()
+		v.buildAndAttachHealthMonitorsFromObj(memberObjs[0], key)
 	}
-
-	if ghRulesExists && ghRules.TTL != nil {
-		v.TTL = ghRules.TTL
-	} else {
-		v.TTL = gf.GetTTL()
-	}
-
-	if ghRulesExists && ghRules.HmRefs != nil && len(ghRules.HmRefs) != 0 {
-		v.HmRefs = make([]string, len(ghRules.HmRefs))
-		copy(v.HmRefs, ghRules.HmRefs)
-	} else {
-		v.HmRefs = gf.GetAviHmRefs()
-	}
-
-	v.SitePersistenceRef = getSitePersistence(ghRulesExists, &ghRules, gf)
-
-	if ghRulesExists && ghRules.ThirdPartyMembers != nil && len(ghRules.ThirdPartyMembers) != 0 {
-		for _, tpm := range ghRules.ThirdPartyMembers {
-			memberObj := AviGSK8sObj{
-				ObjType:     "ThirdParty",
-				IPAddr:      tpm.VIP,
-				Name:        tpm.Site,
-				SyncVIPOnly: true,
-			}
-			v.MemberObjs = append(v.MemberObjs, memberObj)
-		}
-	}
-
-	v.buildHmPathList()
-	// Determine the health monitor(s) for this GS
-	v.buildAndAttachHealthMonitors(metaObj, key)
-
 	v.GetChecksum()
 	gslbutils.Logf("key: %s, AviGSGraph: %s, msg: %s", key, v.Name, "created a new Avi GS graph")
+}
+
+func (v *AviGSObjectGraph) ConstructAviGSGraphFromObjects(gsFqdn string, members []AviGSK8sObj, key string) {
+	v.ConstructAviGSGraph(gsFqdn, key, members)
+}
+
+func (v *AviGSObjectGraph) ConstructAviGSGraphFromMeta(gsName, key string, metaObj k8sobjects.MetaObject) {
+	menberObj, err := BuildGSMemberObjFromMeta(metaObj, gsName)
+	if err != nil {
+		gslbutils.Errf("key: %s, gsName: %s, msg: error in building member object from meta object: %s",
+			key, gsName)
+	}
+	v.ConstructAviGSGraph(gsName, key, []AviGSK8sObj{menberObj})
 }
 
 func (v *AviGSObjectGraph) checkAndUpdateNonPathHealthMonitor(objType string, isPassthrough bool) {
@@ -521,162 +509,73 @@ func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
 		v.Hm.Protocol = gslbutils.GetHmTypeForTLS(v.MemberObjs[0].TLS)
 	}
 }
-
-func (v *AviGSObjectGraph) UpdateGSMember(metaObj k8sobjects.MetaObject, weight int32) {
+func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
-	var svcPort int32
-	var svcProtocol, objType string
+	setGSLBPropertiesForGS(gsFqdn, v, false)
+}
 
-	gf := gslbutils.GetGlobalFilter()
+func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
+	v.SetPropertiesForGS(v.Name)
 
-	// Update the GS fields
-	gsHostRuleList := gslbutils.GetGSHostRulesList()
-	var ghRules gslbutils.GSHostRules
-	var ghRulesExists bool
-
-	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(v.Name); ghRulesForFqdn != nil {
-		ghRulesForFqdn.DeepCopyInto(&ghRules)
-		ghRulesExists = true
-	}
-
-	clusterWeightMap := make(map[string]int32)
-	for _, c := range ghRules.TrafficSplit {
-		clusterWeightMap[c.Cluster] = int32(c.Weight)
-	}
-
-	if ghRulesExists && ghRules.TTL != nil {
-		v.TTL = ghRules.TTL
-	} else {
-		v.TTL = gf.GetTTL()
-	}
-	v.SitePersistenceRef = getSitePersistence(ghRulesExists, &ghRules, gf)
-
-	if ghRulesExists && ghRules.HmRefs != nil && len(ghRules.HmRefs) != 0 {
-		v.HmRefs = make([]string, len(ghRules.HmRefs))
-		copy(v.HmRefs, ghRules.HmRefs)
-	} else {
-		v.HmRefs = gf.GetAviHmRefs()
-	}
-
-	paths, err := metaObj.GetPaths()
-	if err != nil {
-		// for LB type services and passthrough routes
-		gslbutils.Debugf("gsName: %s, msg: path list not available for object %s", v.Name, err.Error())
-	}
-
-	objType = metaObj.GetType()
-	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
-		svcPort, _ = metaObj.GetPort()
-		svcProtocol, _ = metaObj.GetProtocol()
-	}
-
-	cname := metaObj.GetCluster()
-	syncVIPOnly, err := gf.IsClusterSyncVIPOnly(cname)
-	if err != nil {
-		gslbutils.Errf("gsName: %s, cluster: %s, msg: couldn't find the sync type for member: %v",
-			v.Name, cname, err)
-		return
-	}
-	// custom health monitor refs and the default path/non-path based health monitors are an ex-or
-	// of each other.
-	// Transition cases:
-	// 1. If user has provided Hm refs via the GDP object, remove the default Hms from the GS graph.
-	//    Add the user provided Hm refs to the GS graph.
-	// 2. If user hasn't provided any Hm refs in the GDP object, add the default Hm, and remove the
-	//    pre-existing Hm refs from the GS graph (if any).
-	var userProvidedHmRefs bool
-	hmRefs := gf.GetAviHmRefs()
-	if len(hmRefs) > 0 {
-		v.HmRefs = make([]string, len(hmRefs))
-		copy(v.HmRefs, hmRefs)
-		// set the previous path based health monitor to empty
-		v.Hm = HealthMonitor{}
-		userProvidedHmRefs = true
-	} else {
-		v.HmRefs = nil
-	}
+	v.Lock.Lock()
+	defer v.Lock.Unlock()
 
 	// if the member with the "ipAddr" exists, then just update the weight, else add a new member
 	for idx, memberObj := range v.MemberObjs {
-		if metaObj.GetType() != memberObj.ObjType {
+		if newMember.ObjType != memberObj.ObjType {
 			continue
 		}
-		if metaObj.GetCluster() != memberObj.Cluster {
+		if newMember.Cluster != memberObj.Cluster {
 			continue
 		}
-		if metaObj.GetNamespace() != memberObj.Namespace {
+		if newMember.Namespace != memberObj.Namespace {
 			continue
 		}
-		if metaObj.GetName() != memberObj.Name {
+		if newMember.Name != memberObj.Name {
 			continue
 		}
+
 		// if we reach here, it means this is the member we need to update
-		if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
+		if !newMember.SyncVIPOnly && (newMember.ControllerUUID == "" || newMember.VirtualServiceUUID == "") {
 			gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
-				v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
+				v.Name, newMember.Cluster, newMember.Namespace, newMember.Name)
 			return
 		}
-		v.MemberObjs[idx].VirtualServiceUUID = metaObj.GetVirtualServiceUUID()
-		v.MemberObjs[idx].ControllerUUID = metaObj.GetControllerUUID()
-		v.MemberObjs[idx].SyncVIPOnly = syncVIPOnly
-		v.MemberObjs[idx].IPAddr = metaObj.GetIPAddr()
-		if w, ok := clusterWeightMap[metaObj.GetCluster()]; ok {
-			v.MemberObjs[idx].Weight = w
-		} else {
-			v.MemberObjs[idx].Weight = weight
-		}
-		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, metaObj.GetType())
-		if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
-			v.MemberObjs[idx].Port = svcPort
-			v.MemberObjs[idx].Proto = svcProtocol
-			if !userProvidedHmRefs {
-				v.checkAndUpdateNonPathHealthMonitor(metaObj.GetType(), metaObj.IsPassthrough())
-			}
-		} else {
-			tls, err := metaObj.GetTLS()
-			if err != nil {
-				gslbutils.Errf("gsName: %s, msg: didn't get tls value for this object %s", err.Error())
-				return
-			}
-			v.MemberObjs[idx].TLS = tls
-			v.MemberObjs[idx].Paths = paths
-			if !userProvidedHmRefs {
-				v.updateGSHmPathListAndProtocol()
-			}
+		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, newMember.ObjType)
+		v.MemberObjs[idx] = newMember
+		if v.HmRefs == nil || len(v.HmRefs) == 0 {
+			// Update the health monitor(s)
+			v.updateGSHmPathListAndProtocol()
 		}
 		return
 	}
-
-	// We reach here only if a new member needs to be created, so create and append
-	gsMember := AviGSK8sObj{
-		Cluster:            metaObj.GetCluster(),
-		Namespace:          metaObj.GetNamespace(),
-		Name:               metaObj.GetName(),
-		IPAddr:             metaObj.GetIPAddr(),
-		Weight:             weight,
-		ObjType:            metaObj.GetType(),
-		Port:               svcPort,
-		Proto:              svcProtocol,
-		Paths:              paths,
-		VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
-		ControllerUUID:     metaObj.GetControllerUUID(),
-		SyncVIPOnly:        syncVIPOnly,
-	}
-	// if we reach here, it means this is the member we need to update
-	if !syncVIPOnly && (metaObj.GetControllerUUID() == "" || metaObj.GetVirtualServiceUUID() == "") {
-		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't add member",
-			v.Name, cname, metaObj.GetNamespace, metaObj.GetName())
+	// new member object
+	if !newMember.SyncVIPOnly && (newMember.ControllerUUID == "" || newMember.VirtualServiceUUID == "") {
+		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
+			v.Name, newMember.Cluster, newMember.Namespace, newMember.Name)
 		return
 	}
 
-	v.MemberObjs = append(v.MemberObjs, gsMember)
-	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
-		v.checkAndUpdateNonPathHealthMonitor(objType, metaObj.IsPassthrough())
+	v.MemberObjs = append(v.MemberObjs, newMember)
+	if newMember.ObjType == gslbutils.SvcType || newMember.IsPassthrough {
+		v.checkAndUpdateNonPathHealthMonitor(newMember.ObjType, newMember.IsPassthrough)
 	} else {
 		v.updateGSHmPathListAndProtocol()
 	}
+}
+
+func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject) {
+	v.SetPropertiesForGS(v.Name)
+
+	member, err := BuildGSMemberObjFromMeta(metaObj, v.Name)
+	if err != nil {
+		gslbutils.Errf("gsName: %s, msg: error in building gs member from meta: %v", err)
+		return
+	}
+
+	v.AddUpdateGSMember(member)
 }
 
 func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
@@ -820,4 +719,69 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 		gsObjCopy.MemberObjs = append(gsObjCopy.MemberObjs, memberObj.getCopy())
 	}
 	return &gsObjCopy
+}
+
+func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (AviGSK8sObj, error) {
+	// Update the GS fields
+	var ghRules gslbutils.GSHostRules
+	var svcPort int32
+	var svcProtocol string
+
+	weight := int32(-1)
+	cname := metaObj.GetCluster()
+	ns := metaObj.GetNamespace()
+	objType := metaObj.GetType()
+	gf := gslbutils.GetGlobalFilter()
+
+	gsHostRuleList := gslbutils.GetGSHostRulesList()
+	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsFqdn); ghRulesForFqdn != nil {
+		ghRulesForFqdn.DeepCopyInto(&ghRules)
+	}
+
+	// determine the GS member's weight
+	for _, c := range ghRules.TrafficSplit {
+		if c.Cluster == cname {
+			weight = int32(c.Weight)
+		}
+	}
+	if weight == -1 {
+		weight = GetObjTrafficRatio(ns, cname)
+	}
+
+	paths, err := metaObj.GetPaths()
+	if err != nil {
+		// for LB type services and passthrough routes
+		gslbutils.Debugf("gsName: %s, msg: path list not available for object %s", gsFqdn, err.Error())
+		return AviGSK8sObj{}, fmt.Errorf("path list not available for object %s", gsFqdn)
+	}
+
+	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
+		svcPort, _ = metaObj.GetPort()
+		svcProtocol, _ = metaObj.GetProtocol()
+	}
+
+	syncVIPOnly, err := gf.IsClusterSyncVIPOnly(cname)
+	if err != nil {
+		gslbutils.Errf("gsName: %s, cluster: %s, msg: couldn't find the sync type for member: %v",
+			gsFqdn, cname, err)
+	}
+
+	tls, _ := metaObj.GetTLS()
+
+	return AviGSK8sObj{
+		Cluster:            cname,
+		Namespace:          ns,
+		Name:               metaObj.GetName(),
+		IPAddr:             metaObj.GetIPAddr(),
+		Weight:             weight,
+		ObjType:            objType,
+		Port:               svcPort,
+		Proto:              svcProtocol,
+		Paths:              paths,
+		VirtualServiceUUID: metaObj.GetVirtualServiceUUID(),
+		ControllerUUID:     metaObj.GetControllerUUID(),
+		SyncVIPOnly:        syncVIPOnly,
+		IsPassthrough:      metaObj.IsPassthrough(),
+		TLS:                tls,
+	}, nil
 }

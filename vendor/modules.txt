@@ -81,6 +81,15 @@ github.com/spf13/pflag
 # github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20210319171726-25358c8f151e
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/scheme
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/typed/ako/v1alpha1
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/ako
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/ako/v1alpha1
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/internalinterfaces
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/listers/ako/v1alpha1
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils
 # go.uber.org/atomic v1.7.0
 go.uber.org/atomic
