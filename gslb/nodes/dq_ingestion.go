@@ -331,7 +331,6 @@ func DeleteGSOrGSMembers(aviGSGraph *AviGSObjectGraph, members []AviGSK8sObj, mo
 func OperateOnHostRule(key string) {
 	agl := SharedAviGSGraphLister()
 	op, _, cname, _, lfqdn, gfqdn, err := gslbutils.ExtractMultiClusterHostRuleKey(key)
-	gslbutils.Logf("*************** local fqdn: %s, global fqdn: %s", lfqdn, gfqdn)
 	if err != nil {
 		gslbutils.Errf("key: %s, msg: couldn't parse the key for HostRule: %v", key, err)
 		return
