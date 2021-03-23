@@ -313,9 +313,25 @@ func OperateOnGSLBHostRule(key string) {
 	AddUpdateGSLBHostRuleOperation(key, objType, objName, sharedQueue, SharedAviGSGraphLister())
 }
 
+func DeleteGSOrGSMembers(aviGSGraph *AviGSObjectGraph, members []AviGSK8sObj, modelName string, agl *AviGSGraphLister,
+	sharedQ *utils.WorkerQueue, key string) {
+	gsName := aviGSGraph.Name
+	for _, m := range members {
+		aviGSGraph.DeleteMember(m.Cluster, m.Namespace, m.Name, m.ObjType)
+	}
+	if len(aviGSGraph.GetUniqueMemberObjs()) == 0 {
+		SharedDeleteGSGraphLister().Save(modelName, aviGSGraph)
+		agl.Delete(modelName)
+	} else {
+		agl.Save(gsName, aviGSGraph)
+	}
+	PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, sharedQ)
+}
+
 func OperateOnHostRule(key string) {
 	agl := SharedAviGSGraphLister()
 	op, _, cname, _, lfqdn, gfqdn, err := gslbutils.ExtractMultiClusterHostRuleKey(key)
+	gslbutils.Logf("*************** local fqdn: %s, global fqdn: %s", lfqdn, gfqdn)
 	if err != nil {
 		gslbutils.Errf("key: %s, msg: couldn't parse the key for HostRule: %v", key, err)
 		return
@@ -337,14 +353,7 @@ func OperateOnHostRule(key string) {
 			gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName,
 				"GS graph for local fqdn exists, will evaluate the members")
 			members = aviGSGraph.GetGSMembersByCluster(cname)
-			for _, m := range members {
-				aviGS.(*AviGSObjectGraph).DeleteMember(m.Cluster, m.Namespace, m.Name, m.ObjType)
-			}
-			if len(aviGSGraph.GetUniqueMemberObjs()) == 0 {
-				SharedDeleteGSGraphLister().Save(modelName, aviGSGraph)
-				agl.Delete(modelName)
-			}
-			PublishKeyToRestLayer(utils.ADMIN_NS, lfqdn, key, sharedQ)
+			DeleteGSOrGSMembers(aviGSGraph, members, modelName, agl, sharedQ, key)
 		}
 		if len(members) == 0 {
 			// there are no members which can be added to the new GS, return
@@ -352,12 +361,17 @@ func OperateOnHostRule(key string) {
 			return
 		}
 
-		// a new GS object needs to be created if a local fqdn mapping exists for it
+		// a new GS object needs to be created or updated for the global fqdn
 		newModelName := utils.ADMIN_NS + "/" + gfqdn
 		found, aviGS = agl.Get(newModelName)
 		if found {
-			gslbutils.Logf("key: %s, gsName: %s, msg: GS for global FQDN already exists", key,
+			gslbutils.Logf("key: %s, gsName: %s, msg: GS for global FQDN already exists, will update", key,
 				aviGS.(*AviGSObjectGraph).Name)
+			aviGSGraph := aviGS.(*AviGSObjectGraph)
+			for _, m := range members {
+				aviGSGraph.AddUpdateGSMember(m)
+			}
+			agl.Save(gfqdn, aviGS.(*AviGSObjectGraph))
 			return
 		}
 
@@ -368,6 +382,61 @@ func OperateOnHostRule(key string) {
 			*(aviGSGraph)))
 		agl.Save(newModelName, aviGS.(*AviGSObjectGraph))
 		PublishKeyToRestLayer(utils.ADMIN_NS, gfqdn, key, sharedQ)
+
+	case gslbutils.ObjectUpdate:
+		fqdnMap := gslbutils.GetFqdnMap()
+		// for an update operation, the fqdns have different meaning
+		prevFqdn := lfqdn
+		newFqdn := gfqdn
+		lFqdnObjs, err := fqdnMap.GetLocalFqdnsForGlobalFqdn(prevFqdn)
+		if err != nil {
+			gslbutils.Logf("key: %s, cluster: %s, prevFqdn: %s, msg: error in fetching local fqdn mapping",
+				key, cname, prevFqdn)
+		}
+		for _, f := range lFqdnObjs {
+			if f.Cluster == cname {
+				fqdnMap.DeleteFromFqdnMapping(prevFqdn, f.Fqdn, f.Cluster)
+				fqdnMap.AddUpdateToFqdnMapping(newFqdn, f.Fqdn, f.Cluster)
+			}
+		}
+
+		var members []AviGSK8sObj
+		modelName := utils.ADMIN_NS + "/" + prevFqdn
+		found, aviGS := agl.Get(modelName)
+		if found {
+			aviGSGraph := aviGS.(*AviGSObjectGraph)
+			// an existing GS Graph was found for the local fqdn, delete member(s) or the GS graph.
+			gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName,
+				"GS graph for local fqdn exists, will evaluate the members")
+			members = aviGSGraph.GetGSMembersByCluster(cname)
+			DeleteGSOrGSMembers(aviGSGraph, members, modelName, agl, sharedQ, key)
+		}
+		if len(members) == 0 {
+			// there are no members which can be added to the new GS, return
+			gslbutils.Logf("key: %s, gFqdn: %s, msg: no pending members to be added", key, gfqdn)
+			return
+		}
+		// a new GS object needs to be created/updated for the new global fqdn
+		newModelName := utils.ADMIN_NS + "/" + newFqdn
+		found, aviGS = agl.Get(newModelName)
+		if found {
+			gslbutils.Logf("key: %s, gsName: %s, msg: GS for global FQDN already exists, will update the members", key,
+				aviGS.(*AviGSObjectGraph).Name)
+			for _, m := range members {
+				aviGS.(*AviGSObjectGraph).AddUpdateGSMember(m)
+			}
+			agl.Save(newModelName, aviGS.(*AviGSObjectGraph))
+			PublishKeyToRestLayer(utils.ADMIN_NS, newFqdn, key, sharedQ)
+			return
+		}
+		// create a new GS object
+		aviGS = NewAviGSObjectGraph()
+		aviGSGraph := aviGS.(*AviGSObjectGraph)
+		aviGSGraph.ConstructAviGSGraphFromObjects(newFqdn, members, key)
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
+			*(aviGSGraph)))
+		agl.Save(newModelName, aviGS.(*AviGSObjectGraph))
+		PublishKeyToRestLayer(utils.ADMIN_NS, newFqdn, key, sharedQ)
 
 	case gslbutils.ObjectDelete:
 		fqdnMap := gslbutils.GetFqdnMap()
@@ -385,9 +454,7 @@ func OperateOnHostRule(key string) {
 		}
 		aviGSGraph := aviGS.(*AviGSObjectGraph)
 		members := aviGSGraph.GetGSMembersByCluster(cname)
-		SharedDeleteGSGraphLister().Save(modelName, aviGSGraph)
-		agl.Delete(modelName)
-		PublishKeyToRestLayer(utils.ADMIN_NS, gfqdn, key, sharedQ)
+		DeleteGSOrGSMembers(aviGSGraph, members, modelName, agl, sharedQ, key)
 
 		// See if we need to create/update a GS Graph for the local fqdn
 		newModelName := utils.ADMIN_NS + "/" + lfqdn

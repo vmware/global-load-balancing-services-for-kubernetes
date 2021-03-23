@@ -28,7 +28,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	extensionv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/util/workqueue"
@@ -95,7 +95,6 @@ func TestGDPSelectAllObjsFromOneCluster(t *testing.T) {
 	buildAndAddTestGSLBObject(t)
 	t.Log("Creating ingresses")
 	ingList, allKeys := CreateMultipleIngresses(t, fooKubeClient, ingNameList, hosts, ipAddrs, ns, svc, cname)
-
 	t.Logf("Adding GDP object")
 	gdp := getTestGDPObject(true, false)
 	AddTestGDPObj(gdp)
@@ -562,13 +561,13 @@ func TestGDPSelectNoneObjsFromOneCluster(t *testing.T) {
 	DeleteTestGDPObj(gdp)
 }
 
-func CreateMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingNameList, hosts, ipAddrs []string, ns, svc, cname string) ([]*extensionv1beta1.Ingress, []string) {
+func CreateMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingNameList, hosts, ipAddrs []string, ns, svc, cname string) ([]*networkingv1beta1.Ingress, []string) {
 	g := gomega.NewGomegaWithT(t)
 	g.Expect(len(ingNameList)).To(gomega.Equal(len(hosts)))
 	g.Expect(len(hosts)).To(gomega.Equal(len(ipAddrs)))
 
 	t.Logf("Creating ingresses %v", ingNameList)
-	ingList := []*extensionv1beta1.Ingress{}
+	ingList := []*networkingv1beta1.Ingress{}
 	allKeys := []string{}
 
 	for idx, ingName := range ingNameList {
@@ -580,7 +579,7 @@ func CreateMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingNameList, h
 	return ingList, allKeys
 }
 
-func DeleteMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingList []*extensionv1beta1.Ingress) {
+func DeleteMultipleIngresses(t *testing.T, kc *k8sfake.Clientset, ingList []*networkingv1beta1.Ingress) {
 	for _, ingObj := range ingList {
 		k8sDeleteIngress(t, kc, ingObj.ObjectMeta.Name, ingObj.ObjectMeta.Namespace)
 	}
@@ -613,17 +612,17 @@ func UpdateTestGDPObj(oldGdp, gdp *gdpalphav2.GlobalDeploymentPolicy) {
 	gslbingestion.UpdateGDPObj(oldGdp, gdp, ingestionQ.Workqueue, 2)
 }
 
-func CreateIngressObjWithLabel(t *testing.T, kc *k8sfake.Clientset, name, ns, svc, cname string, hostIPs map[string]string, withStatus bool, labelKey, labelValue string) *extensionv1beta1.Ingress {
+func CreateIngressObjWithLabel(t *testing.T, kc *k8sfake.Clientset, name, ns, svc, cname string, hostIPs map[string]string, withStatus bool, labelKey, labelValue string) *networkingv1beta1.Ingress {
 	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, withStatus)
 	ingObj.Labels[labelKey] = labelValue
-	_, err := kc.ExtensionsV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
+	_, err := kc.NetworkingV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
 	return ingObj
 }
 
-func GetMultipleIngDeleteKeys(t *testing.T, ingList []*extensionv1beta1.Ingress, cname, ns string) []string {
+func GetMultipleIngDeleteKeys(t *testing.T, ingList []*networkingv1beta1.Ingress, cname, ns string) []string {
 	allKeys := []string{}
 	for _, ing := range ingList {
 		key := GetIngressKey("DELETE", cname, ns, ing.ObjectMeta.Name, ing.Status.LoadBalancer.Ingress[0].Hostname)

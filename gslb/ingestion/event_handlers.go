@@ -529,13 +529,13 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 					// no updates to the gs fqdn, so return
 					return
 				}
-				// gs fqdn is updated, write a DELETE event for the previous fqdn and an ADD event
+				// gs fqdn is updated, write an UPDATE event for the previous fqdn and an ADD event
 				// for the new fqdn
 				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
-				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, oldHr.Namespace, gslbutils.ObjectDelete,
-					oldHr.Spec.VirtualHost.Fqdn, oldHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
-				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, newHr.Namespace, gslbutils.ObjectAdd,
-					newHr.Spec.VirtualHost.Fqdn, newHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
+				oldGFqdn := oldHr.Spec.VirtualHost.Gslb.Fqdn
+				newGFqdn := newHr.Spec.VirtualHost.Gslb.Fqdn
+				publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, oldHr.Namespace, gslbutils.ObjectUpdate,
+					oldGFqdn, newGFqdn, c.workqueue)
 			} else if oldHrAccepted && !newHrAccepted {
 				// delete the old gs fqdn
 				DeleteFromHostRuleStore(hrStore, oldHr, c.name)

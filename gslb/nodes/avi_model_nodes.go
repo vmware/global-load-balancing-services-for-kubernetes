@@ -15,7 +15,6 @@
 package nodes
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 
@@ -442,8 +441,9 @@ func (v *AviGSObjectGraph) ConstructAviGSGraphFromObjects(gsFqdn string, members
 func (v *AviGSObjectGraph) ConstructAviGSGraphFromMeta(gsName, key string, metaObj k8sobjects.MetaObject) {
 	menberObj, err := BuildGSMemberObjFromMeta(metaObj, gsName)
 	if err != nil {
-		gslbutils.Errf("key: %s, gsName: %s, msg: error in building member object from meta object: %s",
-			key, gsName)
+		gslbutils.Errf("key: %s, gsName: %s, msg: error in building member object from meta object: %v",
+			key, gsName, err)
+		return
 	}
 	v.ConstructAviGSGraph(gsName, key, []AviGSK8sObj{menberObj})
 }
@@ -509,6 +509,7 @@ func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
 		v.Hm.Protocol = gslbutils.GetHmTypeForTLS(v.MemberObjs[0].TLS)
 	}
 }
+
 func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
@@ -752,7 +753,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 	if err != nil {
 		// for LB type services and passthrough routes
 		gslbutils.Debugf("gsName: %s, msg: path list not available for object %s", gsFqdn, err.Error())
-		return AviGSK8sObj{}, fmt.Errorf("path list not available for object %s", gsFqdn)
+		// return AviGSK8sObj{}, fmt.Errorf("path list not available for object %s", gsFqdn)
 	}
 
 	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
