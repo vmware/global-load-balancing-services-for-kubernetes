@@ -1,6 +1,6 @@
 module github.com/vmware/global-load-balancing-services-for-kubernetes
 
-go 1.13
+go 1.15
 
 require (
 	github.com/avinetworks/sdk v0.0.0-20210127001121-7d79efee089b
