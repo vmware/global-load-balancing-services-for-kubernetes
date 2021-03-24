@@ -32,6 +32,8 @@ spec:
                       type: string
                     syncVipOnly:
                       type: boolean
+              isBulkProvisioning:
+                type: boolean
               matchRules:
                 type: object
                 properties:

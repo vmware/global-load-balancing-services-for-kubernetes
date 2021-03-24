@@ -48,6 +48,11 @@ spec:
                 type: array
               refreshInterval:
                 type: integer
+              customFqdnMode:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
           status:
             type: "object"
             properties:

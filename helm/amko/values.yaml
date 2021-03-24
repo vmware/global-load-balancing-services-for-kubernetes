@@ -39,7 +39,7 @@ globalDeploymentPolicy:
   # list of all clusters that the GDP object will be applied to, can take any/all values
   # from .configs.memberClusters
   matchClusters:
-    - "cluster1-admin"
+    - cluster: "cluster1-admin"
     - "cluster2-admin"
 
   # list of all clusters and their traffic weights, if unspecified, default weights will be

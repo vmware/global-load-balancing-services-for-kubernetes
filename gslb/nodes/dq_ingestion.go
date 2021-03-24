@@ -252,8 +252,14 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 		gslbutils.Logf("key: %s, msg: no hostname for the %s object", key, objType)
 		return
 	}
-	gsName := hostname
-	modelName := utils.ADMIN_NS + "/" + hostname
+
+	fqdnMapping := gslbutils.GetFqdnMap()
+	gsFqdn := DeriveGSLBServiceName(hostname, cname)
+	if gsFqdn != hostname {
+		fqdnMapping.DeleteFromFqdnMapping(gsFqdn, hostname, cname)
+	}
+	gsName := gsFqdn
+	modelName := utils.ADMIN_NS + "/" + gsFqdn
 
 	deleteGs := false
 	agl := SharedAviGSGraphLister()

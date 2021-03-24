@@ -753,7 +753,6 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 	if err != nil {
 		// for LB type services and passthrough routes
 		gslbutils.Debugf("gsName: %s, msg: path list not available for object %s", gsFqdn, err.Error())
-		// return AviGSK8sObj{}, fmt.Errorf("path list not available for object %s", gsFqdn)
 	}
 
 	if objType == gslbutils.SvcType || metaObj.IsPassthrough() {
