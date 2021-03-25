@@ -21,6 +21,9 @@ spec:
   trafficSplit:
   {{- toYaml . | nindent 4 }}
 {{- end }}
-{{- with .Values.globalDeploymentPolicy.ttl }}
-  ttl: {{ .Values.globalDeploymentPolicy.ttl }}
+  {{ if .Values.globalDeploymentPolicy.ttl }}ttl: {{ .Values.globalDeploymentPolicy.ttl }} {{ end }}
+  {{ if .Values.globalDeploymentPolicy.sitePersistenceRef}}sitePersistenceRef: {{ .Values.globalDeploymentPolicy.sitePersistenceRef }} {{ end }}
+{{- with.Values.globalDeploymentPolicy.healthMonitorRefs }}
+  healthMonitorRefs:
+  {{- toYaml . | nindent 4 }}
 {{- end }}

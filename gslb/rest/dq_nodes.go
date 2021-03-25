@@ -66,7 +66,7 @@ func (restOp *RestOperations) deleteAllStaleHMsForGS(key string) {
 		gslbutils.Debugf("key: %s, msg: no more health monitors for this key", key)
 		return
 	}
-	gslbutils.Debugf("key: %s, msg: %d health monitors found for this key", len(hmObjs))
+	gslbutils.Debugf("key: %s, msg: %d health monitors found for this key", key, len(hmObjs))
 	for _, hmObj := range hmObjs {
 		hmCacheObj, ok := hmObj.(*avicache.AviHmObj)
 		if !ok {
