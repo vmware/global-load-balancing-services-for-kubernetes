@@ -23,6 +23,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 
 	"github.com/onsi/gomega"
@@ -113,7 +114,7 @@ func addKeyToIngestionQueue(ns, key string) {
 }
 
 func AddSvcMeta(t *testing.T, name, ns, host, svc, ip, cname string, create bool) k8sobjects.SvcMeta {
-	acceptedSvcStore := gslbutils.GetAcceptedLBSvcStore()
+	acceptedSvcStore := store.GetAcceptedLBSvcStore()
 	objName := name
 	op := gslbutils.ObjectAdd
 	if !create {
@@ -135,7 +136,7 @@ func AddSvcMeta(t *testing.T, name, ns, host, svc, ip, cname string, create bool
 }
 
 func AddIngressMeta(t *testing.T, name, ns, host, svc, ip, cname string, create bool) k8sobjects.IngressHostMeta {
-	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
+	acceptedIngStore := store.GetAcceptedIngressStore()
 	objName := name + "/" + host
 	op := gslbutils.ObjectAdd
 	if !create {
@@ -197,7 +198,7 @@ func verifyGsGraph(t *testing.T, metaObj k8sobjects.MetaObject, present bool, nM
 
 func TestGSGraphsForSingleIhms(t *testing.T) {
 	prefix := "si-"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname1 := prefix + "host1.avi.com"
 	hostname2 := prefix + "host2.avi.com"
 	fooIng1 := prefix + "foo-ing1"
@@ -235,7 +236,7 @@ func TestGSGraphsForMultiIhms(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	hostname := prefix + "host1.avi.com"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	ihm1 := AddIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.10", FooCluster, true)
 	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
 	if !ok {
@@ -266,7 +267,7 @@ func TestGSGraphsForMultiIhms(t *testing.T) {
 
 func TestGSGraphsForSingleIhmUpdate(t *testing.T) {
 	prefix := "siu-"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname1 := prefix + "host1.avi.com"
 	hostname2 := prefix + "host2.avi.com"
 	fooIng1 := prefix + "foo-ing1"
@@ -312,7 +313,7 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	hostname := prefix + "host1.avi.com"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	ihm1 := AddIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.10", FooCluster, true)
 	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
 	if !ok {
@@ -362,7 +363,7 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 
 func TestGSGraphsForSingleSvc(t *testing.T) {
 	prefix := "ss-"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname1 := prefix + "host1.avi.com"
 	hostname2 := prefix + "host2.avi.com"
 	fooIng1 := prefix + "foo-ing1"
@@ -397,7 +398,7 @@ func TestGSGraphsForSingleSvc(t *testing.T) {
 
 func TestGSGraphsForMultiSvc(t *testing.T) {
 	prefix := "ms-"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname := prefix + "host1.avi.com"
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
@@ -431,7 +432,7 @@ func TestGSGraphsForMultiSvc(t *testing.T) {
 
 func TestGSGraphsForSingleSvcUpdate(t *testing.T) {
 	prefix := "ssu-"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname1 := prefix + "host1.avi.com"
 	hostname2 := prefix + "host2.avi.com"
 	fooIng1 := prefix + "foo-ing1"
@@ -480,7 +481,7 @@ func TestGSGraphsForSingleSvcUpdate(t *testing.T) {
 
 func TestGSGraphsForMultiSvcUpdate(t *testing.T) {
 	prefix := "msu-"
-	acceptedIngStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname := prefix + "host1.avi.com"
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"

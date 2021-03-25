@@ -40,13 +40,14 @@ func getSitePersistence(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gs
 	return gf.GetSitePersistence()
 }
 
-func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj bool) {
+func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj bool, tls bool) {
 	gf := gslbutils.GetGlobalFilter()
 	// check if a GSLB Host Rule has been defined for this fqdn (gsName)
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	var gsRule gslbutils.GSHostRules
 	var gsRuleExists bool
 
+	gsGraph.DomainNames = []string{gsFqdn}
 	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsFqdn); ghRulesForFqdn != nil {
 		ghRulesForFqdn.DeepCopyInto(&gsRule)
 		gsRuleExists = true
@@ -70,7 +71,9 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		gsGraph.HmRefs = nil
 	}
 
-	gsGraph.SitePersistenceRef = getSitePersistence(gsRuleExists, &gsRule, gf)
+	if tls {
+		gsGraph.SitePersistenceRef = getSitePersistence(gsRuleExists, &gsRule, gf)
+	}
 
 	if gsRuleExists && gsRule.ThirdPartyMembers != nil && len(gsRule.ThirdPartyMembers) != 0 {
 		if newObj {

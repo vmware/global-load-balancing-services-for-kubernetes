@@ -16,12 +16,26 @@
 // openshift clusters.
 // The format is: cluster: [namespace:[object_name: obj]]
 
-package gslbutils
+package store
 
 import (
 	"sync"
 
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+)
+
+// Cluster Routes store for all the route objects.
+var (
+	AcceptedRouteStore   *ClusterStore
+	RejectedRouteStore   *ClusterStore
+	AcceptedLBSvcStore   *ClusterStore
+	RejectedLBSvcStore   *ClusterStore
+	AcceptedIngressStore *ClusterStore
+	RejectedIngressStore *ClusterStore
+	AcceptedNSStore      *ObjectStore
+	RejectedNSStore      *ObjectStore
+	HostRuleStore        *ClusterStore
 )
 
 type ClusterStore struct {
@@ -30,7 +44,7 @@ type ClusterStore struct {
 }
 
 // Filterfn is a type of a function used to filter out objects.
-type Filterfn func(obj interface{}, cname string) bool
+type Filterfn func(filter.FilterArgs) bool
 
 var acceptedOnce sync.Once
 
@@ -177,6 +191,29 @@ func (clusterStore *ClusterStore) GetAllFilteredClusterNSObjects(applyFilter Fil
 	defer clusterStore.ClusterLock.RUnlock()
 	for cname, clusterMap := range clusterStore.ClusterObjectMap {
 		nsObjListAcc, nsObjListRej := clusterMap.GetAllFilteredNSObjects(applyFilter, cname)
+		for _, nsObj := range nsObjListAcc {
+			// Prefix the cluster name to the ns+obj name
+			acceptedList = append(acceptedList, cname+"/"+nsObj)
+		}
+		for _, nsObj := range nsObjListRej {
+			rejectedList = append(rejectedList, cname+"/"+nsObj)
+		}
+	}
+	return acceptedList, rejectedList
+}
+
+// GetAllFilteredClusterNSObjectsForCluster gets the list of all accepted and rejected
+// objects which pass the filter function applyFilter for a specified cluster.
+func (clusterStore *ClusterStore) GetAllFilteredObjectsForClusterFqdn(applyFilter Filterfn, cluster string,
+	gfqdn string) ([]string, []string) {
+	var acceptedList, rejectedList []string
+	clusterStore.ClusterLock.RLock()
+	defer clusterStore.ClusterLock.RUnlock()
+	for cname, clusterMap := range clusterStore.ClusterObjectMap {
+		if cname != cluster {
+			continue
+		}
+		nsObjListAcc, nsObjListRej := clusterMap.GetAllFilteredNSObjectsForFqdn(applyFilter, cname, gfqdn)
 		for _, nsObj := range nsObjListAcc {
 			// Prefix the cluster name to the ns+obj name
 			acceptedList = append(acceptedList, cname+"/"+nsObj)
@@ -353,6 +390,25 @@ func (store *ObjectStore) GetAllFilteredNSObjects(applyFilter Filterfn,
 	return acceptedList, rejectedList
 }
 
+func (store *ObjectStore) GetAllFilteredNSObjectsForFqdn(applyFilter Filterfn,
+	cname string, fqdn string) ([]string, []string) {
+	store.NSLock.RLock()
+	defer store.NSLock.RUnlock()
+	var acceptedList, rejectedList []string
+	for ns, nsObjMap := range store.NSObjectMap {
+		objListAcc, objListRej := nsObjMap.GetAllFilteredObjectsForFqdn(applyFilter, cname, fqdn)
+		for _, obj := range objListAcc {
+			// Prefixes a namespace to the list of objects
+			acceptedList = append(acceptedList, ns+"/"+obj)
+		}
+		for _, obj := range objListRej {
+			// Prefix a namespace to the list of the objects
+			rejectedList = append(rejectedList, ns+"/"+obj)
+		}
+	}
+	return acceptedList, rejectedList
+}
+
 func (store *ObjectStore) GetAllNSObjects() []string {
 	nsObjs := []string{}
 	store.NSLock.RLock()
@@ -464,7 +520,28 @@ func (o *ObjectMapStore) GetAllFilteredObjects(applyFilter Filterfn, cname strin
 	defer o.ObjLock.RUnlock()
 	var acceptedList, rejectedList []string
 	for objName, obj := range o.ObjectMap {
-		if applyFilter(obj, cname) {
+		if applyFilter(filter.FilterArgs{
+			Obj:     obj,
+			Cluster: cname,
+		}) {
+			acceptedList = append(acceptedList, objName)
+		} else {
+			rejectedList = append(rejectedList, objName)
+		}
+	}
+	return acceptedList, rejectedList
+}
+
+func (o *ObjectMapStore) GetAllFilteredObjectsForFqdn(applyFilter Filterfn, cname string, fqdn string) ([]string, []string) {
+	o.ObjLock.RLock()
+	defer o.ObjLock.RUnlock()
+	var acceptedList, rejectedList []string
+	for objName, obj := range o.ObjectMap {
+		if applyFilter(filter.FilterArgs{
+			Obj:     obj,
+			Cluster: cname,
+			GFqdn:   fqdn,
+		}) {
 			acceptedList = append(acceptedList, objName)
 		} else {
 			rejectedList = append(rejectedList, objName)

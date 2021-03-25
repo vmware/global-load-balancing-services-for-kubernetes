@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -271,11 +271,11 @@ func BuildSvcObj(name, ns, cname, host, ip string, withStatus bool, svcType core
 }
 
 func verifyInSvcStore(g *gomega.WithT, accepted bool, present bool, svcName, ns, cname, host, ip string) {
-	var cs *gslbutils.ClusterStore
+	var cs *store.ClusterStore
 	if accepted {
-		cs = gslbutils.GetAcceptedLBSvcStore()
+		cs = store.GetAcceptedLBSvcStore()
 	} else {
-		cs = gslbutils.GetRejectedLBSvcStore()
+		cs = store.GetRejectedLBSvcStore()
 	}
 	obj, found := cs.GetClusterNSObjectByName(cname, ns, svcName)
 	g.Expect(found).To(gomega.Equal(present))

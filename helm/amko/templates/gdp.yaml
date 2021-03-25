@@ -1,4 +1,4 @@
-apiVersion: "amko.vmware.com/v1alpha1"
+apiVersion: "amko.vmware.com/v1alpha2"
 kind: "GlobalDeploymentPolicy"
 metadata:
   name: "global-gdp"
@@ -20,4 +20,7 @@ spec:
 {{- with .Values.globalDeploymentPolicy.trafficSplit }}
   trafficSplit:
   {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- with .Values.globalDeploymentPolicy.ttl }}
+  ttl: {{ .Values.globalDeploymentPolicy.ttl }}
 {{- end }}

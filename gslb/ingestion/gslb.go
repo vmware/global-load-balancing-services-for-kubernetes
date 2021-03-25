@@ -500,6 +500,7 @@ func AddGSLBConfigObject(obj interface{}) {
 		return
 	}
 	utils.AviLog.SetLevel(gc.Spec.LogLevel)
+	gslbutils.SetCustomFqdnMode(gc.Spec.UseCustomGlobalFqdn)
 
 	gslbutils.Debugf("ns: %s, gslbConfig: %s, msg: %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
 		"got an add event")
@@ -809,10 +810,18 @@ func InitializeGSLBClusters(membersKubeConfig string, memberClusters []gslbalpha
 			gslbutils.Warnf("cluster: %s, msg: couldn't initialize clientset for host rule", cluster.clusterName)
 			continue
 		}
-		akoInformerFactory := akoinformer.NewSharedInformerFactory(hrClient, time.Second*30)
-		hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
 
-		aviCtrl := GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
+		var aviCtrl GSLBMemberController
+		if gslbutils.GetCustomFqdnMode() {
+			akoInformerFactory := akoinformer.NewSharedInformerFactory(hrClient, time.Second*30)
+			hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
+
+			aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
+			aviCtrl.hrClientSet = hrClient
+		} else {
+			aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, nil)
+		}
+
 		gslbutils.AddClusterContext(cluster.clusterName)
 		aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 		aviCtrlList = append(aviCtrlList, &aviCtrl)

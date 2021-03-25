@@ -304,9 +304,28 @@ func (ing IngressHostMeta) DeleteMapByKey(key string) {
 }
 
 func (ihm IngressHostMeta) ApplyFilter() bool {
+	fqdnMap := gslbutils.GetFqdnMap()
+
+	selectedByGDP := ihm.ApplyGDPSelector()
+	if selectedByGDP {
+		if gslbutils.GetCustomFqdnMode() {
+			_, err := fqdnMap.GetGlobalFqdnForLocalFqdn(ihm.Cluster, ihm.Hostname)
+			if err != nil {
+				gslbutils.Debugf("cluster: %s, ns: %s, ingress host: %s, msg: error in fetching global fqdn: %v",
+					ihm.Cluster, ihm.Namespace, ihm.Hostname, err)
+				return false
+			}
+			return true
+		}
+	}
+
+	return selectedByGDP
+}
+
+func (ihm IngressHostMeta) ApplyGDPSelector() bool {
 	gf := gslbutils.GetGlobalFilter()
 	gf.GlobalLock.RLock()
-	gf.GlobalLock.RUnlock()
+	defer gf.GlobalLock.RUnlock()
 
 	if !gslbutils.ClusterContextPresentInList(ihm.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: Ingress, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",

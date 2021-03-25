@@ -19,12 +19,14 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	routev1 "github.com/openshift/api/route/v1"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 
+	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	hrinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/ako/v1alpha1"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +45,7 @@ type GSLBMemberController struct {
 	worker_id_mutex sync.Mutex
 	informers       *containerutils.Informers
 	hrInformer      *hrinformer.HostRuleInformer
+	hrClientSet     *hrcs.Clientset
 	workqueue       []workqueue.RateLimitingInterface
 	syncType        int
 }
@@ -65,7 +68,7 @@ func (ctrl GSLBMemberController) GetName() string {
 // AddOrUpdateRouteStore traverses through the cluster store for cluster name cname,
 // and then to ns store for the route's namespace and then adds/updates the route obj
 // in the object map store.
-func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
+func AddOrUpdateRouteStore(clusterRouteStore *store.ClusterStore,
 	route *routev1.Route, cname string) {
 	routeMeta := k8sobjects.GetRouteMeta(route, cname)
 	gslbutils.Debugf("route meta object: %v", routeMeta)
@@ -75,7 +78,7 @@ func AddOrUpdateRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 // DeleteFromRouteStore traverses through the cluster store for cluster name cname,
 // and then ns store for the route's namespace and then deletes the route key from
 // the object map store.
-func DeleteFromRouteStore(clusterRouteStore *gslbutils.ClusterStore,
+func DeleteFromRouteStore(clusterRouteStore *store.ClusterStore,
 	route *routev1.Route, cname string) bool {
 	if clusterRouteStore == nil {
 		// Store is empty, so, noop
@@ -90,7 +93,7 @@ func DeleteFromRouteStore(clusterRouteStore *gslbutils.ClusterStore,
 // AddOrUpdateIngressStore traverses through the cluster store for cluster name cname,
 // and then to ns store for the ingressHost's namespace and then adds/updates the ingressHost
 // obj in the object map store.
-func AddOrUpdateIngressStore(clusterRouteStore *gslbutils.ClusterStore,
+func AddOrUpdateIngressStore(clusterRouteStore *store.ClusterStore,
 	ingHost k8sobjects.IngressHostMeta, cname string) {
 	clusterRouteStore.AddOrUpdate(ingHost, cname, ingHost.Namespace, ingHost.ObjName)
 }
@@ -98,7 +101,7 @@ func AddOrUpdateIngressStore(clusterRouteStore *gslbutils.ClusterStore,
 // DeleteFromIngressStore traverses through the cluster store for cluster name cname,
 // and then ns store for the ingHost's namespace and then deletes the ingHost key from
 // the object map store.
-func DeleteFromIngressStore(clusterIngStore *gslbutils.ClusterStore,
+func DeleteFromIngressStore(clusterIngStore *store.ClusterStore,
 	ingHost k8sobjects.IngressHostMeta, cname string) bool {
 	if clusterIngStore == nil {
 		// Store is empty, so, noop
@@ -157,7 +160,7 @@ func isSvcTypeLB(svc *corev1.Service) bool {
 // AddOrUpdateLBSvcStore traverses through the cluster store for cluster name cname,
 // and then to ns store for the service's namespace and then adds/updates the service obj
 // in the object map store.
-func AddOrUpdateLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
+func AddOrUpdateLBSvcStore(clusterSvcStore *store.ClusterStore,
 	svc *corev1.Service, cname string) {
 	svcMeta, _ := k8sobjects.GetSvcMeta(svc, cname)
 	gslbutils.Debugf("updating service store: %s", svc.ObjectMeta.Name)
@@ -167,7 +170,7 @@ func AddOrUpdateLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
 // DeleteFromLBSvcStore traverses through the cluster store for cluster name cname,
 // and then ns store for the service's namespace and then deletes the service key from
 // the object map store.
-func DeleteFromLBSvcStore(clusterSvcStore *gslbutils.ClusterStore,
+func DeleteFromLBSvcStore(clusterSvcStore *store.ClusterStore,
 	svc *corev1.Service, cname string) {
 	if clusterSvcStore == nil {
 		// Store is empty, so, noop
@@ -194,7 +197,7 @@ func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule)
 // AddOrUpdateHostRuleStore traverses through the cluster store for cluster name cname,
 // and then to ns store for the HostRule's namespace and then adds/updates the GS FQDN obj
 // in the object map store.
-func AddOrUpdateHostRuleStore(clusterHRStore *gslbutils.ClusterStore,
+func AddOrUpdateHostRuleStore(clusterHRStore *store.ClusterStore,
 	hr *akov1alpha1.HostRule, cname string) {
 
 	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn)
@@ -206,7 +209,7 @@ func AddOrUpdateHostRuleStore(clusterHRStore *gslbutils.ClusterStore,
 // DeleteFromHostRuleStore traverses through the cluster store for cluster name cname,
 // and then ns store for the HostRule's namespace and then deletes the HostRule key from
 // the object map store.
-func DeleteFromHostRuleStore(hrStore *gslbutils.ClusterStore,
+func DeleteFromHostRuleStore(hrStore *store.ClusterStore,
 	hr *akov1alpha1.HostRule, cname string) {
 	if hrStore == nil {
 		// Store is empty, so, noop

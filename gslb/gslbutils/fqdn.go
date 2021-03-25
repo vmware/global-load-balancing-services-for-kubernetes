@@ -45,6 +45,16 @@ func GetFqdnMap() *globalToLocalFqdn {
 	return globalToLocalFqdnList
 }
 
+func lfqdnIdxInList(objList []LocalFqdn, lfqdnObj LocalFqdn) int {
+	targetIdx := -1
+	for idx, l := range objList {
+		if l.Cluster == lfqdnObj.Cluster && l.Fqdn == lfqdnObj.Fqdn {
+			return idx
+		}
+	}
+	return targetIdx
+}
+
 func (glFqdn *globalToLocalFqdn) AddUpdateToFqdnMapping(gFqdn, lFqdn, cname string) {
 	glFqdn.lock.Lock()
 	defer glFqdn.lock.Unlock()
@@ -56,51 +66,44 @@ func (glFqdn *globalToLocalFqdn) AddUpdateToFqdnMapping(gFqdn, lFqdn, cname stri
 		glFqdn.localToGlobalFqdnList.AddUpdateFqdnMapping(gFqdn, lFqdn, cname)
 		return
 	}
-	glFqdn.globalToLocalMap[gFqdn] = append(glFqdn.globalToLocalMap[gFqdn],
-		LocalFqdn{
-			Cluster: cname,
-			Fqdn:    lFqdn,
-		})
-	glFqdn.localToGlobalFqdnList.AddUpdateFqdnMapping(gFqdn, lFqdn, cname)
-}
-
-func (glFqdn *globalToLocalFqdn) getLocalFqdnIdx(gFqdn, lFqdn, cname string) (int, error) {
-	glFqdn.lock.RLock()
-	glFqdn.lock.RUnlock()
-
-	lFqdnList, ok := glFqdn.globalToLocalMap[gFqdn]
-	if !ok {
-		return 0, fmt.Errorf("no entries for global fqdn %s", gFqdn)
+	lfqdnObj := LocalFqdn{
+		Cluster: cname,
+		Fqdn:    lFqdn,
 	}
-	for idx, lFqdnObj := range lFqdnList {
-		if lFqdnObj.Cluster == cname && lFqdnObj.Fqdn == lFqdn {
-			return idx, nil
-		}
+	idx := lfqdnIdxInList(glFqdn.globalToLocalMap[gFqdn], lfqdnObj)
+	if idx == -1 {
+		glFqdn.globalToLocalMap[gFqdn] = append(glFqdn.globalToLocalMap[gFqdn], lfqdnObj)
+		glFqdn.localToGlobalFqdnList.AddUpdateFqdnMapping(gFqdn, lFqdn, cname)
 	}
-	return 0, fmt.Errorf("local fqdn %s for cluster %s not found for global fqdn %s", lFqdn, cname,
-		gFqdn)
-}
-
-func (glFqdn *globalToLocalFqdn) deleteFromFqdnMappingIdx(gFqdn string, idx int) {
-	glFqdn.lock.Lock()
-	defer glFqdn.lock.Unlock()
-	localFqdn := glFqdn.globalToLocalMap[gFqdn][idx]
-	glFqdn.globalToLocalMap[gFqdn] = append(glFqdn.globalToLocalMap[gFqdn][:idx], glFqdn.globalToLocalMap[gFqdn][idx+1:]...)
-	if len(glFqdn.globalToLocalMap[gFqdn]) == 0 {
-		// delete the key
-		delete(glFqdn.globalToLocalMap, gFqdn)
-	}
-	glFqdn.localToGlobalFqdnList.DeleteFqdn(localFqdn.Cluster, localFqdn.Fqdn)
 }
 
 func (glFqdn *globalToLocalFqdn) DeleteFromFqdnMapping(gFqdn, lFqdn, cname string) {
-	idx, err := glFqdn.getLocalFqdnIdx(gFqdn, lFqdn, cname)
-	if err != nil {
-		Warnf("gFqdn: %s, cluster: %s, lFqdn: %s, msg: error in deleting fqdn mapping: %v",
-			gFqdn, cname, lFqdn, err)
+	glFqdn.lock.RLock()
+	defer glFqdn.lock.RUnlock()
+
+	lFqdnList, ok := glFqdn.globalToLocalMap[gFqdn]
+	if !ok {
+		Debugf("gFqdn: %s, cluster: %s, lFqdn: %s, msg: gfqdn absent in fqdnMap, no entries to delete",
+			gFqdn, cname, lFqdn)
 		return
 	}
-	glFqdn.deleteFromFqdnMappingIdx(gFqdn, idx)
+	targetIdx := lfqdnIdxInList(lFqdnList, LocalFqdn{
+		Cluster: cname,
+		Fqdn:    lFqdn,
+	})
+	if targetIdx == -1 {
+		Warnf("gFqdn: %s, cluster: %s, lFqdn: %s, msg: local fqdn not found for global fqdn",
+			gFqdn, cname, lFqdn)
+		return
+	}
+	localFqdn := glFqdn.globalToLocalMap[gFqdn][targetIdx]
+	glFqdn.globalToLocalMap[gFqdn] = append(glFqdn.globalToLocalMap[gFqdn][:targetIdx],
+		glFqdn.globalToLocalMap[gFqdn][targetIdx+1:]...)
+	if len(glFqdn.globalToLocalMap[gFqdn]) == 0 {
+		// delete the key, if the value list is empty
+		delete(glFqdn.globalToLocalMap, gFqdn)
+	}
+	glFqdn.localToGlobalFqdnList.DeleteFqdn(localFqdn.Cluster, localFqdn.Fqdn)
 }
 
 func (glFqdn *globalToLocalFqdn) GetLocalFqdnsForGlobalFqdn(gFqdn string) ([]LocalFqdn, error) {

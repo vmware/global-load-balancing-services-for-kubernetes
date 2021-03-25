@@ -14,3 +14,4 @@ spec:
 {{- end }}
   refreshInterval: {{ .Values.configs.refreshInterval }}
   logLevel: {{ .Values.configs.logLevel }}
+  useCustomGlobalFqdn: {{ .Values.configs.useCustomGlobalFqdn}}

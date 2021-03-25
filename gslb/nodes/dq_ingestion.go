@@ -16,11 +16,13 @@ package nodes
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -28,6 +30,9 @@ import (
 func DeriveGSLBServiceName(hostname, cname string) string {
 	// This function is a place-holder for deriving the GSLB service name
 	// For now, the hostname of a route is the GSLB Service name
+	if !gslbutils.GetCustomFqdnMode() {
+		return hostname
+	}
 	fqdnMapping := gslbutils.GetFqdnMap()
 	gsFqdn, err := fqdnMapping.GetGlobalFqdnForLocalFqdn(cname, hostname)
 	if err != nil {
@@ -66,15 +71,15 @@ func GetObjTrafficRatio(ns, cname string) int32 {
 }
 
 func getObjFromStore(objType, cname, ns, objName, key, storeType string) interface{} {
-	var store *gslbutils.ClusterStore
+	var cstore *store.ClusterStore
 	switch objType {
 	case gslbutils.RouteType:
 		if storeType == gslbutils.AcceptedStore {
-			store = gslbutils.GetAcceptedRouteStore()
+			cstore = store.GetAcceptedRouteStore()
 		} else {
-			store = gslbutils.GetRejectedRouteStore()
+			cstore = store.GetRejectedRouteStore()
 		}
-		if store == nil {
+		if cstore == nil {
 			// Error state, the route store is not updated, so we can't do anything here
 			gslbutils.Errf("key: %s, msg: %s", key, "accepted route store is empty, can't add route")
 			return nil
@@ -82,11 +87,11 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 		break
 	case gslbutils.IngressType:
 		if storeType == gslbutils.AcceptedStore {
-			store = gslbutils.GetAcceptedIngressStore()
+			cstore = store.GetAcceptedIngressStore()
 		} else {
-			store = gslbutils.GetRejectedIngressStore()
+			cstore = store.GetRejectedIngressStore()
 		}
-		if store == nil {
+		if cstore == nil {
 			gslbutils.Errf("key: %s, msg: %s", key, "accepted ingress store is empty, can't add ingress")
 			return nil
 		}
@@ -94,17 +99,17 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 
 	case gslbutils.SvcType:
 		if storeType == gslbutils.AcceptedStore {
-			store = gslbutils.GetAcceptedLBSvcStore()
+			cstore = store.GetAcceptedLBSvcStore()
 		} else {
-			store = gslbutils.GetRejectedLBSvcStore()
+			cstore = store.GetRejectedLBSvcStore()
 		}
-		if store == nil {
+		if cstore == nil {
 			gslbutils.Errf("key: %s, msg: %s", key, "accepted svc store is empty, can't add svc")
 			return nil
 		}
 		break
 	}
-	obj, ok := store.GetClusterNSObjectByName(cname, ns, objName)
+	obj, ok := cstore.GetClusterNSObjectByName(cname, ns, objName)
 	if !ok {
 		gslbutils.Warnf("key: %s, objName: %s, msg: error finding the object in the %s store", key,
 			objName, storeType)
@@ -130,7 +135,7 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 	if !found {
 		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "checking if a new model is required")
 		aviGS = NewAviGSObjectGraph()
-		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, true)
+		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, true, false)
 		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
 			*(aviGS.(*AviGSObjectGraph))))
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
@@ -139,7 +144,7 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 		prevHmChecksum := gsGraph.GetHmChecksum()
 		prevChecksum := gsGraph.GetChecksum()
 		// update the GS graph
-		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false)
+		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false, gsGraph.MemberObjs[0].TLS)
 		newChecksum := gsGraph.GetChecksum()
 		newHmChecksum := gsGraph.GetHmChecksum()
 		gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
@@ -156,6 +161,52 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	}
 	PublishKeyToRestLayer(utils.ADMIN_NS, objName, key, wq)
+}
+
+type memberFqdnList struct {
+	memberFqdnMap map[string]string
+	Lock          sync.RWMutex
+}
+
+var memberFqdns *memberFqdnList
+var memberFqdnSyncOnce sync.Once
+
+func GetMemberFqdnMap() *memberFqdnList {
+	memberFqdnSyncOnce.Do(func() {
+		memberFqdnList := &memberFqdnList{
+			memberFqdnMap: make(map[string]string),
+		}
+		memberFqdns = memberFqdnList
+	})
+	return memberFqdns
+}
+
+func UpdateMemberFqdnMapping(metaObj k8sobjects.MetaObject, hostname, gsName string) {
+	fqdnMap := GetMemberFqdnMap()
+	key := metaObj.GetCluster() + "/" + metaObj.GetNamespace() + "/" + metaObj.GetName() + "/" + hostname
+	fqdnMap.Lock.Lock()
+	defer fqdnMap.Lock.Unlock()
+	fqdnMap.memberFqdnMap[key] = gsName
+}
+
+func GSNameForMemberFqdn(cname, ns, objName, hostname string) (string, error) {
+	fqdnMap := GetMemberFqdnMap()
+	key := cname + "/" + ns + "/" + objName + "/" + hostname
+	fqdnMap.Lock.RLock()
+	defer fqdnMap.Lock.RUnlock()
+	v, ok := fqdnMap.memberFqdnMap[key]
+	if !ok {
+		return "", fmt.Errorf("no GS name for this object %s", key)
+	}
+	return v, nil
+}
+
+func DeleteMemberFqdnMapping(metaObj k8sobjects.MetaObject, hostname, gsName string) {
+	fqdnMap := GetMemberFqdnMap()
+	key := metaObj.GetCluster() + "/" + metaObj.GetNamespace() + "/" + metaObj.GetName() + "/" + hostname
+	fqdnMap.Lock.Lock()
+	defer fqdnMap.Lock.Unlock()
+	delete(fqdnMap.memberFqdnMap, key)
 }
 
 func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue,
@@ -177,8 +228,8 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		gslbutils.Errf("key: %s, msg: %s", key, "no IP address found for the object")
 		return
 	}
-	// get the traffic ratio for this member
 	gsName := DeriveGSLBServiceName(metaObj.GetHostname(), metaObj.GetCluster())
+	UpdateMemberFqdnMapping(metaObj, metaObj.GetHostname(), gsName)
 	modelName := utils.ADMIN_NS + "/" + gsName
 	found, aviGS := agl.Get(modelName)
 	if !found {
@@ -253,11 +304,12 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 		return
 	}
 
-	fqdnMapping := gslbutils.GetFqdnMap()
-	gsFqdn := DeriveGSLBServiceName(hostname, cname)
-	if gsFqdn != hostname {
-		fqdnMapping.DeleteFromFqdnMapping(gsFqdn, hostname, cname)
+	gsFqdn, err := GSNameForMemberFqdn(cname, ns, objName, hostname)
+	if err != nil {
+		gslbutils.Logf("key: %s, msg: no GS for the %s object: %v", key, objType, err)
 	}
+	DeleteMemberFqdnMapping(metaObj, hostname, gsFqdn)
+
 	gsName := gsFqdn
 	modelName := utils.ADMIN_NS + "/" + gsFqdn
 
@@ -299,7 +351,7 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	}
 }
 
-func OperateOnK8sObject(key, objType string) {
+func OperateOnK8sObject(key string) {
 	objectOperation, objType, cname, ns, objName := gslbutils.ExtractMultiClusterKey(key)
 	sharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 	switch objectOperation {
@@ -436,7 +488,7 @@ func DequeueIngestion(key string) {
 	}
 	switch objType {
 	case gslbutils.RouteType, gslbutils.IngressType, gslbutils.SvcType:
-		OperateOnK8sObject(key, objType)
+		OperateOnK8sObject(key)
 	case gslbutils.GSFQDNType:
 		OperateOnGSLBHostRule(key)
 	case gslbutils.HostRuleType:

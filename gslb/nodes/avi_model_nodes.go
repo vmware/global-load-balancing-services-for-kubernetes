@@ -20,6 +20,7 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -35,19 +36,19 @@ var deleteOnce sync.Once
 
 func SharedDeleteGSGraphLister() *AviGSGraphLister {
 	deleteOnce.Do(func() {
-		deleteGSGraphStore := gslbutils.NewObjectMapStore()
+		deleteGSGraphStore := store.NewObjectMapStore()
 		deleteGSGraphInstance = &AviGSGraphLister{AviGSGraphStore: deleteGSGraphStore}
 	})
 	return deleteGSGraphInstance
 }
 
 type AviGSGraphLister struct {
-	AviGSGraphStore *gslbutils.ObjectMapStore
+	AviGSGraphStore *store.ObjectMapStore
 }
 
 func SharedAviGSGraphLister() *AviGSGraphLister {
 	avionce.Do(func() {
-		aviGSGraphStore := gslbutils.NewObjectMapStore()
+		aviGSGraphStore := store.NewObjectMapStore()
 		aviGSGraphInstance = &AviGSGraphLister{AviGSGraphStore: aviGSGraphStore}
 	})
 	return aviGSGraphInstance
@@ -374,7 +375,7 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 }
 
-func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool) {
+func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool, tls bool) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -383,7 +384,7 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool
 	// log an error and return
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsFqdn); ghRulesForFqdn != nil {
-		setGSLBPropertiesForGS(gsFqdn, v, false)
+		setGSLBPropertiesForGS(gsFqdn, v, false, tls)
 		if !newObj {
 			v.RetryCount = gslbutils.DefaultRetryCount
 			v.CalculateChecksum()
@@ -419,11 +420,12 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 	v.Name = gsFqdn
 	v.Tenant = utils.ADMIN_NS
 	v.DomainNames = []string{gsFqdn}
+	gslbutils.Logf("domain names: %v", v.DomainNames)
 	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 
 	// set the GS properties according to the GSLBHostRule or GDP
-	setGSLBPropertiesForGS(gsFqdn, v, true)
+	setGSLBPropertiesForGS(gsFqdn, v, true, memberObjs[0].TLS)
 
 	if v.HmRefs == nil || len(v.HmRefs) == 0 {
 		// Build the list of health monitors
@@ -510,15 +512,16 @@ func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
 	}
 }
 
-func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string) {
+func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
-	setGSLBPropertiesForGS(gsFqdn, v, false)
+	v.DomainNames = []string{v.Name}
+	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
 }
 
 func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
-	v.SetPropertiesForGS(v.Name)
+	v.SetPropertiesForGS(v.Name, newMember.TLS)
 
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
@@ -568,7 +571,8 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
 }
 
 func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject) {
-	v.SetPropertiesForGS(v.Name)
+	tls, _ := metaObj.GetTLS()
+	v.SetPropertiesForGS(v.Name, tls)
 
 	member, err := BuildGSMemberObjFromMeta(metaObj, v.Name)
 	if err != nil {

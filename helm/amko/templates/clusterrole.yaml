@@ -16,7 +16,7 @@ rules:
     resources: ["services", "secrets", "namespaces"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["amko.vmware.com"]
-    resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status"]
+    resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status", "gslbhostrules", "gslbhostrules/status"]
     verbs: ["get","watch","list","patch", "update"]
 
 {{- if .Values.rbac.pspEnable }}

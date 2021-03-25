@@ -19,8 +19,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -850,11 +850,11 @@ func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, wit
 
 // verify in the accepted or rejected Ingress store
 func verifyInIngStore(g *gomega.WithT, accepted bool, present bool, ingName, ns, cname, host, ip string) {
-	var cs *gslbutils.ClusterStore
+	var cs *store.ClusterStore
 	if accepted {
-		cs = gslbutils.GetAcceptedIngressStore()
+		cs = store.GetAcceptedIngressStore()
 	} else {
-		cs = gslbutils.GetRejectedIngressStore()
+		cs = store.GetRejectedIngressStore()
 	}
 	ihmObjName := ingName + "/" + host
 	obj, found := cs.GetClusterNSObjectByName(cname, ns, ihmObjName)

@@ -238,19 +238,6 @@ var Warnf = utils.AviLog.Warnf
 // Debugf is aliased to utils' Debug.Printf
 var Debugf = utils.AviLog.Debugf
 
-// Cluster Routes store for all the route objects.
-var (
-	AcceptedRouteStore   *ClusterStore
-	RejectedRouteStore   *ClusterStore
-	AcceptedLBSvcStore   *ClusterStore
-	RejectedLBSvcStore   *ClusterStore
-	AcceptedIngressStore *ClusterStore
-	RejectedIngressStore *ClusterStore
-	AcceptedNSStore      *ObjectStore
-	RejectedNSStore      *ObjectStore
-	HostRuleStore        *ClusterStore
-)
-
 func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
 	persistenceProfileRef *string, ttl *int) uint32 {
 
@@ -565,4 +552,17 @@ type HostRuleMeta struct {
 
 func GetHostRuleMeta(gsFqdn string) HostRuleMeta {
 	return HostRuleMeta{gsFqdn}
+}
+
+var customFqdnMode bool
+var fqdnOnce sync.Once
+
+func SetCustomFqdnMode(custom bool) {
+	fqdnOnce.Do(func() {
+		customFqdnMode = custom
+	})
+}
+
+func GetCustomFqdnMode() bool {
+	return customFqdnMode
 }

@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
@@ -120,11 +120,11 @@ func ocUpdateRoute(t *testing.T, oc *oshiftfake.Clientset, ns, cname string, rou
 }
 
 func verifyInRouteStore(g *gomega.WithT, accepted bool, present bool, routeName, ns, cname, host, ip string) {
-	var cs *gslbutils.ClusterStore
+	var cs *store.ClusterStore
 	if accepted {
-		cs = gslbutils.GetAcceptedRouteStore()
+		cs = store.GetAcceptedRouteStore()
 	} else {
-		cs = gslbutils.GetRejectedRouteStore()
+		cs = store.GetRejectedRouteStore()
 	}
 
 	obj, found := cs.GetClusterNSObjectByName(cname, ns, routeName)

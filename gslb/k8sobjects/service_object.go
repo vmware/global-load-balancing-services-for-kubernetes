@@ -226,9 +226,28 @@ func (svc SvcMeta) DeleteMapByKey(key string) {
 }
 
 func (svc SvcMeta) ApplyFilter() bool {
+	fqdnMap := gslbutils.GetFqdnMap()
+
+	selectedByGDP := svc.ApplyGDPSelector()
+	if selectedByGDP {
+		if gslbutils.GetCustomFqdnMode() {
+			_, err := fqdnMap.GetGlobalFqdnForLocalFqdn(svc.Cluster, svc.Hostname)
+			if err != nil {
+				gslbutils.Debugf("cluster: %s, ns: %s, route host: %s, msg: error in fetching global fqdn: %v",
+					svc.Cluster, svc.Namespace, svc.Hostname, err)
+				return false
+			}
+			return true
+		}
+	}
+
+	return selectedByGDP
+}
+
+func (svc SvcMeta) ApplyGDPSelector() bool {
 	gf := gslbutils.GetGlobalFilter()
 	gf.GlobalLock.RLock()
-	gf.GlobalLock.RUnlock()
+	defer gf.GlobalLock.RUnlock()
 
 	if !gslbutils.ClusterContextPresentInList(svc.Cluster, gf.ApplicableClusters) {
 		gslbutils.Logf("objType: LBSvc, cluster: %s, namespace: %s, name: %s, msg: rejected because cluster is not selected",

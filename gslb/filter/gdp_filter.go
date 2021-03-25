@@ -19,18 +19,24 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 )
 
+type FilterArgs struct {
+	Obj     interface{}
+	Cluster string
+	GFqdn   string
+}
+
 // ApplyFilter applies the local namespace filter first to an object, if the namespace
 // filter is not present or if the object is rejected by the namespace filter, apply
 // the cluster filter if present. Default action is to reject the object.
-func ApplyFilter(obj interface{}, cname string) bool {
+func ApplyFilter(fargs FilterArgs) bool {
 	gf := gslbutils.GetGlobalFilter()
 	if gf == nil {
-		gslbutils.Errf("cname: %s, msg: global filter doesn't exist, returning false", cname)
+		gslbutils.Errf("cname: %s, msg: global filter doesn't exist, returning false", fargs.Cluster)
 		return false
 	}
-	metaobj, ok := obj.(k8sobjects.FilterableObject)
+	metaobj, ok := fargs.Obj.(k8sobjects.FilterableObject)
 	if !ok {
-		gslbutils.Warnf("cname: %s, msg: not a meta object, returning", cname)
+		gslbutils.Warnf("cname: %s, msg: not a meta object, returning", fargs.Cluster)
 		return false
 	}
 
@@ -43,4 +49,31 @@ func ApplyFilter(obj interface{}, cname string) bool {
 		return false
 	}
 	return metaobj.ApplyFilter()
+}
+
+func ApplyFqdnMapFilter(fargs FilterArgs) bool {
+	ok := ApplyFilter(fargs)
+	if ok {
+		// the object passed through the global filter, check if it passes the fqdn (hostrule) filter
+		fqdnMap := gslbutils.GetFqdnMap()
+		metaObj, ok := fargs.Obj.(k8sobjects.MetaObject)
+		if !ok {
+			gslbutils.Warnf("cname: %s, msg: not a k8s meta object, returning", fargs.Cluster)
+			return false
+		}
+		cname := metaObj.GetCluster()
+		lfqdn := metaObj.GetHostname()
+		lfqdnList, err := fqdnMap.GetLocalFqdnsForGlobalFqdn(fargs.GFqdn)
+		if err != nil {
+			gslbutils.Warnf("cname: %s, msg: error in getting local fqdn list from map for global fqdn %s",
+				fargs.Cluster, fargs.GFqdn)
+			return false
+		}
+		for _, f := range lfqdnList {
+			if f.Cluster == cname && f.Fqdn == lfqdn {
+				return true
+			}
+		}
+	}
+	return false
 }
