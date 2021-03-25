@@ -109,6 +109,7 @@ func (ghr *GSHostRules) GetChecksum() uint32 {
 	return ghr.Checksum
 }
 
+// GetGSHostRuleForGSLBHr parses a GSLB HostRule object and returns a GSHostRules struct
 func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 	gslbhrSpec := gslbhr.Spec.DeepCopy()
 	gsHostRules := GSHostRules{
