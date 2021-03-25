@@ -28,8 +28,6 @@ import (
 )
 
 func DeriveGSLBServiceName(hostname, cname string) string {
-	// This function is a place-holder for deriving the GSLB service name
-	// For now, the hostname of a route is the GSLB Service name
 	if !gslbutils.GetCustomFqdnMode() {
 		return hostname
 	}

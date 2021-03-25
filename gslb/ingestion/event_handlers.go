@@ -641,7 +641,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 			newGFqdn := newHr.Spec.VirtualHost.Gslb.Fqdn
 			newLFqdn := newHr.Spec.VirtualHost.Fqdn
 			fqdnMap := gslbutils.GetFqdnMap()
-			if oldHrAccepted && newHrAccepted && newHrAccepted == true {
+			if (oldHrAccepted == newHrAccepted) && newHrAccepted == true {
 				// check if an update is required?
 				if !isHostRuleUpdated(oldHr, newHr) {
 					// no updates to the gs fqdn, so return
@@ -652,23 +652,17 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
 				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
 				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
-				// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, oldHr.Namespace, gslbutils.ObjectUpdate,
-				// 	oldGFqdn, newGFqdn, c.workqueue)
 				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
 				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
 				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
 			} else if oldHrAccepted && !newHrAccepted {
 				// delete the old gs fqdn
 				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
-				// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, oldHr.Namespace, gslbutils.ObjectDelete,
-				// 	oldHr.Spec.VirtualHost.Fqdn, oldHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
 				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
 				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
 			} else if !oldHrAccepted && newHrAccepted {
 				// add the new gs fqdn
 				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
-				// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, newHr.Namespace, gslbutils.ObjectAdd,
-				// 	newHr.Spec.VirtualHost.Fqdn, newHr.Spec.VirtualHost.Gslb.Fqdn, c.workqueue)
 				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
 				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
 			}
