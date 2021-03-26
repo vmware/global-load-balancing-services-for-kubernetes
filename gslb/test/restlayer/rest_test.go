@@ -53,7 +53,7 @@ func syncFuncForRetryTest(key string, wg *sync.WaitGroup) error {
 
 func setupQueue(testCh <-chan struct{}) {
 	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
-	utils.SharedWorkQueue(slowRetryQParams)
+	utils.SharedWorkQueue(&slowRetryQParams)
 
 	slowRetryQ := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
 	slowRetryQ.SyncFunc = syncFuncForRetryTest

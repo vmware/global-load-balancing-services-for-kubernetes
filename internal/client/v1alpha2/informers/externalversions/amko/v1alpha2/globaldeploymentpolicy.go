@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"context"
 	time "time"
 
 	amkov1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
@@ -61,13 +62,13 @@ func NewFilteredGlobalDeploymentPolicyInformer(client versioned.Interface, names
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AmkoV1alpha2().GlobalDeploymentPolicies(namespace).List(options)
+				return client.AmkoV1alpha2().GlobalDeploymentPolicies(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AmkoV1alpha2().GlobalDeploymentPolicies(namespace).Watch(options)
+				return client.AmkoV1alpha2().GlobalDeploymentPolicies(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&amkov1alpha2.GlobalDeploymentPolicy{},

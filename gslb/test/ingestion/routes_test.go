@@ -15,12 +15,13 @@
 package ingestion
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
@@ -74,7 +75,7 @@ func buildRouteObj(name, ns, svc, cname, host, ip string, withStatus bool) *rout
 
 func ocAddRoute(t *testing.T, oc *oshiftfake.Clientset, name, ns, svc, cname, host, ip string) *routev1.Route {
 	routeObj := buildRouteObj(name, ns, svc, cname, host, ip, true)
-	_, err := oc.RouteV1().Routes(ns).Create(routeObj)
+	_, err := oc.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating route: %v", err)
 	}
@@ -83,7 +84,7 @@ func ocAddRoute(t *testing.T, oc *oshiftfake.Clientset, name, ns, svc, cname, ho
 
 func ocAddRouteWithoutStatus(t *testing.T, oc *oshiftfake.Clientset, name, ns, svc, cname, host string) *routev1.Route {
 	routeObj := buildRouteObj(name, ns, svc, cname, host, "", false)
-	_, err := oc.RouteV1().Routes(ns).Create(routeObj)
+	_, err := oc.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating route: %v", err)
 	}
@@ -92,7 +93,7 @@ func ocAddRouteWithoutStatus(t *testing.T, oc *oshiftfake.Clientset, name, ns, s
 
 func ocDeleteRoute(t *testing.T, oc *oshiftfake.Clientset, name, ns string) {
 	t.Logf("deleting route %s in ns %s", name, ns)
-	err := oc.RouteV1().Routes(ns).Delete(name, &metav1.DeleteOptions{})
+	err := oc.RouteV1().Routes(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in deleting route: %v", err)
 	}
@@ -112,18 +113,18 @@ func ocUpdateRoute(t *testing.T, oc *oshiftfake.Clientset, ns, cname string, rou
 	newResVer = strconv.Itoa(resVerInt + 1)
 	routeObj.ResourceVersion = newResVer
 
-	_, err = oc.RouteV1().Routes(ns).Update(routeObj)
+	_, err = oc.RouteV1().Routes(ns).Update(context.TODO(), routeObj, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("failed to update route: %s", err.Error())
 	}
 }
 
 func verifyInRouteStore(g *gomega.WithT, accepted bool, present bool, routeName, ns, cname, host, ip string) {
-	var cs *gslbutils.ClusterStore
+	var cs *store.ClusterStore
 	if accepted {
-		cs = gslbutils.GetAcceptedRouteStore()
+		cs = store.GetAcceptedRouteStore()
 	} else {
-		cs = gslbutils.GetRejectedRouteStore()
+		cs = store.GetRejectedRouteStore()
 	}
 
 	obj, found := cs.GetClusterNSObjectByName(cname, ns, routeName)

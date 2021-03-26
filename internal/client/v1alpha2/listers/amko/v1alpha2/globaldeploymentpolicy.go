@@ -26,8 +26,10 @@ import (
 )
 
 // GlobalDeploymentPolicyLister helps list GlobalDeploymentPolicies.
+// All objects returned here must be treated as read-only.
 type GlobalDeploymentPolicyLister interface {
 	// List lists all GlobalDeploymentPolicies in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha2.GlobalDeploymentPolicy, err error)
 	// GlobalDeploymentPolicies returns an object that can list and get GlobalDeploymentPolicies.
 	GlobalDeploymentPolicies(namespace string) GlobalDeploymentPolicyNamespaceLister
@@ -58,10 +60,13 @@ func (s *globalDeploymentPolicyLister) GlobalDeploymentPolicies(namespace string
 }
 
 // GlobalDeploymentPolicyNamespaceLister helps list and get GlobalDeploymentPolicies.
+// All objects returned here must be treated as read-only.
 type GlobalDeploymentPolicyNamespaceLister interface {
 	// List lists all GlobalDeploymentPolicies in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha2.GlobalDeploymentPolicy, err error)
 	// Get retrieves the GlobalDeploymentPolicy from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha2.GlobalDeploymentPolicy, error)
 	GlobalDeploymentPolicyNamespaceListerExpansion
 }

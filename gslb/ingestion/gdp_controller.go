@@ -15,14 +15,16 @@
 package ingestion
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
-	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
@@ -33,6 +35,7 @@ import (
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -72,16 +75,16 @@ func (gdpController *GDPController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func AddOrUpdateNSStore(clusterNSStore *gslbutils.ObjectStore, ns *corev1.Namespace, cname string) {
+func AddOrUpdateNSStore(clusterNSStore *store.ObjectStore, ns *corev1.Namespace, cname string) {
 	nsMeta := k8sobjects.GetNSMeta(ns, cname)
 	clusterNSStore.AddOrUpdate(cname, nsMeta.Name, nsMeta)
 }
 
-func DeleteFromNSStore(clusterNSStore *gslbutils.ObjectStore, ns *corev1.Namespace, cname string) {
+func DeleteFromNSStore(clusterNSStore *store.ObjectStore, ns *corev1.Namespace, cname string) {
 	clusterNSStore.DeleteNSObj(cname, ns.Name)
 }
 
-func MoveNSObjs(nsObjs []string, fromStore *gslbutils.ObjectStore, toStore *gslbutils.ObjectStore) {
+func MoveNSObjs(nsObjs []string, fromStore *store.ObjectStore, toStore *store.ObjectStore) {
 	var cname, ns string
 	var err error
 	for _, multiClusterNS := range nsObjs {
@@ -101,7 +104,7 @@ func MoveNSObjs(nsObjs []string, fromStore *gslbutils.ObjectStore, toStore *gslb
 // MoveObjs moves the objects in "objList" from "fromStore" to "toStore".
 // TODO: call this function via an interface, so we can remove dependency
 //       on objType.
-func MoveObjs(objList []string, fromStore *gslbutils.ClusterStore, toStore *gslbutils.ClusterStore, objType string) {
+func MoveObjs(objList []string, fromStore *store.ClusterStore, toStore *store.ClusterStore, objType string) {
 	var cname, ns, objName string
 	var err error
 	for _, multiClusterObjName := range objList {
@@ -144,22 +147,22 @@ func splitName(objType, objName string) (string, string, string, error) {
 	return cname, ns, sname, err
 }
 
-func GetObjTypeStores(objType string) (string, *gslbutils.ClusterStore, *gslbutils.ClusterStore, error) {
+func GetObjTypeStores(objType string) (string, *store.ClusterStore, *store.ClusterStore, error) {
 	var objKey string
-	var acceptedObjStore *gslbutils.ClusterStore
-	var rejectedObjStore *gslbutils.ClusterStore
+	var acceptedObjStore *store.ClusterStore
+	var rejectedObjStore *store.ClusterStore
 
 	if objType == gdpalphav2.RouteObj {
-		acceptedObjStore = gslbutils.GetAcceptedRouteStore()
-		rejectedObjStore = gslbutils.GetRejectedRouteStore()
+		acceptedObjStore = store.GetAcceptedRouteStore()
+		rejectedObjStore = store.GetRejectedRouteStore()
 		objKey = gslbutils.RouteType
 	} else if objType == gdpalphav2.LBSvcObj {
-		acceptedObjStore = gslbutils.GetAcceptedLBSvcStore()
-		rejectedObjStore = gslbutils.GetRejectedLBSvcStore()
+		acceptedObjStore = store.GetAcceptedLBSvcStore()
+		rejectedObjStore = store.GetRejectedLBSvcStore()
 		objKey = gslbutils.SvcType
 	} else if objType == gdpalphav2.IngressObj {
-		acceptedObjStore = gslbutils.GetAcceptedIngressStore()
-		rejectedObjStore = gslbutils.GetRejectedIngressStore()
+		acceptedObjStore = store.GetAcceptedIngressStore()
+		rejectedObjStore = store.GetRejectedIngressStore()
 		objKey = gslbutils.IngressType
 	} else {
 		gslbutils.Errf("Unknown Object type: %s", objType)
@@ -329,7 +332,7 @@ func updateGDPStatus(gdp *gdpalphav2.GlobalDeploymentPolicy, msg string) {
 	if !gslbutils.PublishGDPStatus {
 		return
 	}
-	obj, updateErr := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(gdp)
+	obj, updateErr := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
 	if updateErr != nil {
 		gslbutils.Errf("Error in updating the GDP status object %v: %s", obj, updateErr)
 	}
@@ -417,8 +420,8 @@ func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers
 }
 
 func applyAndUpdateNamespaces() {
-	acceptedNSStore := gslbutils.GetAcceptedNSStore()
-	rejectedNSStore := gslbutils.GetRejectedNSStore()
+	acceptedNSStore := store.GetAcceptedNSStore()
+	rejectedNSStore := store.GetRejectedNSStore()
 
 	// first move from acceptedStore to rejectedStore
 	gslbutils.Logf("applying filter on all rejected namespaces")
@@ -453,8 +456,8 @@ func applyAndUpdateNamespaces() {
 }
 
 func applyAndRejectNamespaces(gf *gslbutils.GlobalFilter, gdp *gdpalphav2.GlobalDeploymentPolicy) {
-	acceptedNSStore := gslbutils.GetAcceptedNSStore()
-	rejectedNSStore := gslbutils.GetRejectedNSStore()
+	acceptedNSStore := store.GetAcceptedNSStore()
+	rejectedNSStore := store.GetRejectedNSStore()
 
 	// Since, we have just deleted a GDP object, we need to just check the acceptedNSStore
 	acceptedList, _ := acceptedNSStore.GetAllFilteredNamespaces(filter.ApplyFilter)
@@ -467,8 +470,8 @@ func applyAndRejectNamespaces(gf *gslbutils.GlobalFilter, gdp *gdpalphav2.Global
 }
 
 func applyAndAcceptNamespaces() {
-	acceptedNSStore := gslbutils.GetAcceptedNSStore()
-	rejectedNSStore := gslbutils.GetRejectedNSStore()
+	acceptedNSStore := store.GetAcceptedNSStore()
+	rejectedNSStore := store.GetRejectedNSStore()
 
 	// Since, we have just added a fresh GDP object, all the previous namespaces will be in rejected store
 	// so, apply and move the objects from rejected store

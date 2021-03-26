@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var globaldeploymentpoliciesResource = schema.GroupVersionResource{Group: "amko.
 var globaldeploymentpoliciesKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha2", Kind: "GlobalDeploymentPolicy"}
 
 // Get takes name of the globalDeploymentPolicy, and returns the corresponding globalDeploymentPolicy object, and an error if there is any.
-func (c *FakeGlobalDeploymentPolicies) Get(name string, options v1.GetOptions) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
+func (c *FakeGlobalDeploymentPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(globaldeploymentpoliciesResource, c.ns, name), &v1alpha2.GlobalDeploymentPolicy{})
 
@@ -50,7 +52,7 @@ func (c *FakeGlobalDeploymentPolicies) Get(name string, options v1.GetOptions) (
 }
 
 // List takes label and field selectors, and returns the list of GlobalDeploymentPolicies that match those selectors.
-func (c *FakeGlobalDeploymentPolicies) List(opts v1.ListOptions) (result *v1alpha2.GlobalDeploymentPolicyList, err error) {
+func (c *FakeGlobalDeploymentPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.GlobalDeploymentPolicyList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(globaldeploymentpoliciesResource, globaldeploymentpoliciesKind, c.ns, opts), &v1alpha2.GlobalDeploymentPolicyList{})
 
@@ -72,14 +74,14 @@ func (c *FakeGlobalDeploymentPolicies) List(opts v1.ListOptions) (result *v1alph
 }
 
 // Watch returns a watch.Interface that watches the requested globalDeploymentPolicies.
-func (c *FakeGlobalDeploymentPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeGlobalDeploymentPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(globaldeploymentpoliciesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a globalDeploymentPolicy and creates it.  Returns the server's representation of the globalDeploymentPolicy, and an error, if there is any.
-func (c *FakeGlobalDeploymentPolicies) Create(globalDeploymentPolicy *v1alpha2.GlobalDeploymentPolicy) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
+func (c *FakeGlobalDeploymentPolicies) Create(ctx context.Context, globalDeploymentPolicy *v1alpha2.GlobalDeploymentPolicy, opts v1.CreateOptions) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(globaldeploymentpoliciesResource, c.ns, globalDeploymentPolicy), &v1alpha2.GlobalDeploymentPolicy{})
 
@@ -90,7 +92,7 @@ func (c *FakeGlobalDeploymentPolicies) Create(globalDeploymentPolicy *v1alpha2.G
 }
 
 // Update takes the representation of a globalDeploymentPolicy and updates it. Returns the server's representation of the globalDeploymentPolicy, and an error, if there is any.
-func (c *FakeGlobalDeploymentPolicies) Update(globalDeploymentPolicy *v1alpha2.GlobalDeploymentPolicy) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
+func (c *FakeGlobalDeploymentPolicies) Update(ctx context.Context, globalDeploymentPolicy *v1alpha2.GlobalDeploymentPolicy, opts v1.UpdateOptions) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(globaldeploymentpoliciesResource, c.ns, globalDeploymentPolicy), &v1alpha2.GlobalDeploymentPolicy{})
 
@@ -101,7 +103,7 @@ func (c *FakeGlobalDeploymentPolicies) Update(globalDeploymentPolicy *v1alpha2.G
 }
 
 // Delete takes name of the globalDeploymentPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeGlobalDeploymentPolicies) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeGlobalDeploymentPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(globaldeploymentpoliciesResource, c.ns, name), &v1alpha2.GlobalDeploymentPolicy{})
 
@@ -109,15 +111,15 @@ func (c *FakeGlobalDeploymentPolicies) Delete(name string, options *v1.DeleteOpt
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeGlobalDeploymentPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(globaldeploymentpoliciesResource, c.ns, listOptions)
+func (c *FakeGlobalDeploymentPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(globaldeploymentpoliciesResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha2.GlobalDeploymentPolicyList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched globalDeploymentPolicy.
-func (c *FakeGlobalDeploymentPolicies) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
+func (c *FakeGlobalDeploymentPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.GlobalDeploymentPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(globaldeploymentpoliciesResource, c.ns, name, pt, data, subresources...), &v1alpha2.GlobalDeploymentPolicy{})
 

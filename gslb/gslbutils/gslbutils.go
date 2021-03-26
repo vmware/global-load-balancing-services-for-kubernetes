@@ -15,7 +15,9 @@
 package gslbutils
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"sort"
@@ -25,7 +27,6 @@ import (
 	"time"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
@@ -33,69 +34,8 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/api/networking/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-)
-
-const (
-	// MaxClusters is the supported number of clusters
-	MaxClusters int = 10
-	// GSLBKubePath is a temporary path to put the kubeconfig
-	GSLBKubePath = "/tmp/gslb-kubeconfig"
-	//AVISystem is the namespace where everything AVI related is created
-	AVISystem = "avi-system"
-	// Ingestion layer operations
-	ObjectAdd    = "ADD"
-	ObjectDelete = "DELETE"
-	ObjectUpdate = "UPDATE"
-	// Ingestion layer objects
-	RouteType        = gdpalphav2.RouteObj
-	IngressType      = gdpalphav2.IngressObj
-	SvcType          = gdpalphav2.LBSvcObj
-	PassthroughRoute = "passthrough"
-	// Refresh cycle for AVI cache in seconds
-	DefaultRefreshInterval = 600
-	// Store types
-	AcceptedStore = "Accepted"
-	RejectedStore = "Rejected"
-
-	// Multi-cluster key lengths
-	IngMultiClusterKeyLen = 6
-	MultiClusterKeyLen    = 5
-
-	// Default values for Retry Operations
-	SlowSyncTime      = 120
-	SlowRetryQueue    = "SlowRetry"
-	FastRetryQueue    = "FastRetry"
-	DefaultRetryCount = 5
-
-	AmkoUser = "amko-gslb"
-
-	NumRestWorkers = 8
-
-	// Service Protocols
-	ProtocolTCP = "TCP"
-	ProtocolUDP = "UDP"
-
-	// Health monitors
-	SystemHealthMonitorTypeTCP   = "HEALTH_MONITOR_TCP"
-	SystemHealthMonitorTypeUDP   = "HEALTH_MONITOR_UDP"
-	SystemGslbHealthMonitorTCP   = "System-GSLB-TCP"
-	SystemGslbHealthMonitorHTTP  = "HEALTH_MONITOR_HTTP"
-	SystemGslbHealthMonitorHTTPS = "HEALTH_MONITOR_HTTPS"
-
-	// default passthrough health monitor (TCP), to be used for all passthrough routes
-	SystemGslbHealthMonitorPassthrough = "amko--passthrough-hm-tcp"
-
-	// Ports for health monitoring
-	DefaultTCPHealthMonitorPort   = "80"
-	DefaultHTTPHealthMonitorPort  = 80
-	DefaultHTTPSHealthMonitorPort = 443
-
-	// Timeout for rest operations
-	RestTimeoutSecs = 600
-
-	// Env vars
-	GslbLeader = "GSLB_CTRL_IP_ADDRESS"
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -123,6 +63,30 @@ func MultiClusterKeyWithObjName(operation, objType, compositeName string) string
 	return operation + "/" + objType + "/" + compositeName
 }
 
+func GSLBHostRuleKey(operation, objType, objName string) string {
+	return MultiClusterKeyWithObjName(operation, objType, objName)
+}
+
+func MultiClusterKeyForHostRule(operation, objType, clusterName, ns, lfqdn, gfqdn string) string {
+	return MultiClusterKeyWithObjName(operation, objType, clusterName+"/"+ns+"/"+lfqdn+"/"+gfqdn)
+}
+
+func ExtractMultiClusterHostRuleKey(key string) (string, string, string, string, string, string, error) {
+	seg := strings.Split(key, "/")
+	if len(seg) != 6 {
+		return "", "", "", "", "", "", fmt.Errorf("invalid key %s for host rule", key)
+	}
+	return seg[0], seg[1], seg[2], seg[3], seg[4], seg[5], nil
+}
+
+func ExtractGSLBHostRuleKey(key string) (string, string, string, error) {
+	seg := strings.Split(key, "/")
+	if len(seg) != 3 {
+		return "", "", "", fmt.Errorf("invalid key %s for GSLBHostRule", key)
+	}
+	return seg[0], seg[1], seg[2], nil
+}
+
 func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
 	segments := strings.Split(key, "/")
 	var operation, objType, cluster, ns, name, hostname string
@@ -133,8 +97,22 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 		}
 	} else if len(segments) == MultiClusterKeyLen {
 		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
+	} else if len(segments) == GSFQDNKeyLen {
+		operation, objType, name = segments[0], segments[1], segments[2]
 	}
 	return operation, objType, cluster, ns, name
+}
+
+func GetObjectTypeFromKey(key string) (string, error) {
+	segments := strings.Split(key, "/")
+	if len(segments) < 2 {
+		return "", fmt.Errorf("invalid key: %s", key)
+	}
+	return segments[1], nil
+}
+
+func GSFQDNKey(operation, objType, gsFqdn string) string {
+	return operation + "/" + objType + "/" + gsFqdn
 }
 
 func SplitMultiClusterObjectName(name string) (string, string, string, error) {
@@ -260,18 +238,6 @@ var Warnf = utils.AviLog.Warnf
 // Debugf is aliased to utils' Debug.Printf
 var Debugf = utils.AviLog.Debugf
 
-// Cluster Routes store for all the route objects.
-var (
-	AcceptedRouteStore   *ClusterStore
-	RejectedRouteStore   *ClusterStore
-	AcceptedLBSvcStore   *ClusterStore
-	RejectedLBSvcStore   *ClusterStore
-	AcceptedIngressStore *ClusterStore
-	RejectedIngressStore *ClusterStore
-	AcceptedNSStore      *ObjectStore
-	RejectedNSStore      *ObjectStore
-)
-
 func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
 	persistenceProfileRef *string, ttl *int) uint32 {
 
@@ -356,7 +322,7 @@ func UpdateGSLBConfigStatus(msg string) error {
 	}
 
 	updateGSLBConfigStatusMsg(msg)
-	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(gcObj.configObj)
+	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(context.TODO(), gcObj.configObj, metav1.UpdateOptions{})
 	if updateErr != nil {
 		Errf("error in updating the GSLBConfig object: %s", updateErr.Error())
 		return errors.New("error in GSLBConfig object update, " + updateErr.Error())
@@ -576,4 +542,27 @@ func GetGSFromHmName(hmName string) (string, error) {
 		return hmNameSplit[1], nil
 	}
 	return "", errors.New("error in parsing gs name, unexpected format")
+}
+
+// HostRuleMeta stores a partial set of information stripped from the HostRule object,
+// information only required for AMKO.
+type HostRuleMeta struct {
+	GSFqdn string
+}
+
+func GetHostRuleMeta(gsFqdn string) HostRuleMeta {
+	return HostRuleMeta{gsFqdn}
+}
+
+var customFqdnMode bool
+var fqdnOnce sync.Once
+
+func SetCustomFqdnMode(custom bool) {
+	fqdnOnce.Do(func() {
+		customFqdnMode = custom
+	})
+}
+
+func GetCustomFqdnMode() bool {
+	return customFqdnMode
 }

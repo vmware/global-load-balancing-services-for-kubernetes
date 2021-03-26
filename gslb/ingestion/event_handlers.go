@@ -15,24 +15,29 @@
 package ingestion
 
 import (
+	"fmt"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-
-	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
 func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
-	rejectedLBSvcStore := gslbutils.GetRejectedLBSvcStore()
+	acceptedLBSvcStore := store.GetAcceptedLBSvcStore()
+	rejectedLBSvcStore := store.GetRejectedLBSvcStore()
 	gslbutils.Logf("Adding svc handler")
 	svcEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -49,7 +54,10 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 					c.name, svc.ObjectMeta.Name, svc.ObjectMeta.Namespace)
 				return
 			}
-			if !filter.ApplyFilter(svcMeta, c.name) {
+			if !filter.ApplyFilter(filter.FilterArgs{
+				Obj:     svcMeta,
+				Cluster: c.name,
+			}) {
 				AddOrUpdateLBSvcStore(rejectedLBSvcStore, svc, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, svc: %s, msg: %s\n", c.name,
 					svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, "rejected ADD svc key because it couldn't pass through filter")
@@ -87,7 +95,10 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			svc := curr.(*corev1.Service)
 			if oldSvc.ResourceVersion != svc.ResourceVersion {
 				svcMeta, ok := k8sobjects.GetSvcMeta(svc, c.name)
-				if !ok || !isSvcTypeLB(svc) || !filter.ApplyFilter(svcMeta, c.name) {
+				if !ok || !isSvcTypeLB(svc) || !filter.ApplyFilter(filter.FilterArgs{
+					Obj:     svcMeta,
+					Cluster: c.name,
+				}) {
 					// See if the svc was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedLBSvcStore.GetClusterNSObjectByName(c.name,
 						oldSvc.ObjectMeta.Namespace, oldSvc.ObjectMeta.Name)
@@ -121,7 +132,7 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 }
 
 func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
-	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32, fullsync bool) {
+	acceptedIngStore, rejectedIngStore *store.ClusterStore, numWorkers uint32, fullsync bool) {
 	for _, ihm := range ingressHostMetaObjs {
 		if ihm.IPAddr == "" || ihm.Hostname == "" {
 			gslbutils.Debugf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
@@ -129,7 +140,10 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 				"rejected ADD ingress because IP address/Hostname not found in status field")
 			continue
 		}
-		if !filter.ApplyFilter(ihm, c.name) {
+		if !filter.ApplyFilter(filter.FilterArgs{
+			Obj:     ihm,
+			Cluster: c.name,
+		}) {
 			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
 			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s, ing: %v\n", c.name, ihm.Namespace,
 				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter", ihm)
@@ -144,7 +158,7 @@ func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c
 }
 
 func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController, acceptedIngStore,
-	rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	rejectedIngStore *store.ClusterStore, numWorkers uint32) {
 	for _, ihm := range ingressHostMetaObjs {
 		present := DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
 		DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
@@ -159,7 +173,7 @@ func deleteIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLB
 }
 
 func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
-	acceptedIngStore, rejectedIngStore *gslbutils.ClusterStore, numWorkers uint32) {
+	acceptedIngStore, rejectedIngStore *store.ClusterStore, numWorkers uint32) {
 
 	for _, ihm := range oldIngMetaObjs {
 		// Check whether this exists in the new ingressHost list, if not, we need
@@ -184,7 +198,10 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 			continue
 		}
 		// there are changes, need to send an update key, but first apply the filter
-		if !filter.ApplyFilter(newIhm, c.name) {
+		if !filter.ApplyFilter(filter.FilterArgs{
+			Obj:     newIhm,
+			Cluster: c.name,
+		}) {
 			// See if the ingressHost was already accepted, if yes, need to delete the key
 			fetchedObj, ok := acceptedIngStore.GetClusterNSObjectByName(c.name,
 				ihm.Namespace, ihm.ObjName)
@@ -235,7 +252,10 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 				"rejected ADD ingress because IP address/Hostname not found in status field")
 			continue
 		}
-		if !filter.ApplyFilter(ihm, c.name) {
+		if !filter.ApplyFilter(filter.FilterArgs{
+			Obj:     ihm,
+			Cluster: c.name,
+		}) {
 			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
 			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, ihm.Namespace,
 				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
@@ -249,13 +269,13 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 }
 
 func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
-	rejectedIngStore := gslbutils.GetRejectedIngressStore()
+	acceptedIngStore := store.GetAcceptedIngressStore()
+	rejectedIngStore := store.GetRejectedIngressStore()
 
 	gslbutils.Logf("Adding Ingress handler")
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ingr, ok := utils.ToNetworkingIngress(obj)
+			ingr, ok := obj.(*networkingv1beta1.Ingress)
 			if !ok {
 				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
@@ -266,7 +286,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			filterAndAddIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers, false)
 		},
 		DeleteFunc: func(obj interface{}) {
-			ingr, ok := utils.ToNetworkingIngress(obj)
+			ingr, ok := obj.(*networkingv1beta1.Ingress)
 			if !ok {
 				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
@@ -276,8 +296,8 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		UpdateFunc: func(old, curr interface{}) {
-			oldIngr, okOld := utils.ToNetworkingIngress(old)
-			ingr, okNew := utils.ToNetworkingIngress(curr)
+			oldIngr, okOld := old.(*networkingv1beta1.Ingress)
+			ingr, okNew := curr.(*networkingv1beta1.Ingress)
 			if !okOld || !okNew {
 				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
@@ -294,8 +314,8 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 }
 
 func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
-	rejectedRouteStore := gslbutils.GetRejectedRouteStore()
+	acceptedRouteStore := store.GetAcceptedRouteStore()
+	rejectedRouteStore := store.GetRejectedRouteStore()
 	routeEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			route := obj.(*routev1.Route)
@@ -308,7 +328,10 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 				return
 			}
 			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
-			if !filter.ApplyFilter(routeMeta, c.name) {
+			if !filter.ApplyFilter(filter.FilterArgs{
+				Cluster: c.name,
+				Obj:     routeMeta,
+			}) {
 				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s\n", c.name,
 					route.ObjectMeta.Namespace, route.ObjectMeta.Name, "rejected ADD route key because it couldn't pass through filter")
@@ -338,7 +361,10 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
 				routeMeta := k8sobjects.GetRouteMeta(route, c.name)
-				if _, ok := gslbutils.RouteGetIPAddr(route); !ok || !filter.ApplyFilter(routeMeta, c.name) {
+				if _, ok := gslbutils.RouteGetIPAddr(route); !ok || !filter.ApplyFilter(filter.FilterArgs{
+					Cluster: c.name,
+					Obj:     routeMeta,
+				}) {
 					// See if the route was already accepted, if yes, need to delete the key
 					fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name,
 						oldRoute.ObjectMeta.Namespace, oldRoute.ObjectMeta.Name)
@@ -378,15 +404,23 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 
 func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, op, hostname string, wq []workqueue.RateLimitingInterface) {
 	key := gslbutils.MultiClusterKey(op, objType, cname, namespace, name)
-	bkt := containerutils.Bkt(hostname, numWorkers)
+	bkt := containerutils.Bkt(namespace, numWorkers)
 	wq[bkt].AddRateLimited(key)
 	gslbutils.Logf("cluster: %s, ns: %s, objType: %s, op: %s, objName: %s, msg: added %s key ",
 		cname, namespace, objType, op, name, key)
 }
 
+func publishKeyToGraphLayerForHostRule(numWorkers uint32, objType, cname, namespace, op, lfqdn, gfqdn string, wq []workqueue.RateLimitingInterface) {
+	key := gslbutils.MultiClusterKeyForHostRule(op, objType, cname, namespace, lfqdn, gfqdn)
+	bkt := containerutils.Bkt(lfqdn, numWorkers)
+	wq[bkt].AddRateLimited(key)
+	gslbutils.Logf("cluster: %s, ns: %s, objType: %s, op: %s, lfqdn: %s, gfqdn: %s, msg: added %s key ",
+		cname, namespace, objType, op, lfqdn, gfqdn, op)
+}
+
 func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
-	acceptedNSStore := gslbutils.GetAcceptedNSStore()
-	rejectedNSStore := gslbutils.GetRejectedNSStore()
+	acceptedNSStore := store.GetAcceptedNSStore()
+	rejectedNSStore := store.GetRejectedNSStore()
 
 	gslbutils.Logf("Adding Namespace handler")
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
@@ -397,7 +431,10 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 				return
 			}
 			nsMeta := k8sobjects.GetNSMeta(ns, c.name)
-			if !filter.ApplyFilter(nsMeta, c.name) {
+			if !filter.ApplyFilter(filter.FilterArgs{
+				Obj:     nsMeta,
+				Cluster: c.name,
+			}) {
 				AddOrUpdateNSStore(rejectedNSStore, ns, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, msg: %s\n", c.name, nsMeta.Name,
 					"ns didn't pass through the filter, adding to rejected list")
@@ -455,4 +492,181 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 		},
 	}
 	return ingressEventHandler
+}
+
+func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, numWorkers uint32,
+	k8swq []workqueue.RateLimitingInterface) {
+	gfqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+	objs := []string{gdpalphav2.RouteObj, gdpalphav2.IngressObj, gdpalphav2.LBSvcObj}
+	for _, o := range objs {
+		objKey, acceptedStore, rejectedStore, err := GetObjTypeStores(o)
+		if err != nil {
+			gslbutils.Errf("objtype error: %s", err.Error())
+			continue
+		}
+		if add && rejectedStore != nil {
+			acceptedList, _ := rejectedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, gfqdn)
+			if len(acceptedList) != 0 {
+				gslbutils.Logf("ObjList: %v, msg: %s", acceptedList, "object list will be added")
+				MoveObjs(acceptedList, rejectedStore, acceptedStore, objKey)
+				for _, objName := range acceptedList {
+					cname, ns, sname, err := splitName(o, objName)
+					if err != nil {
+						gslbutils.Errf("objName: %s, msg: processing error, %s", objName, err)
+						continue
+					}
+					bkt := utils.Bkt(ns, numWorkers)
+					key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, sname)
+					k8swq[bkt].AddRateLimited(key)
+					gslbutils.Logf("cluster: %s, ns: %s, objtype:%s, name: %s, key: %s, msg: added ADD obj key",
+						cname, ns, o, sname, key)
+				}
+			}
+		}
+		if !add && acceptedStore != nil {
+			_, rejectedList := acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, gfqdn)
+			if len(rejectedList) != 0 {
+				filteredRejectedList, err := filterObjListBasedOnFqdn(acceptedStore, rejectedList, hr.Spec.VirtualHost.Fqdn, o)
+				if err != nil {
+					gslbutils.Errf("cluster: %s, localFqdn: %s, msg: error in filtering the rejected list",
+						cname, hr.Spec.VirtualHost.Fqdn)
+				}
+				gslbutils.Logf("ObjList: %v, msg: %s", filteredRejectedList, "obj list will be deleted")
+				MoveObjs(filteredRejectedList, acceptedStore, rejectedStore, objKey)
+				for _, objName := range filteredRejectedList {
+					cname, ns, sname, err := splitName(o, objName)
+					if err != nil {
+						gslbutils.Errf("cluster: %s, msg: couldn't process object, objtype: %s, name: %s, error, %s",
+							cname, o, objName, err)
+						continue
+					}
+
+					bkt := utils.Bkt(ns, numWorkers)
+					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname)
+					k8swq[bkt].AddRateLimited(key)
+					gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added DELETE obj key",
+						cname, ns, o, sname, key)
+				}
+			}
+		}
+	}
+}
+
+func filterObjListBasedOnFqdn(cstore *store.ClusterStore, objList []string, fqdn string,
+	objType string) ([]string, error) {
+	result := []string{}
+	for _, obj := range objList {
+		cname, ns, sname, err := splitName(objType, obj)
+		if err != nil {
+			return result, fmt.Errorf("error in splitting name in cluster store %v", err)
+		}
+		objIntf, ok := cstore.GetClusterNSObjectByName(cname, ns, sname)
+		if !ok {
+			continue
+		}
+		metaObj := objIntf.(k8sobjects.MetaObject)
+		if metaObj.GetHostname() != fqdn {
+			continue
+		}
+		result = append(result, obj)
+	}
+	return result, nil
+}
+
+func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+	hrStore := store.GetHostRuleStore()
+
+	gslbutils.Logf("cluster: %s, msg: adding handlers for host rule objects", c.name)
+	hrEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			hr, ok := obj.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, obj)
+				return
+			}
+			if !isHostRuleAcceptable(hr) {
+				gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
+					c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
+				return
+			}
+			gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+			lFqdn := hr.Spec.VirtualHost.Fqdn
+			fqdnMap := gslbutils.GetFqdnMap()
+			fqdnMap.AddUpdateToFqdnMapping(gFqdn, lFqdn, c.name)
+			AddOrUpdateHostRuleStore(hrStore, hr, c.name)
+			ReApplyObjectsOnHostRule(hr, true, c.name, numWorkers, c.workqueue)
+			// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, hr.Namespace, gslbutils.ObjectAdd,
+			// 	lFqdn, gFqdn, c.workqueue)
+		},
+		DeleteFunc: func(obj interface{}) {
+			hr, ok := obj.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, obj)
+				return
+			}
+			if !isHostRuleAcceptable(hr) {
+				gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
+					c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
+				return
+			}
+			// write a delete event to graph layer
+			gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+			lFqdn := hr.Spec.VirtualHost.Fqdn
+			DeleteFromHostRuleStore(hrStore, hr, c.name)
+			fqdnMap := gslbutils.GetFqdnMap()
+			fqdnMap.DeleteFromFqdnMapping(gFqdn, lFqdn, c.name)
+			ReApplyObjectsOnHostRule(hr, false, c.name, numWorkers, c.workqueue)
+			// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, hr.Namespace, gslbutils.ObjectDelete,
+			// 	lFqdn, gFqdn, c.workqueue)
+		},
+		UpdateFunc: func(old, curr interface{}) {
+			oldHr, ok := old.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, old)
+				return
+			}
+			newHr, ok := curr.(*akov1alpha1.HostRule)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, curr)
+				return
+			}
+			if oldHr.ResourceVersion == newHr.ResourceVersion {
+				// no updates to object
+				return
+			}
+			oldHrAccepted := isHostRuleAcceptable(oldHr)
+			newHrAccepted := isHostRuleAcceptable(newHr)
+			oldGFqdn := oldHr.Spec.VirtualHost.Gslb.Fqdn
+			oldLFqdn := oldHr.Spec.VirtualHost.Fqdn
+			newGFqdn := newHr.Spec.VirtualHost.Gslb.Fqdn
+			newLFqdn := newHr.Spec.VirtualHost.Fqdn
+			fqdnMap := gslbutils.GetFqdnMap()
+			if (oldHrAccepted == newHrAccepted) && newHrAccepted == true {
+				// check if an update is required?
+				if !isHostRuleUpdated(oldHr, newHr) {
+					// no updates to the gs fqdn, so return
+					return
+				}
+				// gs fqdn is updated, write an UPDATE event for the previous fqdn and an ADD event
+				// for the new fqdn
+				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
+				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
+				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
+				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
+			} else if oldHrAccepted && !newHrAccepted {
+				// delete the old gs fqdn
+				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
+				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
+			} else if !oldHrAccepted && newHrAccepted {
+				// add the new gs fqdn
+				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
+				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
+			}
+		},
+	}
+	return hrEventHandler
 }

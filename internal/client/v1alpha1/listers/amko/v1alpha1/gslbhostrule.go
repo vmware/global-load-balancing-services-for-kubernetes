@@ -26,8 +26,10 @@ import (
 )
 
 // GSLBHostRuleLister helps list GSLBHostRules.
+// All objects returned here must be treated as read-only.
 type GSLBHostRuleLister interface {
 	// List lists all GSLBHostRules in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.GSLBHostRule, err error)
 	// GSLBHostRules returns an object that can list and get GSLBHostRules.
 	GSLBHostRules(namespace string) GSLBHostRuleNamespaceLister
@@ -58,10 +60,13 @@ func (s *gSLBHostRuleLister) GSLBHostRules(namespace string) GSLBHostRuleNamespa
 }
 
 // GSLBHostRuleNamespaceLister helps list and get GSLBHostRules.
+// All objects returned here must be treated as read-only.
 type GSLBHostRuleNamespaceLister interface {
 	// List lists all GSLBHostRules in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.GSLBHostRule, err error)
 	// Get retrieves the GSLBHostRule from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.GSLBHostRule, error)
 	GSLBHostRuleNamespaceListerExpansion
 }

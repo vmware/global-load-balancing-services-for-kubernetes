@@ -15,12 +15,14 @@
 package ingestion
 
 import (
+	"context"
 	"errors"
 
-	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gdp_filter"
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
@@ -34,44 +36,18 @@ import (
 func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.NamespaceList) {
 	var ingList []*v1beta1.Ingress
 
-	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
-	rejectedIngStore := gslbutils.GetRejectedIngressStore()
+	acceptedIngStore := store.GetAcceptedIngressStore()
+	rejectedIngStore := store.GetRejectedIngressStore()
 
-	switch c.informers.IngressVersion {
-	case utils.CoreV1IngressInformer:
-		for _, namespace := range nsList.Items {
-			objList, err := c.informers.ClientSet.NetworkingV1beta1().Ingresses(namespace.Name).List(metav1.ListOptions{})
-			if err != nil {
-				gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
-					namespace.Name, err.Error())
-				continue
-			}
-			for _, obj := range objList.Items {
-				ingObj, ok := utils.ToNetworkingIngress(&obj)
-				if !ok {
-					gslbutils.Errf("process: fullsync, namespace: %s, msg: unable to convert obj to ingress")
-					continue
-				}
-				ingList = append(ingList, ingObj.DeepCopy())
-			}
+	for _, namespace := range nsList.Items {
+		objList, err := c.informers.ClientSet.NetworkingV1beta1().Ingresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
+				namespace.Name, err.Error())
+			continue
 		}
-	case utils.ExtV1IngressInformer:
-		for _, namespace := range nsList.Items {
-			objList, err := c.informers.ClientSet.ExtensionsV1beta1().Ingresses(namespace.Name).List(metav1.ListOptions{})
-			if err != nil {
-				gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
-					namespace.Name, err.Error())
-				continue
-			}
-			for _, obj := range objList.Items {
-				ingObj, ok := utils.ToNetworkingIngress(&obj)
-				if !ok {
-					gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
-						namespace.Name, err.Error())
-					continue
-				}
-				ingList = append(ingList, ingObj)
-			}
+		for _, obj := range objList.Items {
+			ingList = append(ingList, obj.DeepCopy())
 		}
 	}
 	for _, ing := range ingList {
@@ -81,11 +57,11 @@ func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.Namespace
 }
 
 func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceList) {
-	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
-	rejectedLBSvcStore := gslbutils.GetRejectedLBSvcStore()
+	acceptedLBSvcStore := store.GetAcceptedLBSvcStore()
+	rejectedLBSvcStore := store.GetRejectedLBSvcStore()
 
 	for _, namespace := range nsList.Items {
-		svcList, err := c.informers.ClientSet.CoreV1().Services(namespace.Name).List(metav1.ListOptions{})
+		svcList, err := c.informers.ClientSet.CoreV1().Services(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the service list, %s",
 				namespace.Name, err.Error())
@@ -101,7 +77,10 @@ func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceL
 					c.GetName(), namespace.Name, svc.Name)
 				continue
 			}
-			if !filter.ApplyFilter(svcMeta, c.GetName()) {
+			if !filter.ApplyFilter(filter.FilterArgs{
+				Obj:     svcMeta,
+				Cluster: c.GetName(),
+			}) {
 				AddOrUpdateLBSvcStore(rejectedLBSvcStore, &svc, c.GetName())
 				gslbutils.Logf("cluster: %s, ns: %s, svc: %s, msg: %s", c.GetName(), namespace.Name,
 					svc.Name, "rejected ADD svc key because it couldn't pass through the filter")
@@ -113,11 +92,11 @@ func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceL
 }
 
 func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceList) {
-	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
-	rejectedRotueStore := gslbutils.GetRejectedRouteStore()
+	acceptedRouteStore := store.GetAcceptedRouteStore()
+	rejectedRotueStore := store.GetRejectedRouteStore()
 
 	for _, namespace := range nsList.Items {
-		routeList, err := c.informers.OshiftClient.RouteV1().Routes(namespace.Name).List(metav1.ListOptions{})
+		routeList, err := c.informers.OshiftClient.RouteV1().Routes(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the  list, %s",
 				namespace.Name, err.Error())
@@ -130,7 +109,10 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 					routeMeta.Name, "rejected ADD route because IP address/hostname not found in status field")
 				continue
 			}
-			if !filter.ApplyFilter(routeMeta, c.name) {
+			if !filter.ApplyFilter(filter.FilterArgs{
+				Cluster: c.name,
+				Obj:     routeMeta,
+			}) {
 				AddOrUpdateRouteStore(rejectedRotueStore, &route, c.name)
 				gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: %s, routeObj: %v", c.name, routeMeta.Namespace,
 					routeMeta.Name, "rejected ADD route key because it couldn't pass through the filter", routeMeta)
@@ -142,7 +124,7 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 }
 
 func checkGDPsAndInitialize() error {
-	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(metav1.ListOptions{})
+	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil
 	}
@@ -193,8 +175,8 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 
 	gf := gslbutils.GetGlobalFilter()
 
-	acceptedNSStore := gslbutils.GetAcceptedNSStore()
-	rejectedNSStore := gslbutils.GetRejectedNSStore()
+	acceptedNSStore := store.GetAcceptedNSStore()
+	rejectedNSStore := store.GetRejectedNSStore()
 
 	for _, c := range ctrlList {
 		gslbutils.Logf("syncing for cluster %s", c.GetName())
@@ -202,8 +184,31 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 			gslbutils.Logf("cluster %s is not allowed via GDP", c.name)
 			continue
 		}
+
+		if gslbutils.GetCustomFqdnMode() {
+			hostRules, err := c.hrClientSet.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				gslbutils.Errf("cluster: %s, error in fetching hostrules, %s", c.name, err.Error())
+				return
+			}
+			for _, hr := range hostRules.Items {
+				if isHostRuleAcceptable(&hr) {
+					gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+					lFqdn := hr.Spec.VirtualHost.Fqdn
+					fqdnMap := gslbutils.GetFqdnMap()
+					fqdnMap.AddUpdateToFqdnMapping(gFqdn, lFqdn, c.name)
+					gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, lfqdn: %s, msg: %s",
+						c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Spec.VirtualHost.Fqdn,
+						"added a mapping for lFqdn to gFqdn")
+				} else {
+					gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
+						c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
+					return
+				}
+			}
+		}
 		// get all namespaces
-		selectedNamespaces, err := c.informers.ClientSet.CoreV1().Namespaces().List(metav1.ListOptions{})
+		selectedNamespaces, err := c.informers.ClientSet.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("cluster: %s, error in fetching namespaces, %s", c.name, err.Error())
 			return
@@ -218,7 +223,10 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 			_, err := gf.GetNSFilterLabel()
 			if err == nil {
 				nsMeta := k8sobjects.GetNSMeta(&ns, c.GetName())
-				if !filter.ApplyFilter(nsMeta, c.GetName()) {
+				if !filter.ApplyFilter(filter.FilterArgs{
+					Obj:     nsMeta,
+					Cluster: c.GetName(),
+				}) {
 					AddOrUpdateNSStore(rejectedNSStore, &ns, c.GetName())
 					gslbutils.Logf("cluster: %s, ns: %s, msg: %s\n", c.GetName(), nsMeta.Name,
 						"ns didn't pass through the filter, adding to rejected list")
@@ -248,9 +256,9 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 
 func GenerateModels(gsCache *avicache.AviCache) {
 	gslbutils.Logf("will generate GS graphs from all accepted lists")
-	acceptedIngStore := gslbutils.GetAcceptedIngressStore()
-	acceptedLBSvcStore := gslbutils.GetAcceptedLBSvcStore()
-	acceptedRouteStore := gslbutils.GetAcceptedRouteStore()
+	acceptedIngStore := store.GetAcceptedIngressStore()
+	acceptedLBSvcStore := store.GetAcceptedLBSvcStore()
+	acceptedRouteStore := store.GetAcceptedRouteStore()
 
 	ingList := acceptedIngStore.GetAllClusterNSObjects()
 	for _, ingName := range ingList {

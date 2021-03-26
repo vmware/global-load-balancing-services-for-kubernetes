@@ -389,7 +389,7 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 
 func parseDescription(description string) ([]string, error) {
 	// description field should be like:
-	// LBSvc/cluster-x/namespace-x/svc-x,Ingress/cluster-y/namespace-y/ingress-y/hostname,...
+	// LBSvc/cluster-x/namespace-x/svc-x,Ingress/cluster-y/namespace-y/ingress-y/hostname,...,ThirdPartySite
 	objList := strings.Split(description, ",")
 	if len(objList) == 0 {
 		return []string{}, errors.New("description field has no k8s/openshift objects")
@@ -408,6 +408,10 @@ func parseDescription(description string) ([]string, error) {
 		case gdpv1alpha2.RouteObj:
 			if len(seg) != 4 {
 				return []string{}, errors.New("description field has malformed route: " + description)
+			}
+		case gslbutils.ThirdPartyMemberType:
+			if len(seg) != 1 {
+				return []string{}, fmt.Errorf("description field has malformed third party member: %s", description)
 			}
 		default:
 			return []string{}, errors.New("description has unrecognised objects: " + description)

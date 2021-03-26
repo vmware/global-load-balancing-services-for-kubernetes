@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,8 +30,7 @@ import (
 	oshiftclientset "github.com/openshift/client-go/route/clientset/versioned"
 	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	networking "k8s.io/api/networking/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -42,8 +42,7 @@ var runtimeScheme = k8sruntime.NewScheme()
 func init() {
 	//Setting the package-wide version
 	CtrlVersion = os.Getenv("CTRL_VERSION")
-	extensions.AddToScheme(runtimeScheme)
-	networking.AddToScheme(runtimeScheme)
+	networkingv1beta1.AddToScheme(runtimeScheme)
 }
 
 func IsV4(addr string) bool {
@@ -107,7 +106,7 @@ func CrudHashKey(obj_type string, obj interface{}) string {
 		ns = svc.Namespace
 		name = svc.Name
 	case "Ingress":
-		ing := obj.(*extensions.Ingress)
+		ing := obj.(*networkingv1beta1.Ingress)
 		ns = ing.Namespace
 		name = ing.Name
 	default:
@@ -157,13 +156,12 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(cs, InformerDefaultResync, kubeinformers.WithNamespace(namespace))
 		AviLog.Infof("Initialized informer factory for namespace :%s", namespace)
 	}
+
 	// We listen to configmaps only in`avi-system or vmware-system-ako`
-	var akoNS string
-	if akoNSBoundInformer {
-		akoNS = VMWARE_SYSTEM_AKO // Advanced L4 is for vmware-system-ako
-	} else {
-		akoNS = AKO_DEFAULT_NS // Regular AKO
-	}
+	akoNS := GetAKONamespace()
+
+	SetIngressClassEnabled(cs)
+
 	akoNSInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(cs, InformerDefaultResync, kubeinformers.WithNamespace(akoNS))
 	AviLog.Infof("Initializing configmap informer in %v", akoNS)
 
@@ -190,15 +188,10 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 		case ConfigMapInformer:
 			informers.ConfigMapInformer = akoNSInformerFactory.Core().V1().ConfigMaps()
 		case IngressInformer:
-			ingressAPI := GetIngressApi(cs)
-			if ingressAPI == ExtV1IngressInformer {
-				inginformer, _ := kubeInformerFactory.ForResource(ExtensionsIngress)
-				informers.IngressInformer = inginformer
-				informers.IngressVersion = ExtV1IngressInformer
-			} else {
-				inginformer, _ := kubeInformerFactory.ForResource(NetworkingIngress)
-				informers.IngressInformer = inginformer
-				informers.IngressVersion = CoreV1IngressInformer
+			informers.IngressInformer = kubeInformerFactory.Networking().V1beta1().Ingresses()
+		case IngressClassInformer:
+			if GetIngressClassEnabled() {
+				informers.IngressClassInformer = kubeInformerFactory.Networking().V1beta1().IngressClasses()
 			}
 		case RouteInformer:
 			if ocs != nil {
@@ -236,8 +229,6 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 					AviLog.Infof("Running AKO in avi-system namespace")
 				}
 			case INFORMERS_OPENSHIFT_CLIENT:
-				// this would initialize secret/configmap informer for AKO namespace in openshift
-				akoNSBoundInformer = true
 				oshiftclient, ok = v.(oshiftclientset.Interface)
 				if !ok {
 					AviLog.Warnf("arg oshiftclient is not of type oshiftclientset.Interface")
@@ -251,6 +242,10 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 				AviLog.Warnf("Unknown Key %s in args", k)
 			}
 		}
+	}
+
+	if oshiftclient != nil {
+		akoNSBoundInformer = true
 	}
 	if !instantiateOnce {
 		return instantiateInformers(kubeClient, registeredInformers, oshiftclient, namespace, akoNSBoundInformer)
@@ -287,7 +282,7 @@ func HasElem(s interface{}, elem interface{}) bool {
 
 	if arrV.Kind() == reflect.Slice {
 		for i := 0; i < arrV.Len(); i++ {
-			// XXX - panics if slice element points to an unexported struct field
+			// Important - Panics if slice element points to an unexported struct field
 			// see https://golang.org/pkg/reflect/#Value.Interface
 			if arrV.Index(i).Interface() == elem {
 				return true
@@ -314,4 +309,114 @@ func Remove(arr []string, item string) []string {
 		}
 	}
 	return arr
+}
+
+var globalNSFilterObj *K8ValidNamespaces = &K8ValidNamespaces{}
+
+func GetGlobalNSFilter() *K8ValidNamespaces {
+	return globalNSFilterObj
+}
+
+func IsNSPresent(namespace string, obj *K8ValidNamespaces) bool {
+	obj.validNSList.lock.RLock()
+	defer obj.validNSList.lock.RUnlock()
+	_, flag := obj.validNSList.nsList[namespace]
+	AviLog.Debugf("Namespace %s is accepted : %v", namespace, flag)
+	return flag
+}
+
+func InitializeNSSync(labelKey, labelVal string) {
+	globalNSFilterObj.EnableMigration = true
+	globalNSFilterObj.nsFilter.key = labelKey
+	globalNSFilterObj.nsFilter.value = labelVal
+	globalNSFilterObj.validNSList.nsList = make(map[string]bool)
+}
+
+//Get namespace label filter key and value
+func GetNSFilter(obj *K8ValidNamespaces) (string, string) {
+	var key string
+	var value string
+	if obj.nsFilter.key != "" {
+		key = obj.nsFilter.key
+	}
+	if obj.nsFilter.value != "" {
+		value = obj.nsFilter.value
+	}
+	return key, value
+}
+
+func AddNamespaceToFilter(namespace string) {
+	globalNSFilterObj.validNSList.lock.Lock()
+	defer globalNSFilterObj.validNSList.lock.Unlock()
+	globalNSFilterObj.validNSList.nsList[namespace] = true
+}
+
+func DeleteNamespaceFromFilter(namespace string) {
+	globalNSFilterObj.validNSList.lock.Lock()
+	defer globalNSFilterObj.validNSList.lock.Unlock()
+	delete(globalNSFilterObj.validNSList.nsList, namespace)
+}
+
+func CheckIfNamespaceAccepted(namespace string, opts ...interface{}) bool {
+	//Return true if there is no migration labels mentioned
+	if !globalNSFilterObj.EnableMigration {
+		return true
+	}
+	var nsLabels map[string]string = nil
+	var nonNSK8ResFlag bool = true
+	if len(opts) == 2 {
+		nsLabels = opts[0].(map[string]string)
+		nonNSK8ResFlag = opts[1].(bool)
+	}
+	//For k8 resources other than namespace check NS already present or not
+	if nonNSK8ResFlag && IsNSPresent(namespace, globalNSFilterObj) {
+		return true
+	}
+
+	//Following code will be called for Namespace case only from nsevent handler
+	if len(nsLabels) != 0 {
+		// if namespace have labels
+		nsKey, nsValue := GetNSFilter(globalNSFilterObj)
+		val, ok := nsLabels[nsKey]
+		if ok && val == nsValue {
+			AviLog.Debugf("Namespace filter passed for namespace: %s", namespace)
+			return true
+		}
+	}
+	return false
+}
+func IsServiceNSValid(namespace string) bool {
+	//L4 Namespace sync not applicable for advance L4 and service API
+
+	if !GetAdvancedL4() && !UseServicesAPI() {
+		if !CheckIfNamespaceAccepted(namespace) {
+			return false
+		}
+	}
+	return true
+}
+
+// This utility returns a true/false depending on whether
+// the user requires advanced L4 functionality
+func GetAdvancedL4() bool {
+	if ok, _ := strconv.ParseBool(os.Getenv(ADVANCED_L4)); ok {
+		return true
+	}
+	return false
+}
+func UseServicesAPI() bool {
+	if ok, _ := strconv.ParseBool(os.Getenv(SERVICES_API)); ok {
+		return true
+	}
+	return false
+}
+
+// GetAKONamespace returns the namespace of AKO pod.
+// In Advance L4 Mode this is vmware-system-ako
+// In all other cases this is avi-system
+func GetAKONamespace() string {
+	if GetAdvancedL4() {
+		return VMWARE_SYSTEM_AKO
+	}
+	return AKO_DEFAULT_NS
 }

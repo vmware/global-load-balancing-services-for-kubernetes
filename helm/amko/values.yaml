@@ -10,12 +10,23 @@ image:
 
 configs:
   gslbLeaderController: ""
-  controllerVersion: "20.1.1"
+  controllerVersion: "20.1.4"
   memberClusters:
     - clusterContext: "cluster1-admin"
     - clusterContext: "cluster2-admin"
   refreshInterval: 1800
   logLevel: "INFO"
+  # Set the below flag to true if a different GSLB Service fqdn is desired than the ingress/route's
+  # local fqdns. Note that, this field will use AKO's HostRule objects' to find out the local to global
+  # fqdn mapping. To configure a mapping between the local to global fqdn, configure the hostrule
+  # object as:
+  # [...]
+  # spec:
+  #  virtualhost:
+  #    fqdn: foo.avi.com
+  #    gslb:
+  #      fqdn: gs-foo.avi.com
+  useCustomGlobalFqdn: false
 
 gslbLeaderCredentials:
   username: "admin"
@@ -39,8 +50,8 @@ globalDeploymentPolicy:
   # list of all clusters that the GDP object will be applied to, can take any/all values
   # from .configs.memberClusters
   matchClusters:
-    - "cluster1-admin"
-    - "cluster2-admin"
+    - cluster: "cluster1-admin"
+    - cluster: "cluster2-admin"
 
   # list of all clusters and their traffic weights, if unspecified, default weights will be
   # given (optional). Uncomment below to add the required trafficSplit.
@@ -49,6 +60,22 @@ globalDeploymentPolicy:
   #     weight: 8
   #   - cluster: "cluster2-admin"
   #     weight: 2
+
+  # Uncomment below to specify a ttl value in seconds. By default, the value is inherited from
+  # Avi's DNS VS.
+  # ttl: 10
+
+  # Uncomment below to specify custom health monitor refs. By default, HTTP/HTTPS path based health
+  # monitors are applied on the GSs.
+  # healthMonitorRefs:
+  # - hmref1
+  # - hmref2
+
+  # Uncomment below to specify a Site Persistence profile ref. By default, Site Persistence is disabled.
+  # Also, note that, Site Persistence is only applicable on secure ingresses/routes and ignored
+  # for all other cases. Follow https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/ to create
+  # a Site persistence profile.
+  # sitePersistenceRef: gap-1
 
 serviceAccount:
   # Specifies whether a service account should be created

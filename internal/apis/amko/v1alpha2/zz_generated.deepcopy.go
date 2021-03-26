@@ -77,6 +77,21 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 		*out = make([]TrafficSplitElem, len(*in))
 		copy(*out, *in)
 	}
+	if in.HealthMonitorRefs != nil {
+		in, out := &in.HealthMonitorRefs, &out.HealthMonitorRefs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.TTL != nil {
+		in, out := &in.TTL, &out.TTL
+		*out = new(int)
+		**out = **in
+	}
+	if in.SitePersistenceRef != nil {
+		in, out := &in.SitePersistenceRef, &out.SitePersistenceRef
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

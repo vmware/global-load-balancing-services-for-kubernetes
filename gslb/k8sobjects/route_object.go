@@ -207,6 +207,25 @@ func (route RouteMeta) DeleteMapByKey(key string) {
 }
 
 func (route RouteMeta) ApplyFilter() bool {
+	fqdnMap := gslbutils.GetFqdnMap()
+
+	selectedByGDP := route.ApplyGDPSelector()
+	if selectedByGDP {
+		if gslbutils.GetCustomFqdnMode() {
+			_, err := fqdnMap.GetGlobalFqdnForLocalFqdn(route.Cluster, route.Hostname)
+			if err != nil {
+				gslbutils.Debugf("cluster: %s, ns: %s, route host: %s, msg: error in fetching global fqdn: %v",
+					route.Cluster, route.Namespace, route.Hostname, err)
+				return false
+			}
+			return true
+		}
+	}
+
+	return selectedByGDP
+}
+
+func (route RouteMeta) ApplyGDPSelector() bool {
 	gf := gslbutils.GetGlobalFilter()
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()

@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var gslbconfigsResource = schema.GroupVersionResource{Group: "amko.vmware.com", 
 var gslbconfigsKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha1", Kind: "GSLBConfig"}
 
 // Get takes name of the gSLBConfig, and returns the corresponding gSLBConfig object, and an error if there is any.
-func (c *FakeGSLBConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.GSLBConfig, err error) {
+func (c *FakeGSLBConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.GSLBConfig, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(gslbconfigsResource, c.ns, name), &v1alpha1.GSLBConfig{})
 
@@ -50,7 +52,7 @@ func (c *FakeGSLBConfigs) Get(name string, options v1.GetOptions) (result *v1alp
 }
 
 // List takes label and field selectors, and returns the list of GSLBConfigs that match those selectors.
-func (c *FakeGSLBConfigs) List(opts v1.ListOptions) (result *v1alpha1.GSLBConfigList, err error) {
+func (c *FakeGSLBConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.GSLBConfigList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(gslbconfigsResource, gslbconfigsKind, c.ns, opts), &v1alpha1.GSLBConfigList{})
 
@@ -72,14 +74,14 @@ func (c *FakeGSLBConfigs) List(opts v1.ListOptions) (result *v1alpha1.GSLBConfig
 }
 
 // Watch returns a watch.Interface that watches the requested gSLBConfigs.
-func (c *FakeGSLBConfigs) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeGSLBConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(gslbconfigsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a gSLBConfig and creates it.  Returns the server's representation of the gSLBConfig, and an error, if there is any.
-func (c *FakeGSLBConfigs) Create(gSLBConfig *v1alpha1.GSLBConfig) (result *v1alpha1.GSLBConfig, err error) {
+func (c *FakeGSLBConfigs) Create(ctx context.Context, gSLBConfig *v1alpha1.GSLBConfig, opts v1.CreateOptions) (result *v1alpha1.GSLBConfig, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(gslbconfigsResource, c.ns, gSLBConfig), &v1alpha1.GSLBConfig{})
 
@@ -90,7 +92,7 @@ func (c *FakeGSLBConfigs) Create(gSLBConfig *v1alpha1.GSLBConfig) (result *v1alp
 }
 
 // Update takes the representation of a gSLBConfig and updates it. Returns the server's representation of the gSLBConfig, and an error, if there is any.
-func (c *FakeGSLBConfigs) Update(gSLBConfig *v1alpha1.GSLBConfig) (result *v1alpha1.GSLBConfig, err error) {
+func (c *FakeGSLBConfigs) Update(ctx context.Context, gSLBConfig *v1alpha1.GSLBConfig, opts v1.UpdateOptions) (result *v1alpha1.GSLBConfig, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(gslbconfigsResource, c.ns, gSLBConfig), &v1alpha1.GSLBConfig{})
 
@@ -101,7 +103,7 @@ func (c *FakeGSLBConfigs) Update(gSLBConfig *v1alpha1.GSLBConfig) (result *v1alp
 }
 
 // Delete takes name of the gSLBConfig and deletes it. Returns an error if one occurs.
-func (c *FakeGSLBConfigs) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeGSLBConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(gslbconfigsResource, c.ns, name), &v1alpha1.GSLBConfig{})
 
@@ -109,15 +111,15 @@ func (c *FakeGSLBConfigs) Delete(name string, options *v1.DeleteOptions) error {
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeGSLBConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(gslbconfigsResource, c.ns, listOptions)
+func (c *FakeGSLBConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(gslbconfigsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.GSLBConfigList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched gSLBConfig.
-func (c *FakeGSLBConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.GSLBConfig, err error) {
+func (c *FakeGSLBConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.GSLBConfig, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(gslbconfigsResource, c.ns, name, pt, data, subresources...), &v1alpha1.GSLBConfig{})
 
