@@ -4,6 +4,7 @@ GOCLEAN=$(GOCMD) clean
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOTEST=$(GOCMD) test
+AMKO_VERSION=v1.4.1
 AMKO_BIN=amko
 AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/gslb
 
