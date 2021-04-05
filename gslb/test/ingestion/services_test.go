@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -44,7 +45,7 @@ func addGDPAndGSLBForSvc(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	if err != nil {
 		t.Fatal("GSLB object invalid")
 	}
-	addGSLBTestConfigObject(gc)
+	addGSLBTestConfigObject(gc, ingestion.InitializeGSLBMemberClusters)
 	return gdp
 }
 

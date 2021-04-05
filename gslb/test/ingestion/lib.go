@@ -29,6 +29,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -57,10 +58,10 @@ const (
 
 func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 	memberClusters := []gslbalphav1.MemberCluster{
-		gslbalphav1.MemberCluster{
+		{
 			ClusterContext: "cluster1",
 		},
-		gslbalphav1.MemberCluster{
+		{
 			ClusterContext: "cluster2",
 		},
 	}
@@ -129,6 +130,10 @@ func inKeyList(key string, data []string) bool {
 }
 
 func waitAndVerify(t *testing.T, keyList []string, timeoutExpected bool) (bool, string) {
+	return WaitAndVerify(t, keyList, timeoutExpected, keyChan)
+}
+
+func WaitAndVerify(t *testing.T, keyList []string, timeoutExpected bool, wqKeyChan <-chan string) (bool, string) {
 	waitChan := make(chan interface{})
 	go func() {
 		time.Sleep(10 * time.Second)
@@ -136,7 +141,7 @@ func waitAndVerify(t *testing.T, keyList []string, timeoutExpected bool) (bool, 
 	}()
 
 	select {
-	case data := <-keyChan:
+	case data := <-wqKeyChan:
 		t.Logf("Expected key(s): %s, got data: %s\n", strings.Join(keyList, ","), data)
 		if timeoutExpected {
 			// If the timeout is expected, then there shouldn't be anything on this channel
@@ -159,7 +164,7 @@ func waitAndVerify(t *testing.T, keyList []string, timeoutExpected bool) (bool, 
 	return true, ""
 }
 
-func addGSLBTestConfigObject(obj interface{}) {
+func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberClustersFn) {
 	// Initialize a foo kube client
 	fooKubeClient = k8sfake.NewSimpleClientset()
 	fooOshiftClient = oshiftfake.NewSimpleClientset()
@@ -247,7 +252,7 @@ func addGDPAndGSLBForIngress(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	if err != nil {
 		t.Fatal("GSLB object invalid")
 	}
-	addGSLBTestConfigObject(gc)
+	addGSLBTestConfigObject(gc, ingestion.InitializeGSLBMemberClusters)
 	gslbutils.AddClusterContext("cluster1")
 	gslbutils.AddClusterContext("cluster2")
 

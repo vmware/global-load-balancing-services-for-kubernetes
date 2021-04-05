@@ -1,0 +1,19 @@
+{
+    "uuid": "cluster-ab527716-6b8f-490d-92af-7f989b492bf5",
+    "name": "cluster-0-1",
+    "nodes": 
+    [
+        {
+            "name": "10.79.110.246",
+            "ip":
+            {
+                "addr": "10.79.110.246",
+                "type": "V4"
+            },
+            "vm_uuid": "4201d5dd-ac23-7ee7-eaf9-e2203041033b",
+            "vm_mor": "",
+            "vm_hostname": "node1.controller.local"
+        }
+    ],
+    "tenant_uuid": "admin"
+}

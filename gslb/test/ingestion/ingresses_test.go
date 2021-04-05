@@ -824,6 +824,10 @@ func k8sAddIngressWithoutStatus(t *testing.T, kc *k8sfake.Clientset, name string
 	return ingObj
 }
 
+func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool) *networkingv1beta1.Ingress {
+	return buildIngressObj(name, ns, svc, cname, hostIPs, withStatus)
+}
+
 func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool) *networkingv1beta1.Ingress {
 	ingObj := &networkingv1beta1.Ingress{}
 	ingObj.Namespace = ns
