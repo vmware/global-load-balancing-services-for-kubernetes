@@ -1,0 +1,26 @@
+{"count": 1, 
+    "results": 
+    [
+        {
+            "url": "https://localhost/api/cloud/cloud-92fe99f9-c318-462a-842c-59c9545be60f",
+            "uuid": "cloud-92fe99f9-c318-462a-842c-59c9545be60f",
+            "name": "Default-Cloud",
+            "tenant_ref": "https://localhost/api/tenant/admin",
+            "_last_modified": "1613587233168355",
+            "vtype": "CLOUD_NONE",
+            "apic_mode": false,
+            "dhcp_enabled": true,
+            "mtu": 1500,
+            "prefer_static_routes": false,
+            "enable_vip_static_routes": true,
+            "license_type": "LIC_CORES",
+            "state_based_dns_registration": true,
+            "ip6_autocfg_enabled": false,
+            "dns_resolution_on_se": false,
+            "enable_vip_on_all_interfaces": false,
+            "license_tier": "ENTERPRISE",
+            "autoscale_polling_interval": 60,
+            "ipam_provider_ref": "https://localhost/api/ipamdnsproviderprofile/ipamdnsproviderprofile-d27a5460-01ea-4bed-941a-af82fb788fda", "dns_provider_ref": "https://10.79.110.246/api/ipamdnsproviderprofile/ipamdnsproviderprofile-a4c9a988-a8e6-428f-830e-51d6ab6a7b79"
+        }
+    ]
+}

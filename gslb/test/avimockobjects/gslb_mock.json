@@ -1,0 +1,88 @@
+{
+    "count": 1,
+    "results": [
+      {
+        "url": "https://localhost/api/gslb/gslb-2b99187e-e1cd-47fe-b1de-8add9086931d",
+        "uuid": "gslb-2b99187e-e1cd-47fe-b1de-8add9086931d",
+        "name": "Default",
+        "is_federated": true,
+        "tenant_ref": "https://localhost/api/tenant/admin",
+        "_last_modified": "1616740485776215",
+        "dns_configs": [
+          {
+            "domain_name": "avi.internal"
+          }
+        ],
+        "sites": [
+          {
+            "cluster_uuid": "cluster-ab527716-6b8f-490d-92af-7f989b492bf5",
+            "name": "k8s-site",
+            "ip_addresses": [
+              {
+                "addr": "10.10.10.10",
+                "type": "V4"
+              }
+            ],
+            "port": 443,
+            "username": "admin",
+            "password": "<sensitive>",
+            "member_type": "GSLB_ACTIVE_MEMBER",
+            "enabled": true,
+            "dns_vses": [
+              {
+                "dns_vs_uuid": "virtualservice-aced6357-7528-4775-8a3a-be0c8dc0481b",
+                "domain_names": [
+                  "avi.internal"
+                ]
+              }
+            ],
+            "hm_shard_enabled": false,
+            "suspend_mode": false
+          },
+          {
+            "cluster_uuid": "cluster-bf0652e8-9e72-4ad8-a2f1-8ba1dc111496",
+            "name": "oshift-site",
+            "ip_addresses": [
+              {
+                "addr": "10.10.10.20",
+                "type": "V4"
+              }
+            ],
+            "port": 443,
+            "username": "admin",
+            "password": "<sensitive>",
+            "member_type": "GSLB_ACTIVE_MEMBER",
+            "enabled": true,
+            "dns_vses": [
+              {
+                "dns_vs_uuid": "virtualservice-559cff6c-dc49-4b8f-a3ef-d3f2cd30fee7",
+                "domain_names": [
+                  "avi.internal"
+                ]
+              }
+            ],
+            "hm_shard_enabled": false,
+            "suspend_mode": false
+          }
+        ],
+        "leader_cluster_uuid": "cluster-ab527716-6b8f-490d-92af-7f989b492bf5",
+        "send_interval": 15,
+        "clear_on_max_retries": 20,
+        "view_id": 0,
+        "third_party_sites": [
+          {
+            "cluster_uuid": "tp_cluster-0bb17765-c29f-4863-b459-d730511f479b",
+            "name": "non-avi-site",
+            "enabled": true
+          }
+        ],
+        "async_interval": 0,
+        "error_resync_interval": 300,
+        "replication_policy": {
+          "replication_mode": "REPLICATION_MODE_CONTINUOUS"
+        },
+        "maintenance_mode": false,
+        "tenant_scoped": true
+      }
+    ]
+  }

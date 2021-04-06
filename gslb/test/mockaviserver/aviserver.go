@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 
@@ -118,17 +119,14 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		data, _ := ioutil.ReadAll(r.Body)
 		json.Unmarshal(data, &resp)
 		resp["uuid"] = strings.Split(strings.Trim(url, "/"), "/")[2]
-		resp["health_monitor_refs"] = []interface{}{"https://10.79.111.29/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#System-GSLB-TCP"}
+		resp["health_monitor_refs"] = []interface{}{"https://10.10.10.10/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#System-GSLB-TCP"}
 		finalResponse, _ = json.Marshal(resp)
 		w.WriteHeader(http.StatusOK)
 		w.Write(finalResponse)
 	case "GET":
 		objects := strings.Split(strings.Trim(url, "/"), "/")
-		if len(objects) > 1 && objects[1] != "gslbservice" {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error": "resource not found"}`))
-		}
-		FeedMockData(w, r)
+		gslbutils.Logf("objects: %v", objects)
+		SendResponseForObjects(objects, w, r)
 	case "DELETE":
 		w.WriteHeader(http.StatusNoContent)
 		w.Write(finalResponse)
@@ -138,12 +136,91 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func FeedMockData(w http.ResponseWriter, r *http.Request) {
-	mockFilePath := "../avimockobjects/gslbservice_mock.json"
+func SendResponseForObjects(objects []string, w http.ResponseWriter, r *http.Request) {
+	switch objects[1] {
+	case "gslbservice":
+		if len(objects) > 1 {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error": "resource not found"}`))
+			return
+		}
+		FeedMockGSData(w, r)
+	case "cloud":
+		FeedMockCloudData(w, r)
+	case "cluster":
+		FeedMockClusterData(w, r)
+	case "gslb":
+		FeedMockGslbData(w, r)
+	default:
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error": "resource not found"}`))
+	}
+
+}
+
+func GetMockFilePath(mockFileName string) string {
+	mockDir := os.Getenv("MOCK_DATA_DIR")
+	if mockDir != "" {
+		return mockDir + mockFileName
+	}
+
+	return "../avimockobjects/" + mockFileName
+}
+
+func FeedMockGSData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("gslbservice_mock.json")
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
 		data, _ := ioutil.ReadFile(mockFilePath)
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
+func FeedMockCloudData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("cloud_mock.json")
+	url := r.URL.EscapedPath()
+	object := strings.Split(strings.Trim(url, "/"), "/")
+	if len(object) > 1 && r.Method == "GET" {
+		data, err := ioutil.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("can't read file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
+func FeedMockClusterData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("cluster_mock.json")
+	url := r.URL.EscapedPath()
+	object := strings.Split(strings.Trim(url, "/"), "/")
+	if len(object) > 1 && r.Method == "GET" {
+		data, err := ioutil.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
+func FeedMockGslbData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("gslb_mock.json")
+	url := r.URL.EscapedPath()
+	object := strings.Split(strings.Trim(url, "/"), "/")
+	if len(object) > 1 && r.Method == "GET" {
+		data, err := ioutil.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	}

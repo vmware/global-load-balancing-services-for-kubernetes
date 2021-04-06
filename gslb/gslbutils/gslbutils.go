@@ -566,3 +566,13 @@ func SetCustomFqdnMode(custom bool) {
 func GetCustomFqdnMode() bool {
 	return customFqdnMode
 }
+
+var isTestMode bool
+
+func SetTestMode(t bool) {
+	isTestMode = t
+}
+
+func InTestMode() bool {
+	return isTestMode == true
+}
