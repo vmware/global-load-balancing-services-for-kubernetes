@@ -1,0 +1,300 @@
+{
+    "count": 16,
+    "results": [
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-d0a4d080-323e-495e-b010-bb12bd8fe94e",
+        "uuid": "healthmonitor-d0a4d080-323e-495e-b010-bb12bd8fe94e",
+        "name": "System-HTTP",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347616643",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 3,
+        "failed_checks": 3,
+        "type": "HEALTH_MONITOR_HTTP",
+        "http_monitor": {
+          "http_request": "HEAD / HTTP/1.0",
+          "http_response_code": [
+            "HTTP_2XX",
+            "HTTP_3XX"
+          ],
+          "exact_http_request": false
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-49f5a841-679b-408e-8f21-8974da2de842",
+        "uuid": "healthmonitor-49f5a841-679b-408e-8f21-8974da2de842",
+        "name": "System-HTTPS",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347663629",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 3,
+        "failed_checks": 3,
+        "type": "HEALTH_MONITOR_HTTPS",
+        "https_monitor": {
+          "http_request": "HEAD / HTTP/1.0",
+          "http_response_code": [
+            "HTTP_2XX",
+            "HTTP_3XX"
+          ],
+          "exact_http_request": false
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-df3a8903-cf02-42e7-940d-b4b4cd8fe18b",
+        "uuid": "healthmonitor-df3a8903-cf02-42e7-940d-b4b4cd8fe18b",
+        "name": "System-Ping",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347709711",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_PING"
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-4e1466ce-18d6-423b-8499-5420f57286d6",
+        "uuid": "healthmonitor-4e1466ce-18d6-423b-8499-5420f57286d6",
+        "name": "System-TCP",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347754962",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_TCP",
+        "tcp_monitor": {
+          "tcp_half_open": false
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-e213aa6a-e630-4023-86aa-6e2168507162",
+        "uuid": "healthmonitor-e213aa6a-e630-4023-86aa-6e2168507162",
+        "name": "System-UDP",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347801812",
+        "send_interval": 4,
+        "receive_timeout": 2,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_UDP",
+        "udp_monitor": {
+          "udp_request": "EnterYourRequestDataHere"
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-8d06d5f2-d5cd-4b4e-9950-0793d11d9569",
+        "uuid": "healthmonitor-8d06d5f2-d5cd-4b4e-9950-0793d11d9569",
+        "name": "System-DNS",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347847005",
+        "send_interval": 6,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_DNS",
+        "dns_monitor": {
+          "query_name": "www.google.com",
+          "qtype": "DNS_QUERY_TYPE",
+          "rcode": "RCODE_NO_ERROR",
+          "record_type": "DNS_RECORD_A"
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-061fe889-5855-414f-b7f3-85f1ececb45a",
+        "uuid": "healthmonitor-061fe889-5855-414f-b7f3-85f1ececb45a",
+        "name": "System-Xternal-Perl",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347894163",
+        "send_interval": 30,
+        "receive_timeout": 10,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_EXTERNAL",
+        "external_monitor": {
+          "command_code": "#!/usr/bin/perl -w\nmy $ip= $ARGV[0];\nmy $port = $ARGV[1];\nmy $curl_out;\nif ($ip =~ /:/) {\n$curl_out = `curl -v \"[$ip]\":\"$port\" 2>&1`;\n} else {\n$curl_out = `curl -v \"$ip\":\"$port\" 2>&1`;\n}\nif (index($curl_out, \"200 OK\") != -1) {\n    print \"Server is up\n\";\n}\n"
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-8d13c11a-b1b2-4b41-bd45-77a2459199f2",
+        "uuid": "healthmonitor-8d13c11a-b1b2-4b41-bd45-77a2459199f2",
+        "name": "System-Xternal-Shell",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347940842",
+        "send_interval": 30,
+        "receive_timeout": 10,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_EXTERNAL",
+        "external_monitor": {
+          "command_code": "#!/bin/bash\n#curl -v $IP:$PORT >/run/hmuser/$HM_NAME.$IP.$PORT.out\nif [[ $IP =~ : ]];\nthen curl -v [$IP]:$PORT;\nelse curl -v $IP:$PORT;\nfi\n"
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-9c62f0e4-62b0-4839-ac9e-3995f9a94ab8",
+        "uuid": "healthmonitor-9c62f0e4-62b0-4839-ac9e-3995f9a94ab8",
+        "name": "System-Xternal-Python",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586347987578",
+        "send_interval": 30,
+        "receive_timeout": 10,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_EXTERNAL",
+        "external_monitor": {
+          "command_code": "#!/usr/bin/python3\nimport sys\nimport http.client\nconn = http.client.HTTPConnection(sys.argv[1]+':'+sys.argv[2])\nconn.request(\"HEAD\", \"/index.html\")\nr1 = conn.getresponse()\nif r1.status == 200:\n    print(r1.status, r1.reason)\n"
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-cc0493be-6cd8-4d8d-8495-fa078e992133",
+        "uuid": "healthmonitor-cc0493be-6cd8-4d8d-8495-fa078e992133",
+        "name": "System-PingAccessAgent",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586348042000",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_HTTPS",
+        "https_monitor": {
+          "http_request": "GET /pa/heartbeat.ping HTTP/1.1",
+          "http_response_code": [
+            "HTTP_2XX"
+          ],
+          "ssl_attributes": {
+            "ssl_profile_ref": "https://10.79.110.246/api/sslprofile/sslprofile-c0cefe91-d126-4345-a0f0-9e2e62c886d1"
+          },
+          "exact_http_request": false
+        },
+        "monitor_port": 3000
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-4d421df1-c9e8-4f26-a3e3-88a35db4e0de",
+        "uuid": "healthmonitor-4d421df1-c9e8-4f26-a3e3-88a35db4e0de",
+        "name": "System-GSLB-Ping",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613591338447001",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_PING"
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-756a36e0-8ed8-4887-a0b3-f51a9fc276b6",
+        "uuid": "healthmonitor-756a36e0-8ed8-4887-a0b3-f51a9fc276b6",
+        "name": "System-GSLB-TCP",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613591338471003",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_TCP",
+        "tcp_monitor": {
+          "tcp_half_open": false
+        },
+        "monitor_port": 80
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-bdfcee4c-4baf-4def-ac5b-541422e4af48",
+        "uuid": "healthmonitor-bdfcee4c-4baf-4def-ac5b-541422e4af48",
+        "name": "System-GSLB-HTTP",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613591338486983",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 3,
+        "failed_checks": 3,
+        "type": "HEALTH_MONITOR_HTTP",
+        "http_monitor": {
+          "http_request": "HEAD / HTTP/1.0",
+          "http_response_code": [
+            "HTTP_2XX",
+            "HTTP_3XX"
+          ],
+          "exact_http_request": false
+        },
+        "monitor_port": 80
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-0c260e8d-3d44-4c02-a2b7-b16089b585d1",
+        "uuid": "healthmonitor-0c260e8d-3d44-4c02-a2b7-b16089b585d1",
+        "name": "System-GSLB-HTTPS",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613591338502707",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 3,
+        "failed_checks": 3,
+        "type": "HEALTH_MONITOR_HTTPS",
+        "https_monitor": {
+          "http_request": "HEAD / HTTP/1.0",
+          "http_response_code": [
+            "HTTP_2XX",
+            "HTTP_3XX"
+          ],
+          "exact_http_request": false
+        },
+        "monitor_port": 443
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-7eff8b9f-8619-4b7b-9b18-e76da874685d",
+        "uuid": "healthmonitor-7eff8b9f-8619-4b7b-9b18-e76da874685d",
+        "name": "System-GSLB-UDP",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613591338518184",
+        "send_interval": 4,
+        "receive_timeout": 2,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_UDP",
+        "udp_monitor": {
+          "udp_request": "EnterYourRequestDataHere"
+        },
+        "monitor_port": 443
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-6837ea95-7613-4415-a059-b6e34c39f321",
+        "uuid": "healthmonitor-6837ea95-7613-4415-a059-b6e34c39f321",
+        "name": "my-hm1",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1616766136533179",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_PING"
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-6837ea95-7613-4415-a059-b6e34c39f321",
+        "uuid": "healthmonitor-6837ea95-7613-4415-a059-12031209333d",
+        "name": "my-hm2",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1616766136533179",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_HTTPS"
+      }
+    ]
+  }

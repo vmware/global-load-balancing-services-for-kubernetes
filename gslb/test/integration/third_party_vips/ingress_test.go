@@ -16,8 +16,12 @@ package third_party_vips
 
 import (
 	"testing"
+	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 // Add an ingress and a route, verify their keys from ingestion layer
@@ -40,15 +44,22 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 
 	t.Cleanup(func() {
 		k8sDeleteIngress(t, clusterClients[K8s], ingName, ns)
-		BuildIngressKeyAndVerify(t, false, "DELETE", ingCluster, ns, ingName, host)
 		oshiftDeleteRoute(t, clusterClients[Oshift], routeName, ns)
-		BuildRouteKeyAndVerify(t, false, "DELETE", routeCluster, ns, routeName)
 		DeleteTestGDP(t, newGDP.Namespace, newGDP.Name)
 	})
 
-	k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster, ingHostIPMap)
-	BuildIngressKeyAndVerify(t, false, "ADD", ingCluster, ns, ingName, host)
-	oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
-		routeCluster, host, routeIPAddr)
-	BuildRouteKeyAndVerify(t, false, "ADD", routeCluster, ns, routeName)
+	g := gomega.NewGomegaWithT(t)
+
+	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
+		ingHostIPMap, false)
+	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
+		routeCluster, host, routeIPAddr, false)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
