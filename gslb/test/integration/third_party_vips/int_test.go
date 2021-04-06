@@ -37,6 +37,7 @@ import (
 	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
 	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -46,39 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
-
-const (
-	KubeBuilderAssetsEnv = "KUBEBUILDER_ASSETS"
-	// list indices for k8s cluster, openshift cluster and config cluster (where AMKO is running)
-	// Config cluster and K8s cluster are same here
-	K8s           = 0
-	ConfigCluster = 0
-	Oshift        = 1
-	MaxClusters   = 2
-	// AMKO CRD directory
-	AmkoCRDs = "../../../../helm/amko/crds"
-
-	AviSystemNS    = "avi-system"
-	AviSecret      = "avi-secret"
-	GslbConfigName = "test-gc"
-	GDPName        = "test-gdp"
-	K8sContext     = "k8s"
-	OshiftContext  = "oshift"
-)
-
-var (
-	cfgs                 []*rest.Config
-	clusterClients       []*kubernetes.Clientset
-	testEnvs             []*envtest.Environment
-	stopCh               <-chan struct{}
-	apiURL               string
-	ingestionKeyChan     chan string
-	graphKeyChan         chan string
-	oshiftClient         *oshiftclient.Clientset
-	KubeBuilderAssetsVal string
-)
-
-var routeCRD apiextensionv1beta1.CustomResourceDefinition
 
 func TestMain(m *testing.M) {
 	setUp()
@@ -117,13 +85,34 @@ func createRouteCRD() {
 	}
 }
 
+func createHostRuleCRD() {
+	hrCRD = apiextensionv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hostrules." + akov1alpha1.SchemeGroupVersion.Group,
+		},
+		Spec: apiextensionv1beta1.CustomResourceDefinitionSpec{
+			Group:   akov1alpha1.SchemeGroupVersion.Group,
+			Version: akov1alpha1.SchemeGroupVersion.Version,
+			Scope:   apiextensionv1beta1.NamespaceScoped,
+			Names: apiextensionv1beta1.CustomResourceDefinitionNames{
+				Plural: "hostrules",
+				Kind:   reflect.TypeOf(akov1alpha1.HostRule{}).Name(),
+			},
+		},
+	}
+}
+
 func SetUpEnvClusters() {
 	cfgs = make([]*rest.Config, MaxClusters)
 	clusterClients = make([]*kubernetes.Clientset, MaxClusters)
 	testEnvs = make([]*envtest.Environment, MaxClusters)
+	createHostRuleCRD()
 
 	testEnv1 := &envtest.Environment{
-		CRDDirectoryPaths:     []string{AmkoCRDs},
+		CRDDirectoryPaths: []string{AmkoCRDs},
+		CRDs: []client.Object{
+			&hrCRD,
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 	testEnvs[0] = testEnv1
@@ -132,6 +121,7 @@ func SetUpEnvClusters() {
 	testEnv2 := &envtest.Environment{
 		CRDs: []client.Object{
 			&routeCRD,
+			&hrCRD,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -390,21 +380,6 @@ func AddTestGslbConfigObject() {
 	}).Should(gomega.Equal("success: gslb config accepted"))
 }
 
-func GetTestDefaultGDPObject() *gdpalphav2.GlobalDeploymentPolicy {
-	matchRules := gdpalphav2.MatchRules{}
-	matchClusters := []gdpalphav2.ClusterProperty{}
-	return &gdpalphav2.GlobalDeploymentPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: AviSystemNS,
-			Name:      GDPName,
-		},
-		Spec: gdpalphav2.GDPSpec{
-			MatchRules:    matchRules,
-			MatchClusters: matchClusters,
-		},
-	}
-}
-
 func DeleteTestGDP(t *testing.T, ns, name string) error {
 	err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
@@ -412,37 +387,6 @@ func DeleteTestGDP(t *testing.T, ns, name string) error {
 	}
 	t.Logf("deleted GDP %s in %s namespace", name, ns)
 	return nil
-}
-
-func AddTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
-	newGdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Create(context.TODO(),
-		gdp, metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	t.Logf("created new GDP object %s in %s namespace", newGdpObj.Name, newGdpObj.Namespace)
-	return newGdpObj, nil
-}
-
-func VerifyGDPStatus(t *testing.T, ns, name, status string) {
-	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() string {
-		gdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
-		if err != nil {
-			t.Errorf("failed to fetch GDP object: %v", err)
-			return ""
-		}
-		return gdpObj.Status.ErrorStatus
-	}).Should(gomega.Equal(status))
-}
-
-func AddAndVerifyTestGDPSuccess(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
-	newGdpObj, err := AddTestGDP(t, gdp)
-	if err != nil {
-		return nil, err
-	}
-	VerifyGDPStatus(t, newGdpObj.Namespace, newGdpObj.Name, "success")
-	return newGdpObj, nil
 }
 
 func TestGDP(t *testing.T) {
