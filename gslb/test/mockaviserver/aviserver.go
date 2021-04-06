@@ -186,6 +186,8 @@ func FeedMockCloudData(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("can't read file: %v", err)
+			w.WriteHeader(404)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
@@ -200,6 +202,8 @@ func FeedMockClusterData(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
@@ -214,6 +218,8 @@ func FeedMockGslbData(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
