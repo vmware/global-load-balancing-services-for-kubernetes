@@ -56,6 +56,10 @@ graph_test:
 rest_test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
 
+.PHONY: int_test
+int_test:
+		$(GOTEST) -v -mod=vendor ./gslb/test/integration -failfast
+
 .PHONY: test
 test:
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast

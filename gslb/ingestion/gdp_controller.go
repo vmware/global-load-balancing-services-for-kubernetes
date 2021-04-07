@@ -317,6 +317,15 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 		}
 	}
 
+	// Health monotor validity
+	if len(gdp.Spec.HealthMonitorRefs) != 0 {
+		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
+			if !isHealthMonitorRefValid(hmRef) {
+				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
+			}
+		}
+	}
+
 	// Site persistence check
 	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
 		return fmt.Errorf("empty string as site persistence reference not supported")

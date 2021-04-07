@@ -127,7 +127,10 @@ func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMet
 
 	vsUUIDs, controllerUUID, err = parseVSAndControllerAnnotations(ingress.Annotations)
 	if err != nil && !syncVIPsOnly {
-		gslbutils.Logf("ns: %s, ingress: %s, msg: skipping ingress because of error: %v",
+		// Note that the ingress key will still be published to graph layer, but the key
+		// won't be processed, this is just to maintain the ingress information as part
+		// of in-memory map.
+		gslbutils.Errf("ns: %s, ingress: %s, msg: skipping ingress because of error: %v",
 			ingress.Namespace, ingress.Name, err)
 	}
 	if (controllerUUID == "" || len(vsUUIDs) == 0) && !syncVIPsOnly {

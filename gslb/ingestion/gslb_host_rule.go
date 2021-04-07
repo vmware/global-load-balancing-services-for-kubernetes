@@ -93,7 +93,7 @@ func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profile
 	return true
 }
 
-func isHealthMonitorRefPresent(gslbhr *gslbhralphav1.GSLBHostRule, refName string) bool {
+func isHealthMonitorRefValid(refName string) bool {
 	// Check if the health monitors mentioned in gslbHostRule are present on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "/api/healthmonitor?name=" + refName
@@ -106,7 +106,25 @@ func isHealthMonitorRefPresent(gslbhr *gslbhralphav1.GSLBHostRule, refName strin
 		gslbutils.Errf("Health Monitor %s does not exist", refName)
 		return false
 	}
-	return true
+	gslbutils.Logf("health monitor %s fetched from controller", refName)
+	elems := make([]json.RawMessage, result.Count)
+	err = json.Unmarshal(result.Results, &elems)
+	if err != nil {
+		gslbutils.Errf("failed to unmarshal health monitor data for ref %s: %v", refName, err)
+		return false
+	}
+	hm := models.HealthMonitor{}
+	err = json.Unmarshal(elems[0], &hm)
+	if err != nil {
+		gslbutils.Errf("failed to unmarshal the first health monitor element: %v", err)
+		return false
+	}
+	if hm.IsFederated != nil && *hm.IsFederated {
+		return true
+	} else {
+		gslbutils.Errf("health monitor ref %s is not federated, can't add", refName)
+	}
+	return false
 }
 
 func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName string) bool {
@@ -180,7 +198,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 
 	healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
 	for _, ref := range healthMonitorRefs {
-		if !isHealthMonitorRefPresent(gslbhr, ref) {
+		if !isHealthMonitorRefValid(ref) {
 			errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
 			updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
 			return fmt.Errorf(errmsg)

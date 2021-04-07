@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
@@ -77,7 +78,7 @@ func buildAndAddTestGSLBObject(t *testing.T) {
 	if err != nil {
 		t.Fatal("GSLB object invalid")
 	}
-	addGSLBTestConfigObject(gc)
+	addGSLBTestConfigObject(gc, ingestion.InitializeGSLBMemberClusters)
 	// Add the initialized cluster list out of band
 	gslbutils.AddClusterContext("cluster1")
 	gslbutils.AddClusterContext("cluster2")

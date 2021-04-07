@@ -379,26 +379,17 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
-	// Since this GSGraph is constructed because of a GSLBHostRule, we need to only fetch the
-	// GSLBHostRule for this fqdn, the GSLBHostRule MUST be present for this fqdn, otherwise we
-	// log an error and return
-	gsHostRuleList := gslbutils.GetGSHostRulesList()
-	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsFqdn); ghRulesForFqdn != nil {
-		setGSLBPropertiesForGS(gsFqdn, v, false, tls)
-		if !newObj {
-			v.RetryCount = gslbutils.DefaultRetryCount
-			v.CalculateChecksum()
-			return
-		}
-		v.Name = gsFqdn
-		v.Tenant = utils.ADMIN_NS
+	// update the GSLB HostRule or GDP properties for the GS
+	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
+	if !newObj {
 		v.RetryCount = gslbutils.DefaultRetryCount
 		v.CalculateChecksum()
 		return
 	}
-	// error case
-	gslbutils.Errf("gsFqdn: %s, msg: can't construct a GS Graph if GSLBHostRule for fqdn is empty",
-		gsFqdn)
+	v.Name = gsFqdn
+	v.Tenant = utils.ADMIN_NS
+	v.RetryCount = gslbutils.DefaultRetryCount
+	v.CalculateChecksum()
 }
 
 func (v *AviGSObjectGraph) GetGSMembersByCluster(cname string) []AviGSK8sObj {
@@ -713,8 +704,10 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	var ttl int
 	if v.TTL != nil {
 		ttl = *v.TTL
+		gsObjCopy.TTL = &ttl
+	} else {
+		gsObjCopy.TTL = nil
 	}
-	gsObjCopy.TTL = &ttl
 	gsObjCopy.HmRefs = make([]string, len(v.HmRefs))
 	copy(gsObjCopy.HmRefs, v.HmRefs)
 	gsObjCopy.SitePersistenceRef = v.SitePersistenceRef

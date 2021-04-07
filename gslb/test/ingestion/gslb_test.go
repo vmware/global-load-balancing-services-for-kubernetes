@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
 	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/fake"
@@ -37,7 +38,8 @@ func TestGSLBNewController(t *testing.T) {
 	gslbKubeClient := k8sfake.NewSimpleClientset()
 	gslbClient := gslbfake.NewSimpleClientset()
 	gslbInformerFactory := gslbinformers.NewSharedInformerFactory(gslbClient, time.Second*30)
-	gslbCtrl := gslbingestion.GetNewController(gslbKubeClient, gslbClient, gslbInformerFactory, addGSLBTestConfigObject)
+	gslbCtrl := gslbingestion.GetNewController(gslbKubeClient, gslbClient, gslbInformerFactory, addGSLBTestConfigObject,
+		ingestion.InitializeGSLBMemberClusters)
 	if gslbCtrl == nil {
 		t.Fatalf("GSLB Controller not set")
 	}

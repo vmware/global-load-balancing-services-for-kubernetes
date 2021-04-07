@@ -724,7 +724,9 @@ func VerifyVersion() error {
 		return errors.New("no avi clients initialized")
 	}
 
-	apimodels.RestStatus.UpdateAviApiRestStatus(utils.AVIAPI_CONNECTED, nil)
+	if !gslbutils.InTestMode() {
+		apimodels.RestStatus.UpdateAviApiRestStatus(utils.AVIAPI_CONNECTED, nil)
+	}
 	aviClient := aviRestClientPool.AviClient[0]
 
 	if version == "" {
