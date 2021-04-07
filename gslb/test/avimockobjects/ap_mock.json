@@ -1,0 +1,114 @@
+{
+    "count": 6,
+    "results": [
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-74781064-5a23-43eb-b9ee-1407bb78f8a7",
+        "uuid": "applicationpersistenceprofile-74781064-5a23-43eb-b9ee-1407bb78f8a7",
+        "name": "System-Persistence-Client-IP",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586349892635",
+        "persistence_type": "PERSISTENCE_TYPE_CLIENT_IP_ADDRESS",
+        "ip_persistence_profile": {
+          "ip_persistent_timeout": 5
+        },
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER"
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-bd4fee08-ccd4-4fb1-ae68-3d9edcbdd9e5",
+        "uuid": "applicationpersistenceprofile-bd4fee08-ccd4-4fb1-ae68-3d9edcbdd9e5",
+        "name": "System-Persistence-Http-Cookie",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586349971712",
+        "persistence_type": "PERSISTENCE_TYPE_HTTP_COOKIE",
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER",
+        "http_cookie_persistence_profile": {
+          "cookie_name": "BBLAKGZY",
+          "key": [
+            {
+              "name": "5e8f0325-ec6d-4169-a371-c8c220947235",
+              "aes_key": "K1ht66h8IzrEpbTZYr5d7uL9FZ3TeUh2oTYOgKOhFY0="
+            }
+          ]
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-415df723-2fac-4a09-a84a-cc69eb516e51",
+        "uuid": "applicationpersistenceprofile-415df723-2fac-4a09-a84a-cc69eb516e51",
+        "name": "System-Persistence-Custom-Http-Header",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586350024038",
+        "persistence_type": "PERSISTENCE_TYPE_CUSTOM_HTTP_HEADER",
+        "hdr_persistence_profile": {
+          "prst_hdr_name": "customhttphdrname"
+        },
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER"
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-00403603-8547-4d2c-b13a-d58b5ff80c63",
+        "uuid": "applicationpersistenceprofile-00403603-8547-4d2c-b13a-d58b5ff80c63",
+        "name": "System-Persistence-App-Cookie",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586350066653",
+        "persistence_type": "PERSISTENCE_TYPE_APP_COOKIE",
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER",
+        "app_cookie_persistence_profile": {
+          "prst_hdr_name": "customhttpcookiename",
+          "timeout": 20
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-bee1f0ee-b5b0-48e8-97b2-e600d9bcacb2",
+        "uuid": "applicationpersistenceprofile-bee1f0ee-b5b0-48e8-97b2-e600d9bcacb2",
+        "name": "System-Persistence-TLS",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1613586350108226",
+        "persistence_type": "PERSISTENCE_TYPE_TLS",
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER"
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaa7d897",
+        "uuid": "applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaa7d897",
+        "name": "gap-1",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1617083500598800",
+        "persistence_type": "PERSISTENCE_TYPE_GSLB_SITE",
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER",
+        "http_cookie_persistence_profile": {
+          "cookie_name": "KIIYYRUJ",
+          "key": [
+            {
+              "name": "1bb4230f-02af-49c1-8fe0-68c329d13a81",
+              "aes_key": "GJX2n77xIrwFvK5dcwYsjS73nf9EIi7ZUV9O9eX7xL0="
+            }
+          ],
+          "always_send_cookie": false
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaasadsd",
+        "uuid": "applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaasdasdas",
+        "name": "gap-2",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1617083500598800",
+        "persistence_type": "PERSISTENCE_TYPE_GSLB_SITE",
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER",
+        "http_cookie_persistence_profile": {
+          "cookie_name": "KIIYYRUJ",
+          "key": [
+            {
+              "name": "1bb4230f-02af-49c1-8fe0-68c329d13a81",
+              "aes_key": "GJX2n77xIrwFvK5dcwYsjS73nf9EIi7ZUV9O9eX7xL0="
+            }
+          ],
+          "always_send_cookie": false
+        }
+      }
+    ]
+  }

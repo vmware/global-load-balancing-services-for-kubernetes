@@ -30,6 +30,7 @@ import (
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
@@ -170,14 +171,12 @@ func SyncFromTestIngestionLayer(key string, wg *sync.WaitGroup) error {
 	gslbutils.Logf("recieved key from ingestion layer: %s", key)
 	ingestionKeyChan <- key
 
-	// call the actual graph layer function
-	// nodes.DequeueIngestion(key)
 	return nil
 }
 
 func SyncFromTestNodesLayer(key string, wg *sync.WaitGroup) error {
 	gslbutils.Logf("recived key from graph layer: %s", key)
-	// graphKeyChan <- key
+	graphKeyChan <- key
 
 	return nil
 }
@@ -191,7 +190,7 @@ func SetUpTestWorkerQueues() {
 	utils.SharedWorkQueue(&ingestionQueueParams, &graphQueueParams)
 
 	ingestionSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	ingestionSharedQueue.SyncFunc = SyncFromTestIngestionLayer
+	ingestionSharedQueue.SyncFunc = nodes.SyncFromIngestionLayer
 	ingestionSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGIngestion))
 
 	// Set workers for layer 3 (REST layer)

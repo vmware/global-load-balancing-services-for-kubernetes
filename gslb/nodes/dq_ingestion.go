@@ -326,7 +326,7 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 		if uniqueMembersLen != newUniqueMemberLen {
 			metaObj.DeleteMapByKey(clusterObj)
 		}
-		gslbutils.Debugf("key: %s, gsMembers: %d, msg: checking if its a GS deletion case", key,
+		gslbutils.Debugf("key: %s, gsMembers: %v, msg: checking if its a GS deletion case", key,
 			aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs())
 		if len(aviGS.(*AviGSObjectGraph).GetUniqueMemberObjs()) == 0 {
 			deleteGs = true

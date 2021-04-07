@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/avinetworks/sdk/go/models"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 
@@ -151,6 +152,8 @@ func SendResponseForObjects(objects []string, w http.ResponseWriter, r *http.Req
 		FeedMockClusterData(w, r)
 	case "gslb":
 		FeedMockGslbData(w, r)
+	case "healthmonitor":
+		FeedMockHMData(w, r)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "resource not found"}`))
@@ -218,6 +221,100 @@ func FeedMockGslbData(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
+func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("hm_mock.json")
+	url := r.URL.EscapedPath()
+	object := strings.Split(strings.Trim(url, "/"), "/")
+	if len(object) > 1 && r.Method == "GET" {
+		data, err := ioutil.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
+		type MockHMData struct {
+			Count   int                    `json:"count"`
+			Results []models.HealthMonitor `json:"results"`
+		}
+		mockHmData := MockHMData{
+			Results: []models.HealthMonitor{},
+		}
+		err = json.Unmarshal([]byte(data), &mockHmData)
+		if err != nil {
+			gslbutils.Errf("error in unmarshalling health monitor data: %v", err)
+			w.WriteHeader(404)
+		}
+		splitData := strings.Split(url, "?name=")
+		if len(splitData) == 2 {
+			// we need a specific hm data
+			for _, hm := range mockHmData.Results {
+				if *hm.Name == splitData[1] {
+					data, err = json.Marshal(hm)
+					if err != nil {
+						gslbutils.Errf("error in marshalling health monitor data: %v", err)
+						w.WriteHeader(404)
+						return
+					}
+					w.WriteHeader(http.StatusOK)
+					w.Write(data)
+					return
+				}
+			}
+			w.WriteHeader(404)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
+func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("ap_mock.json")
+	url := r.URL.EscapedPath()
+	object := strings.Split(strings.Trim(url, "/"), "/")
+	if len(object) > 1 && r.Method == "GET" {
+		data, err := ioutil.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
+		type MockHMData struct {
+			Count   int                                    `json:"count"`
+			Results []models.ApplicationPersistenceProfile `json:"results"`
+		}
+		mockHmData := MockHMData{
+			Results: []models.ApplicationPersistenceProfile{},
+		}
+		err = json.Unmarshal([]byte(data), &mockHmData)
+		if err != nil {
+			gslbutils.Errf("error in unmarshalling persistence profile data: %v", err)
+			w.WriteHeader(404)
+		}
+		splitData := strings.Split(url, "?name=")
+		if len(splitData) == 2 {
+			// we need a specific hm data
+			for _, hm := range mockHmData.Results {
+				if *hm.Name == splitData[1] {
+					data, err = json.Marshal(hm)
+					if err != nil {
+						gslbutils.Errf("error in marshalling persistence profile data: %v", err)
+						w.WriteHeader(404)
+						return
+					}
+					w.WriteHeader(http.StatusOK)
+					w.Write(data)
+					return
+				}
+			}
 			w.WriteHeader(404)
 			return
 		}

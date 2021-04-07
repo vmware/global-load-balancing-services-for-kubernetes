@@ -280,6 +280,7 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 	}
 
 	gf.TTL = gdp.Spec.TTL
+
 	gf.SitePersistenceRef = gdp.Spec.SitePersistenceRef
 
 	gf.ComputeChecksum()
