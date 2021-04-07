@@ -22,6 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
@@ -125,6 +126,28 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
+// Add ingress and route objects, set an invalid health monitor ref (where the federated value is false)
+func TestGDPPropertiesForInvalidHealthMonitor(t *testing.T) {
+	// testPrefix := "hm-invalid-"
+	hmRefs := []string{"my-hm3"}
+
+	gdpObj := GetTestDefaultGDPObject()
+	gdpObj.Spec.MatchRules.AppSelector = gdpalphav2.AppSelector{
+		Label: appLabel,
+	}
+	gdpObj.Spec.MatchClusters = []gdpalphav2.ClusterProperty{
+		{Cluster: K8sContext}, {Cluster: OshiftContext},
+	}
+	gdpObj.Spec.HealthMonitorRefs = hmRefs
+	_, err := AddAndVerifyTestGDPFailure(t, gdpObj, "health monitor ref my-hm3 is invalid")
+	t.Cleanup(func() {
+		DeleteTestGDP(t, gdpObj.Namespace, gdpObj.Name)
+	})
+
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(err).Should(gomega.BeNil(), "error should be nil while creating the GDP object")
+}
+
 // Add ingress and route objects, set the persistence profile and verify
 func TestGDPPropertiesForPersistenceProfile(t *testing.T) {
 	testPrefix := "gdp-sp-"
@@ -200,7 +223,8 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm2"}
 	gslbHRTTL := 20
-	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL)
+	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
 		// Site persistence remains unchanged, as it inherits from the GDP object
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
@@ -227,7 +251,8 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm2"}
 	gslbHRTTL := 20
-	oldGSHR := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL)
+	oldGSHR := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
 		// Site persistence remains unchanged, as it inherits from the GDP object
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
@@ -239,7 +264,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	newObj.Spec.SitePersistence = &gslbalphav1.SitePersistence{
 		Enabled: false,
 	}
-	updateGSLBHostRule(t, newObj)
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
 
 	// verify whether site persistence got updated
 	g.Eventually(func() bool {
@@ -251,7 +276,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	// delete the health monitor ref from GSLB Host Rule and check if it is inherited from the
 	newObj = getGSLBHostRule(t, oldGSHR.Name, oldGSHR.Namespace)
 	newObj.Spec.HealthMonitorRefs = nil
-	updateGSLBHostRule(t, newObj)
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
 
 	// verify whether site persistence got updated
 	g.Eventually(func() bool {
@@ -280,7 +305,8 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm2"}
 	gslbHRTTL := 20
-	gsHRObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL)
+	gsHRObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
 			&sp, &gslbHRTTL)
@@ -290,6 +316,38 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	deleteGSLBHostRule(t, gsHRObj.Name, gsHRObj.Namespace)
 	g.Eventually(func() bool {
 		// TTL and HM refs will fall back to the GDP object
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
+			&sp, &ttl)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Create a GSLBHostRule object and check if AMKO allows an invalid Health monitor ref.
+func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
+	testPrefix := "gdp-gslbhr-invalid-hm-"
+	gslbHRName := "test-gslb-hr"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+
+	addTestGDPWithProperties(t, hmRefs, &ttl, &sp)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
+			&ttl)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	hostName := routeObj.Spec.Host
+	gslbHRHmRefs := []string{"my-hm3"}
+	gslbHRTTL := 20
+	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+		ingestion.GslbHostRuleRejected, "Health Monitor Ref my-hm3 error for test-gslb-hr GSLBHostRule")
+	g.Eventually(func() bool {
+		// All fields remain unchanged because of the invalid GSLBHostRule
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
 			&sp, &ttl)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))

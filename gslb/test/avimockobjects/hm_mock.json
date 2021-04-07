@@ -295,6 +295,19 @@
         "successful_checks": 2,
         "failed_checks": 2,
         "type": "HEALTH_MONITOR_HTTPS"
+      },
+      {
+        "url": "https://10.79.110.246/api/healthmonitor/healthmonitor-6837ea95-7613-4415-a059-xxxxxxxxx",
+        "uuid": "healthmonitor-6837ea95-7613-4415-a059-12xxxxxxxx",
+        "name": "my-hm3",
+        "is_federated": false,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1616766136533179",
+        "send_interval": 10,
+        "receive_timeout": 4,
+        "successful_checks": 2,
+        "failed_checks": 2,
+        "type": "HEALTH_MONITOR_HTTPS"
       }
     ]
   }
