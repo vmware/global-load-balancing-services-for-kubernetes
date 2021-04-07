@@ -19,12 +19,12 @@ import (
 	"encoding/json"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
@@ -325,7 +325,7 @@ func VerifyGDPStatus(t *testing.T, ns, name, status string) {
 			return ""
 		}
 		return gdpObj.Status.ErrorStatus
-	}).Should(gomega.Equal(status))
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(status), "GDP status must be equal to %s", status)
 }
 
 func AddAndVerifyTestGDPSuccess(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
@@ -334,6 +334,15 @@ func AddAndVerifyTestGDPSuccess(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPo
 		return nil, err
 	}
 	VerifyGDPStatus(t, newGdpObj.Namespace, newGdpObj.Name, "success")
+	return newGdpObj, nil
+}
+
+func AddAndVerifyTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy, status string) (*gdpalphav2.GlobalDeploymentPolicy, error) {
+	newGdpObj, err := AddTestGDP(t, gdp)
+	if err != nil {
+		return nil, err
+	}
+	VerifyGDPStatus(t, newGdpObj.Namespace, newGdpObj.Name, status)
 	return newGdpObj, nil
 }
 
@@ -540,9 +549,10 @@ func deleteGSLBHostRule(t *testing.T, name, ns string) {
 	}
 }
 
-func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string,
-	hmRefs []string,
-	sitePersistence *gslbalphav1.SitePersistence, ttl *int) *gslbalphav1.GSLBHostRule {
+func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string, hmRefs []string,
+	sitePersistence *gslbalphav1.SitePersistence, ttl *int,
+	status, errMsg string) *gslbalphav1.GSLBHostRule {
+
 	gslbHR := buildGSLBHostRule(name, ns, gsFqdn, sitePersistence, hmRefs, ttl)
 	newObj, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Create(context.TODO(),
 		gslbHR, metav1.CreateOptions{})
@@ -553,17 +563,17 @@ func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string,
 		deleteGSLBHostRule(t, name, ns)
 	})
 
-	VerifyGSLBHostRuleStatus(t, ns, name, ingestion.GslbHostRuleAccepted)
+	VerifyGSLBHostRuleStatus(t, ns, name, status, errMsg)
 	return newObj
 }
 
-func updateGSLBHostRule(t *testing.T, gslbHRObj *gslbalphav1.GSLBHostRule) *gslbalphav1.GSLBHostRule {
+func updateGSLBHostRule(t *testing.T, gslbHRObj *gslbalphav1.GSLBHostRule, status, errMsg string) *gslbalphav1.GSLBHostRule {
 	newObj, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbHRObj.Namespace).Update(context.TODO(),
 		gslbHRObj, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating a GSLB Host Rule object %v: %v", gslbHRObj, err)
 	}
-	VerifyGSLBHostRuleStatus(t, gslbHRObj.Namespace, gslbHRObj.Name, ingestion.GslbHostRuleAccepted)
+	VerifyGSLBHostRuleStatus(t, gslbHRObj.Namespace, gslbHRObj.Name, status, errMsg)
 	return newObj
 }
 
@@ -576,13 +586,18 @@ func getGSLBHostRule(t *testing.T, name, ns string) *gslbalphav1.GSLBHostRule {
 	return obj
 }
 
-func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status string) {
+func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() string {
-		gdpObj, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	g.Eventually(func() bool {
+		gslbHR, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("failed to fetch GSLBHostRule object %s/%s: %v", ns, name, err)
 		}
-		return gdpObj.Status.Status
-	}).Should(gomega.Equal(status))
+		if gslbHR.Status.Status != status || gslbHR.Status.Error != errMsg {
+			t.Logf("GSLB HostRule, expected status: %s, got: %s", status, gslbHR.Status.Status)
+			t.Logf("GSLB HostRule, expected err: %s, got: %s", errMsg, gslbHR.Status.Error)
+			return false
+		}
+		return true
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true), "GSLB Host Rule status should match")
 }

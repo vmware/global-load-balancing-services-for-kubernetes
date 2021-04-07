@@ -231,7 +231,7 @@ func FeedMockGslbData(w http.ResponseWriter, r *http.Request) {
 
 func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 	mockFilePath := GetMockFilePath("hm_mock.json")
-	url := r.URL.EscapedPath()
+	url := r.URL.String()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
 		data, err := ioutil.ReadFile(mockFilePath)
@@ -257,7 +257,11 @@ func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 			// we need a specific hm data
 			for _, hm := range mockHmData.Results {
 				if *hm.Name == splitData[1] {
-					data, err = json.Marshal(hm)
+					responseData := MockHMData{
+						Count:   1,
+						Results: []models.HealthMonitor{hm},
+					}
+					data, err = json.Marshal(responseData)
 					if err != nil {
 						gslbutils.Errf("error in marshalling health monitor data: %v", err)
 						w.WriteHeader(404)
@@ -278,7 +282,7 @@ func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 
 func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 	mockFilePath := GetMockFilePath("ap_mock.json")
-	url := r.URL.EscapedPath()
+	url := r.URL.String()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
 		data, err := ioutil.ReadFile(mockFilePath)
@@ -287,11 +291,11 @@ func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(404)
 			return
 		}
-		type MockHMData struct {
+		type MockAPData struct {
 			Count   int                                    `json:"count"`
 			Results []models.ApplicationPersistenceProfile `json:"results"`
 		}
-		mockHmData := MockHMData{
+		mockHmData := MockAPData{
 			Results: []models.ApplicationPersistenceProfile{},
 		}
 		err = json.Unmarshal([]byte(data), &mockHmData)
@@ -301,10 +305,14 @@ func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 		}
 		splitData := strings.Split(url, "?name=")
 		if len(splitData) == 2 {
-			// we need a specific hm data
-			for _, hm := range mockHmData.Results {
-				if *hm.Name == splitData[1] {
-					data, err = json.Marshal(hm)
+			// we need a specific persistence profile data
+			for _, ap := range mockHmData.Results {
+				if *ap.Name == splitData[1] {
+					responseData := MockAPData{
+						Count:   1,
+						Results: []models.ApplicationPersistenceProfile{ap},
+					}
+					data, err = json.Marshal(responseData)
 					if err != nil {
 						gslbutils.Errf("error in marshalling persistence profile data: %v", err)
 						w.WriteHeader(404)
