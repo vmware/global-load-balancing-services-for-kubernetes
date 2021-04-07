@@ -78,6 +78,16 @@ func updateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) *gdpalp
 	return newGdp
 }
 
+func updateTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy,
+	status string) *gdpalphav2.GlobalDeploymentPolicy {
+	newGdp, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("update on GDP %v failed with %v", gdp, err)
+	}
+	VerifyGDPStatus(t, gdp.Namespace, gdp.Name, status)
+	return newGdp
+}
+
 func addIngressAndRouteObjects(t *testing.T, testPrefix string) (*networkingv1beta1.Ingress, *routev1.Route) {
 	ingName := testPrefix + "def-ing"
 	routeName := testPrefix + "def-route"
@@ -349,5 +359,42 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 		// All fields remain unchanged because of the invalid GSLBHostRule
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
 			&sp, &ttl)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, set an invalid health monitor ref (where the federated value is false)
+func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
+	testPrefix := "gdp-hmu-"
+
+	oldGDP := addTestGDPWithProperties(t, nil, nil, nil)
+
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// update GDP with valid and invalid hm refs
+	currGDP := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	currGDP.Spec.HealthMonitorRefs = []string{"System-GSLB-Ping", "System-GSLB-HTTP", "System-Ping"}
+	gdp2 := updateTestGDPFailure(t, currGDP, "health monitor ref System-Ping is invalid")
+	g.Eventually(func() bool {
+		// member properties should remain unchanged
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// fix the hm refs
+	gdp3 := getTestGDP(t, gdp2.Name, gdp2.Namespace)
+	validRefs := []string{"System-GSLB-Ping", "System-GSLB-HTTP", "System-GSLB-TCP"}
+	gdp3.Spec.HealthMonitorRefs = validRefs
+	updateTestGDP(t, gdp3)
+	g.Eventually(func() bool {
+		// member properties should now have the new health monitor refs
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, validRefs, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
