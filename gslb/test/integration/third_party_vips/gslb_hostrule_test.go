@@ -29,7 +29,6 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (
@@ -71,7 +70,6 @@ func getTestGDP(t *testing.T, name, ns string) *gdpalphav2.GlobalDeploymentPolic
 
 func updateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) *gdpalphav2.GlobalDeploymentPolicy {
 	newGdp, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
-	// if k8serrors.
 	if err != nil {
 		t.Fatalf("update on GDP %v failed with %v", gdp, err)
 	}
