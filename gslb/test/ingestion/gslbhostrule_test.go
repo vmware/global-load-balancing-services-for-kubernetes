@@ -7,6 +7,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/fake"
 	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
@@ -59,7 +60,7 @@ func TestGSLBHostRuleInvalidThirdPartyMember(t *testing.T) {
 	var gslbhrThirdPartyMembers []gslbalphav1.ThirdPartyMember
 	gslbhrTpm1 := gslbalphav1.ThirdPartyMember{
 		VIP:  "10.10.10.10",
-		Site: "test-site-does-not-exist-1",
+		Site: "test-site-" + mockaviserver.InvalidObjectNameSuffix,
 	}
 	gslbhrThirdPartyMembers = []gslbalphav1.ThirdPartyMember{gslbhrTpm1}
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
@@ -90,7 +91,7 @@ func TestGSLBHostRuleInvalidSitePersistence(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	gslbhrsp := &gslbalphav1.SitePersistence{
 		Enabled:    true,
-		ProfileRef: "test-profile-ref-does-not-exist",
+		ProfileRef: "test-profile-ref-" + mockaviserver.InvalidObjectNameSuffix,
 	}
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.SitePersistence = gslbhrsp
@@ -115,7 +116,7 @@ func TestGSLBHostRuleValidHealthMonitors(t *testing.T) {
 
 func TestGSLBHostRuleInvalidHealthMonitors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	gslbhrHealthMonitorRefs := []string{"test-hm-does-not-exists"}
+	gslbhrHealthMonitorRefs := []string{"test-hm-" + mockaviserver.InvalidObjectNameSuffix}
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = gslbhrHealthMonitorRefs
 	t.Logf("Adding GSLBHostRule with invalid Health Monitor Refs")

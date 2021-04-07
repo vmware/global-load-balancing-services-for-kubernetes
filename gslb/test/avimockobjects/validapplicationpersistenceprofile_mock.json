@@ -1,0 +1,18 @@
+{
+   "count":1,
+   "results":[
+      {
+         "url":"https://10.10.100.10/api/applicationpersistenceprofile/applicationpersistenceprofile-41ff3e6b-8193-4f3a-b5e7-d8db5204ba08",
+         "uuid":"applicationpersistenceprofile-41ff3e6b-8193-4f3a-b5e7-d8db5204ba08",
+         "name":"test-profile-ref",
+         "is_federated":false,
+         "tenant_ref":"https://10.10.100.10/api/tenant/admin",
+         "_last_modified":"1611166117108602",
+         "persistence_type":"PERSISTENCE_TYPE_CLIENT_IP_ADDRESS",
+         "ip_persistence_profile":{
+            "ip_persistent_timeout":5
+         },
+         "server_hm_down_recovery":"HM_DOWN_PICK_NEW_SERVER"
+      }
+   ]
+}
