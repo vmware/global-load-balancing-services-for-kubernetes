@@ -867,6 +867,8 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 			}
 		}
 	} else if len(gsMeta.HmRefs) > 0 {
+		minHmUp := int32(len(gsMeta.HmRefs) + 1)
+		aviGslbSvc.Groups[0].MinHealthMonitorsUp = &minHmUp
 		// Add the custom health monitors here
 		aviGslbSvc.HealthMonitorRefs = []string{}
 		for _, hmName := range gsMeta.HmRefs {
