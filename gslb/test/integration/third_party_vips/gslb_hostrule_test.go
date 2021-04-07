@@ -128,7 +128,6 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 
 // Add ingress and route objects, set an invalid health monitor ref (where the federated value is false)
 func TestGDPPropertiesForInvalidHealthMonitor(t *testing.T) {
-	// testPrefix := "hm-invalid-"
 	hmRefs := []string{"my-hm3"}
 
 	gdpObj := GetTestDefaultGDPObject()
