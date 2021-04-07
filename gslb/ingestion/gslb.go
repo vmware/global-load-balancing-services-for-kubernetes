@@ -827,7 +827,8 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 		aviCtrl.hrClientSet = hrClient
 		_, err := hrClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			gslbutils.Errf("cluster: %s, msg: hostrule CRD not installed in the cluster, will skip", cluster.clusterName)
+			gslbutils.Errf("cluster: %s, msg: failed to fetch HostRule, will skip, error: %v",
+				cluster.clusterName, err)
 			return nil
 		}
 	} else {
