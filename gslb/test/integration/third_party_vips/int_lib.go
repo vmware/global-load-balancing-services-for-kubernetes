@@ -376,7 +376,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 	fetchedHmRefs := gs.HmRefs
 	sort.Strings(fetchedHmRefs)
 	if len(hmRefs) != len(fetchedHmRefs) {
-		t.Logf("length of hm refs don't match")
+		t.Logf("length of hm refs don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
 		return false
 	}
 
