@@ -367,6 +367,7 @@ func AddTestGslbConfigObject() {
 		metav1.CreateOptions{})
 	if err != nil {
 		gslbutils.Errf("error in creating GSLBConfig object: %v", err)
+		return
 	}
 	g.Eventually(func() string {
 		gcObj, err := gcClient.AmkoV1alpha1().GSLBConfigs(AviSystemNS).Get(context.TODO(), GslbConfigName,

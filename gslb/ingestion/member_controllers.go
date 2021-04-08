@@ -180,7 +180,7 @@ func DeleteFromLBSvcStore(clusterSvcStore *store.ClusterStore,
 }
 
 func isHostRuleAcceptable(hr *akov1alpha1.HostRule) bool {
-	if hr.Spec.VirtualHost.Gslb.Fqdn == "" || hr.Status.Status == gslbutils.HostRuleRejected ||
+	if hr.Spec.VirtualHost.Gslb.Fqdn == "" || hr.Status.Status != gslbutils.HostRuleAccepted ||
 		hr.Spec.VirtualHost.Fqdn == "" {
 		return false
 	}

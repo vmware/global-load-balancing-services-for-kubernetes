@@ -12,7 +12,7 @@
 * limitations under the License.
 */
 
-package third_party_vips
+package custom_fqdn
 
 import (
 	"context"
@@ -30,6 +30,8 @@ import (
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
@@ -376,7 +378,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 	fetchedHmRefs := gs.HmRefs
 	sort.Strings(fetchedHmRefs)
 	if len(hmRefs) != len(fetchedHmRefs) {
-		t.Logf("length of hm refs don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
+		t.Logf("length of hm refs don't match")
 		return false
 	}
 
@@ -600,4 +602,87 @@ func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 		}
 		return true
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true), "GSLB Host Rule status should match")
+}
+
+func getDefaultHostRule(name, ns, lfqdn, gfqdn, status string) *akov1alpha1.HostRule {
+	return &akov1alpha1.HostRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: akov1alpha1.HostRuleSpec{
+			VirtualHost: akov1alpha1.HostRuleVirtualHost{
+				Fqdn: lfqdn,
+				Gslb: akov1alpha1.HostRuleGSLB{
+					Fqdn: gfqdn,
+				},
+			},
+		},
+		Status: akov1alpha1.HostRuleStatus{
+			Status: status,
+		},
+	}
+}
+
+func deleteHostRule(t *testing.T, cluster int, ns, name string) {
+	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
+	if err != nil {
+		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
+	}
+
+	err = hrClient.AkoV1alpha1().HostRules(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		t.Fatalf("error in deleting hostrule for cluster %d: %v", cluster, err)
+	}
+}
+
+func createHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
+	if err != nil {
+		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
+	}
+
+	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Create(context.TODO(), hr, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("error in creating hostrule for cluster %d: %v", cluster, err)
+	}
+	t.Cleanup(func() {
+		deleteHostRule(t, cluster, newHr.Namespace, newHr.Name)
+	})
+	return newHr
+}
+
+func updateHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
+	if err != nil {
+		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
+	}
+
+	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Update(context.TODO(), hr, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("error in updating hostrule for cluster %d: %v", cluster, err)
+	}
+	return newHr
+}
+
+func getTestHostRule(t *testing.T, cluster int, name, ns string) *akov1alpha1.HostRule {
+	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
+	if err != nil {
+		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
+	}
+
+	hr, err := hrClient.AkoV1alpha1().HostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error in getting hostrule %s/%s: %v", ns, name, err)
+	}
+	return hr
+}
+
+func DeleteTestGDP(t *testing.T, ns, name string) error {
+	err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+	t.Logf("deleted GDP %s in %s namespace", name, ns)
+	return nil
 }
