@@ -60,6 +60,6 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

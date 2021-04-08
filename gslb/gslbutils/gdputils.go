@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"sync"
 
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -86,8 +87,10 @@ type GlobalFilter struct {
 	// Site Persistence properties to be applied to all the GSs
 	SitePersistenceRef *string
 	// Time To Live value for each fqdn
-	TTL      *int
-	Checksum uint32
+	TTL *int
+	// Gslb Pool algorithm settings
+	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
+	Checksum          uint32
 	// Respective filters for the namespaces.
 	// NSFilterMap map[string]*NSFilter
 	// GlobalLock is locked before accessing any of the filters.
@@ -167,6 +170,13 @@ func (gf *GlobalFilter) GetTTL() *int {
 	defer gf.GlobalLock.RUnlock()
 
 	return gf.TTL
+}
+
+func (gf *GlobalFilter) GetGslbPoolAlgorithm() *gslbalphav1.PoolAlgorithmSettings {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.GslbPoolAlgorithm.DeepCopy()
 }
 
 type AppFilter struct {
@@ -278,13 +288,42 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		gf.HealthMonitorRefs = make([]string, len(gdp.Spec.HealthMonitorRefs))
 		copy(gf.HealthMonitorRefs, gdp.Spec.HealthMonitorRefs)
 	}
+	gf.GslbPoolAlgorithm = gdp.Spec.PoolAlgorithmSettings
 
 	gf.TTL = gdp.Spec.TTL
 
 	gf.SitePersistenceRef = gdp.Spec.SitePersistenceRef
 
+	gf.GslbPoolAlgorithm = gdp.Spec.PoolAlgorithmSettings.DeepCopy()
+
 	gf.ComputeChecksum()
 	Logf("ns: %s, object: NSFilter, msg: added/changed the global filter", gdp.ObjectMeta.Namespace)
+}
+
+func getChecksumForPoolAlgorithm(pa *gslbalphav1.PoolAlgorithmSettings) uint32 {
+	var cksum uint32
+
+	if pa == nil {
+		return cksum
+	}
+
+	switch pa.LBAlgorithm {
+	case gslbalphav1.PoolAlgorithmRoundRobin, gslbalphav1.PoolAlgorithmTopology:
+		return utils.Hash(pa.LBAlgorithm)
+
+	case gslbalphav1.PoolAlgorithmConsistentHash:
+		return utils.Hash(pa.LBAlgorithm) +
+			utils.Hash(utils.Stringify(pa.HashMask))
+
+	case gslbalphav1.PoolAlgorithmGeo:
+		cksum += utils.Hash(pa.LBAlgorithm) +
+			utils.Hash(pa.FallbackAlgorithm.LBAlgorithm)
+		if pa.FallbackAlgorithm.LBAlgorithm == gslbalphav1.PoolAlgorithmConsistentHash {
+			return cksum + utils.Hash(utils.Stringify(pa.FallbackAlgorithm.HashMask))
+		}
+	}
+
+	return cksum
 }
 
 func (gf *GlobalFilter) ComputeChecksum() {
@@ -309,6 +348,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	if gf.TTL != nil {
 		cksum += utils.Hash(utils.Stringify(*gf.TTL))
 	}
+	cksum += getChecksumForPoolAlgorithm(gf.GslbPoolAlgorithm)
 	if len(gf.HealthMonitorRefs) > 0 {
 		hmRefs = make([]string, len(gf.HealthMonitorRefs))
 		copy(hmRefs, gf.HealthMonitorRefs)
@@ -451,9 +491,16 @@ func isTTLChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return false
 }
 
+func isGslbPoolAlgorithmChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	oldCksum := getChecksumForPoolAlgorithm(old.Spec.PoolAlgorithmSettings)
+	newCksum := getChecksumForPoolAlgorithm(new.Spec.PoolAlgorithmSettings)
+	return oldCksum != newCksum
+}
+
 func isAllGSPropertyChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return isHmRefsChanged(old, new) || isSitePersistenceChanged(old, new) ||
-		isTTLChanged(old, new) || isTrafficWeightChanged(new, old)
+		isTTLChanged(old, new) || isGslbPoolAlgorithmChanged(old, new) ||
+		isTrafficWeightChanged(new, old)
 }
 
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
@@ -483,6 +530,8 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.TTL = nf.TTL
 	gf.SitePersistenceRef = nf.SitePersistenceRef
 	gf.HealthMonitorRefs = nf.HealthMonitorRefs
+	gf.GslbPoolAlgorithm = nf.GslbPoolAlgorithm
+
 	gf.Checksum = nf.Checksum
 
 	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)
@@ -513,6 +562,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		HealthMonitorRefs:  []string{},
 		TTL:                nil,
 		SitePersistenceRef: nil,
+		GslbPoolAlgorithm:  nil,
 	}
 	return gf
 }

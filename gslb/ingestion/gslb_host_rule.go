@@ -93,6 +93,67 @@ func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profile
 	return true
 }
 
+func isFallbackAlgorithmValid(fa *gslbhralphav1.GeoFallback) (bool, error) {
+	switch fa.LBAlgorithm {
+	case gslbhralphav1.PoolAlgorithmRoundRobin:
+		if fa.HashMask != nil {
+			return false, fmt.Errorf("hashMask is not allowed with %s as geoFallback algorithm", fa.LBAlgorithm)
+		}
+		return true, nil
+	case gslbhralphav1.PoolAlgorithmConsistentHash:
+		if fa.HashMask == nil {
+			return false, fmt.Errorf("hashMask is required for %s as the geoFallback algorithm", fa.LBAlgorithm)
+		}
+		return true, nil
+	default:
+		return false, fmt.Errorf("unsupported algorithm %s for geoFallback", fa.LBAlgorithm)
+	}
+}
+
+// Check if the pool algorithm settings provided, are valid. Verification logic:
+// 1. If nothing is specified, we return true, as that's the default case (and, RoundRobin will be
+//    selected).
+// 2. If "RoundRobin" or "Topology" algos are specfied, no other fields should be set, and we return
+//    true.
+// 3. If "ConsistentHash" is specified, we check if a valid mask is present, if yes, we return true.
+// 4. If "Geo" is specified, there can be three conditions:
+//    i) If the fallback algorithm is specified as "ConsistentHash", a valid "mask" must be specified.
+//    ii) If the fallback algorithm is specified as "RoundRobin", this is a valid condition.
+//    iii) No other algorithm can be added as the fallback algorithm.
+func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings) (bool, error) {
+	if algoSettings == nil {
+		return true, nil
+	}
+	switch algoSettings.LBAlgorithm {
+	case gslbhralphav1.PoolAlgorithmRoundRobin, gslbhralphav1.PoolAlgorithmTopology:
+		if algoSettings.FallbackAlgorithm != nil {
+			return false, fmt.Errorf("geoFallback not allowed for %s", algoSettings.LBAlgorithm)
+		}
+		if algoSettings.HashMask != nil {
+			return false, fmt.Errorf("hashMask not allowed for %s", algoSettings.LBAlgorithm)
+		}
+		return true, nil
+	case gslbhralphav1.PoolAlgorithmConsistentHash:
+		if algoSettings.FallbackAlgorithm != nil {
+			return false, fmt.Errorf("geoFallback is not allowed with ConsistentHash")
+		}
+		if algoSettings.HashMask == nil {
+			return false, fmt.Errorf("hashMask is required for ConsistentHash")
+		}
+		return true, nil
+	case gslbhralphav1.PoolAlgorithmGeo:
+		if algoSettings.FallbackAlgorithm == nil {
+			return false, fmt.Errorf("geoFallback has to be set for Geo, available choices: RoundRobin, ConsistentHash")
+		}
+		if ok, err := isFallbackAlgorithmValid(algoSettings.FallbackAlgorithm); !ok {
+			return false, err
+		}
+		return true, nil
+	default:
+		return false, fmt.Errorf("unsupported lbAlgorithm %s", algoSettings.LBAlgorithm)
+	}
+}
+
 func isHealthMonitorRefValid(refName string) bool {
 	// Check if the health monitors mentioned in gslbHostRule are present on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
@@ -180,6 +241,12 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 		if sitePersistence.Enabled == true && !isSitePersistenceProfilePresent(gslbhr, sitePersistence.ProfileRef) {
 			errmsg = "SitePersistence Profile " + sitePersistence.ProfileRef + " error for " + gslbhrName + " GSLBHostRule"
 		}
+	}
+
+	if ok, err := isGslbPoolAlgorithmValid(gslbhrSpec.PoolAlgorithmSettings); !ok {
+		errmsg := "Invalid Pool Algorithm: " + err.Error()
+		updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
+		return fmt.Errorf(errmsg)
 	}
 
 	thirdPartyMembers := gslbhrSpec.ThirdPartyMembers
