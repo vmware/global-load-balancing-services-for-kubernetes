@@ -30,6 +30,7 @@ import (
 	"github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	apimodels "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -420,6 +421,26 @@ func parseDescription(description string) ([]string, error) {
 	return objList, nil
 }
 
+func ParsePoolAlgorithmSettings(gsPool models.GslbPool) *gslbalphav1.PoolAlgorithmSettings {
+	if gsPool.Algorithm != nil {
+		return nil
+	}
+	pa := gslbalphav1.PoolAlgorithmSettings{LBAlgorithm: *gsPool.Algorithm}
+	if gsPool.FallbackAlgorithm != nil {
+		gfa := gslbalphav1.GeoFallback{
+			LBAlgorithm: *gsPool.FallbackAlgorithm,
+		}
+		if gsPool.ConsistentHashMask != nil {
+			hashMask := int(*gsPool.ConsistentHashMask)
+			gfa.HashMask = &hashMask
+		}
+	} else if gsPool.ConsistentHashMask != nil {
+		hashMask := int(*gsPool.ConsistentHashMask)
+		pa.HashMask = &hashMask
+	}
+	return &pa
+}
+
 func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, error) {
 	var serverList, domainList, memberObjs, hms []string
 	var gsMembers []GSMember
@@ -479,6 +500,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		ttl = &ttlVal
 	}
 
+	var poolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings
 	for _, val := range groups {
 		group := *val
 		members := group.Members
@@ -486,6 +508,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 			gslbutils.Warnf("no members in gslb pool: %v", group)
 			continue
 		}
+		poolAlgorithmSettings = ParsePoolAlgorithmSettings(group)
 		for _, memberVal := range members {
 			member := *memberVal
 			ipAddr := *member.IP.Addr
@@ -525,7 +548,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	}
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, ttl)
+		persistenceProfileRefPtr, ttl, poolAlgorithmSettings)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 
@@ -589,12 +612,19 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		ttl = &ttlVal
 	}
 
+	var poolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings
 	for _, val := range groups {
 		group, ok := val.(map[string]interface{})
 		if !ok {
 			gslbutils.Warnf("couldn't parse group: %v", val)
 			continue
 		}
+		gsGroup, ok := val.(models.GslbPool)
+		if !ok {
+			gslbutils.Warnf("couldn't parse group to GslbPool: %v", gsGroup)
+			continue
+		}
+		poolAlgorithmSettings = ParsePoolAlgorithmSettings(gsGroup)
 		members, ok := group["members"].([]interface{})
 		if !ok {
 			gslbutils.Warnf("couldn't parse group members: %v", group)
@@ -654,7 +684,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	}
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, ttl)
+		persistenceProfileRefPtr, ttl, poolAlgorithmSettings)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
 

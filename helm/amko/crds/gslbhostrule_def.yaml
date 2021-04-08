@@ -60,6 +60,38 @@ spec:
                 type: array
                 items:
                   type: string
+              poolAlgorithmSettings:
+                description: "Algorithm settings to be specified for Gslb Service pool"
+                type: object
+                properties:
+                  lbAlgorithm:
+                    description: Name of the algorithm to be used
+                    enum:
+                    - GSLB_ALGORITHM_CONSISTENT_HASH
+                    - GSLB_ALGORITHM_GEO
+                    - GSLB_ALGORITHM_ROUND_ROBIN
+                    - GSLB_ALGORITHM_TOPOLOGY
+                    type: string
+                  hashMask:
+                    description: Mask required for Consistent Hash
+                    type: integer
+                    maximum: 31
+                    minimum: 1
+                  geoFallback:
+                    description: Fallback algorithm to be specified for Geo based algorithm
+                    type: object
+                    properties:
+                      lbAlgorithm:
+                        description: Algorithm name for fallback
+                        type: string
+                        enum:
+                        - GSLB_ALGORITHM_ROUND_ROBIN
+                        - GSLB_ALGORITHM_CONSISTENT_HASH
+                      hashMask:
+                        description: Hash mask for ConsistentHash as the fallback algorithm
+                        type: integer
+                        maximum: 31
+                        minimum: 1
               trafficSplit:
                 description: "Weights for each pool member. Each pool member belong to one of the sites."
                 type: array

@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"sync"
 
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gslbhralphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -30,6 +31,7 @@ type GSHostRules struct {
 	TTL               *int
 	TrafficSplit      []gslbhralphav1.TrafficSplitElem
 	ThirdPartyMembers []gslbhralphav1.ThirdPartyMember
+	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
 	Checksum          uint32
 	Lock              sync.RWMutex
 }
@@ -64,6 +66,7 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 		*out = make([]gslbhralphav1.TrafficSplitElem, len((*in)))
 		copy(*out, *in)
 	}
+	out.GslbPoolAlgorithm = in.GslbPoolAlgorithm.DeepCopy()
 }
 
 func (ghr *GSHostRules) CalculateAndSetChecksum() {
@@ -97,7 +100,8 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 		utils.Hash(sitePersistence) +
 		utils.Hash(utils.Stringify(ttl)) +
 		utils.Hash(utils.Stringify(clusterWeights)) +
-		utils.Hash(utils.Stringify(thirdPartyMembers))
+		utils.Hash(utils.Stringify(thirdPartyMembers)) +
+		getChecksumForPoolAlgorithm(ghr.GslbPoolAlgorithm)
 
 	ghr.Checksum = cksum
 }
@@ -131,6 +135,8 @@ func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 	copy(gsHostRules.TrafficSplit, gslbhrSpec.TrafficSplit)
 	gsHostRules.HmRefs = make([]string, len(gslbhrSpec.HealthMonitorRefs))
 	copy(gsHostRules.HmRefs, gslbhrSpec.HealthMonitorRefs)
+	gsHostRules.GslbPoolAlgorithm = gslbhrSpec.PoolAlgorithmSettings.DeepCopy()
+
 	gsHostRules.CalculateAndSetChecksum()
 	return &gsHostRules
 }

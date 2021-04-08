@@ -29,6 +29,7 @@ import (
 	avimodels "github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -754,6 +755,35 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	return &operation
 }
 
+func (restOp *RestOperations) getGSPoolAlgorithmSettings(gsMeta *nodes.AviGSObjectGraph) (*string, *int32, *string) {
+	var lbAlgorithm string
+
+	if gsMeta.GslbPoolAlgorithm == nil {
+		lbAlgorithm = gslbalphav1.PoolAlgorithmRoundRobin
+		return &lbAlgorithm, nil, nil
+	}
+
+	lbAlgorithm = gsMeta.GslbPoolAlgorithm.LBAlgorithm
+	switch lbAlgorithm {
+	case gslbalphav1.PoolAlgorithmRoundRobin, gslbalphav1.PoolAlgorithmTopology:
+		return &lbAlgorithm, nil, nil
+
+	case gslbalphav1.PoolAlgorithmConsistentHash:
+		hashMask := int32(*gsMeta.GslbPoolAlgorithm.HashMask)
+		return &lbAlgorithm, &hashMask, nil
+
+	case gslbalphav1.PoolAlgorithmGeo:
+		fa := gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.LBAlgorithm
+		if gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.HashMask != nil {
+			hashMask := int32(*gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.HashMask)
+			return &lbAlgorithm, &hashMask, &fa
+		} else {
+			return &lbAlgorithm, nil, &fa
+		}
+	}
+	return nil, nil, nil
+}
+
 func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
 	cacheObj *avicache.AviGSCache, key string, hmRequired bool) *utils.RestOp {
 	gslbutils.Logf("key: %s, msg: creating rest operation", key)
@@ -784,13 +814,15 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
 	}
 	// Now, build a GSLB pool
-	algorithm := "GSLB_ALGORITHM_ROUND_ROBIN"
 	poolEnabled := true
 	poolName := gsMeta.Name + "-10"
 	priority := int32(10)
 	minHealthMonUp := int32(2)
+	poolAlgorithm, hashMask, fallback := restOp.getGSPoolAlgorithmSettings(gsMeta)
 	gslbPool := avimodels.GslbPool{
-		Algorithm:           &algorithm,
+		Algorithm:           poolAlgorithm,
+		ConsistentHashMask:  hashMask,
+		FallbackAlgorithm:   fallback,
 		Enabled:             &poolEnabled,
 		Members:             gslbPoolMembers,
 		Name:                &poolName,
@@ -807,7 +839,6 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	isFederated := true
 	minMembers := int32(0)
 	gsName := gsMeta.Name
-	poolAlgorithm := "GSLB_SERVICE_ALGORITHM_PRIORITY"
 	resolveCname := false
 	tenantRef := gslbutils.GetAviAdminTenantRef()
 	useEdnsClientSubnet := true
@@ -822,6 +853,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		ttl = int32(*gsMeta.TTL)
 	}
 
+	gsAlgorithm := "GSLB_SERVICE_ALGORITHM_PRIORITY"
 	aviGslbSvc := avimodels.GslbService{
 		ControllerHealthStatusEnabled: &ctrlHealthStatusEnabled,
 		CreatedBy:                     &createdBy,
@@ -832,7 +864,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		IsFederated:                   &isFederated,
 		MinMembers:                    &minMembers,
 		Name:                          &gsName,
-		PoolAlgorithm:                 &poolAlgorithm,
+		PoolAlgorithm:                 &gsAlgorithm,
 		ResolveCname:                  &resolveCname,
 		UseEdnsClientSubnet:           &useEdnsClientSubnet,
 		WildcardMatch:                 &wildcardMatch,

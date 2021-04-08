@@ -124,6 +124,8 @@ type GSLBHostRuleSpec struct {
 	// record.
 	TTL *int `json:"ttl,omitempty"`
 
+	// PoolAlgorithmSettings defines the properties for a Gslb Service pool algorithm
+	PoolAlgorithmSettings *PoolAlgorithmSettings `json:"poolAlgorithmSettings,omitempty"`
 	// To maintain stickiness to the site where the connection was initiated, the site persistence has
 	// to be enabled and a profile ref has to be provided.
 	SitePersistence *SitePersistence `json:"sitePersistence,omitempty"`
@@ -135,6 +137,19 @@ type GSLBHostRuleSpec struct {
 	HealthMonitorRefs []string `json:"healthMonitorRefs,omitempty"`
 	// TrafficSplit defines the weightage of traffic that can be routed to each cluster.
 	TrafficSplit []TrafficSplitElem `json:"trafficSplit,omitempty"`
+}
+
+// PoolAlgorithmSettings define a set of properties to select the Gslb Algorithm for a Gslb
+// Service pool. This is to select the appropriate server in a Gslb Service pool.
+type PoolAlgorithmSettings struct {
+	LBAlgorithm       string       `json:"lbAlgorithm,omitempty"`
+	HashMask          *int         `json:"hashMask,omitempty"`
+	FallbackAlgorithm *GeoFallback `json:"geoFallback,omitempty"`
+}
+
+type GeoFallback struct {
+	LBAlgorithm string `json:"lbAlgorithm,omitempty"`
+	HashMask    *int   `json:"hashMask,omitempty"`
 }
 
 // SitePersistence has the required properties to enable site persistence for a GS.
@@ -156,3 +171,10 @@ type ThirdPartyMember struct {
 	VIP  string `json:"vip,omitempty"`
 	Site string `json:"site,omitempty"`
 }
+
+const (
+	PoolAlgorithmConsistentHash = "GSLB_ALGORITHM_CONSISTENT_HASH"
+	PoolAlgorithmGeo            = "GSLB_ALGORITHM_GEO"
+	PoolAlgorithmRoundRobin     = "GSLB_ALGORITHM_ROUND_ROBIN"
+	PoolAlgorithmTopology       = "GSLB_ALGORITHM_TOPOLOGY"
+)
