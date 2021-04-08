@@ -214,11 +214,6 @@ func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface
 		return
 	}
 
-	// GSLBHostRule for all other namespaces are rejected
-	if gslbhr.ObjectMeta.Namespace != gslbutils.AVISystem {
-		return
-	}
-
 	// Validate GSLBHostRule fields
 	gsFqdn := gslbhr.Spec.Fqdn
 	err := ValidateGSLBHostRule(gslbhr)
@@ -285,10 +280,7 @@ func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRu
 func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	oldGslbhr := old.(*gslbhralphav1.GSLBHostRule)
 	newGslbhr := new.(*gslbhralphav1.GSLBHostRule)
-	// GSLBHostRule for all other namespaces are rejected
-	if oldGslbhr.ObjectMeta.Namespace != gslbutils.AVISystem {
-		return
-	}
+
 	// Return if there's no change in the object
 	if oldGslbhr.ObjectMeta.ResourceVersion == newGslbhr.ObjectMeta.ResourceVersion {
 		return
@@ -335,9 +327,6 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gslbhr := obj.(*gslbhralphav1.GSLBHostRule)
 
-	if gslbhr.Namespace != gslbutils.AVISystem {
-		return
-	}
 	// check if the GSLB Host Rule was previously rejected
 	if gslbhr.Status.Status == GslbHostRuleRejected {
 		return

@@ -131,33 +131,30 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 	modelName := utils.ADMIN_NS + "/" + objName
 	found, aviGS := agl.Get(modelName)
 	if !found {
-		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "checking if a new model is required")
-		aviGS = NewAviGSObjectGraph()
-		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, true, false)
-		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
-			*(aviGS.(*AviGSObjectGraph))))
-		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
-	} else {
-		gsGraph := aviGS.(*AviGSObjectGraph)
-		prevHmChecksum := gsGraph.GetHmChecksum()
-		prevChecksum := gsGraph.GetChecksum()
-		// update the GS graph
-		aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false, gsGraph.MemberObjs[0].TLS)
-		newChecksum := gsGraph.GetChecksum()
-		newHmChecksum := gsGraph.GetHmChecksum()
-		gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
-			newChecksum, prevHmChecksum, newHmChecksum, key)
-		if (prevChecksum == newChecksum) && (prevHmChecksum == newHmChecksum) {
-			// Checksums are same, return
-			gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, objName, *gsGraph,
-				"the model for this key has identical checksums"))
-			return
-		}
-		aviGS.(*AviGSObjectGraph).SetRetryCounter()
-		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, objName, *gsGraph,
-			"updated the model"))
-		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
+		// no existing GS for the GS FQDN
+		gslbutils.Logf("key: %s, msg: no GS for the GS FQDN in host rule, will return")
+		return
 	}
+	gsGraph := aviGS.(*AviGSObjectGraph)
+	prevHmChecksum := gsGraph.GetHmChecksum()
+	prevChecksum := gsGraph.GetChecksum()
+	// update the GS graph
+	aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false, gsGraph.MemberObjs[0].TLS)
+	newChecksum := gsGraph.GetChecksum()
+	newHmChecksum := gsGraph.GetHmChecksum()
+	gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
+		newChecksum, prevHmChecksum, newHmChecksum, key)
+	if (prevChecksum == newChecksum) && (prevHmChecksum == newHmChecksum) {
+		// Checksums are same, return
+		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, objName, *gsGraph,
+			"the model for this key has identical checksums"))
+		return
+	}
+	aviGS.(*AviGSObjectGraph).SetRetryCounter()
+	gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: %s", key, objName, *gsGraph,
+		"updated the model"))
+	agl.Save(modelName, aviGS.(*AviGSObjectGraph))
+
 	PublishKeyToRestLayer(utils.ADMIN_NS, objName, key, wq)
 }
 
