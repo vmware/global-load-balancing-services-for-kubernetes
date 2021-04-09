@@ -72,7 +72,7 @@
         "third_party_sites": [
           {
             "cluster_uuid": "tp_cluster-0bb17765-c29f-4863-b459-d730511f479b",
-            "name": "non-avi-site",
+            "name": "test-third-party-member",
             "enabled": true
           }
         ],

@@ -1,5 +1,5 @@
 {
-    "count": 6,
+    "count": 7,
     "results": [
       {
         "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-74781064-5a23-43eb-b9ee-1407bb78f8a7",
@@ -94,6 +94,26 @@
         "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaasadsd",
         "uuid": "applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaasdasdas",
         "name": "gap-2",
+        "is_federated": true,
+        "tenant_ref": "https://10.79.110.246/api/tenant/admin",
+        "_last_modified": "1617083500598800",
+        "persistence_type": "PERSISTENCE_TYPE_GSLB_SITE",
+        "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER",
+        "http_cookie_persistence_profile": {
+          "cookie_name": "KIIYYRUJ",
+          "key": [
+            {
+              "name": "1bb4230f-02af-49c1-8fe0-68c329d13a81",
+              "aes_key": "GJX2n77xIrwFvK5dcwYsjS73nf9EIi7ZUV9O9eX7xL0="
+            }
+          ],
+          "always_send_cookie": false
+        }
+      },
+      {
+        "url": "https://10.79.110.246/api/applicationpersistenceprofile/applicationpersistenceprofile-9e69455d-e139-4b52-8ce8-debadaasadsd",
+        "uuid": "applicationpersistenceprofile-9e69455d-e129-4b52-8ce8-debadaasdasdas",
+        "name": "test-profile-ref",
         "is_federated": true,
         "tenant_ref": "https://10.79.110.246/api/tenant/admin",
         "_last_modified": "1617083500598800",
