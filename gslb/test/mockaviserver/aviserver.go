@@ -37,7 +37,8 @@ var (
 )
 
 const (
-	RandomUUID = "random-uuid"
+	RandomUUID              = "random-uuid"
+	InvalidObjectNameSuffix = "does-not-exist"
 )
 
 func AddMiddleware(exec InjectFault) {
@@ -154,6 +155,8 @@ func SendResponseForObjects(objects []string, w http.ResponseWriter, r *http.Req
 		FeedMockGslbData(w, r)
 	case "healthmonitor":
 		FeedMockHMData(w, r)
+	case "applicationpersistenceprofile":
+		FeedMockPersistenceData(w, r)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "resource not found"}`))
@@ -175,7 +178,11 @@ func FeedMockGSData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
-		data, _ := ioutil.ReadFile(mockFilePath)
+		data, err := ioutil.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("Error opening mock file %s", mockFilePath)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	}
@@ -234,15 +241,31 @@ func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.String()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
+		splitData := strings.Split(url, "?name=")
+		type MockHMData struct {
+			Count   int                    `json:"count"`
+			Results []models.HealthMonitor `json:"results"`
+		}
+		// Handling a invalid case - No Health Monitor of give name(suffix = InvalidObjectNameSuffix) exists. Sending an empty response
+		if len(splitData) == 2 && strings.HasSuffix(splitData[1], InvalidObjectNameSuffix) {
+			responseData := MockHMData{
+				Count: 0,
+			}
+			data, err := json.Marshal(responseData)
+			if err != nil {
+				gslbutils.Errf("error in marshalling health monitor data: %v", err)
+				w.WriteHeader(404)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+			return
+		}
 		data, err := ioutil.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
 			w.WriteHeader(404)
 			return
-		}
-		type MockHMData struct {
-			Count   int                    `json:"count"`
-			Results []models.HealthMonitor `json:"results"`
 		}
 		mockHmData := MockHMData{
 			Results: []models.HealthMonitor{},
@@ -252,7 +275,6 @@ func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 			gslbutils.Errf("error in unmarshalling health monitor data: %v", err)
 			w.WriteHeader(404)
 		}
-		splitData := strings.Split(url, "?name=")
 		if len(splitData) == 2 {
 			// we need a specific hm data
 			for _, hm := range mockHmData.Results {
@@ -285,15 +307,31 @@ func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.String()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
+		splitData := strings.Split(url, "?name=")
+		type MockAPData struct {
+			Count   int                                    `json:"count"`
+			Results []models.ApplicationPersistenceProfile `json:"results"`
+		}
+		// Handling a invalid case - No Persistence Profile of give name(suffix = InvalidObjectNameSuffix) exists. Sending an empty response
+		if len(splitData) == 2 && strings.HasSuffix(splitData[1], InvalidObjectNameSuffix) {
+			responseData := MockAPData{
+				Count: 0,
+			}
+			data, err := json.Marshal(responseData)
+			if err != nil {
+				gslbutils.Errf("error in marshalling persistence profile data: %v", err)
+				w.WriteHeader(404)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+			return
+		}
 		data, err := ioutil.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
 			w.WriteHeader(404)
 			return
-		}
-		type MockAPData struct {
-			Count   int                                    `json:"count"`
-			Results []models.ApplicationPersistenceProfile `json:"results"`
 		}
 		mockHmData := MockAPData{
 			Results: []models.ApplicationPersistenceProfile{},
@@ -303,7 +341,6 @@ func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 			gslbutils.Errf("error in unmarshalling persistence profile data: %v", err)
 			w.WriteHeader(404)
 		}
-		splitData := strings.Split(url, "?name=")
 		if len(splitData) == 2 {
 			// we need a specific persistence profile data
 			for _, ap := range mockHmData.Results {
