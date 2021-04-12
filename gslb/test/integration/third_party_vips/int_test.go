@@ -176,7 +176,6 @@ func SyncFromTestIngestionLayer(key string, wg *sync.WaitGroup) error {
 
 func SyncFromTestNodesLayer(key string, wg *sync.WaitGroup) error {
 	gslbutils.Logf("recieved key from graph layer: %s", key)
-	// graphKeyChan <- key
 
 	return nil
 }
