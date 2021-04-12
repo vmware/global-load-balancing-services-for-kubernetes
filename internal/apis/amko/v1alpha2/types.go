@@ -14,7 +14,10 @@
 
 package v1alpha2
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // +genclient
 // +genclient:noStatus
@@ -46,12 +49,13 @@ type GlobalDeploymentPolicyList struct {
 
 // GDPSpec encloses all the properties of a GDP object.
 type GDPSpec struct {
-	MatchRules         MatchRules         `json:"matchRules,omitempty"`
-	MatchClusters      []ClusterProperty  `json:"matchClusters,omitempty"`
-	TrafficSplit       []TrafficSplitElem `json:"trafficSplit,omitempty"`
-	HealthMonitorRefs  []string           `json:"healthMonitorRefs,omitempty"`
-	TTL                *int               `json:"ttl,omitempty"`
-	SitePersistenceRef *string            `json:"sitePersistenceRef,omitempty"`
+	MatchRules            MatchRules                         `json:"matchRules,omitempty"`
+	MatchClusters         []ClusterProperty                  `json:"matchClusters,omitempty"`
+	TrafficSplit          []TrafficSplitElem                 `json:"trafficSplit,omitempty"`
+	HealthMonitorRefs     []string                           `json:"healthMonitorRefs,omitempty"`
+	TTL                   *int                               `json:"ttl,omitempty"`
+	SitePersistenceRef    *string                            `json:"sitePersistenceRef,omitempty"`
+	PoolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings `json:"poolAlgorithmSettings,omitempty"`
 }
 
 // ClusterProperty specifies all the properties required for a Cluster. Cluster is the cluster

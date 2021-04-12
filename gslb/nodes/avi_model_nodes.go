@@ -22,6 +22,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -159,6 +160,7 @@ type AviGSObjectGraph struct {
 	HmRefs             []string
 	SitePersistenceRef *string
 	TTL                *int
+	GslbPoolAlgorithm  *gslbalphav1.PoolAlgorithmSettings
 	Lock               sync.RWMutex
 }
 
@@ -228,7 +230,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
-		v.SitePersistenceRef, v.TTL)
+		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm)
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -711,6 +713,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	gsObjCopy.HmRefs = make([]string, len(v.HmRefs))
 	copy(gsObjCopy.HmRefs, v.HmRefs)
 	gsObjCopy.SitePersistenceRef = v.SitePersistenceRef
+	gsObjCopy.GslbPoolAlgorithm = v.GslbPoolAlgorithm.DeepCopy()
 
 	gsObjCopy.MemberObjs = make([]AviGSK8sObj, 0)
 	for _, memberObj := range v.MemberObjs {

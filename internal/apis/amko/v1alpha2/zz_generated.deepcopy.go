@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -91,6 +92,11 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 		in, out := &in.SitePersistenceRef, &out.SitePersistenceRef
 		*out = new(string)
 		**out = **in
+	}
+	if in.PoolAlgorithmSettings != nil {
+		in, out := &in.PoolAlgorithmSettings, &out.PoolAlgorithmSettings
+		*out = new(v1alpha1.PoolAlgorithmSettings)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

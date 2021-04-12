@@ -17,10 +17,12 @@ package third_party_vips
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
@@ -321,7 +323,7 @@ func VerifyGDPStatus(t *testing.T, ns, name, status string) {
 	g.Eventually(func() string {
 		gdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("failed to fetch GDP object: %v", err)
+			t.Logf("failed to fetch GDP object: %v", err)
 			return ""
 		}
 		return gdpObj.Status.ErrorStatus
@@ -337,7 +339,7 @@ func AddAndVerifyTestGDPSuccess(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPo
 	return newGdpObj, nil
 }
 
-func AddAndVerifyTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy, status string) (*gdpalphav2.GlobalDeploymentPolicy, error) {
+func AddAndVerifyTestGDPStatus(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy, status string) (*gdpalphav2.GlobalDeploymentPolicy, error) {
 	newGdpObj, err := AddTestGDP(t, gdp)
 	if err != nil {
 		return nil, err
@@ -359,7 +361,7 @@ func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph
 }
 
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int) bool {
+	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings) bool {
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -419,6 +421,12 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 			t.Logf("TTL value should be nil, it is %d", *gs.TTL)
 			return false
 		}
+	}
+
+	if !reflect.DeepEqual(pa, gs.GslbPoolAlgorithm) {
+		expected := spew.Sprintf("%v", pa)
+		got := spew.Sprintf("%v", gs.GslbPoolAlgorithm)
+		t.Logf("Pool algorithm settings don't match, expected: %v, got: %v", expected, got)
 	}
 
 	for _, e := range expectedMembers {

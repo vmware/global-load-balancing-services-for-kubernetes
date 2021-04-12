@@ -37,7 +37,10 @@ var (
 	ingCluster   = "k8s"
 )
 
-func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersistence *string) *gdpalphav2.GlobalDeploymentPolicy {
+func addTestGDPWithPropertiesWithStatus(t *testing.T, hmRefs []string, ttl *int,
+	sitePersistence *string,
+	pa *gslbalphav1.PoolAlgorithmSettings, status string) *gdpalphav2.GlobalDeploymentPolicy {
+
 	gdpObj := GetTestDefaultGDPObject()
 	gdpObj.Spec.MatchRules.AppSelector = gdpalphav2.AppSelector{
 		Label: appLabel,
@@ -48,8 +51,9 @@ func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersi
 	gdpObj.Spec.HealthMonitorRefs = hmRefs
 	gdpObj.Spec.TTL = ttl
 	gdpObj.Spec.SitePersistenceRef = sitePersistence
+	gdpObj.Spec.PoolAlgorithmSettings = pa
 
-	newGDP, err := AddAndVerifyTestGDPSuccess(t, gdpObj)
+	newGDP, err := AddAndVerifyTestGDPStatus(t, gdpObj, status)
 	if err != nil {
 		t.Fatalf("error in creating and verifying GDP object %v: %v", newGDP, err)
 	}
@@ -59,6 +63,11 @@ func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersi
 	})
 
 	return newGDP
+}
+
+func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersistence *string,
+	pa *gslbalphav1.PoolAlgorithmSettings) *gdpalphav2.GlobalDeploymentPolicy {
+	return addTestGDPWithPropertiesWithStatus(t, hmRefs, ttl, sitePersistence, pa, "success")
 }
 
 func getTestGDP(t *testing.T, name, ns string) *gdpalphav2.GlobalDeploymentPolicy {
@@ -75,6 +84,15 @@ func updateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) *gdpalp
 		t.Fatalf("update on GDP %v failed with %v", gdp, err)
 	}
 	VerifyGDPStatus(t, gdp.Namespace, gdp.Name, "success")
+	return newGdp
+}
+
+func updateTestGDPWithStatus(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy, status string) *gdpalphav2.GlobalDeploymentPolicy {
+	newGdp, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("update on GDP %v failed with %v", gdp, err)
+	}
+	VerifyGDPStatus(t, gdp.Namespace, gdp.Name, status)
 	return newGdp
 }
 
@@ -114,7 +132,7 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	testPrefix := "gdp-hm-"
 	hmRefs := []string{"my-hm1"}
 
-	oldGDP := addTestGDPWithProperties(t, hmRefs, nil, nil)
+	oldGDP := addTestGDPWithProperties(t, hmRefs, nil, nil, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -124,7 +142,7 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update the GDP object with a new health monitor ref
@@ -132,7 +150,7 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	newGDP.Spec.HealthMonitorRefs = []string{"my-hm2"}
 	updateTestGDP(t, newGDP)
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -148,7 +166,7 @@ func TestGDPPropertiesForInvalidHealthMonitor(t *testing.T) {
 		{Cluster: K8sContext}, {Cluster: OshiftContext},
 	}
 	gdpObj.Spec.HealthMonitorRefs = hmRefs
-	_, err := AddAndVerifyTestGDPFailure(t, gdpObj, "health monitor ref my-hm3 is invalid")
+	_, err := AddAndVerifyTestGDPStatus(t, gdpObj, "health monitor ref my-hm3 is invalid")
 	t.Cleanup(func() {
 		DeleteTestGDP(t, gdpObj.Namespace, gdpObj.Name)
 	})
@@ -162,7 +180,7 @@ func TestGDPPropertiesForPersistenceProfile(t *testing.T) {
 	testPrefix := "gdp-sp-"
 	sitePersistence := "gap-1"
 
-	addTestGDPWithProperties(t, nil, nil, &sitePersistence)
+	addTestGDPWithProperties(t, nil, nil, &sitePersistence, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -173,7 +191,7 @@ func TestGDPPropertiesForPersistenceProfile(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &sitePersistence,
-			nil)
+			nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -182,7 +200,7 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 	testPrefix := "gdp-ttl-"
 	ttl := 10
 
-	oldGDP := addTestGDPWithProperties(t, nil, &ttl, nil)
+	oldGDP := addTestGDPWithProperties(t, nil, &ttl, nil, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -193,7 +211,7 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
-			&ttl)
+			&ttl, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	t.Logf("Updating TTL value to 20 seconds")
@@ -204,8 +222,125 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
-			&ttl)
+			&ttl, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, set the Gslb pool algorithm and verify
+func TestGDPPropertiesForPoolAlgorithm(t *testing.T) {
+	testPrefix := "gdp-pa-"
+	ttl := 10
+	pa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+
+	oldGDP := addTestGDPWithProperties(t, nil, &ttl, nil, &pa)
+
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+			&ttl, &pa)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	t.Logf("Updating algorithm to GSLB_ALGORITHM_TOPOLOGY")
+	pa = gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_TOPOLOGY",
+	}
+
+	gdpObj := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	gdpObj.Spec.PoolAlgorithmSettings = &pa
+	updateTestGDP(t, gdpObj)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+			&ttl, &pa)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, try out different algorithm combinations
+// 1. RoundRobin with fallback algorithm -> invalid
+// 2. Changed to consistent hash with hash map -> valid
+// 3. Changed to Geo based algorithm with fallback algorithm as Consistent hash but no hash mask -> invalid
+// 4. Changed to Geo based algorithm with fallback algorithm as Consistent hash and hash mask -> valid
+// 5. Changed to Topology algorithm -> valid
+func TestGDPPropertiesForPoolAlgorithmCombinations(t *testing.T) {
+	testPrefix := "gdp-pa-"
+	ttl := 10
+	hashMask := 10
+	pa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+		FallbackAlgorithm: &gslbalphav1.GeoFallback{
+			LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+		},
+	}
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(pa gslbalphav1.PoolAlgorithmSettings) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+				&ttl, &pa)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+
+	oldGDP := addTestGDPWithPropertiesWithStatus(t, nil, &ttl, nil, &pa,
+		"invalid pool algorithm: geoFallback not allowed for GSLB_ALGORITHM_ROUND_ROBIN")
+
+	t.Logf("updating the algorithm")
+	// try with a valid combination
+	consistentHash := 10
+	consistentHashPA := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_CONSISTENT_HASH",
+		HashMask:    &consistentHash,
+	}
+	newGDP := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	newGDP.Spec.PoolAlgorithmSettings = &consistentHashPA
+	updateTestGDPWithStatus(t, newGDP, "success")
+	verifyMembers(consistentHashPA)
+
+	// try again with an invalid combination
+	pa = gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_GEO",
+		FallbackAlgorithm: &gslbalphav1.GeoFallback{
+			LBAlgorithm: "GSLB_ALGORITHM_CONSISTENT_HASH",
+		},
+	}
+	newGDP = getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	newGDP.Spec.PoolAlgorithmSettings = &pa
+	updateTestGDPWithStatus(t, newGDP, "invalid pool algorithm: hashMask is required for GSLB_ALGORITHM_CONSISTENT_HASH as the geoFallback algorithm")
+	// the previous algorithm of the GS Graph remains unchanged
+	verifyMembers(consistentHashPA)
+
+	// Fix the algorithm for geo
+	pa = gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_GEO",
+		FallbackAlgorithm: &gslbalphav1.GeoFallback{
+			LBAlgorithm: "GSLB_ALGORITHM_CONSISTENT_HASH",
+			HashMask:    &hashMask,
+		},
+	}
+	newGDP = getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	newGDP.Spec.PoolAlgorithmSettings = &pa
+	updateTestGDPWithStatus(t, newGDP, "success")
+	verifyMembers(pa)
+
+	// Try out the last possible algorithm
+	pa = gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_TOPOLOGY",
+	}
+	newGDP = getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	newGDP.Spec.PoolAlgorithmSettings = &pa
+	updateTestGDPWithStatus(t, newGDP, "success")
+	verifyMembers(pa)
 }
 
 // Create a GSLBHostRule object and check if the GS properties are overriden with the
@@ -217,7 +352,7 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp)
+	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
@@ -226,7 +361,7 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
-			&ttl)
+			&ttl, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hostName := routeObj.Spec.Host
@@ -237,7 +372,7 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 	g.Eventually(func() bool {
 		// Site persistence remains unchanged, as it inherits from the GDP object
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
-			&sp, &gslbHRTTL)
+			&sp, &gslbHRTTL, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -250,7 +385,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp)
+	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
@@ -265,7 +400,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	g.Eventually(func() bool {
 		// Site persistence remains unchanged, as it inherits from the GDP object
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
-			&sp, &gslbHRTTL)
+			&sp, &gslbHRTTL, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// add a new site persistence
@@ -279,7 +414,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	g.Eventually(func() bool {
 		// Site persistence changed and set to nil now
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
-			nil, &gslbHRTTL)
+			nil, &gslbHRTTL, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// delete the health monitor ref from GSLB Host Rule and check if it is inherited from the
@@ -291,7 +426,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	g.Eventually(func() bool {
 		// Health monitor refs are deleted, should be inherited from the GDP object
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
-			nil, &gslbHRTTL)
+			nil, &gslbHRTTL, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -304,7 +439,7 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp)
+	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
@@ -318,7 +453,7 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
-			&sp, &gslbHRTTL)
+			&sp, &gslbHRTTL, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	t.Logf("will delete the gslb host rule object")
@@ -326,7 +461,7 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	g.Eventually(func() bool {
 		// TTL and HM refs will fall back to the GDP object
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
-			&sp, &ttl)
+			&sp, &ttl, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -338,7 +473,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp)
+	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
@@ -347,7 +482,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
-			&ttl)
+			&ttl, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hostName := routeObj.Spec.Host
@@ -358,7 +493,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 	g.Eventually(func() bool {
 		// All fields remain unchanged because of the invalid GSLBHostRule
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
-			&sp, &ttl)
+			&sp, &ttl, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -366,7 +501,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	testPrefix := "gdp-hmu-"
 
-	oldGDP := addTestGDPWithProperties(t, nil, nil, nil)
+	oldGDP := addTestGDPWithProperties(t, nil, nil, nil, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -376,7 +511,7 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update GDP with valid and invalid hm refs
@@ -385,7 +520,7 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	gdp2 := updateTestGDPFailure(t, currGDP, "health monitor ref System-Ping is invalid")
 	g.Eventually(func() bool {
 		// member properties should remain unchanged
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// fix the hm refs
@@ -395,6 +530,73 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	updateTestGDP(t, gdp3)
 	g.Eventually(func() bool {
 		// member properties should now have the new health monitor refs
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, validRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, validRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, try out different algorithm combinations
+// 1. RoundRobin with fallback algorithm -> invalid
+// 2. Changed to consistent hash with hash map -> valid
+// 3. Changed to Geo based algorithm with fallback algorithm as Consistent hash but no hash mask -> invalid
+// 4. Changed to Geo based algorithm with fallback algorithm as Consistent hash and hash mask -> valid
+// 5. Changed to Topology algorithm -> valid
+
+// Create a GSLBHostRule object and check if AMKO allows an invalid Health monitor ref.
+func TestGSLBHostRuleAlgorithmCombinations(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+
+	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(pa gslbalphav1.PoolAlgorithmSettings) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
+				&ttl, &pa)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	verifyMembers(gdpPa)
+
+	hostName := routeObj.Spec.Host
+	gslbHRPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_TOPOLOGY",
+	}
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+	// the GS should now take up the new algorithm, instead of from the GDP object
+	verifyMembers(gslbHRPa)
+
+	// change to invalid combination
+	newGslbHRPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_CONSISTENT_HASH",
+	}
+	newObj := getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.PoolAlgorithmSettings = &newGslbHRPa
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleRejected, "Invalid Pool Algorithm: hashMask is required for ConsistentHash")
+
+	// the algorithm for the members remain unchanged
+	verifyMembers(gslbHRPa)
+
+	newGslbHRPa = gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_GEO",
+		FallbackAlgorithm: &gslbalphav1.GeoFallback{
+			LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+		},
+	}
+	newObj = getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.PoolAlgorithmSettings = &newGslbHRPa
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+
+	// the algorithm switches to the GDP's Algorithm settings
+	verifyMembers(newGslbHRPa)
 }
