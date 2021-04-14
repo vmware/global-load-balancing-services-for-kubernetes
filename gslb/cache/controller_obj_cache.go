@@ -421,24 +421,55 @@ func parseDescription(description string) ([]string, error) {
 	return objList, nil
 }
 
-func ParsePoolAlgorithmSettings(gsPool models.GslbPool) *gslbalphav1.PoolAlgorithmSettings {
-	if gsPool.Algorithm != nil {
+func ParsePoolAlgorithmSettingsFromPool(gsPool models.GslbPool) *gslbalphav1.PoolAlgorithmSettings {
+	return ParsePoolAlgorithmSettings(gsPool.Algorithm, gsPool.FallbackAlgorithm, gsPool.ConsistentHashMask)
+}
+
+func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, consistentHashMask *int32) *gslbalphav1.PoolAlgorithmSettings {
+	if algorithm != nil {
 		return nil
 	}
-	pa := gslbalphav1.PoolAlgorithmSettings{LBAlgorithm: *gsPool.Algorithm}
-	if gsPool.FallbackAlgorithm != nil {
+	pa := gslbalphav1.PoolAlgorithmSettings{LBAlgorithm: *algorithm}
+	if fallbackAlgorithm != nil {
 		gfa := gslbalphav1.GeoFallback{
-			LBAlgorithm: *gsPool.FallbackAlgorithm,
+			LBAlgorithm: *fallbackAlgorithm,
 		}
-		if gsPool.ConsistentHashMask != nil {
-			hashMask := int(*gsPool.ConsistentHashMask)
+		if consistentHashMask != nil {
+			hashMask := int(*consistentHashMask)
 			gfa.HashMask = &hashMask
 		}
-	} else if gsPool.ConsistentHashMask != nil {
-		hashMask := int(*gsPool.ConsistentHashMask)
+	} else if consistentHashMask != nil {
+		hashMask := int(*consistentHashMask)
 		pa.HashMask = &hashMask
 	}
 	return &pa
+}
+
+// Parse the algorithm, fallback algorithm and consistent hash mask from the GS Group.
+func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbalphav1.PoolAlgorithmSettings {
+	var algorithm, fallbackAlgorithm *string
+	var consistentHashMask *int32
+
+	a, ok := group["algorithm"].(string)
+	if !ok {
+		gslbutils.Warnf("couldn't parse algorithm: %v", group)
+		return nil
+	}
+	algorithm = &a
+	f, ok := group["fallback_algorithm"].(string)
+	if !ok {
+		gslbutils.Debugf("couldn't parse fallback_algorithm: %v", group)
+	} else {
+		fallbackAlgorithm = &f
+	}
+	c, ok := group["consistent_hash_mask"].(int32)
+	if !ok {
+		gslbutils.Debugf("couldn't parse hash mask: %v", group)
+	} else {
+		consistentHashMask = &c
+	}
+
+	return ParsePoolAlgorithmSettings(algorithm, fallbackAlgorithm, consistentHashMask)
 }
 
 func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, error) {
@@ -508,7 +539,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 			gslbutils.Warnf("no members in gslb pool: %v", group)
 			continue
 		}
-		poolAlgorithmSettings = ParsePoolAlgorithmSettings(group)
+		poolAlgorithmSettings = ParsePoolAlgorithmSettingsFromPool(group)
 		for _, memberVal := range members {
 			member := *memberVal
 			ipAddr := *member.IP.Addr
@@ -613,18 +644,14 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	}
 
 	var poolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings
+
 	for _, val := range groups {
 		group, ok := val.(map[string]interface{})
 		if !ok {
 			gslbutils.Warnf("couldn't parse group: %v", val)
 			continue
 		}
-		gsGroup, ok := val.(models.GslbPool)
-		if !ok {
-			gslbutils.Warnf("couldn't parse group to GslbPool: %v", gsGroup)
-			continue
-		}
-		poolAlgorithmSettings = ParsePoolAlgorithmSettings(gsGroup)
+		poolAlgorithmSettings = ParsePoolAlgorithmSettingsFromPoolRaw(group)
 		members, ok := group["members"].([]interface{})
 		if !ok {
 			gslbutils.Warnf("couldn't parse group members: %v", group)
