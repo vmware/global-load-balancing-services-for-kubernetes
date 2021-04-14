@@ -19,6 +19,7 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 )
 
 // getSitePersistence returns the applicable site persistence for a GS object. Three conditions:
@@ -38,6 +39,16 @@ func getSitePersistence(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gs
 		}
 	}
 	return gf.GetSitePersistence()
+}
+
+// getGslbPoolAlgorithm returns the applicable algorithn settings for a GS object. Two conditions:
+// 1. If the GSLBHostRule has the pool algorithm settings defined, we return that.
+// 2. If no settings defined in the GSLBHostRule (i.e., value is nil), we return the GDP object's settings.
+func getGslbPoolAlgorithm(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gslbutils.GlobalFilter) *gslbalphav1.PoolAlgorithmSettings {
+	if gsRuleExists && gsRule.GslbPoolAlgorithm != nil {
+		return gsRule.GslbPoolAlgorithm
+	}
+	return gf.GetGslbPoolAlgorithm()
 }
 
 func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj bool, tls bool) {
@@ -74,6 +85,8 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 	if tls {
 		gsGraph.SitePersistenceRef = getSitePersistence(gsRuleExists, &gsRule, gf)
 	}
+
+	gsGraph.GslbPoolAlgorithm = getGslbPoolAlgorithm(gsRuleExists, &gsRule, gf)
 
 	if gsRuleExists && gsRule.ThirdPartyMembers != nil && len(gsRule.ThirdPartyMembers) != 0 {
 		if newObj {

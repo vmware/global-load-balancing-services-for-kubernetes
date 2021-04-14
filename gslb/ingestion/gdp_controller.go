@@ -326,6 +326,11 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 		}
 	}
 
+	// GSLB Pool algorithm checks
+	if _, err := isGslbPoolAlgorithmValid(gdp.Spec.PoolAlgorithmSettings); err != nil {
+		return fmt.Errorf("invalid pool algorithm: %v", err)
+	}
+
 	// Site persistence check
 	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
 		return fmt.Errorf("empty string as site persistence reference not supported")
@@ -556,10 +561,13 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		return
 	}
 
+	gf := gslbutils.GetGlobalFilter()
 	// update only the accepted GDP
-	if name, ns := gslbutils.GetGDPObj(); name != newGdp.GetObjectMeta().GetName() && ns != newGdp.GetObjectMeta().GetNamespace() {
-		gslbutils.Errf("A GDP object already exists, updates will be ignored for other GDP objects")
-		return
+	if !gslbutils.IsEmpty() {
+		if name, ns := gslbutils.GetGDPObj(); name != newGdp.GetObjectMeta().GetName() && ns != newGdp.GetObjectMeta().GetNamespace() {
+			gslbutils.Errf("A GDP object already exists, updates will be ignored for other GDP objects")
+			return
+		}
 	}
 
 	err := GDPSanityChecks(newGdp)
@@ -570,12 +578,6 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 	}
 	updateGDPStatus(newGdp, "success")
 
-	gf := gslbutils.GetGlobalFilter()
-	if gf == nil {
-		// global filter not initialized, return
-		gslbutils.Errf("object: GlobalFilter, msg: global filter not initialized, can't update")
-		return
-	}
 	if gdpChanged, allGSPropertyChanged, clustersToBeSynced := gf.UpdateGlobalFilter(oldGdp, newGdp); gdpChanged {
 		gslbutils.Logf("GDP object changed, will go through the objects again")
 		// first apply and update the namespaces in the filter
