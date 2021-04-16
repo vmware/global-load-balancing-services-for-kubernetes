@@ -438,6 +438,7 @@ func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, co
 			hashMask := int(*consistentHashMask)
 			gfa.HashMask = &hashMask
 		}
+		pa.FallbackAlgorithm = &gfa
 	} else if consistentHashMask != nil {
 		hashMask := int(*consistentHashMask)
 		pa.HashMask = &hashMask

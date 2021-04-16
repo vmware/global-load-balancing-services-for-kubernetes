@@ -274,7 +274,6 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 				gslbutils.Errf("key: %s, hmKey: %s, msg: error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
-			gslbutils.Logf("will delete HM: %v", hm.Name)
 			op = restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
 			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 			if op.Err != nil {
@@ -395,7 +394,6 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 			if hm.CloudConfigCksum != hmCksum {
 				// delete hm, create new hm and update gs
 				hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hm.Name}
-				gslbutils.Logf("will delete HM: %v", hm.Name)
 				op := restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
@@ -1010,7 +1008,6 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 		return errors.New("hm cache object malformed")
 	}
 	hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName}
-	gslbutils.Logf("will delete HM: %v", hmCacheObj.Name)
 	operation := restOp.AviGsHmDel(hmCacheObj.UUID, hmCacheObj.Tenant, key, hmCacheObj.Name)
 	restOps = operation
 	err := AviRestOperateWrapper(restOp, aviclient, restOps)
