@@ -1181,6 +1181,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 		gslbutils.Warnf("key: %s, resp: %s, msg: unable to find GS object in resp", key, operation.Response)
 		return errors.New("GS not found")
 	}
+
 	name, ok := respElem["name"].(string)
 	if !ok {
 		gslbutils.Warnf("key: %s, resp: %s, msg: name not present in response", key, respElem)

@@ -413,7 +413,6 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 	v.Name = gsFqdn
 	v.Tenant = utils.ADMIN_NS
 	v.DomainNames = []string{gsFqdn}
-	gslbutils.Logf("domain names: %v", v.DomainNames)
 	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 
@@ -543,8 +542,12 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, newMember.ObjType)
 		v.MemberObjs[idx] = newMember
 		if v.HmRefs == nil || len(v.HmRefs) == 0 {
-			// Update the health monitor(s)
-			v.updateGSHmPathListAndProtocol()
+			// update the health monitor(s)
+			if newMember.ObjType == gslbutils.SvcType || newMember.IsPassthrough {
+				v.checkAndUpdateNonPathHealthMonitor(newMember.ObjType, newMember.IsPassthrough)
+			} else {
+				v.updateGSHmPathListAndProtocol()
+			}
 		}
 		return
 	}
