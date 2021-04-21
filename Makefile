@@ -57,10 +57,11 @@ rest_test:
 
 .PHONY: int_test
 int_test:
-		$(GOTEST) -v -mod=vendor ./gslb/test/integration -failfast
+		$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast
+		$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
 
 .PHONY: test
-test:
+test: int_test
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
