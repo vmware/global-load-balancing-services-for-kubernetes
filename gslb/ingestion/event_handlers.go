@@ -558,7 +558,7 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 					gslbutils.Errf("cluster: %s, localFqdn: %s, msg: error in filtering the accepted list",
 						cname, hr.Spec.VirtualHost.Fqdn)
 				}
-				gslbutils.Logf("ObjList: %v, msg: %s", filteredAcceptedList, "obj list will be updated")
+				gslbutils.Logf("cluster: %s, ObjList: %v, msg: %s", cname, filteredAcceptedList, "obj list will be updated")
 				for _, objName := range filteredAcceptedList {
 					cname, ns, sname, err := splitName(o, objName)
 					if err != nil {
