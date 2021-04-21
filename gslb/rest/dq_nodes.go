@@ -141,7 +141,7 @@ func (restOp *RestOperations) DqNodes(key string) {
 			restOp.deleteAllStaleHMsForGS(key)
 			return
 		}
-		restOp.deleteGSOper(gsCacheObj, tenant, key)
+		restOp.deleteGSOper(gsCacheObj, tenant, key, aviModel)
 		return
 	}
 
@@ -1032,7 +1032,8 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 	return nil
 }
 
-func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string) {
+func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tenant string, key string,
+	gsGraph *nodes.AviGSObjectGraph) {
 	var restOps *utils.RestOp
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, queue: %d, msg: deleting GS object", key, bkt)
@@ -1069,12 +1070,16 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 		// Clear all the cache objects which were deleted
 		restOp.AviGSCacheDel(restOp.cache, operation, key)
 
-		// delete all HMs for this GS
-		for _, hmName := range gsCacheObj.HealthMonitorNames {
-			err = restOp.deleteHmIfRequired(gsName, tenant, key, gsCacheObj, gsKey, hmName)
-			if err != nil {
-				return
+		// if no HM refs for this GS, delete all HMs for this GS
+		if len(gsGraph.HmRefs) == 0 {
+			for _, hmName := range gsCacheObj.HealthMonitorNames {
+				err = restOp.deleteHmIfRequired(gsName, tenant, key, gsCacheObj, gsKey, hmName)
+				if err != nil {
+					return
+				}
 			}
+		} else {
+			gslbutils.Debugf("key: %s, GSLBService: %s, msg: won't remove HM refs", key, gsGraph.Name)
 		}
 		gslbutils.Logf("key: %s, msg: deleting key from layer 2 delete cache", key)
 		nodes.SharedDeleteGSGraphLister().Delete(key)

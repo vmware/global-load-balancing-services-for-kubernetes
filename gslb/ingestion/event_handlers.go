@@ -299,7 +299,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			oldIngr, okOld := old.(*networkingv1beta1.Ingress)
 			ingr, okNew := curr.(*networkingv1beta1.Ingress)
 			if !okOld || !okNew {
-				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+				gslbutils.Errf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
 			}
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
