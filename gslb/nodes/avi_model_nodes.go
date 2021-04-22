@@ -365,7 +365,7 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 	// else other secure/insecure route
 	v.Hm.Custom = true
-	tls, err := metaObj.GetTLS()
+	tls, err := getTLSFromObj(metaObj)
 	if err != nil {
 		gslbutils.Errf("key: %s, gsName: %s, msg: error in getting tls for object %s", key, v.Name, err.Error())
 		return
@@ -567,7 +567,7 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
 }
 
 func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject) {
-	tls, _ := metaObj.GetTLS()
+	tls, _ := getTLSFromObj(metaObj)
 	v.SetPropertiesForGS(v.Name, tls)
 
 	member, err := BuildGSMemberObjFromMeta(metaObj, v.Name)
@@ -769,7 +769,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 			gsFqdn, cname, err)
 	}
 
-	tls, _ := metaObj.GetTLS()
+	tls, _ := getTLSFromObj(metaObj)
 
 	return AviGSK8sObj{
 		Cluster:            cname,
@@ -787,4 +787,20 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 		IsPassthrough:      metaObj.IsPassthrough(),
 		TLS:                tls,
 	}, nil
+}
+
+func getTLSFromObj(metaObj k8sobjects.MetaObject) (bool, error) {
+	tls, err := metaObj.GetTLS()
+	if err != nil {
+		return false, err
+	}
+	if !tls {
+		hrStore := store.GetHostRuleStore()
+		obj, found := hrStore.GetClusterNSObjectByName(metaObj.GetCluster(), metaObj.GetNamespace(), metaObj.GetHostname())
+		if found {
+			metaObj := obj.(gslbutils.HostRuleMeta)
+			tls = metaObj.TLS
+		}
+	}
+	return tls, nil
 }

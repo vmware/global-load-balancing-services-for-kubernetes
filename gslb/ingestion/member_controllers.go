@@ -191,6 +191,9 @@ func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule)
 	if oldHr.Spec.VirtualHost.Gslb.Fqdn != newHr.Spec.VirtualHost.Gslb.Fqdn {
 		return true
 	}
+	if oldHr.Spec.VirtualHost.TLS != newHr.Spec.VirtualHost.TLS {
+		return true
+	}
 	return false
 }
 
@@ -200,7 +203,13 @@ func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule)
 func AddOrUpdateHostRuleStore(clusterHRStore *store.ClusterStore,
 	hr *akov1alpha1.HostRule, cname string) {
 
-	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn)
+	var tls bool
+	// there should be a certificate present in the host rule for us to consider that
+	// the ingress/route with this hostname can be considered a secure one
+	if hr.Spec.VirtualHost.TLS.SSLKeyCertificate.Name != "" {
+		tls = true
+	}
+	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn, tls)
 	gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, updating hostrule store: %s", cname,
 		hr.Namespace, hr.Name, hr.Spec.VirtualHost.Fqdn)
 	clusterHRStore.AddOrUpdate(hrMeta, cname, hr.Namespace, hr.Spec.VirtualHost.Fqdn)
