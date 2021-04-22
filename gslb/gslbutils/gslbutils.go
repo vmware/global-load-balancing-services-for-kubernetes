@@ -549,10 +549,11 @@ func GetGSFromHmName(hmName string) (string, error) {
 // information only required for AMKO.
 type HostRuleMeta struct {
 	GSFqdn string
+	TLS    bool
 }
 
-func GetHostRuleMeta(gsFqdn string) HostRuleMeta {
-	return HostRuleMeta{gsFqdn}
+func GetHostRuleMeta(gsFqdn string, tls bool) HostRuleMeta {
+	return HostRuleMeta{GSFqdn: gsFqdn, TLS: tls}
 }
 
 var customFqdnMode bool

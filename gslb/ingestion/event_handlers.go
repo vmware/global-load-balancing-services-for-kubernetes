@@ -299,7 +299,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			oldIngr, okOld := old.(*networkingv1beta1.Ingress)
 			ingr, okNew := curr.(*networkingv1beta1.Ingress)
 			if !okOld || !okNew {
-				containerutils.AviLog.Errorf("Unable to convert obj type interface to networking/v1beta1 ingress")
+				gslbutils.Errf("Unable to convert obj type interface to networking/v1beta1 ingress")
 				return
 			}
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
@@ -524,7 +524,7 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 			}
 		}
 		if !add && acceptedStore != nil {
-			_, rejectedList := acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, gfqdn)
+			acceptedList, rejectedList := acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, gfqdn)
 			if len(rejectedList) != 0 {
 				filteredRejectedList, err := filterObjListBasedOnFqdn(acceptedStore, rejectedList, hr.Spec.VirtualHost.Fqdn, o)
 				if err != nil {
@@ -545,6 +545,32 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname)
 					k8swq[bkt].AddRateLimited(key)
 					gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added DELETE obj key",
+						cname, ns, o, sname, key)
+				}
+			}
+
+			if len(acceptedList) != 0 {
+				// send the objects in the accepted list for an update to layer 2. This is so that, even
+				// though the previous logics capture the ADD/DELETE events for the objects because of
+				// a hostrule change, they don't take care of the UPDATE events.
+				filteredAcceptedList, err := filterObjListBasedOnFqdn(acceptedStore, acceptedList, hr.Spec.VirtualHost.Fqdn, o)
+				if err != nil {
+					gslbutils.Errf("cluster: %s, localFqdn: %s, msg: error in filtering the accepted list",
+						cname, hr.Spec.VirtualHost.Fqdn)
+				}
+				gslbutils.Logf("cluster: %s, ObjList: %v, msg: %s", cname, filteredAcceptedList, "obj list will be updated")
+				for _, objName := range filteredAcceptedList {
+					cname, ns, sname, err := splitName(o, objName)
+					if err != nil {
+						gslbutils.Errf("cluster: %s, msg: couldn't process object, objtype: %s, name: %s, error, %s",
+							cname, o, objName, err)
+						continue
+					}
+
+					bkt := utils.Bkt(ns, numWorkers)
+					key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
+					k8swq[bkt].AddRateLimited(key)
+					gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added UPDATE obj key",
 						cname, ns, o, sname, key)
 				}
 			}
@@ -649,10 +675,10 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 				}
 				// gs fqdn is updated, write an UPDATE event for the previous fqdn and an ADD event
 				// for the new fqdn
+				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
 				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
 				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
 				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
-				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
 				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
 				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
 			} else if oldHrAccepted && !newHrAccepted {

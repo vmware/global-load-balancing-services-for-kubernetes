@@ -360,8 +360,19 @@ func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph
 	return gsGraph.GetCopy()
 }
 
+// extraArgs can have the following additional parameters:
+// 1. tls
+// the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int) bool {
+	hmRefs []string, sitePersistenceRef *string, ttl *int, extraArgs ...interface{}) bool {
+
+	var tls bool
+	if len(extraArgs) > 1 {
+		t.Fatalf("extraArgs for verifyGSMembers given unsupported number of parameters")
+	}
+	if len(extraArgs) == 1 {
+		tls = extraArgs[0].(bool)
+	}
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -386,6 +397,21 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 		for idx, h := range hmRefs {
 			if h != fetchedHmRefs[idx] {
 				t.Logf("hm ref didn't match, expected list: %v, fetched list: %v", hmRefs, fetchedHmRefs)
+				return false
+			}
+		}
+	} else {
+		// default HM(s)
+		if tls {
+			if gs.Hm.Protocol != gslbutils.SystemGslbHealthMonitorHTTPS {
+				t.Logf("hm protocol didn't match, expected: %s, got: %s", gslbutils.SystemGslbHealthMonitorHTTPS,
+					gs.Hm.Protocol)
+				return false
+			}
+		} else {
+			if gs.Hm.Protocol != gslbutils.SystemGslbHealthMonitorHTTP {
+				t.Logf("hm protocol didn't match, expected: %s, got: %s", gslbutils.SystemGslbHealthMonitorHTTP,
+					gs.Hm.Protocol)
 				return false
 			}
 		}
