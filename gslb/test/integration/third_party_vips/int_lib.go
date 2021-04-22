@@ -185,6 +185,36 @@ func deletek8sSecret(t *testing.T, kc *kubernetes.Clientset, ns, name string) {
 	t.Logf("deleted secret object %s/%s", ns, name)
 }
 
+func k8sGetIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, cname string) *networkingv1beta1.Ingress {
+	t.Logf("Fetching ingress %s/%s in cluster: %s", ns, name, cname)
+	obj, err := kc.NetworkingV1beta1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error in getting ingress %s/%s in cluster %s: %v", ns, name, cname, err)
+	}
+	return obj
+}
+
+func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname string, ingObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": nil,
+	})
+	updatedIng, err := kc.NetworkingV1beta1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("error in updating ingress %s/%s in cluster %s: %v", ingObj.Namespace, ingObj.Name, cname, err)
+	}
+	patchPayloadJson := map[string]interface{}{
+		"metadata": map[string]map[string]string{
+			"annotations": nil,
+		},
+	}
+	patchPayloadBytes, _ := json.Marshal(patchPayloadJson)
+	updatedIng, err = kc.NetworkingV1beta1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayloadBytes, metav1.PatchOptions{})
+	if err != nil {
+		t.Fatalf("error in updating ingress %s/%s in cluster %s: %v", ingObj.Namespace, ingObj.Name, cname, err)
+	}
+	return updatedIng
+}
+
 func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname string,
 	hostIPs map[string]string, tls bool) *networkingv1beta1.Ingress {
 
