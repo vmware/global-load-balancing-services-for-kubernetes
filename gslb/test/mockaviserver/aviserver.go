@@ -28,12 +28,18 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 
-type InjectFault func(w http.ResponseWriter, r *http.Request)
+type InjectFault func(w http.ResponseWriter, r *http.Request) bool
+type InjectFaultWithData func(data []byte, w http.ResponseWriter) bool
 
 var (
 	AviMockAPIServer       *httptest.Server
 	initServer             sync.Once
 	CustomServerMiddleware InjectFault
+	PostGSMiddleware       InjectFaultWithData
+	PostHMMiddleware       InjectFaultWithData
+	PutMiddleware          InjectFaultWithData
+	GetMiddleware          InjectFault
+	DeleteMiddleware       InjectFault
 )
 
 const (
@@ -70,11 +76,11 @@ func GetMockServerURL() string {
 	return strings.Split(AviMockAPIServer.URL, "https://")[1]
 }
 
-func buildHealthMonitorRef(hmRefs []interface{}) []interface{} {
+func BuildHealthMonitorRef(hmRefs []interface{}) []interface{} {
 	rHmRef := hmRefs[0].(string)
 	rHmSplit := strings.Split(rHmRef, "name=")
 	rHmName := rHmSplit[1]
-	return []interface{}{"https://10.79.111.29/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#" + rHmName}
+	return []interface{}{"https://10.10.10.10/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#" + rHmName}
 }
 
 func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
@@ -94,21 +100,26 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		data, _ := ioutil.ReadAll(r.Body)
 		json.Unmarshal(data, &resp)
-		//gslbutils.Logf("resp: %v", resp["url"])
 		objects := strings.Split(strings.Trim(url, "/"), "/")
 		rData, aviObject := resp, objects[1]
 		rName := rData["name"].(string)
 		if aviObject == "gslbservice" {
+			if PostGSMiddleware != nil && PostGSMiddleware(data, w) {
+				return
+			}
 			rHmRefs := rData["health_monitor_refs"].([]interface{})
 			objURL := fmt.Sprintf("https://localhost/api/%s/%s-%s-%s#%s", aviObject, aviObject, rName, RandomUUID, rName)
 			rData["url"] = objURL
 			rData["uuid"] = fmt.Sprintf("%s-%s-%s", aviObject, rName, RandomUUID)
-			rData["health_monitor_refs"] = buildHealthMonitorRef(rHmRefs)
+			rData["health_monitor_refs"] = BuildHealthMonitorRef(rHmRefs)
 			finalResponse, _ = json.Marshal(rData)
 			w.WriteHeader(http.StatusOK)
 			w.Write(finalResponse)
 			return
 		} else if aviObject == "healthmonitor" {
+			if PostHMMiddleware != nil && PostHMMiddleware(data, w) {
+				return
+			}
 			rData["uuid"] = fmt.Sprintf("%s-%s-%s", aviObject, rName, RandomUUID)
 			finalResponse, _ = json.Marshal(rData)
 			w.WriteHeader(http.StatusOK)
@@ -119,6 +130,9 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"error": "resource not found"}`))
 	case "PUT":
 		data, _ := ioutil.ReadAll(r.Body)
+		if PutMiddleware != nil && PutMiddleware(data, w) {
+			return
+		}
 		json.Unmarshal(data, &resp)
 		resp["uuid"] = strings.Split(strings.Trim(url, "/"), "/")[2]
 		resp["health_monitor_refs"] = []interface{}{"https://10.10.10.10/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#System-GSLB-TCP"}
@@ -126,10 +140,16 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write(finalResponse)
 	case "GET":
+		if GetMiddleware != nil && GetMiddleware(w, r) {
+			return
+		}
 		objects := strings.Split(strings.Trim(url, "/"), "/")
 		gslbutils.Logf("objects: %v", objects)
 		SendResponseForObjects(objects, w, r)
 	case "DELETE":
+		if DeleteMiddleware != nil && DeleteMiddleware(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 		w.Write(finalResponse)
 	default:
@@ -246,7 +266,7 @@ func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 			Count   int                    `json:"count"`
 			Results []models.HealthMonitor `json:"results"`
 		}
-		// Handling a invalid case - No Health Monitor of give name(suffix = InvalidObjectNameSuffix) exists. Sending an empty response
+		// Handling a invalid case - No Health Monitor of given name(suffix = InvalidObjectNameSuffix) exists. Sending an empty response
 		if len(splitData) == 2 && strings.HasSuffix(splitData[1], InvalidObjectNameSuffix) {
 			responseData := MockHMData{
 				Count: 0,

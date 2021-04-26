@@ -118,7 +118,7 @@ func (restOp *RestOperations) DqNodes(key string) {
 
 	tenant, gsName := utils.ExtractNamespaceObjectName(key)
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsName}
-	gsCacheObj := restOp.getGSCacheObj(gsKey, key)
+	gsCacheObj := restOp.GetGSCacheObj(gsKey, key)
 
 	ct := aviModel.GetRetryCounter()
 	if ct <= 0 {
@@ -808,7 +808,18 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 			IP:      &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
 		}
 		if !member.SyncVIPOnly {
-			gslbPoolMember.ClusterUUID = &clusterUUID
+			if clusterUUID != "" {
+				gslbPoolMember.ClusterUUID = &clusterUUID
+			} else {
+				gslbutils.Warnf("key: %s, cluster: %s, namespace: %s, member: %s, msg: %s",
+					key, member.Cluster, member.Namespace, member.Name, "controller cluster UUID is empty, will try to update the GS member")
+			}
+			if vsUUID != "" {
+				gslbPoolMember.VsUUID = &vsUUID
+			} else {
+				gslbutils.Warnf("key: %s, cluster: %s, namespace: %s, member: %s, msg: %s",
+					key, member.Cluster, member.Namespace, member.Name, "VS UUID is empty, will try to update the GS member")
+			}
 			gslbPoolMember.VsUUID = &vsUUID
 		}
 		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
@@ -942,7 +953,7 @@ func (restOp *RestOperations) getGSHmCacheObj(hmName, tenant string, key string)
 	return nil
 }
 
-func (restOp *RestOperations) getGSCacheObj(gsKey avicache.TenantName, key string) *avicache.AviGSCache {
+func (restOp *RestOperations) GetGSCacheObj(gsKey avicache.TenantName, key string) *avicache.AviGSCache {
 	gsCache, found := restOp.cache.AviCacheGet(gsKey)
 	if found {
 		gsCacheObj, ok := gsCache.(*avicache.AviGSCache)
