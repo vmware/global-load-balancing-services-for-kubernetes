@@ -15,14 +15,140 @@
 package third_party_vips
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/avinetworks/sdk/go/models"
 	"github.com/onsi/gomega"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
+
+const (
+	GsUUID = "gs-uuid"
+	HmUUID = "hm-uuid"
+	GsType = "gslbservice"
+	HmType = "healthmonitor"
+)
+
+func BuildHmRefs(hmRefs []string) []string {
+	result := []string{}
+	for _, h := range hmRefs {
+		rhmRefSplit := strings.Split(h, "name=")
+		rhmName := rhmRefSplit[1]
+		result = append(result, "https://localhost/api/healthmonitor/healthmonitor-"+rhmName+HmUUID+"#"+rhmName)
+	}
+	return result
+}
+
+func GetTestUuid(obj, name string) string {
+	switch obj {
+	case GsType:
+		return fmt.Sprintf("%s-%s-%s", obj, name, name+GsUUID)
+	case HmType:
+		return fmt.Sprintf("%s-%s-%s", obj, name, name+HmUUID)
+	}
+	return ""
+}
+
+func GetTestRef(obj, name string) string {
+	switch obj {
+	case GsType:
+		return fmt.Sprintf("https://localhost/api/%s/%s-%s#%s", obj, obj,
+			name+GsUUID, name)
+	case HmType:
+		return fmt.Sprintf("https://localhost/api/%s/%s-%s#%s", obj, obj,
+			name+HmUUID, name)
+	}
+	return ""
+}
+
+func PostGSHandlerSendOK(data []byte, w http.ResponseWriter) bool {
+	gslbutils.Logf("[custom post gs handler]: data: %v", string(data))
+	var resp models.GslbService
+	err := json.Unmarshal(data, &resp)
+	if err != nil {
+		gslbutils.Errf("[custom post gs handler]: got an error while unmarshalling request body: %v", err)
+		return true
+	}
+	url := fmt.Sprintf("https://localhost/api/gslbservice/gslbservice-%s#%s",
+		*resp.Name+GsUUID, *resp.Name)
+	resp.URL = &url
+	uuid := GetTestUuid(GsType, *resp.Name)
+	resp.UUID = &uuid
+	hmRefs := BuildHmRefs(resp.HealthMonitorRefs)
+	resp.HealthMonitorRefs = hmRefs
+	gslbutils.Logf("[custom post handler]: sending gs object: %v", resp)
+	w.WriteHeader(http.StatusOK)
+	finalResponse, _ := json.Marshal(resp)
+	w.Write(finalResponse)
+	return true
+}
+
+func PostHMHandlerSendOK(data []byte, w http.ResponseWriter) bool {
+	gslbutils.Logf("[custom post hm handler]: got data: %v", string(data))
+	var resp models.HealthMonitor
+	err := json.Unmarshal(data, &resp)
+	if err != nil {
+		gslbutils.Errf("[custom post handler]")
+	}
+	uuid := GetTestUuid(HmType, *resp.Name)
+	resp.UUID = &uuid
+	finalResponse, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusOK)
+	w.Write(finalResponse)
+	return true
+}
+
+func PutGSHandlerStatusOK(data []byte, w http.ResponseWriter) bool {
+	gslbutils.Logf("[custom put handler]: got data: %v", string(data))
+	var resp models.GslbService
+	err := json.Unmarshal(data, &resp)
+	if err != nil {
+		gslbutils.Errf("[custom put handler]: got an error while unmarshalling request body: %v", err)
+		return true
+	}
+	uuid := GetTestUuid(GsType, *resp.Name)
+	resp.UUID = &uuid
+	hmRefs := BuildHmRefs(resp.HealthMonitorRefs)
+	resp.HealthMonitorRefs = hmRefs
+	finalResponse, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusOK)
+	w.Write(finalResponse)
+	return true
+}
+
+func initMiddlewares(t *testing.T) {
+	mockaviserver.PostGSMiddleware = PostGSHandlerSendOK
+	mockaviserver.PostHMMiddleware = PostHMHandlerSendOK
+	mockaviserver.PutMiddleware = PutGSHandlerStatusOK
+
+	t.Cleanup(func() {
+		mockaviserver.PostGSMiddleware = nil
+		mockaviserver.PostHMMiddleware = nil
+		mockaviserver.PutMiddleware = nil
+	})
+}
+
+func BuildTestHmNames(hostname string, paths []string, tls bool) []string {
+	httpType := "http"
+	if tls {
+		httpType = "https"
+	}
+	hmNames := []string{}
+	for _, p := range paths {
+		hmName := "amko--" + httpType + "--" + hostname + "--" + p
+		hmNames = append(hmNames, hmName)
+	}
+	return hmNames
+}
 
 // Add an ingress and a route, verify their keys from ingestion layer
 func TestDefaultIngressAndRoutes(t *testing.T) {
@@ -47,6 +173,7 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 		oshiftDeleteRoute(t, clusterClients[Oshift], routeName, ns)
 		DeleteTestGDP(t, newGDP.Namespace, newGDP.Name)
 	})
+	initMiddlewares(t)
 
 	g := gomega.NewGomegaWithT(t)
 
@@ -62,11 +189,16 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	hmNames := BuildTestHmNames(host, []string{"/"}, false)
+	g.Eventually(func() bool {
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
 // Add an ingress and a route, verify the GS members, remove the status IP from the ingress object,
 // verify the GS member again.
-func TestDefaultIngressAndRoutesWithoutStatusIP(t *testing.T) {
+func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	newGDP, err := BuildAddAndVerifyAppSelectorTestGDP(t)
 	if err != nil {
 		t.Fatalf("error in building, adding and verifying app selector GDP: %v", err)
@@ -89,6 +221,7 @@ func TestDefaultIngressAndRoutesWithoutStatusIP(t *testing.T) {
 		DeleteTestGDP(t, newGDP.Namespace, newGDP.Name)
 	})
 
+	initMiddlewares(t)
 	g := gomega.NewGomegaWithT(t)
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
@@ -112,5 +245,10 @@ func TestDefaultIngressAndRoutesWithoutStatusIP(t *testing.T) {
 	t.Logf("verifying the GS to have only 1 member as route")
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	hmNames := BuildTestHmNames(host, []string{"/"}, false)
+	g.Eventually(func() bool {
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

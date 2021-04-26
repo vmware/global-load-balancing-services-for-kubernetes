@@ -31,6 +31,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	amkorest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
@@ -194,7 +195,8 @@ func SetUpTestWorkerQueues() {
 
 	// Set workers for layer 3 (REST layer)
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
-	graphSharedQueue.SyncFunc = SyncFromTestNodesLayer
+	graphSharedQueue.SyncFunc = amkorest.SyncFromNodesLayer
+	// graphSharedQueue.SyncFunc = SyncFromTestNodesLayer
 	graphSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGGraph))
 }
 
