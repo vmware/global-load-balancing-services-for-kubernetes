@@ -415,7 +415,10 @@ func DeleteAndAddGSGraphForFqdn(agl *AviGSGraphLister, oldFqdn, newFqdn, key, cn
 			aviGS.(*AviGSObjectGraph).Name, newFqdn)
 		aviGSGraph := aviGS.(*AviGSObjectGraph)
 		for _, m := range members {
-			aviGSGraph.AddUpdateGSMember(m)
+			deleteMember := aviGSGraph.AddUpdateGSMember(m)
+			if deleteMember {
+				aviGSGraph.DeleteMember(m.Cluster, m.Namespace, m.Name, m.ObjType)
+			}
 		}
 		agl.Save(newFqdn, aviGS.(*AviGSObjectGraph))
 		PublishKeyToRestLayer(utils.ADMIN_NS, newFqdn, key, sharedQ, oldFqdn)
