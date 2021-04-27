@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,9 +27,11 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
+	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	amkorest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
@@ -638,4 +641,66 @@ func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 		}
 		return true
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true), "GSLB Host Rule status should match")
+}
+
+func GetTestGSFromRestCache(t *testing.T, gsName string) *avicache.AviGSCache {
+	restLayerF := amkorest.NewRestOperations(nil, nil, nil)
+	gsKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: gsName}
+	key := utils.ADMIN_NS + "/" + gsName
+	gsObj := restLayerF.GetGSCacheObj(gsKey, key)
+	if gsObj == nil {
+		t.Logf("error in fetching GS from the rest cache for key: %v", gsKey)
+		return nil
+	}
+	return gsObj
+}
+
+func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
+	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings) bool {
+
+	gs := GetTestGSFromRestCache(t, name)
+	if gs == nil {
+		t.Logf("GS Graph is nil, this is unexpected")
+		return false
+	}
+	members := gs.Members
+	if len(members) != len(expectedMembers) {
+		t.Logf("length of members don't match")
+		return false
+	}
+
+	sort.Strings(hmRefs)
+	fetchedHmNames := gs.HealthMonitorNames
+	sort.Strings(fetchedHmNames)
+	if len(hmRefs) != len(fetchedHmNames) {
+		t.Logf("length of hm names don't match, expected: %v, got: %v", hmRefs, fetchedHmNames)
+		return false
+	}
+
+	if len(hmRefs) != 0 {
+		for idx, h := range hmRefs {
+			if h != fetchedHmNames[idx] {
+				t.Logf("hm ref didn't match, expected list: %v, fetched list: %v", hmRefs, fetchedHmNames)
+				return false
+			}
+		}
+	}
+
+	memberProperties := make(map[string]interface{})
+
+	for _, e := range members {
+		w := strconv.Itoa(int(e.Weight))
+		m := e.Controller + "/" + e.IPAddr + "/" + e.VsUUID + "/" + w
+		memberProperties[m] = struct{}{}
+	}
+
+	for _, e := range expectedMembers {
+		w := strconv.Itoa(int(e.Weight))
+		m := e.ControllerUUID + "/" + e.IPAddr + "/" + e.VirtualServiceUUID + "/" + w
+		if _, ok := memberProperties[m]; !ok {
+			t.Logf("members don't match, expected: %v, got: %v", m, memberProperties)
+			return false
+		}
+	}
+	return true
 }

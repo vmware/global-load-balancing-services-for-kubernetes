@@ -512,7 +512,9 @@ func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool) {
 	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
 }
 
-func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
+// AddUpdateGSMember adds/updates a GS member according to the properties in newMember. Returns
+// true if an existing member needs to be removed.
+func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 	v.SetPropertiesForGS(v.Name, newMember.TLS)
 
 	v.Lock.Lock()
@@ -535,9 +537,12 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
 
 		// if we reach here, it means this is the member we need to update
 		if !newMember.SyncVIPOnly && (newMember.ControllerUUID == "" || newMember.VirtualServiceUUID == "") {
-			gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
+			// this error indicates that the annotation of the controller/vs uuid were removed from the ingress
+			// object, which would indicate that we can't rely on old fields anymore, and we need to remove the
+			// member
+			gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member %s",
 				v.Name, newMember.Cluster, newMember.Namespace, newMember.Name)
-			return
+			return true
 		}
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, newMember.ObjType)
 		v.MemberObjs[idx] = newMember
@@ -549,13 +554,13 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
 				v.updateGSHmPathListAndProtocol()
 			}
 		}
-		return
+		return false
 	}
 	// new member object
 	if !newMember.SyncVIPOnly && (newMember.ControllerUUID == "" || newMember.VirtualServiceUUID == "") {
 		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
 			v.Name, newMember.Cluster, newMember.Namespace, newMember.Name)
-		return
+		return false
 	}
 
 	v.MemberObjs = append(v.MemberObjs, newMember)
@@ -564,6 +569,7 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) {
 	} else {
 		v.updateGSHmPathListAndProtocol()
 	}
+	return false
 }
 
 func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject) {
@@ -576,7 +582,11 @@ func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObje
 		return
 	}
 
-	v.AddUpdateGSMember(member)
+	deleteMember := v.AddUpdateGSMember(member)
+	if deleteMember {
+		gslbutils.Logf("gsName: %s, msg: error in updating GS member, will delete the member")
+		v.DeleteMember(member.Cluster, member.Namespace, member.Name, member.ObjType)
+	}
 }
 
 func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {

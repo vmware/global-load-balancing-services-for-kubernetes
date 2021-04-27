@@ -16,6 +16,7 @@ package gslbutils
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -35,6 +36,7 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -323,7 +325,18 @@ func UpdateGSLBConfigStatus(msg string) error {
 	}
 
 	updateGSLBConfigStatusMsg(msg)
-	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.ObjectMeta.Namespace).Update(context.TODO(), gcObj.configObj, metav1.UpdateOptions{})
+	gcStatus := gslbalphav1.GSLBConfigStatus{
+		State: msg,
+	}
+	patchPayload, err := json.Marshal(map[string]interface{}{
+		"status": gcStatus,
+	})
+	if err != nil {
+		Errf("Error in marshalling status for GC object: %v", err)
+		return nil
+	}
+	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.Namespace).Patch(context.TODO(),
+		gcObj.configObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{})
 	if updateErr != nil {
 		Errf("error in updating the GSLBConfig object: %s", updateErr.Error())
 		return errors.New("error in GSLBConfig object update, " + updateErr.Error())
