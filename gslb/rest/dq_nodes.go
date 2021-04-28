@@ -1084,6 +1084,10 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 		// if no HM refs for this GS, delete all HMs for this GS
 		if len(gsGraph.HmRefs) == 0 {
 			for _, hmName := range gsCacheObj.HealthMonitorNames {
+				// check if this HM is created by AMKO, if not, don't try to remove it
+				if !gslbutils.HMCreatedByAMKO(hmName) {
+					continue
+				}
 				err = restOp.deleteHmIfRequired(gsName, tenant, key, gsCacheObj, gsKey, hmName)
 				if err != nil {
 					return
