@@ -547,6 +547,16 @@ func BuildNonPathHmName(gsName string) string {
 	return "amko--" + gsName
 }
 
+// hmCreatedByAMKO checks if the health monitor is created by AMKO by checking the prefix of the
+// HM name. If the prefix "amko" exists for the HM name, we return true, else false.
+func HMCreatedByAMKO(hmName string) bool {
+	hmNameSplit := strings.Split(hmName, "--")
+	if len(hmNameSplit) >= 2 && hmNameSplit[0] == "amko" {
+		return true
+	}
+	return false
+}
+
 func GetGSFromHmName(hmName string) (string, error) {
 	// for path based hms
 	hmNameSplit := strings.Split(hmName, "--")
