@@ -426,7 +426,7 @@ func ParsePoolAlgorithmSettingsFromPool(gsPool models.GslbPool) *gslbalphav1.Poo
 }
 
 func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, consistentHashMask *int32) *gslbalphav1.PoolAlgorithmSettings {
-	if algorithm != nil {
+	if algorithm == nil {
 		return nil
 	}
 	pa := gslbalphav1.PoolAlgorithmSettings{LBAlgorithm: *algorithm}
