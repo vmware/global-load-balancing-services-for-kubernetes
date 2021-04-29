@@ -218,7 +218,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	hmNames := []string{}
-	if len(v.HmRefs) > 0 {
+	if len(v.HmRefs) == 0 {
 		if v.Hm.Name != "" {
 			hmNames = append(hmNames, v.Hm.Name)
 		} else {
