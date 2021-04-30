@@ -78,9 +78,10 @@ func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profile
 	// Check if the profile mentioned in gslbHostRule are present as application persistence profile on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/applicationpersistenceprofile?name=" + profileName
-	result, err := aviClient.AviSession.GetCollectionRaw(uri)
+
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient)
 	if err != nil {
-		gslbutils.Errf("Error getting Site Persistent Profile : %s", err)
+		gslbutils.Errf("Error getting uri %s from Avi : %s", uri, err)
 		return false
 	}
 	if result.Count == 0 {
@@ -157,9 +158,10 @@ func isHealthMonitorRefValid(refName string) bool {
 	// Check if the health monitors mentioned in gslbHostRule are present on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/healthmonitor?name=" + refName
-	result, err := aviClient.AviSession.GetCollectionRaw(uri)
+
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient)
 	if err != nil {
-		gslbutils.Errf("Error getting Health Monitor Refs : %s", err)
+		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
 		return false
 	}
 	if result.Count == 0 {
@@ -191,9 +193,9 @@ func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName 
 	// Verify the presence of the third party member sites on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/gslb"
-	result, err := aviClient.AviSession.GetCollectionRaw(uri)
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient)
 	if err != nil {
-		gslbutils.Errf("Error getting Third Party Member Site : %s", err)
+		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
 		return false
 	}
 	elems := make([]json.RawMessage, result.Count)
@@ -356,6 +358,11 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 	if err != nil {
 		updateGSLBHR(newGslbhr, err.Error(), GslbHostRuleRejected)
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", newGslbhr.ObjectMeta.Name, err.Error())
+		// check if previous GSLB host rule was accepted, if yes, we need to add a delete key if this new
+		// object is rejected
+		if oldGslbhr.Status.Status == GslbHostRuleAccepted {
+			deleteObjsForGSHostRule(oldGslbhr, k8swq, numWorkers)
+		}
 		return
 	}
 	gsHostRulesList := gslbutils.GetGSHostRulesList()
@@ -369,7 +376,7 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 	// case where the update is for the same GS FQDN
 	oldRulesForFqdn := gsHostRulesList.GetGSHostRulesForFQDN(newGslbhr.Spec.Fqdn)
 	newRulesForFqdn := gslbutils.GetGSHostRuleForGSLBHR(newGslbhr)
-	if oldRulesForFqdn.GetChecksum() == newRulesForFqdn.GetChecksum() {
+	if oldRulesForFqdn != nil && oldRulesForFqdn.GetChecksum() == newRulesForFqdn.GetChecksum() {
 		updateGSLBHR(newGslbhr, "", GslbHostRuleAccepted)
 		gslbutils.Logf("ns: %s, gsFqdn: %s, msg: GSLB Host Rule unchanged", newGslbhr.Namespace,
 			newGslbhr.Spec.Fqdn)
@@ -408,6 +415,19 @@ func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterf
 	k8swq[bkt].AddRateLimited(key)
 	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key",
 		gslbhr.ObjectMeta.Namespace, gslbhr.Spec.Fqdn, key)
+}
+
+func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+	gsHostRuleList := gslbutils.GetGSHostRulesList()
+	gsHostRuleList.DeleteGSHostRulesForFQDN(gslbhr.Spec.Fqdn)
+	gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: GSLB Host Rule deleted for fqdn",
+		gslbhr.Namespace, gslbhr.Name, gslbhr.Spec.Fqdn)
+	// push the delete key for this fqdn
+	bkt := utils.Bkt(gslbhr.Spec.Fqdn, numWorkers)
+	key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbhr.Spec.Fqdn)
+	k8swq[bkt].AddRateLimited(key)
+	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key", gslbhr.ObjectMeta.Namespace,
+		gslbhr.Spec.Fqdn, key)
 }
 
 func InitializeGSLBHostRuleController(kubeclientset kubernetes.Interface,

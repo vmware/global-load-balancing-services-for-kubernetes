@@ -653,6 +653,18 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 		fastRetryQueue.Workqueue[bkt].AddRateLimited(key)
 		gslbutils.Logf("key: %s, msg: Published gskey to fast path retry queue", key)
 
+	case 401:
+		if strings.Contains(*aviError.Message, "Invalid credentials") {
+			gslbutils.Errf("key: %s, msg: credentials were invalid, shutting down API server", key)
+			gslbutils.GetAmkoAPIServer().ShutDown()
+			return
+		}
+		gslbutils.Errf("key: %s, msg: error code 401, will retry", key)
+		slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+		slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
+		gslbutils.Logf("key: %s, msg: Published key to slow path retry queue", key)
+		return
+
 	default:
 		gslbutils.Warnf("key: %s, msg: unhandled status code %d", key, aviError.HttpStatusCode)
 		// no retry, but this will be taken care of in the next full sync
