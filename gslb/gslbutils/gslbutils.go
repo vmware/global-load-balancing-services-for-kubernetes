@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avinetworks/sdk/go/clients"
+	"github.com/avinetworks/sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
@@ -600,4 +602,27 @@ func SetTestMode(t bool) {
 
 func InTestMode() bool {
 	return isTestMode == true
+}
+
+func GetUriFromAvi(uri string, aviClient *clients.AviClient) (*session.AviCollectionResult, error) {
+	var result session.AviCollectionResult
+	var err error
+
+	for i := 0; i < 3; i++ {
+		result, err = aviClient.AviSession.GetCollectionRaw(uri)
+		if err == nil {
+			return &result, nil
+		}
+		aviError, ok := err.(session.AviError)
+		if !ok {
+			Errf("error in parsing the web api error to avi error: %v, will retry %d", err, i)
+			continue
+		}
+		if aviError.HttpStatusCode != 401 {
+			Errf("uri: %s, won't retry for status code other than 401", uri)
+			return nil, fmt.Errorf("%s", *aviError.Message)
+		}
+		Errf("uri: %s, aviErr: %s, will retry %d", uri, *aviError.Message, i)
+	}
+	return nil, err
 }
