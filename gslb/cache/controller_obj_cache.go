@@ -148,7 +148,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := AviGetCollectionRaw(client, uri+"&is_federated=true")
+		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client)
 		if err != nil {
 			return errors.New("object: AviCache, msg: HealthMonitor get URI " + uri + " returned error: " + err.Error())
 		}
@@ -296,7 +296,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := AviGetCollectionRaw(client, uri+"&created_by="+gslbutils.AmkoUser)
+		result, err := gslbutils.GetUriFromAvi(uri+"&created_by="+gslbutils.AmkoUser, client)
 		if err != nil {
 			gslbutils.Warnf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
 			return
@@ -342,14 +342,6 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 		}
 		break
 	}
-}
-
-func AviGetCollectionRaw(client *clients.AviClient, uri string) (session.AviCollectionResult, error) {
-	result, err := client.AviSession.GetCollectionRaw(uri)
-	if err != nil {
-		return session.AviCollectionResult{}, err
-	}
-	return result, nil
 }
 
 func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
@@ -803,7 +795,7 @@ func VerifyVersion() error {
 	uri := "/api/cloud"
 
 	// we don't actually need the cloud object, rather we want to see if the version is fine or not
-	_, err := AviGetCollectionRaw(aviClient, uri)
+	_, err := gslbutils.GetUriFromAvi(uri, aviClient)
 	if err != nil {
 		gslbutils.Errf("error: get URI %s returned error: %s", uri, err)
 		return err

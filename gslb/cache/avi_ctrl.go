@@ -16,12 +16,14 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	"github.com/avinetworks/sdk/go/clients"
+	"github.com/avinetworks/sdk/go/session"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -72,12 +74,33 @@ func IsAviSiteLeader() (bool, error) {
 	return false, nil
 }
 
+func getAviObjectByUuid(uri string, intf *interface{}, client *clients.AviClient) error {
+	var err error
+	for i := 0; i < 3; i++ {
+		err = client.AviSession.Get(uri, &intf)
+		if err == nil {
+			return nil
+		}
+		aviError, ok := err.(session.AviError)
+		if !ok {
+			gslbutils.Errf("error in parsing the web api error to avi error: %v, will retry %d", err, i)
+			continue
+		}
+		if aviError.HttpStatusCode != 401 {
+			gslbutils.Errf("uri: %s, won't retru for status code other than 401", uri)
+			return fmt.Errorf("%s", *aviError.Message)
+		}
+		gslbutils.Errf("uri: %s, aviErr: %s, will retry for %d", uri, *aviError.Message, i)
+	}
+	return err
+}
+
 func GetClusterUuid(client *clients.AviClient) (string, error) {
 	var clusterIntf interface{}
 
 	uri := "/api/cluster"
 
-	err := client.AviSession.Get(uri, &clusterIntf)
+	err := getAviObjectByUuid(uri, &clusterIntf, client)
 	if err != nil {
 		gslbutils.Logf("object: ControllerCluster, msg: Cluster get URI %s returned error %s", uri, err.Error())
 		return "", err
@@ -115,7 +138,7 @@ func GetGslbLeaderUuid(client *clients.AviClient) (string, error) {
 
 	uri := "/api/gslb"
 
-	err := client.AviSession.Get(uri, &resp)
+	err := getAviObjectByUuid(uri, &resp, client)
 	if err != nil {
 		gslbutils.Logf("object: GslbConfig, msg: gslb get URI %s returned error %s", uri, err.Error())
 		return "", err
