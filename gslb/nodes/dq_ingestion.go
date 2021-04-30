@@ -132,7 +132,7 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 	found, aviGS := agl.Get(modelName)
 	if !found {
 		// no existing GS for the GS FQDN
-		gslbutils.Logf("key: %s, msg: no GS for the GS FQDN in host rule, will return")
+		gslbutils.Logf("key: %s, msg: no GS for the GS FQDN in host rule, will return", key)
 		return
 	}
 	gsGraph := aviGS.(*AviGSObjectGraph)
