@@ -667,7 +667,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 			newGFqdn := newHr.Spec.VirtualHost.Gslb.Fqdn
 			newLFqdn := newHr.Spec.VirtualHost.Fqdn
 			fqdnMap := gslbutils.GetFqdnMap()
-			if (oldHrAccepted == newHrAccepted) && newHrAccepted == true {
+			if (oldHrAccepted == newHrAccepted) && newHrAccepted {
 				// check if an update is required?
 				if !isHostRuleUpdated(oldHr, newHr) {
 					// no updates to the gs fqdn, so return

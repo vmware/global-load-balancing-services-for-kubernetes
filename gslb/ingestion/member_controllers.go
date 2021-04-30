@@ -188,6 +188,9 @@ func isHostRuleAcceptable(hr *akov1alpha1.HostRule) bool {
 }
 
 func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule) bool {
+	if oldHr.Spec.VirtualHost.Fqdn != newHr.Spec.VirtualHost.Fqdn {
+		return true
+	}
 	if oldHr.Spec.VirtualHost.Gslb.Fqdn != newHr.Spec.VirtualHost.Gslb.Fqdn {
 		return true
 	}
