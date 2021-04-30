@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"sort"
 	"strconv"
@@ -780,31 +781,26 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 }
 
 func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
-	clients map[string]*kubernetes.Clientset) *GSLBMemberController {
+	clients map[string]*kubernetes.Clientset) (*GSLBMemberController, error) {
 
 	informersArg := make(map[string]interface{})
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in creating kubernetes clientset",
-			err)
-		return nil
+		return nil, fmt.Errorf("error in creating kubernetes clientset: %v", err)
 	}
 	oshiftClient, err := oshiftclient.NewForConfig(cfg)
 	if err != nil {
-		gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in creating openshift clientset")
-		return nil
+		return nil, fmt.Errorf("error in creating openshift clientset: %v", err)
 	}
 	informersArg[utils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
 	informersArg[utils.INFORMERS_INSTANTIATE_ONCE] = false
 	registeredInformers, err := InformersToRegister(oshiftClient, kubeClient, cluster.clusterName)
 	if err != nil {
-		gslbutils.Errf("error in initializing informers")
-		return nil
+		return nil, fmt.Errorf("error in initializing informers: %v", err)
 	}
 	if len(registeredInformers) == 0 {
-		gslbutils.Errf("No informers available for this cluster %s, returning", cluster.clusterName)
-		return nil
+		return nil, fmt.Errorf("no informers available for this cluster")
 	}
 	gslbutils.Logf("Informers for cluster %s: %v", cluster.clusterName, registeredInformers)
 	informerInstance := utils.NewInformers(utils.KubeClientIntf{
@@ -812,24 +808,22 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 		registeredInformers,
 		informersArg)
 	clients[cluster.clusterName] = kubeClient
-	hrClient, err := hrcs.NewForConfig(cfg)
-	if err != nil {
-		gslbutils.Warnf("cluster: %s, msg: couldn't initialize clientset for host rule", cluster.clusterName)
-		return nil
-	}
 
 	var aviCtrl GSLBMemberController
 	if gslbutils.GetCustomFqdnMode() {
+		hrClient, err := hrcs.NewForConfig(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't initialize clientset for HostRule: %v", err)
+		}
+
 		akoInformerFactory := akoinformer.NewSharedInformerFactory(hrClient, time.Second*30)
 		hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
 
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
 		aviCtrl.hrClientSet = hrClient
-		_, err := hrClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
+		_, err = hrClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			gslbutils.Errf("cluster: %s, msg: failed to fetch HostRule, will skip, error: %v",
-				cluster.clusterName, err)
-			return nil
+			return nil, fmt.Errorf("HostRule API not available for cluster: %v", err)
 		}
 	} else {
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, nil)
@@ -837,7 +831,7 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 
 	gslbutils.AddClusterContext(cluster.clusterName)
 	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
-	return &aviCtrl
+	return &aviCtrl, nil
 }
 
 // InitializeGSLBClusters initializes the GSLB member clusters
@@ -856,7 +850,10 @@ func InitializeGSLBMemberClusters(membersKubeConfig string, memberClusters []gsl
 		} else {
 			gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
 		}
-		aviCtrl := InitializeMemberCluster(cfg, cluster, clients)
+		aviCtrl, err := InitializeMemberCluster(cfg, cluster, clients)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing member cluster %s: %s", cluster.clusterName, err)
+		}
 		if aviCtrl != nil {
 			aviCtrlList = append(aviCtrlList, aviCtrl)
 		}
