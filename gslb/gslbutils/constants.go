@@ -14,7 +14,11 @@
 
 package gslbutils
 
-import gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+import (
+	"time"
+
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+)
 
 const (
 	// GSLBKubePath is a temporary path to put the kubeconfig
@@ -89,4 +93,7 @@ const (
 	// HostRule status constants
 	HostRuleAccepted = "Accepted"
 	HostRuleRejected = "Rejected"
+
+	// Wait time before a new rest call is made for retries
+	RestSleepTime = 5 * time.Second
 )
