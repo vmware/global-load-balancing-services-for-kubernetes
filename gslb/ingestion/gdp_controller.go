@@ -320,7 +320,7 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 	// Health monotor validity
 	if len(gdp.Spec.HealthMonitorRefs) != 0 {
 		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
-			if !isHealthMonitorRefValid(hmRef) {
+			if !isHealthMonitorRefValid(hmRef, true) {
 				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
 			}
 		}
