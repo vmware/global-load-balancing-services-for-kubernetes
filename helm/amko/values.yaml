@@ -77,6 +77,20 @@ globalDeploymentPolicy:
   # a Site persistence profile.
   # sitePersistenceRef: gap-1
 
+  # Uncomment below to specify gslb service pool algorithm settings for all gslb services. Applicable
+  # values for lbAlgorithm:
+  # 1. GSLB_ALGORITHM_CONSISTENT_HASH (needs a hashMask field to be set too)
+  # 2. GSLB_ALGORITHM_GEO (needs geoFallback settings to be used for this field)
+  # 3. GSLB_ALGORITHM_ROUND_ROBIN (default)
+  # 4. GSLB_ALGORITHM_TOPOLOGY
+  #
+  # poolAlgorithmSettings:
+  #   lbAlgorithm:
+  #   hashMask:           # required only for lbAlgorithm == GSLB_ALGORITHM_CONSISTENT_HASH
+  #   geoFallback:        # fallback settings required only for lbAlgorithm == GSLB_ALGORITHM_GEO
+  #     lbAlgorithm:      # can only have either GSLB_ALGORITHM_ROUND_ROBIN or GSLB_ALGORITHM_CONSISTENT_HASH
+  #     hashMask:         # required only for fallback lbAlgorithm as GSLB_ALGORITHM_CONSISTENT_HASH
+
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
