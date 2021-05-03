@@ -148,7 +148,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client)
+		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client, false)
 		if err != nil {
 			return errors.New("object: AviCache, msg: HealthMonitor get URI " + uri + " returned error: " + err.Error())
 		}
@@ -296,7 +296,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := gslbutils.GetUriFromAvi(uri+"&created_by="+gslbutils.AmkoUser, client)
+		result, err := gslbutils.GetUriFromAvi(uri+"&created_by="+gslbutils.AmkoUser, client, false)
 		if err != nil {
 			gslbutils.Warnf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
 			return
@@ -795,7 +795,7 @@ func VerifyVersion() error {
 	uri := "/api/cloud"
 
 	// we don't actually need the cloud object, rather we want to see if the version is fine or not
-	_, err := gslbutils.GetUriFromAvi(uri, aviClient)
+	_, err := gslbutils.GetUriFromAvi(uri, aviClient, false)
 	if err != nil {
 		gslbutils.Errf("error: get URI %s returned error: %s", uri, err)
 		return err

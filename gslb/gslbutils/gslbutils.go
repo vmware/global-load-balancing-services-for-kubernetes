@@ -604,11 +604,14 @@ func InTestMode() bool {
 	return isTestMode == true
 }
 
-func GetUriFromAvi(uri string, aviClient *clients.AviClient) (*session.AviCollectionResult, error) {
+// GetUriFromAvi is a wrapper over Avi SDK's GetCollectionRaw which keeps on calling the get uri
+// till we either get a result or a 404. It retries infinitely for calls which have infiniteRetry
+// set. For others, it retries 3 times.
+func GetUriFromAvi(uri string, aviClient *clients.AviClient, infiniteRetry bool) (*session.AviCollectionResult, error) {
 	var result session.AviCollectionResult
 	var err error
 
-	for i := 0; i < 3; i++ {
+	for i := 0; ; i++ {
 		result, err = aviClient.AviSession.GetCollectionRaw(uri)
 		if err == nil {
 			return &result, nil
@@ -616,13 +619,19 @@ func GetUriFromAvi(uri string, aviClient *clients.AviClient) (*session.AviCollec
 		aviError, ok := err.(session.AviError)
 		if !ok {
 			Errf("error in parsing the web api error to avi error: %v, will retry %d", err, i)
+			// TODO: change this to an exponential backoff logic
+			time.Sleep(RestSleepTime)
 			continue
 		}
-		if aviError.HttpStatusCode != 401 {
-			Errf("uri: %s, won't retry for status code other than 401", uri)
+		// For 404, return
+		if aviError.HttpStatusCode == 404 {
 			return nil, fmt.Errorf("%s", *aviError.Message)
 		}
-		Errf("uri: %s, aviErr: %s, will retry %d", uri, *aviError.Message, i)
+		// All other errors, retry
+		Errf("uri: %s, aviErr: %v, will retry %d", uri, aviError, i)
+		if !infiniteRetry && i == 2 {
+			return nil, err
+		}
+		time.Sleep(RestSleepTime)
 	}
-	return nil, err
 }

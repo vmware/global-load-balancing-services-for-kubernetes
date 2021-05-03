@@ -74,12 +74,13 @@ func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string)
 	}
 }
 
-func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profileName string) bool {
+func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profileName string, gdp bool) bool {
 	// Check if the profile mentioned in gslbHostRule are present as application persistence profile on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/applicationpersistenceprofile?name=" + profileName
 
-	result, err := gslbutils.GetUriFromAvi(uri, aviClient)
+	// for gdp objects, we need to infinitely retry
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
 	if err != nil {
 		gslbutils.Errf("Error getting uri %s from Avi : %s", uri, err)
 		return false
@@ -154,12 +155,12 @@ func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings)
 	}
 }
 
-func isHealthMonitorRefValid(refName string) bool {
+func isHealthMonitorRefValid(refName string, gdp bool) bool {
 	// Check if the health monitors mentioned in gslbHostRule are present on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/healthmonitor?name=" + refName
 
-	result, err := gslbutils.GetUriFromAvi(uri, aviClient)
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
 	if err != nil {
 		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
 		return false
@@ -193,7 +194,7 @@ func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName 
 	// Verify the presence of the third party member sites on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/gslb"
-	result, err := gslbutils.GetUriFromAvi(uri, aviClient)
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient, false)
 	if err != nil {
 		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
 		return false
@@ -239,7 +240,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 	sitePersistence := gslbhrSpec.SitePersistence
 	if sitePersistence != nil {
 		sitePersistenceProfileName := sitePersistence.ProfileRef
-		if sitePersistence.Enabled == true && isSitePersistenceProfilePresent(gslbhr, sitePersistenceProfileName) != true {
+		if sitePersistence.Enabled == true && isSitePersistenceProfilePresent(gslbhr, sitePersistenceProfileName, false) != true {
 			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
 			return fmt.Errorf(errmsg)
 		}
@@ -265,7 +266,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 
 	healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
 	for _, ref := range healthMonitorRefs {
-		if !isHealthMonitorRefValid(ref) {
+		if !isHealthMonitorRefValid(ref, false) {
 			errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
 			return fmt.Errorf(errmsg)
 		}
