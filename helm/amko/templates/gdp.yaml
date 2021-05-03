@@ -27,3 +27,7 @@ spec:
   healthMonitorRefs:
   {{- toYaml . | nindent 4 }}
 {{- end }}
+{{- with .Values.globalDeploymentPolicy.poolAlgorithmSettings }}
+  poolAlgorithmSettings:
+  {{- toYaml . | nindent 4 }}
+{{- end }}
