@@ -169,23 +169,22 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 				continue
 			}
 
-			if hm.MonitorPort == nil {
-				gslbutils.Warnf(spew.Sprintf("health monitor object doesn't have a monitor port, %v", hm))
-				continue
-			}
-
 			if hm.Name == nil || hm.UUID == nil {
 				gslbutils.Warnf("incomplete health monitor data unmarshalled %s", utils.Stringify(hm))
 				continue
 			}
 
 			k := TenantName{Tenant: utils.ADMIN_NS, Name: *hm.Name}
-			cksum := gslbutils.GetGSLBHmChecksum(*hm.Name, *hm.Type, *hm.MonitorPort)
+			var monitorPort int32
+			if hm.MonitorPort != nil {
+				monitorPort = *hm.MonitorPort
+			}
+			cksum := gslbutils.GetGSLBHmChecksum(*hm.Name, *hm.Type, monitorPort)
 			hmCacheObj := AviHmObj{
 				Name:             *hm.Name,
 				Tenant:           utils.ADMIN_NS,
 				UUID:             *hm.UUID,
-				Port:             *hm.MonitorPort,
+				Port:             monitorPort,
 				CloudConfigCksum: cksum,
 			}
 			h.AviHmCacheAdd(k, &hmCacheObj)
