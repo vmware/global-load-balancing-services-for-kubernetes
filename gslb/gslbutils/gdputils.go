@@ -304,7 +304,7 @@ func getChecksumForPoolAlgorithm(pa *gslbalphav1.PoolAlgorithmSettings) uint32 {
 	var cksum uint32
 
 	if pa == nil {
-		return cksum
+		return utils.Hash(gslbalphav1.PoolAlgorithmRoundRobin)
 	}
 
 	switch pa.LBAlgorithm {
