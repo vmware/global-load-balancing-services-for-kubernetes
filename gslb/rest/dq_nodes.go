@@ -871,10 +871,6 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	if len(gsMeta.HmRefs) > 0 {
 		copy(hmRefs, gsMeta.HmRefs)
 	}
-	var ttl int32
-	if gsMeta.TTL != nil {
-		ttl = int32(*gsMeta.TTL)
-	}
 
 	gsAlgorithm := "GSLB_SERVICE_ALGORITHM_PRIORITY"
 	aviGslbSvc := avimodels.GslbService{
@@ -893,8 +889,14 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		WildcardMatch:                 &wildcardMatch,
 		TenantRef:                     &tenantRef,
 		Description:                   &description,
-		TTL:                           &ttl,
 	}
+
+	var ttl int32
+	if gsMeta.TTL != nil {
+		ttl = int32(*gsMeta.TTL)
+		aviGslbSvc.TTL = &ttl
+	}
+
 	if gsMeta.SitePersistenceRef != nil {
 		sitePersistenceEnabled := true
 		persistenceProfileRef := "/api/applicationpersistenceprofile?name=" + *gsMeta.SitePersistenceRef
