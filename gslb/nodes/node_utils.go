@@ -86,7 +86,13 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		gsGraph.SitePersistenceRef = getSitePersistence(gsRuleExists, &gsRule, gf)
 	}
 
-	gsGraph.GslbPoolAlgorithm = getGslbPoolAlgorithm(gsRuleExists, &gsRule, gf)
+	pa := getGslbPoolAlgorithm(gsRuleExists, &gsRule, gf)
+	if pa == nil {
+		defaultAlgo := gslbalphav1.PoolAlgorithmSettings{LBAlgorithm: gslbalphav1.PoolAlgorithmRoundRobin}
+		gsGraph.GslbPoolAlgorithm = &defaultAlgo
+	} else {
+		gsGraph.GslbPoolAlgorithm = pa
+	}
 
 	if gsRuleExists && gsRule.ThirdPartyMembers != nil && len(gsRule.ThirdPartyMembers) != 0 {
 		if newObj {
