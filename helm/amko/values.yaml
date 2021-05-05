@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: 10.79.172.11:5000/avi-buildops/amko
+  repository: projects.registry.vmware.com/ako/amko
   pullPolicy: IfNotPresent
 
 configs:
@@ -29,8 +29,8 @@ configs:
   useCustomGlobalFqdn: false
 
 gslbLeaderCredentials:
-  username: "admin"
-  password: "avi123"
+  username:
+  password:
 
 globalDeploymentPolicy:
   # appSelector takes the form of:
