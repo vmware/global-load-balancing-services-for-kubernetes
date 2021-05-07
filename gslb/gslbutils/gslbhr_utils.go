@@ -167,6 +167,19 @@ func (ghrules *GSFqdnHostRules) GetGSHostRulesForFQDN(gsFqdn string) *GSHostRule
 	return nil
 }
 
+func (ghrules *GSFqdnHostRules) GetAllGSHostRules() []GSHostRules {
+	ghrules.GlobalLock.RLock()
+	defer ghrules.GlobalLock.RUnlock()
+
+	ghrs := []GSHostRules{}
+	for _, v := range ghrules.GSHostRuleList {
+		var ghr GSHostRules
+		v.DeepCopyInto(&ghr)
+		ghrs = append(ghrs, ghr)
+	}
+	return ghrs
+}
+
 func (ghrules *GSFqdnHostRules) BuildAndSetGSHostRulesForFQDN(gslbhr *gslbhralphav1.GSLBHostRule) {
 	newObj := GetGSHostRuleForGSLBHR(gslbhr)
 	ghrules.GlobalLock.Lock()

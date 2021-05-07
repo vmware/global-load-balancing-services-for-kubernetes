@@ -15,11 +15,10 @@
 package main
 
 import (
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 )
 
 func main() {
-	gslbutils.InitAmkoAPIServer()
+	InitAmkoAPIServer()
 	ingestion.Initialize()
 }

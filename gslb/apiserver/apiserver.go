@@ -12,19 +12,33 @@
 * limitations under the License.
 */
 
-package gslbutils
+package apiserver
 
 import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 )
 
 var amkoAPI *api.ApiServer
 
-func InitAmkoAPIServer() {
-	amkoAPIServer := api.NewServer("8080", []models.ApiModel{})
-	amkoAPIServer.InitApi()
-	amkoAPI = amkoAPIServer
+// func InitAmkoAPIServer() {
+// 	modelList := []models.ApiModel{
+// 		AcceptedIngressAPI{},
+// 		RejectedIngressAPI{},
+// 		AcceptedLBSvcAPI{},
+// 		RejectedLBSvcAPI{},
+// 		AcceptedRouteAPI{},
+// 		RejectedRouteAPI{},
+// 		FilterAPI{},
+// 		GslbHostRuleAPI{},
+// 		GSGraphAPI{},
+// 	}
+// 	amkoAPIServer := api.NewServer("8080", modelList)
+// 	amkoAPIServer.InitApi()
+// 	amkoAPI = amkoAPIServer
+// }
+
+func SetAmkoAPIServer(server *api.ApiServer) {
+	amkoAPI = server
 }
 
 func GetAmkoAPIServer() *api.ApiServer {
