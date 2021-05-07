@@ -123,6 +123,43 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 	}
 }
 
+func checkGslbHostRulesAndInitialize() error {
+	gslbutils.Logf("process: fullsync, msg: will fetch GSLBHostRules")
+	gslbhrList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		gslbutils.Errf("process: fullsync, msg: error in fetching GSLBHostRule List API: %v", err)
+		return err
+	}
+
+	// if no gslb host rules, then simply return
+	if len(gslbhrList.Items) == 0 {
+		return nil
+	}
+
+	// build a unique list of GSLB Host Rules, multiple GSLB Host Rules can have the same GS FQDN, we
+	// need to check if one of them is in Accepted state, if not, pick anyone
+	gsHostRulesList := gslbutils.GetGSHostRulesList()
+	for _, gslbHr := range gslbhrList.Items {
+		gsFqdn := gslbHr.Spec.Fqdn
+		err := ValidateGSLBHostRule(&gslbHr)
+		if err != nil {
+			updateGSLBHR(&gslbHr, err.Error(), GslbHostRuleRejected)
+			gslbutils.Errf("Error in accepting GSLB Host Rule %s : %v", gsFqdn, err)
+			continue
+		}
+		gsFqdnHostRule := gsHostRulesList.GetGSHostRulesForFQDN(gsFqdn)
+		if gsFqdnHostRule != nil {
+			gslbutils.Warnf("GSLBHostRule already accepted for gsFqdn %s, new: %s/%s, ignoring",
+				gsFqdn, gslbHr.Namespace, gslbHr.Name)
+			updateGSLBHR(&gslbHr, "there's an existing GSLBHostRule for the same FQDN", GslbHostRuleRejected)
+			continue
+		}
+		gsHostRulesList.BuildAndSetGSHostRulesForFQDN(&gslbHr)
+		updateGSLBHR(&gslbHr, "", GslbHostRuleAccepted)
+	}
+	return nil
+}
+
 func checkGDPsAndInitialize() error {
 	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -168,6 +205,12 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 
 	// add a GDP object
 	err := checkGDPsAndInitialize()
+	if err != nil {
+		// Undefined state, panic
+		panic(err.Error())
+	}
+
+	err = checkGslbHostRulesAndInitialize()
 	if err != nil {
 		// Undefined state, panic
 		panic(err.Error())
