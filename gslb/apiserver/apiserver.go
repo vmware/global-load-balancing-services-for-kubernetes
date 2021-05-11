@@ -20,23 +20,6 @@ import (
 
 var amkoAPI *api.ApiServer
 
-// func InitAmkoAPIServer() {
-// 	modelList := []models.ApiModel{
-// 		AcceptedIngressAPI{},
-// 		RejectedIngressAPI{},
-// 		AcceptedLBSvcAPI{},
-// 		RejectedLBSvcAPI{},
-// 		AcceptedRouteAPI{},
-// 		RejectedRouteAPI{},
-// 		FilterAPI{},
-// 		GslbHostRuleAPI{},
-// 		GSGraphAPI{},
-// 	}
-// 	amkoAPIServer := api.NewServer("8080", modelList)
-// 	amkoAPIServer.InitApi()
-// 	amkoAPI = amkoAPIServer
-// }
-
 func SetAmkoAPIServer(server *api.ApiServer) {
 	amkoAPI = server
 }

@@ -201,10 +201,6 @@ type AppFilter struct {
 	Label
 }
 
-// func (a AppFilter) GetCopy() *AppFilter {
-// 	label :=
-// }
-
 type NamespaceFilter struct {
 	Label
 	// SelectedNS contains a list of namespaces selected via this filter
