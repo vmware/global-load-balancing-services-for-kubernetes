@@ -62,6 +62,42 @@ func GSCacheHandler(w http.ResponseWriter, r *http.Request) {
 	apiserver.WriteToResponse(w, objs)
 }
 
+type HmCacheAPI struct{}
+
+func (h HmCacheAPI) InitModel() {}
+
+func (h HmCacheAPI) ApiOperationMap() []models.OperationMap {
+	get := models.OperationMap{
+		Route:   "/api/hmcache",
+		Method:  "GET",
+		Handler: HmCacheHandler,
+	}
+	return []models.OperationMap{get}
+}
+
+func HmCacheHandler(w http.ResponseWriter, r *http.Request) {
+	aviHmCache := cache.GetAviHmCache()
+
+	names, ok := r.URL.Query()["name"]
+	if ok {
+		name := names[0]
+		obj, present := aviHmCache.AviHmCacheGet(cache.TenantName{Tenant: utils.ADMIN_NS, Name: name})
+		if !present {
+			apiserver.WriteErrorToResponse(w)
+			return
+		}
+		apiserver.WriteToResponse(w, obj)
+		return
+	}
+	keys := aviHmCache.AviHmGetAllKeys()
+	objs := []interface{}{}
+	for _, k := range keys {
+		obj, _ := aviHmCache.AviHmCacheGet(k)
+		objs = append(objs, obj)
+	}
+	apiserver.WriteToResponse(w, objs)
+}
+
 func InitAmkoAPIServer() {
 	modelList := []models.ApiModel{
 		apiserver.AcceptedIngressAPI{},
@@ -74,6 +110,7 @@ func InitAmkoAPIServer() {
 		apiserver.GslbHostRuleAPI{},
 		apiserver.GSGraphAPI{},
 		GSCacheAPI{},
+		HmCacheAPI{},
 	}
 	amkoAPIServer := api.NewServer("8080", modelList)
 	amkoAPIServer.InitApi()
