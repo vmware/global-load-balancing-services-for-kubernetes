@@ -30,6 +30,7 @@ import (
 	"github.com/avinetworks/sdk/go/models"
 	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	apimodels "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -769,7 +770,7 @@ func VerifyVersion() error {
 	aviRestClientPool := SharedAviClients()
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
-		gslbutils.GetAmkoAPIServer().ShutDown()
+		apiserver.GetAmkoAPIServer().ShutDown()
 		return errors.New("no avi clients initialized")
 	}
 

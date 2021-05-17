@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -656,7 +657,7 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 	case 401:
 		if strings.Contains(*aviError.Message, "Invalid credentials") {
 			gslbutils.Errf("key: %s, msg: credentials were invalid, shutting down API server", key)
-			gslbutils.GetAmkoAPIServer().ShutDown()
+			apiserver.GetAmkoAPIServer().ShutDown()
 			return
 		}
 		gslbutils.Errf("key: %s, msg: error code 401, will retry", key)

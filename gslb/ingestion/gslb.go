@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
@@ -569,7 +570,7 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 		gslbutils.Errf("couldn't initialize the kubernetes/openshift clusters: %s, returning", err.Error())
 		gslbutils.UpdateGSLBConfigStatus(ClusterHealthCheckErr + err.Error())
 		// shutdown the api server to let k8s/openshift restart the pod back up
-		gslbutils.GetAmkoAPIServer().ShutDown()
+		apiserver.GetAmkoAPIServer().ShutDown()
 		return
 	}
 

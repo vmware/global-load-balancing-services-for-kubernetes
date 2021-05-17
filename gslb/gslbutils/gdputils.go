@@ -179,6 +179,24 @@ func (gf *GlobalFilter) GetGslbPoolAlgorithm() *gslbalphav1.PoolAlgorithmSetting
 	return gf.GslbPoolAlgorithm.DeepCopy()
 }
 
+func (gf *GlobalFilter) GetCopy() *GlobalFilter {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	newFilter := GlobalFilter{
+		AppFilter:          gf.AppFilter,
+		NSFilter:           gf.NSFilter,
+		TrafficSplit:       gf.TrafficSplit,
+		ApplicableClusters: gf.ApplicableClusters,
+		HealthMonitorRefs:  gf.HealthMonitorRefs,
+		SitePersistenceRef: gf.SitePersistenceRef,
+		TTL:                gf.TTL,
+		GslbPoolAlgorithm:  gf.GslbPoolAlgorithm,
+		Checksum:           gf.Checksum,
+	}
+	return &newFilter
+}
+
 type AppFilter struct {
 	Label
 }
