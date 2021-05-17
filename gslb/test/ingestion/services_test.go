@@ -38,7 +38,7 @@ const (
 func addGDPAndGSLBForSvc(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	ingestionQ := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(true, false)
-	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
+	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2, false)
 
 	gslbObj := getTestGSLBObject()
 	gc, err := gslbingestion.IsGSLBConfigValid(gslbObj)

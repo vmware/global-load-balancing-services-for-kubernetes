@@ -41,6 +41,8 @@ var (
 	objCacheOnce   sync.Once
 	aviHmCache     *AviHmCache
 	hmObjCacheOnce sync.Once
+	aviSpCache     *AviSpCache
+	spObjCacheOnce sync.Once
 )
 
 type AviHmObj struct {
@@ -199,6 +201,92 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 			nextURI := strings.Split(result.Next, "/api/healthmonitor")
 			if len(nextURI) > 1 {
 				nextPageURI = "/api/healthmonitor" + nextURI[1]
+				gslbutils.Logf("object: AviCache, msg: next field in response, will continue fetching")
+				continue
+			}
+			gslbutils.Warnf("error in getting the nextURI, can't proceed further, next URI %s", result.Next)
+			break
+		}
+		break
+	}
+	return nil
+}
+
+type AviSpCache struct {
+	cacheLock sync.RWMutex
+	Cache     map[interface{}]interface{}
+}
+
+func GetAviSpCache() *AviSpCache {
+	spObjCacheOnce.Do(func() {
+		aviSpCache = &AviSpCache{}
+		aviSpCache.Cache = make(map[interface{}]interface{})
+	})
+	return aviSpCache
+}
+
+func (s *AviSpCache) AviSpCacheAdd(k interface{}, val interface{}) {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	s.Cache[k] = val
+}
+
+func (s *AviSpCache) AviSpCacheGet(k interface{}) (interface{}, bool) {
+	s.cacheLock.RLock()
+	defer s.cacheLock.RUnlock()
+	val, ok := s.Cache[k]
+	return val, ok
+}
+
+func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) error {
+	var nextPageURI string
+	baseURI := "/api/applicationpersistenceprofile"
+	uri := baseURI + "?page_size=100"
+
+	// parse all pages with Health monitors till we hit the last page
+	for {
+		if nextPageURI != "" {
+			uri = nextPageURI
+		}
+		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client, false)
+		if err != nil {
+			return fmt.Errorf("object: AviSitePersistenceCache, msg: SitePersistence get URI %s returned error: %v",
+				uri, err)
+		}
+
+		gslbutils.Logf("fetched %d Site Persistence profiles", result.Count)
+		elems := make([]json.RawMessage, result.Count)
+		err = json.Unmarshal(result.Results, &elems)
+		if err != nil {
+			return errors.New("failed to unmarshal health monitor data, err: " + err.Error())
+		}
+
+		processedObjs := 0
+		for i := 0; i < len(elems); i++ {
+			sp := models.ApplicationPersistenceProfile{}
+			err := json.Unmarshal(elems[i], &sp)
+			if err != nil {
+				gslbutils.Warnf("failed to unmarshal health monitor element, err: %s", err.Error())
+				continue
+			}
+
+			if sp.Name == nil || sp.UUID == nil {
+				gslbutils.Warnf("incomplete health monitor data unmarshalled %s", utils.Stringify(sp))
+				continue
+			}
+
+			k := TenantName{Tenant: utils.ADMIN_NS, Name: *sp.Name}
+			s.AviSpCacheAdd(k, &sp)
+			gslbutils.Debugf("processed site persistence %s", *sp.Name)
+			processedObjs++
+		}
+		gslbutils.Logf("processed %d Site Persistence profiles", processedObjs)
+
+		nextPageURI = ""
+		if result.Next != "" {
+			nextURI := strings.Split(result.Next, baseURI)
+			if len(nextURI) > 1 {
+				nextPageURI = baseURI + nextURI[1]
 				gslbutils.Logf("object: AviCache, msg: next field in response, will continue fetching")
 				continue
 			}
@@ -761,6 +849,21 @@ func PopulateHMCache(createSharedCache bool) *AviHmCache {
 			gslbutils.GetAviConfig().Version)
 	}
 	return aviHmCache
+}
+
+func PopulateSPCache(createSharedCache bool) *AviSpCache {
+	aviRestClientPool := SharedAviClients()
+	var aviSpCache *AviSpCache
+	if createSharedCache {
+		aviSpCache = GetAviSpCache()
+	} else {
+		aviSpCache = &AviSpCache{}
+		aviSpCache.Cache = make(map[interface{}]interface{})
+	}
+	if len(aviRestClientPool.AviClient) > 0 {
+		aviSpCache.AviSitePersistenceCachePopulate(aviRestClientPool.AviClient[0])
+	}
+	return aviSpCache
 }
 
 func VerifyVersion() error {

@@ -49,12 +49,16 @@ const (
 	GDPSuccess       = "success"
 )
 
-// GDPAddDelfn is a type of function which handles an add or a delete of a GDP
+// GDPAddfn is a type of function which handles an add or a delete of a GDP
 // object
-type GDPAddDelfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
+type GDPAddfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, fullSync bool)
 
 // GDPUpdfn is a function type which handles an update of a GDP object.
 type GDPUpdfn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
+
+// GDPDelfn is a type of function which handles an add or a delete of a GDP
+// object
+type GDPDelfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
 
 // GDPController defines the members required to hold an instance of a controller
 // handling GDP events.
@@ -285,7 +289,7 @@ func validLabel(label map[string]string) error {
 	return nil
 }
 
-func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
+func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) error {
 	// MatchRules checks
 	mr := gdp.Spec.MatchRules
 	// no app selector and no namespace selector means, no objects selected
@@ -320,7 +324,7 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 	// Health monotor validity
 	if len(gdp.Spec.HealthMonitorRefs) != 0 {
 		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
-			if !isHealthMonitorRefValid(hmRef, true) {
+			if !isHealthMonitorRefValid(hmRef, true, fullSync) {
 				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
 			}
 		}
@@ -334,6 +338,10 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy) error {
 	// Site persistence check
 	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
 		return fmt.Errorf("empty string as site persistence reference not supported")
+	} else if gdp.Spec.SitePersistenceRef != nil {
+		if !isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync) {
+			return fmt.Errorf("site persistence ref %s not present", *gdp.Spec.SitePersistenceRef)
+		}
 	}
 	return nil
 }
@@ -501,7 +509,7 @@ func applyAndAcceptNamespaces() {
 
 // AddGDPObj creates a new GlobalFilter if not present on the first GDP object. Subsequent
 // adds for GDP objects must fail as only one GDP object is allowed globally.
-func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, fullSync bool) {
 	gdp, ok := obj.(*gdpalphav2.GlobalDeploymentPolicy)
 	if !ok {
 		gslbutils.Errf("object added is not of type GDP")
@@ -526,7 +534,7 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWork
 		updateGDPStatus(gdp, msg)
 		return
 	}
-	err := GDPSanityChecks(gdp)
+	err := GDPSanityChecks(gdp, fullSync)
 	if err != nil {
 		gslbutils.Errf("Error in accepting GDP object: %s", err.Error())
 		updateGDPStatus(gdp, err.Error())
@@ -570,7 +578,7 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		}
 	}
 
-	err := GDPSanityChecks(newGdp)
+	err := GDPSanityChecks(newGdp, false)
 	if err != nil {
 		gslbutils.Errf("Error in accepting the new GDP object: %s", err.Error())
 		updateGDPStatus(newGdp, err.Error())
@@ -619,8 +627,8 @@ func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numW
 func InitializeGDPController(kubeclientset kubernetes.Interface,
 	gdpclientset gdpcs.Interface,
 	gslbInformerFactory gdpinformers.SharedInformerFactory,
-	AddGDPFunc GDPAddDelfn, UpdateGDPFunc GDPUpdfn,
-	DeleteGDPFunc GDPAddDelfn) *GDPController {
+	AddGDPFunc GDPAddfn, UpdateGDPFunc GDPUpdfn,
+	DeleteGDPFunc GDPDelfn) *GDPController {
 
 	gdpInformer := gslbInformerFactory.Amko().V1alpha2().GlobalDeploymentPolicies()
 	gdpscheme.AddToScheme(scheme.Scheme)
@@ -642,7 +650,7 @@ func InitializeGDPController(kubeclientset kubernetes.Interface,
 	// Event handlers for GDP change
 	gdpInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			AddGDPFunc(obj, k8sWorkqueue, numWorkers)
+			AddGDPFunc(obj, k8sWorkqueue, numWorkers, false)
 		},
 		UpdateFunc: func(old, new interface{}) {
 			UpdateGDPFunc(old, new, k8sWorkqueue, numWorkers)

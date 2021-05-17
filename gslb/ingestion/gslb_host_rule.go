@@ -74,7 +74,18 @@ func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string)
 	}
 }
 
-func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profileName string, gdp bool) bool {
+func isSitePersistenceRefPresentInCache(spName string) bool {
+	aviSpCache := avictrl.GetAviSpCache()
+
+	_, present := aviSpCache.AviSpCacheGet(avictrl.TenantName{Tenant: utils.ADMIN_NS, Name: spName})
+	return present
+}
+
+func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool) bool {
+	if fullSync && isSitePersistenceRefPresentInCache(profileName) {
+		gslbutils.Debugf("site persistence ref %s present in site persistence cache", profileName)
+		return true
+	}
 	// Check if the profile mentioned in gslbHostRule are present as application persistence profile on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/applicationpersistenceprofile?name=" + profileName
@@ -91,7 +102,6 @@ func isSitePersistenceProfilePresent(gslbhr *gslbhralphav1.GSLBHostRule, profile
 	}
 
 	return true
-
 }
 
 func isFallbackAlgorithmValid(fa *gslbhralphav1.GeoFallback) (bool, error) {
@@ -155,8 +165,23 @@ func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings)
 	}
 }
 
-func isHealthMonitorRefValid(refName string, gdp bool) bool {
-	// Check if the health monitors mentioned in gslbHostRule are present on the gslb leader
+func isHealthMonitorRefPresentInCache(hmName string) bool {
+	aviHmCache := avictrl.GetAviHmCache()
+
+	_, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: utils.ADMIN_NS, Name: hmName})
+	return present
+}
+
+// Check if the health monitors mentioned in the GDP/GSLBHostRule objects are present in the
+// hm cache for full sync. If not, check with the GSLB Leader node. If found, return true.
+// If not, return false.
+// For non-full sync cases, the hm ref will be fetched from the GSLB leader and verified. The HM
+// cache won't be checked for such cases.
+func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
+	if fullSync && isHealthMonitorRefPresentInCache(refName) {
+		gslbutils.Debugf("health monitor %s present in hm cache", refName)
+		return true
+	}
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/healthmonitor?name=" + refName
 
@@ -221,7 +246,7 @@ func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName 
 	return false
 }
 
-func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
+func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) error {
 	gslbhrName := gslbhr.ObjectMeta.Name
 	gslbhrSpec := gslbhr.Spec
 	var errmsg string
@@ -240,7 +265,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 	sitePersistence := gslbhrSpec.SitePersistence
 	if sitePersistence != nil {
 		sitePersistenceProfileName := sitePersistence.ProfileRef
-		if sitePersistence.Enabled == true && isSitePersistenceProfilePresent(gslbhr, sitePersistenceProfileName, false) != true {
+		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync) {
 			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
 			return fmt.Errorf(errmsg)
 		}
@@ -266,7 +291,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule) error {
 
 	healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
 	for _, ref := range healthMonitorRefs {
-		if !isHealthMonitorRefValid(ref, false) {
+		if !isHealthMonitorRefValid(ref, false, fullSync) {
 			errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
 			return fmt.Errorf(errmsg)
 		}
@@ -283,7 +308,7 @@ func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface
 
 	// Validate GSLBHostRule fields
 	gsFqdn := gslbhr.Spec.Fqdn
-	err := ValidateGSLBHostRule(gslbhr)
+	err := ValidateGSLBHostRule(gslbhr, false)
 	if err != nil {
 		updateGSLBHR(gslbhr, err.Error(), GslbHostRuleRejected)
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gsFqdn, err.Error())
@@ -355,7 +380,7 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 	}
 
 	// Validate GSLBHostRule
-	err := ValidateGSLBHostRule(newGslbhr)
+	err := ValidateGSLBHostRule(newGslbhr, false)
 	if err != nil {
 		updateGSLBHR(newGslbhr, err.Error(), GslbHostRuleRejected)
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", newGslbhr.ObjectMeta.Name, err.Error())

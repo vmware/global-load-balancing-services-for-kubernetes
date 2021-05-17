@@ -581,6 +581,7 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	// boot up time cache population
 	gslbutils.Logf("will populate avi cache now...")
 	avicache.PopulateHMCache(true)
+	avicache.PopulateSPCache(true)
 	newCache := avicache.PopulateGSCache(true)
 
 	bootupSync(aviCtrlList, newCache)
