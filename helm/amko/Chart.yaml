@@ -1,6 +1,6 @@
 apiVersion: v2
-appVersion: 1.4.1
 description: A helm chart for Avi Multi-cluster Kubernetes Operator
 name: amko
 type: application
-version: 1.4.1
+appVersion: latest
+version: 0.1.0
