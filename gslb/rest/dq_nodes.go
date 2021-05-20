@@ -839,7 +839,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	}
 	// Now, build a GSLB pool
 	poolEnabled := true
-	poolName := gsMeta.Name + "-10"
+	poolName := "amko-gs-group"
 	priority := int32(10)
 	minHealthMonUp := int32(2)
 	poolAlgorithm, hashMask, fallback := restOp.getGSPoolAlgorithmSettings(gsMeta)
