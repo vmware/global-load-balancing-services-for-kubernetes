@@ -41,19 +41,24 @@ func TestGDPNewController(t *testing.T) {
 	gdpClient := gdpfake.NewSimpleClientset()
 	gdpInformerFactory := gdpinformers.NewSharedInformerFactory(gdpClient, time.Second*30)
 	gdpCtrl := gslbingestion.InitializeGDPController(gdpKubeClient, gdpClient, gdpInformerFactory, addSomething, updateSomething,
-		addSomething)
+		deleteSomething)
 	if gdpCtrl == nil {
 		t.Fatalf("GDP controller not set")
 	}
 }
 
 // addSomething is a dummy function used to initialize the GDP controller
-func addSomething(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func addSomething(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, fullSync bool) {
 
 }
 
 // updateSomething is a dummy function used to initialize the GDP controller
 func updateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+
+}
+
+// deleteSomething is a dummy function used to initialize the GDP controller
+func deleteSomething(old interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 
 }
 
@@ -512,7 +517,7 @@ func TestGDPSelectNoClusters(t *testing.T) {
 
 	t.Logf("gdp object: %v", gdp)
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
+	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2, false)
 
 	t.Logf("verifying keys")
 	for range allKeys {
@@ -552,7 +557,7 @@ func TestGDPSelectNoneObjsFromOneCluster(t *testing.T) {
 
 	t.Logf("gdp object: %v", gdp)
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
+	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2, false)
 
 	t.Logf("verifying keys")
 	VerifyAllKeys(t, allKeys, true)
@@ -595,7 +600,7 @@ func UpdateGDPMatchRuleAppLabel(gdp *gdpalphav2.GlobalDeploymentPolicy, key, val
 
 func AddTestGDPObj(gdp *gdpalphav2.GlobalDeploymentPolicy) {
 	ingestionQueue := utils.SharedWorkQueue().GetQueueByName(utils.ObjectIngestionLayer)
-	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2)
+	gslbingestion.AddGDPObj(gdp, ingestionQueue.Workqueue, 2, false)
 }
 
 func VerifyAllKeys(t *testing.T, allKeys []string, timeoutExpected bool) {

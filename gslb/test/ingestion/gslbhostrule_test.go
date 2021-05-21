@@ -49,7 +49,7 @@ func TestGSLBHostRuleValidThirdPartyMember(t *testing.T) {
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.ThirdPartyMembers = gslbhrThirdPartyMembers
 	t.Logf("Adding GSLBHostRule with Valid Third Party Members")
-	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj)
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).To(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
@@ -66,7 +66,7 @@ func TestGSLBHostRuleInvalidThirdPartyMember(t *testing.T) {
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.ThirdPartyMembers = gslbhrThirdPartyMembers
 	t.Logf("Adding GSLBHostRule with invalid Third Party Members")
-	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj)
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).NotTo(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
@@ -81,7 +81,7 @@ func TestGSLBHostRuleValidSitePersistence(t *testing.T) {
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.SitePersistence = gslbhrsp
 	t.Logf("Adding GSLBHostRule with Valid Site Persistences Profiles")
-	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj)
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).To(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
@@ -96,7 +96,7 @@ func TestGSLBHostRuleInvalidSitePersistence(t *testing.T) {
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.SitePersistence = gslbhrsp
 	t.Logf("Adding GSLBHostRule with invalid Site Persistences Profiles")
-	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj)
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).NotTo(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
@@ -108,7 +108,7 @@ func TestGSLBHostRuleValidHealthMonitors(t *testing.T) {
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = gslbhrHealthMonitorRefs
 	t.Logf("Adding GSLBHostRule with Valid Health Monitor Refs")
-	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj)
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).To(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
@@ -120,7 +120,7 @@ func TestGSLBHostRuleInvalidHealthMonitors(t *testing.T) {
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = gslbhrHealthMonitorRefs
 	t.Logf("Adding GSLBHostRule with invalid Health Monitor Refs")
-	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj)
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).NotTo(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")

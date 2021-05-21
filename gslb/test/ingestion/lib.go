@@ -300,7 +300,7 @@ func addGDPAndGSLBForIngress(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 
 	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(true, false)
-	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2)
+	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2, false)
 
 	return gdp
 }

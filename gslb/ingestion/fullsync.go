@@ -141,7 +141,7 @@ func checkGslbHostRulesAndInitialize() error {
 	gsHostRulesList := gslbutils.GetGSHostRulesList()
 	for _, gslbHr := range gslbhrList.Items {
 		gsFqdn := gslbHr.Spec.Fqdn
-		err := ValidateGSLBHostRule(&gslbHr)
+		err := ValidateGSLBHostRule(&gslbHr, true)
 		if err != nil {
 			updateGSLBHR(&gslbHr, err.Error(), GslbHostRuleRejected)
 			gslbutils.Errf("Error in accepting GSLB Host Rule %s : %v", gsFqdn, err)
@@ -188,7 +188,8 @@ func checkGDPsAndInitialize() error {
 	}
 
 	if successGDP != nil {
-		AddGDPObj(successGDP, nil, 0)
+		AddGDPObj(successGDP, nil, 0, true)
+		return nil
 	}
 
 	// no success GDPs, check if only one exists
@@ -196,7 +197,7 @@ func checkGDPsAndInitialize() error {
 		return errors.New("more than one GDP objects")
 	}
 
-	AddGDPObj(&gdpList.Items[0], nil, 0)
+	AddGDPObj(&gdpList.Items[0], nil, 0, true)
 	return nil
 }
 
