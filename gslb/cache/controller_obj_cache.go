@@ -291,7 +291,6 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 				continue
 			}
 			gslbutils.Warnf("error in getting the nextURI, can't proceed further, next URI %s", result.Next)
-			break
 		}
 		break
 	}
@@ -851,15 +850,10 @@ func PopulateHMCache(createSharedCache bool) *AviHmCache {
 	return aviHmCache
 }
 
-func PopulateSPCache(createSharedCache bool) *AviSpCache {
+func PopulateSPCache() *AviSpCache {
 	aviRestClientPool := SharedAviClients()
-	var aviSpCache *AviSpCache
-	if createSharedCache {
-		aviSpCache = GetAviSpCache()
-	} else {
-		aviSpCache = &AviSpCache{}
-		aviSpCache.Cache = make(map[interface{}]interface{})
-	}
+	aviSpCache := &AviSpCache{}
+	aviSpCache.Cache = make(map[interface{}]interface{})
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviSitePersistenceCachePopulate(aviRestClientPool.AviClient[0])
 	}
