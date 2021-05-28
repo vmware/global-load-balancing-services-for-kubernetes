@@ -196,7 +196,7 @@ func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) error {
 	elems := make([]json.RawMessage, result.Count)
 	err = json.Unmarshal(result.Results, &elems)
 	if err != nil {
-		return gslbutils.GetIngestionErrorForParsing(fmt.Sprint("failed to unmarshal health monitor data for ref %s: %v", refName, err))
+		return gslbutils.GetIngestionErrorForParsing(fmt.Sprintf("failed to unmarshal health monitor data for ref %s: %v", refName, err))
 	}
 	hm := models.HealthMonitor{}
 	err = json.Unmarshal(elems[0], &hm)
