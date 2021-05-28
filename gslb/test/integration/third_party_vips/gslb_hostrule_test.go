@@ -166,7 +166,8 @@ func TestGDPPropertiesForInvalidHealthMonitor(t *testing.T) {
 		{Cluster: K8sContext}, {Cluster: OshiftContext},
 	}
 	gdpObj.Spec.HealthMonitorRefs = hmRefs
-	_, err := AddAndVerifyTestGDPStatus(t, gdpObj, "health monitor ref my-hm3 is invalid")
+	_, err := AddAndVerifyTestGDPStatus(t, gdpObj,
+		"health monitor ref my-hm3 is invalid: health monitor ref my-hm3 is not federated, can't add")
 	t.Cleanup(func() {
 		DeleteTestGDP(t, gdpObj.Namespace, gdpObj.Name)
 	})
@@ -489,7 +490,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 	gslbHRHmRefs := []string{"my-hm3"}
 	gslbHRTTL := 20
 	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
-		ingestion.GslbHostRuleRejected, "Health Monitor Ref my-hm3 error for test-gslb-hr GSLBHostRule")
+		ingestion.GslbHostRuleRejected, "health monitor ref my-hm3 is not federated, can't add")
 	g.Eventually(func() bool {
 		// All fields remain unchanged because of the invalid GSLBHostRule
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
@@ -517,7 +518,7 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	// update GDP with valid and invalid hm refs
 	currGDP := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
 	currGDP.Spec.HealthMonitorRefs = []string{"System-GSLB-Ping", "System-GSLB-HTTP", "System-Ping"}
-	gdp2 := updateTestGDPFailure(t, currGDP, "health monitor ref System-Ping is invalid")
+	gdp2 := updateTestGDPFailure(t, currGDP, "health monitor ref System-Ping is invalid: health monitor ref System-Ping is not federated, can't add")
 	g.Eventually(func() bool {
 		// member properties should remain unchanged
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil, nil)
