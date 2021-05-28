@@ -145,6 +145,10 @@ func checkGslbHostRulesAndInitialize() error {
 		if err != nil {
 			updateGSLBHR(&gslbHr, err.Error(), GslbHostRuleRejected)
 			gslbutils.Errf("Error in accepting GSLB Host Rule %s : %v", gsFqdn, err)
+			if gslbutils.IsRetriableOnError(err) {
+				updateIngestionRetryAddCache(&gslbHr)
+				publishKeyToIngestionRetry(gslbutils.ObjectAdd, gslbutils.GslbHostRuleType, gslbHr.Namespace, gslbHr.Name)
+			}
 			continue
 		}
 		gsFqdnHostRule := gsHostRulesList.GetGSHostRulesForFQDN(gsFqdn)

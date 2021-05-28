@@ -324,8 +324,9 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 	// Health monotor validity
 	if len(gdp.Spec.HealthMonitorRefs) != 0 {
 		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
-			if !isHealthMonitorRefValid(hmRef, true, fullSync) {
-				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
+			err := isHealthMonitorRefValid(hmRef, true, fullSync)
+			if err != nil {
+				return fmt.Errorf("health monitor ref %s is invalid: %s", hmRef, err.Error())
 			}
 		}
 	}
@@ -339,8 +340,9 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
 		return fmt.Errorf("empty string as site persistence reference not supported")
 	} else if gdp.Spec.SitePersistenceRef != nil {
-		if !isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync) {
-			return fmt.Errorf("site persistence ref %s not present", *gdp.Spec.SitePersistenceRef)
+		err := isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync)
+		if err != nil {
+			return fmt.Errorf("site persistence ref %s is invalid: %s", *gdp.Spec.SitePersistenceRef, err.Error())
 		}
 	}
 	return nil

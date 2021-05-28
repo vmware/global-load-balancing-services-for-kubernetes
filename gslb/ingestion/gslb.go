@@ -680,8 +680,14 @@ func Initialize() {
 	graphQueueParams := utils.WorkerQueue{NumWorkers: gslbutils.NumRestWorkers, WorkqueueName: utils.GraphLayer}
 	slowRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.SlowRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
 	fastRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.FastRetryQueue}
+	ingestionRetryQParams := utils.WorkerQueue{NumWorkers: 1, WorkqueueName: gslbutils.IngestionRetryQueue, SlowSyncTime: gslbutils.SlowSyncTime}
 
-	utils.SharedWorkQueue(&ingestionQueueParams, &graphQueueParams, &slowRetryQParams, &fastRetryQParams)
+	utils.SharedWorkQueue(&ingestionQueueParams, &graphQueueParams, &slowRetryQParams, &fastRetryQParams, &ingestionRetryQParams)
+
+	// Set workers for ingestion queue retry workers
+	ingestionRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.IngestionRetryQueue)
+	ingestionRetryQueue.SyncFunc = IngestionRetryAddUpdate
+	ingestionRetryQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGIngestionRetry))
 
 	// Set workers for layer 3 (REST layer)
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)

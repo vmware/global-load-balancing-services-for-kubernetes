@@ -81,10 +81,10 @@ func isSitePersistenceRefPresentInCache(spName string) bool {
 	return present
 }
 
-func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool) bool {
+func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool) error {
 	if fullSync && isSitePersistenceRefPresentInCache(profileName) {
 		gslbutils.Debugf("site persistence ref %s present in site persistence cache", profileName)
-		return true
+		return nil
 	}
 	// Check if the profile mentioned in gslbHostRule are present as application persistence profile on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
@@ -94,14 +94,13 @@ func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool
 	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
 	if err != nil {
 		gslbutils.Errf("Error getting uri %s from Avi : %s", uri, err)
-		return false
+		return err
 	}
 	if result.Count == 0 {
-		gslbutils.Errf("Site Persistent Profile %s does not exist", profileName)
-		return false
+		return fmt.Errorf("SitePersistence profile %s doesn't exist", profileName)
 	}
 
-	return true
+	return nil
 }
 
 func isFallbackAlgorithmValid(fa *gslbhralphav1.GeoFallback) (bool, error) {
@@ -177,10 +176,10 @@ func isHealthMonitorRefPresentInCache(hmName string) bool {
 // If not, return false.
 // For non-full sync cases, the hm ref will be fetched from the GSLB leader and verified. The HM
 // cache won't be checked for such cases.
-func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
+func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) error {
 	if fullSync && isHealthMonitorRefPresentInCache(refName) {
 		gslbutils.Debugf("health monitor %s present in hm cache", refName)
-		return true
+		return nil
 	}
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/healthmonitor?name=" + refName
@@ -188,62 +187,59 @@ func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
 	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
 	if err != nil {
 		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
-		return false
+		return err
 	}
 	if result.Count == 0 {
-		gslbutils.Errf("Health Monitor %s does not exist", refName)
-		return false
+		return gslbutils.GetIngestionErrorForObjectNotFound("healthmonitor " + refName + " doesn't exist")
 	}
 	gslbutils.Logf("health monitor %s fetched from controller", refName)
 	elems := make([]json.RawMessage, result.Count)
 	err = json.Unmarshal(result.Results, &elems)
 	if err != nil {
-		gslbutils.Errf("failed to unmarshal health monitor data for ref %s: %v", refName, err)
-		return false
+		return gslbutils.GetIngestionErrorForParsing(fmt.Sprint("failed to unmarshal health monitor data for ref %s: %v", refName, err))
 	}
 	hm := models.HealthMonitor{}
 	err = json.Unmarshal(elems[0], &hm)
 	if err != nil {
-		gslbutils.Errf("failed to unmarshal the first health monitor element: %v", err)
-		return false
+		return gslbutils.GetIngestionErrorForParsing(fmt.Sprintf("failed to unmarshal the first health monitor element: %v", err))
 	}
 	if hm.IsFederated != nil && *hm.IsFederated {
-		return true
+		return nil
 	} else {
-		gslbutils.Errf("health monitor ref %s is not federated, can't add", refName)
+		errStr := fmt.Sprintf("health monitor ref %s is not federated, can't add", refName)
+		return gslbutils.GetIngestionErrorForObjectNotFederated(errStr)
 	}
-	return false
 }
 
-func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName string) bool {
+func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName string) error {
 	// Verify the presence of the third party member sites on the gslb leader
 	aviClient := avictrl.SharedAviClients().AviClient[0]
 	uri := "api/gslb"
 	result, err := gslbutils.GetUriFromAvi(uri, aviClient, false)
 	if err != nil {
 		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
-		return false
+		return err
 	}
 	elems := make([]json.RawMessage, result.Count)
 	err = json.Unmarshal(result.Results, &elems)
 	if err != nil {
-		gslbutils.Errf("Failed to unmarshal GSLB data, err: %v", err)
+		return gslbutils.GetIngestionErrorForParsing(fmt.Sprintf("failed to unmarshal GSLB data, err: %v", err))
 	}
 	for _, elem := range elems {
 		gslb := models.Gslb{}
 		err = json.Unmarshal(elem, &gslb)
 		if err != nil {
 			gslbutils.Errf("Failed to unmarshal GSLB data, err: %v", err)
+			continue
 		}
 		tpms := gslb.ThirdPartySites
 		for _, tpm := range tpms {
 			if *tpm.Name == siteName {
-				return true
+				return nil
 			}
 		}
 	}
-	gslbutils.Errf("Third Party Member Site %s does not exist", siteName)
-	return false
+	return gslbutils.GetIngestionErrorForObjectNotFound(fmt.Sprintf("third party member site %s doesn't exist", siteName))
 }
 
 func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) error {
@@ -265,9 +261,11 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	sitePersistence := gslbhrSpec.SitePersistence
 	if sitePersistence != nil {
 		sitePersistenceProfileName := sitePersistence.ProfileRef
-		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync) {
-			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+		if sitePersistence.Enabled {
+			err := isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -283,17 +281,17 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 			errmsg := "Invalid VIP for thirdPartyMember site " + tpmember.Site + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
 			return fmt.Errorf(errmsg)
 		}
-		if !isThirdPartyMemberSitePresent(gslbhr, tpmember.Site) {
-			errmsg = "ThirdPartyMember site " + tpmember.Site + " does not exist for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+		err := isThirdPartyMemberSitePresent(gslbhr, tpmember.Site)
+		if err != nil {
+			return err
 		}
 	}
 
 	healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
 	for _, ref := range healthMonitorRefs {
-		if !isHealthMonitorRefValid(ref, false, fullSync) {
-			errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+		err := isHealthMonitorRefValid(ref, false, fullSync)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -312,6 +310,10 @@ func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface
 	if err != nil {
 		updateGSLBHR(gslbhr, err.Error(), GslbHostRuleRejected)
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gsFqdn, err.Error())
+		if gslbutils.IsRetriableOnError(err) {
+			updateIngestionRetryAddCache(gslbhr)
+			publishKeyToIngestionRetry(gslbutils.ObjectAdd, gslbutils.GslbHostRuleType, gslbhr.Namespace, gslbhr.Name)
+		}
 		return
 	}
 
@@ -386,8 +388,12 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", newGslbhr.ObjectMeta.Name, err.Error())
 		// check if previous GSLB host rule was accepted, if yes, we need to add a delete key if this new
 		// object is rejected
-		if oldGslbhr.Status.Status == GslbHostRuleAccepted {
+		if !gslbutils.IsControllerError(err) && (oldGslbhr.Status.Status == GslbHostRuleAccepted) {
 			deleteObjsForGSHostRule(oldGslbhr, k8swq, numWorkers)
+		}
+		if gslbutils.IsRetriableOnError(err) {
+			updateIngestionRetryUpdateCache(oldGslbhr, newGslbhr)
+			publishKeyToIngestionRetry(gslbutils.ObjectUpdate, gslbutils.GslbHostRuleType, newGslbhr.Namespace, newGslbhr.Name)
 		}
 		return
 	}

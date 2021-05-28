@@ -40,6 +40,7 @@ const (
 	PassthroughRoute     = "passthrough"
 	ThirdPartyMemberType = "ThirdPartyMember"
 	HostRuleType         = "HostRule"
+	GslbHostRuleType     = "GSLBHostRule"
 
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
@@ -54,10 +55,11 @@ const (
 	GSFQDNKeyLen          = 3
 
 	// Default values for Retry Operations
-	SlowSyncTime      = 120
-	SlowRetryQueue    = "SlowRetry"
-	FastRetryQueue    = "FastRetry"
-	DefaultRetryCount = 5
+	SlowSyncTime        = 120
+	SlowRetryQueue      = "SlowRetry"
+	FastRetryQueue      = "FastRetry"
+	IngestionRetryQueue = "IngestionRetry"
+	DefaultRetryCount   = 5
 
 	// Identify objects created by AMKO
 	AmkoUser = "amko-gslb"
