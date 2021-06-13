@@ -1,0 +1,82 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: amkoclusters.amko.vmware.com.github.com
+spec:
+  group: amko.vmware.com.github.com
+  names:
+    kind: AMKOCluster
+    listKind: AMKOClusterList
+    plural: amkoclusters
+    singular: amkocluster
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AMKOCluster is the Schema for the amkoclusters API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AMKOClusterSpec defines the desired state of AMKOCluster
+            properties:
+              clusterContext:
+                description: Current cluster context wherever this AMKO is currently
+                  deployed
+                type: string
+              clusters:
+                description: Clusters contain the list of all clusters where the federation
+                  will happen
+                items:
+                  type: string
+                type: array
+              isLeader:
+                description: IsLeader indicates whether this federator is running
+                  as part of the leader AMKO instance
+                type: boolean
+              version:
+                description: Version of the AMKO instance
+                type: string
+            type: object
+          status:
+            description: AMKOClusterStatus defines the observed state of AMKOCluster
+            properties:
+              conditions:
+                items:
+                  properties:
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
