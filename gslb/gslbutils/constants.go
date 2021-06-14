@@ -44,6 +44,9 @@ const (
 	// Refresh cycle for AVI cache in seconds
 	DefaultRefreshInterval = 600
 
+	// Refresh cycle for member clusters in seconds
+	DefaultClusterConnectInterval = 30
+
 	// Store types
 	AcceptedStore = "Accepted"
 	RejectedStore = "Rejected"

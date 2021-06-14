@@ -64,6 +64,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
+var pendingClusters map[KubeClusterDetails]bool
+
 const (
 	BootupMsg              = "starting up amko"
 	BootupSyncMsg          = "syncing all objects"
@@ -593,6 +595,12 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	resyncNodesWorker.SyncFunction = ResyncNodesToRestLayer
 	go resyncNodesWorker.Run()
 
+	// Initialize a periodic worker to sync member clusters which failed to connect during initial bootup
+	// To Do: make this customisable through a field in gslb config
+	resyncMemberWorker := gslbutils.NewFullSyncThread(time.Duration(gslbutils.DefaultClusterConnectInterval))
+	resyncMemberWorker.SyncFunction = resyncMemberCluster
+	go resyncMemberWorker.Run()
+
 	gcChan := gslbutils.GetGSLBConfigObjectChan()
 	*gcChan <- true
 
@@ -831,7 +839,6 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, nil)
 	}
 
-	gslbutils.AddClusterContext(cluster.clusterName)
 	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 	return &aviCtrl, nil
 }
@@ -842,8 +849,11 @@ func InitializeGSLBMemberClusters(membersKubeConfig string, memberClusters []gsl
 	clients := make(map[string]*kubernetes.Clientset)
 
 	aviCtrlList := make([]*GSLBMemberController, 0)
+	pendingClusters = make(map[KubeClusterDetails]bool)
 	for _, cluster := range clusterDetails {
 		gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "initializing")
+		gslbutils.AddClusterContext(cluster.clusterName)
+
 		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clusterName)
 		if err != nil {
 			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in connecting to kubernetes API",
@@ -854,7 +864,9 @@ func InitializeGSLBMemberClusters(membersKubeConfig string, memberClusters []gsl
 		}
 		aviCtrl, err := InitializeMemberCluster(cfg, cluster, clients)
 		if err != nil {
-			return nil, fmt.Errorf("error initializing member cluster %s: %s", cluster.clusterName, err)
+			gslbutils.Warnf("error initializing member cluster %s: %s", cluster.clusterName, err)
+			pendingClusters[cluster] = true
+			continue
 		}
 		if aviCtrl != nil {
 			aviCtrlList = append(aviCtrlList, aviCtrl)

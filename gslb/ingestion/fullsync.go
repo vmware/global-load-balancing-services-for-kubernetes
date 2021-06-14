@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
@@ -31,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.NamespaceList) {
@@ -201,22 +203,42 @@ func checkGDPsAndInitialize() error {
 	return nil
 }
 
-func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
-	gslbutils.Logf("Starting boot up sync, will sync all ingresses, routes and services from all member clusters")
-
-	// add a GDP object
-	err := checkGDPsAndInitialize()
-	if err != nil {
-		// Undefined state, panic
-		panic(err.Error())
+func resyncMemberCluster() {
+	if len(pendingClusters) == 0 {
+		gslbutils.Debugf("Skipping ResyncMemberCluster, no cluster pending")
+		return
 	}
 
-	err = checkGslbHostRulesAndInitialize()
-	if err != nil {
-		// Undefined state, panic
-		panic(err.Error())
+	gslbutils.Logf("Starting cluster sync, will sync objects from pending member clusters: %v", pendingClusters)
+	clients := make(map[string]*kubernetes.Clientset)
+	aviCtrlList := make([]*GSLBMemberController, 0)
+	for cluster := range pendingClusters {
+		gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "initializing")
+		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clusterName)
+		if err != nil {
+			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in connecting to kubernetes API",
+				err)
+			continue
+		} else {
+			gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
+		}
+		aviCtrl, err := InitializeMemberCluster(cfg, cluster, clients)
+		if err != nil {
+			gslbutils.Warnf("error initializing member cluster %s: %s", cluster.clusterName, err)
+			continue
+		}
+		delete(pendingClusters, cluster)
+		if aviCtrl != nil {
+			aviCtrlList = append(aviCtrlList, aviCtrl)
+		}
 	}
+	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.Start(stopCh)
+	}
+	clusterSync(aviCtrlList, cache.GetAviCache())
+}
 
+func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 	gf := gslbutils.GetGlobalFilter()
 
 	acceptedNSStore := store.GetAcceptedNSStore()
@@ -296,6 +318,24 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 	// Generate models
 	GenerateModels(gsCache)
 	gslbutils.Logf("boot up sync completed")
+}
+
+func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
+	gslbutils.Logf("Starting boot up sync, will sync all ingresses, routes and services from all member clusters")
+
+	// add a GDP object
+	err := checkGDPsAndInitialize()
+	if err != nil {
+		// Undefined state, panic
+		panic(err.Error())
+	}
+
+	err = checkGslbHostRulesAndInitialize()
+	if err != nil {
+		// Undefined state, panic
+		panic(err.Error())
+	}
+	clusterSync(ctrlList, gsCache)
 }
 
 func GenerateModels(gsCache *avicache.AviCache) {
