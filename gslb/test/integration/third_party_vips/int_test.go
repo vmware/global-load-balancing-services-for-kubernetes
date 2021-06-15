@@ -258,6 +258,7 @@ func GetTestEnvClustersAsGslbMembers(arg1 string, arg2 []gslbalphav1.MemberClust
 
 	memberClusterList := make([]*ingestion.GSLBMemberController, 0)
 	for idx, c := range testClustersContexts {
+		gslbutils.AddClusterContext(c.GetClusterContextName())
 		member, err := ingestion.InitializeMemberCluster(cfgs[idx], c, clients)
 		if err != nil {
 			return nil, err

@@ -391,17 +391,17 @@ func GetAviConfig() AviControllerConfig {
 	return gslbLeaderConfig
 }
 
-var initializedClusterContexts []string
+var allClusterContexts []string
 
 func AddClusterContext(cc string) {
 	if IsClusterContextPresent(cc) {
 		return
 	}
-	initializedClusterContexts = append(initializedClusterContexts, cc)
+	allClusterContexts = append(allClusterContexts, cc)
 }
 
 func IsClusterContextPresent(cc string) bool {
-	for _, context := range initializedClusterContexts {
+	for _, context := range allClusterContexts {
 		if context == cc {
 			return true
 		}
