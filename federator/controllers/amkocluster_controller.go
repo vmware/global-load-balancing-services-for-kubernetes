@@ -63,21 +63,11 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// the Reconcile function can be called for 3 objects: AMKOCluster, GC and GDP objects
 	// we have to determine what kind of an object this function is getting called for.
-	var amkoClusterName, amkoClusterNS string
-	amkoClusterPresent := false
-	if len(amkoClusterList.Items) == 1 {
-		amkoClusterName = amkoClusterList.Items[0].Name
-		amkoClusterNS = amkoClusterList.Items[0].Namespace
-		amkoClusterPresent = true
-	}
-
-	// get the current AMKOCluster object
+	// var amkoClusterName, amkoClusterNS string
+	// amkoClusterPresent := false
 	var amkoCluster amkov1alpha1.AMKOCluster
-	if amkoClusterPresent {
-		err = r.Get(ctx, types.NamespacedName{
-			Namespace: amkoClusterNS,
-			Name:      amkoClusterName,
-		}, &amkoCluster)
+	if len(amkoClusterList.Items) == 1 {
+		amkoCluster = amkoClusterList.Items[0]
 		// update the status of AMKOCluster
 		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederating, "", &amkoCluster)
 		if statusErr != nil {
@@ -225,6 +215,7 @@ func (r *AMKOClusterReconciler) ValidateMemberClusters(ctx context.Context, memb
 	for _, cluster := range memberClusters {
 		if cluster.client == nil {
 			log.Log.Info("client is nil", "cluster", cluster.clusterName)
+			return fmt.Errorf("cluster client unavailable for cluster %s", cluster.clusterName)
 		}
 		clusterClient := *(cluster.client)
 		var amkoCluster amkov1alpha1.AMKOClusterList
