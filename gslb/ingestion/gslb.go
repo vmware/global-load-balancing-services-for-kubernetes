@@ -64,7 +64,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
-var pendingClusters map[KubeClusterDetails]bool
+var pendingClusters map[KubeClusterDetails]struct{}
 
 const (
 	BootupMsg              = "starting up amko"
@@ -849,7 +849,7 @@ func InitializeGSLBMemberClusters(membersKubeConfig string, memberClusters []gsl
 	clients := make(map[string]*kubernetes.Clientset)
 
 	aviCtrlList := make([]*GSLBMemberController, 0)
-	pendingClusters = make(map[KubeClusterDetails]bool)
+	pendingClusters = make(map[KubeClusterDetails]struct{})
 	for _, cluster := range clusterDetails {
 		gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "initializing")
 		gslbutils.AddClusterContext(cluster.clusterName)
@@ -859,13 +859,12 @@ func InitializeGSLBMemberClusters(membersKubeConfig string, memberClusters []gsl
 			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in connecting to kubernetes API",
 				err)
 			continue
-		} else {
-			gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
 		}
+		gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
 		aviCtrl, err := InitializeMemberCluster(cfg, cluster, clients)
 		if err != nil {
 			gslbutils.Warnf("error initializing member cluster %s: %s", cluster.clusterName, err)
-			pendingClusters[cluster] = true
+			pendingClusters[cluster] = struct{}{}
 			continue
 		}
 		if aviCtrl != nil {

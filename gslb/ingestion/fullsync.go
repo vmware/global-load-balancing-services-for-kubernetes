@@ -219,9 +219,8 @@ func resyncMemberCluster() {
 			gslbutils.Warnf("cluster: %s, msg: %s, %s", cluster.clusterName, "error in connecting to kubernetes API",
 				err)
 			continue
-		} else {
-			gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
 		}
+		gslbutils.Logf("cluster: %s, msg: %s", cluster.clusterName, "successfully connected to kubernetes API")
 		aviCtrl, err := InitializeMemberCluster(cfg, cluster, clients)
 		if err != nil {
 			gslbutils.Warnf("error initializing member cluster %s: %s", cluster.clusterName, err)
