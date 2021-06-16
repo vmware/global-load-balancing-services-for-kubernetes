@@ -7,7 +7,7 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - amko.vmware.com.github.com
+  - amko.vmware.com
   resources:
   - amkoclusters
   verbs:
@@ -19,16 +19,40 @@ rules:
   - update
   - watch
 - apiGroups:
-  - amko.vmware.com.github.com
+  - amko.vmware.com
   resources:
   - amkoclusters/finalizers
   verbs:
   - update
 - apiGroups:
-  - amko.vmware.com.github.com
+  - amko.vmware.com
   resources:
   - amkoclusters/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - amko.vmware.com
+  resources:
+  - globaldeploymentpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - amko.vmware.com
+  resources:
+  - gslbconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

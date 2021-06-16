@@ -5,7 +5,7 @@ metadata:
   name: amkocluster-viewer-role
 rules:
 - apiGroups:
-  - amko.vmware.com.github.com
+  - amko.vmware.com
   resources:
   - amkoclusters
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - amko.vmware.com.github.com
+  - amko.vmware.com
   resources:
   - amkoclusters/status
   verbs:

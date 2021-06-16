@@ -1,4 +1,4 @@
-domain: github.com
+domain: vmware.com
 layout:
 - go.kubebuilder.io/v3
 projectName: federator
@@ -8,8 +8,8 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: github.com
-  group: amko.vmware.com
+  domain: vmware.com
+  group: amko
   kind: AMKOCluster
   path: github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1
   version: v1alpha1
