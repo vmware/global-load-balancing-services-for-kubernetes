@@ -1,4 +1,4 @@
-apiVersion: amko.vmware.com.github.com/v1alpha1
+apiVersion: amko.vmware.com/v1alpha1
 kind: AMKOCluster
 metadata:
   name: amkocluster-sample
