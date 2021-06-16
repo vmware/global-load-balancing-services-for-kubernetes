@@ -1,0 +1,13 @@
+apiVersion: amko.vmware.com.github.com/v1alpha1
+kind: AMKOCluster
+metadata:
+  name: amkocluster-sample
+  namespace: avi-system
+spec:
+  isLeader: true
+  clusterContext: k8s
+  version: 1.4.2
+  clusters:
+  - k8s
+  - oshift
+

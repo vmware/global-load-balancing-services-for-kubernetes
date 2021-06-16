@@ -144,6 +144,7 @@ func StartEnvClusters() {
 
 func SetUpClients() {
 	for idx, cfg := range cfgs {
+		cfg.Transport = nil
 		clientset, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
 			gslbutils.Errf("error occured while fetching clientset for cluster %d: %v", idx, err)

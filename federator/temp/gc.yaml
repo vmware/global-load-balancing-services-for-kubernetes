@@ -1,0 +1,76 @@
+apiVersion: amko.vmware.com/v1alpha1
+kind: GSLBConfig
+metadata:
+  annotations:
+    meta.helm.sh/release-namespace: avi-system
+  creationTimestamp: "2021-05-05T07:30:03Z"
+  generation: 160
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: amko.vmware.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        .: {}
+        f:gslbLeader:
+          .: {}
+          f:controllerIP: {}
+          f:credentials: {}
+        f:logLevel: {}
+        f:memberClusters: {}
+        f:useCustomGlobalFqdn: {}
+    manager: OpenAPI-Generator
+    operation: Update
+    time: "2021-05-05T07:30:03Z"
+  - apiVersion: amko.vmware.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:gslbLeader:
+          f:controllerVersion: {}
+    manager: kubectl
+    operation: Update
+    time: "2021-05-06T06:56:57Z"
+  - apiVersion: amko.vmware.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:state: {}
+    manager: amko
+    operation: Update
+    time: "2021-05-28T07:41:18Z"
+  - apiVersion: amko.vmware.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:refreshInterval: {}
+    manager: kubectl-edit
+    operation: Update
+    time: "2021-06-10T17:45:05Z"
+  name: gc-1
+  namespace: avi-system
+  resourceVersion: "43750420"
+  selfLink: /apis/amko.vmware.com/v1alpha1/namespaces/avi-system/gslbconfigs/gc-1
+  uid: 96bf512f-434a-4d18-9cca-82a0f1ea7575
+spec:
+  gslbLeader:
+    controllerIP: 10.79.110.246
+    controllerVersion: 20.1.4
+    credentials: gslb-avi-secret
+  logLevel: DEBUG
+  memberClusters:
+  - clusterContext: k8s
+  - clusterContext: oshift
+  refreshInterval: 30
+  useCustomGlobalFqdn: false
+status:
+  state: 'success: gslb config accepted'
