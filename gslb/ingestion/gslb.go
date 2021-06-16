@@ -662,6 +662,17 @@ func Initialize() {
 		panic("error building kubernetes clientset: " + err.Error())
 	}
 
+	// handleBootup checks AMKOCluster object, validates and then starts a reconciler to process updates.
+	isLeader, err := handleBootup(cfg)
+	if err != nil {
+		panic("error during boot up: " + err.Error())
+	}
+	// If the current cluster is not the leader then don't progress and wait forever
+	if !isLeader {
+		<-stopCh
+		return
+	}
+
 	gslbutils.SetWaitGroupMap()
 	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
