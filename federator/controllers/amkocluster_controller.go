@@ -61,6 +61,10 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, fmt.Errorf("only one AMKOClusterObject allowed per cluster")
 	}
 
+	if len(amkoClusterList.Items) == 0 {
+		log.Log.Info("No AMKOCluster object available on this cluster, nothing to do")
+		return reconcile.Result{}, nil
+	}
 	// the Reconcile function can be called for 3 objects: AMKOCluster, GC and GDP objects
 	// we have to determine what kind of an object this function is getting called for.
 	// var amkoClusterName, amkoClusterNS string
@@ -118,11 +122,11 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				RequeueAfter: time.Second * 5,
 			}, statusErr
 		}
-		return reconcile.Result{}, fmt.Errorf("error in fetcing member cluster contexts: %v", err)
+		return reconcile.Result{}, fmt.Errorf("error in fetching member cluster contexts: %v", err)
 	}
 
 	// validate member clusters
-	err = ValidateMemberClusters(ctx, memberClusters)
+	err = ValidateMemberClusters(ctx, memberClusters, amkoCluster.Spec.Version)
 	if err != nil {
 		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
 		if statusErr != nil {
@@ -207,6 +211,19 @@ func (r *AMKOClusterReconciler) GetObjectsToBeFederated(ctx context.Context) ([]
 	return objList, nil
 }
 
+func (r *AMKOClusterReconciler) FetchMemberClusterContexts(ctx context.Context, amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, error) {
+	err := generateTempKubeConfig()
+	if err != nil {
+		return nil, err
+	}
+	memberClusters, err := InitMemberClusterContexts(ctx, amkoCluster.Spec.ClusterContext, amkoCluster.Spec.Clusters)
+	if err != nil {
+		return nil, fmt.Errorf("error in initializing member cluster contexts: %v", err)
+	}
+
+	return memberClusters, nil
+}
+
 func (r *AMKOClusterReconciler) VerifyAMKOClusterSanity(amkoCluster *amkov1alpha1.AMKOCluster) error {
 	log.Log.V(1).Info("Performing sanity checks on AMKOCluster object")
 	// namespace for AMKOCluster object has to be avi-system
@@ -241,7 +258,6 @@ func (r *AMKOClusterReconciler) UpdateAMKOClusterStatus(ctx context.Context, sta
 	// conditions already present, update the one that we need for statusType
 	for idx, c := range conditions {
 		if c.Type == statusType {
-			log.Log.Info("found the type, will update this status")
 			updatedAMKOCluster.Status.Conditions[idx].Status = statusMsg
 			updatedAMKOCluster.Status.Conditions[idx].Reason = reason
 			return r.PatchAMKOClusterStatus(ctx, amkoCluster, updatedAMKOCluster)

@@ -57,6 +57,7 @@ rest_test:
 
 .PHONY: int_test
 int_test:
+		ACK_GINKGO_DEPRECATIONS=1.16.4 $(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v
 		$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
 
