@@ -271,7 +271,7 @@ func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDet
 		}
 
 		if obj.Spec.Version != currVersion {
-			return fmt.Errorf("version mismatch, current AMKO: %v, AMKO in cluster %s: %v", currVersion,
+			return fmt.Errorf("version mismatch, current AMKO: %s, AMKO in cluster %s: %s", currVersion,
 				cluster.clusterName, obj.Spec.Version)
 		}
 	}

@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	// . "github.com/onsi/ginkgo"
 	b64 "encoding/base64"
 
 	. "github.com/onsi/gomega"
