@@ -208,7 +208,7 @@ func generateTempKubeConfig() error {
 	return nil
 }
 
-func acceptGenerationChangePredicate() predicate.Predicate {
+func AcceptGenerationChangePredicate() predicate.Predicate {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			e.ObjectOld.GetGeneration()
@@ -224,4 +224,82 @@ func getStatusCondition(statusType, statusMsg, reason string) amkov1alpha1.AMKOC
 		Status: statusMsg,
 		Reason: reason,
 	}
+}
+
+// To Do: Move functions used by both federator and main gslb to a common library
+func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDetails) error {
+	// Perform validation checks
+	// 1. Only one instance of AMKOCluster must be present in the avi-system namespace
+	// 2. No other cluster should be leader if the current instance is leader
+	// 3. No version mismatch
+	for _, cluster := range memberClusters {
+		if cluster.client == nil {
+			log.Log.Info("client is nil", "cluster", cluster.clusterName)
+			return fmt.Errorf("cluster client unavailable for cluster %s", cluster.clusterName)
+		}
+		clusterClient := *(cluster.client)
+		var amkoCluster amkov1alpha1.AMKOClusterList
+		err := clusterClient.List(ctx, &amkoCluster)
+		if err != nil {
+			return fmt.Errorf("error in getting AMKOCluster list for cluster %s: %v",
+				cluster.clusterName, err)
+		}
+
+		if len(amkoCluster.Items) > 1 {
+			return fmt.Errorf("more than one AMKOCluster objects present in cluster %s, can't federate",
+				cluster.clusterName)
+		}
+
+		obj := amkoCluster.Items[0].DeepCopy()
+		if obj.Namespace != AviSystemNS {
+			return fmt.Errorf("AMKOCluster object not present in avi-system namespace in cluster %s, can't federate",
+				cluster.clusterName)
+		}
+
+		if obj.Spec.IsLeader {
+			return fmt.Errorf("AMKO in cluster %s is also a leader, conflicting state", cluster.clusterName)
+		}
+	}
+
+	return nil
+}
+
+func FetchMemberClusterContexts(ctx context.Context, amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, error) {
+	err := generateTempKubeConfig()
+	if err != nil {
+		return nil, err
+	}
+	memberClusters, err := InitMemberClusterContexts(ctx, amkoCluster.Spec.ClusterContext, amkoCluster.Spec.Clusters)
+	if err != nil {
+		return nil, fmt.Errorf("error in initializing member cluster contexts: %v", err)
+	}
+
+	return memberClusters, nil
+}
+
+func InitMemberClusterContexts(ctx context.Context, currentContext string, clusterList []string) ([]KubeContextDetails, error) {
+	// - obtain the list of all member cluster contexts from the kubeconfig
+	// - remove the current context
+	// - build the context config for the rest of them
+	memberClusters := getClusterContextDetails(MembersKubePath, clusterList, currentContext)
+
+	for idx, cluster := range memberClusters {
+		if currentContext == cluster.clusterName {
+			// skip for current context
+			continue
+		}
+		log.Log.Info("initializing cluster context", "cluster", cluster.clusterName)
+		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clusterName)
+		if err != nil {
+			return nil, fmt.Errorf("error in building context config for kubernetes cluster %s: %v",
+				cluster.clusterName, err)
+		}
+		client, err := InitializeMemberClusterClient(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("error in initializing member custer context %s: %v", cluster.clusterName, err)
+		}
+
+		memberClusters[idx].client = &client
+	}
+	return memberClusters, nil
 }
