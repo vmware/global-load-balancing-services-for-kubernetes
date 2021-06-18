@@ -32,9 +32,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -42,7 +40,6 @@ import (
 var clusterScheme *k8sruntime.Scheme
 
 const (
-	metricsAddr   = ":8081"
 	apiServerPort = 9453
 )
 
@@ -68,12 +65,11 @@ type AMKOClusterReconciler struct {
 
 func createController() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             clusterScheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               apiServerPort,
+		Scheme: clusterScheme,
+		Port:   apiServerPort,
 	})
 	if err != nil {
-		gslbutils.Errf("unable to start manager: %v", err)
+		gslbutils.Errf("unable to create manager for AMKOCluster controller: %v", err)
 		os.Exit(1)
 	}
 
@@ -81,12 +77,12 @@ func createController() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		gslbutils.Errf("unable to create cluster reconciler: %v", err)
+		gslbutils.Errf("unable to create reconciler for AMKOCluster controller: %v", err)
 		os.Exit(1)
 	}
 	go func() {
 		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-			gslbutils.Errf("problem starting manager: %v", err)
+			gslbutils.Errf("unable to start AMKOCluster controller manager: %v", err)
 			os.Exit(1)
 		}
 	}()
@@ -94,18 +90,8 @@ func createController() {
 
 var currentLeader bool
 
-func acceptGenerationChangePredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			e.ObjectOld.GetGeneration()
-			// skip if no generation change, applicable to all objects
-			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-		},
-	}
-}
-
 func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	gslbutils.Debugf("Starting AMKOCluster reconcialation")
+	gslbutils.Debugf("Starting AMKOCluster reconciliation")
 
 	var amkoClusterList amkov1alpha1.AMKOClusterList
 	err := r.List(ctx, &amkoClusterList, &client.ListOptions{
@@ -132,7 +118,11 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	memberClusters, err := federator.FetchMemberClusterContexts(ctx, amkoCluster.DeepCopy())
-	gslbutils.Debugf("memberClusters obtained during reconcialation: %v", memberClusters)
+	if err != nil {
+		gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
+		return reconcile.Result{}, err
+	}
+	gslbutils.Debugf("memberClusters obtained during reconciliation: %v", memberClusters)
 
 	err = federator.ValidateMemberClusters(ctx, memberClusters)
 	if err != nil {
@@ -140,7 +130,7 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
 
-	gslbutils.Debugf("AMKOCluster reconcialation completed")
+	gslbutils.Debugf("AMKOCluster validation done")
 	return ctrl.Result{}, nil
 }
 
@@ -159,7 +149,7 @@ func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}),
 		).
 		For(&amkov1alpha1.AMKOCluster{}).
-		WithEventFilter(acceptGenerationChangePredicate()).
+		WithEventFilter(federator.AcceptGenerationChangePredicate()).
 		Complete(r)
 }
 
@@ -187,6 +177,10 @@ func handleBootup(cfg *restclient.Config) (bool, error) {
 	}
 
 	memberClusters, err := federator.FetchMemberClusterContexts(context.TODO(), amkoCluster.DeepCopy())
+	if err != nil {
+		gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
+		return false, err
+	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
 
 	err = federator.ValidateMemberClusters(context.TODO(), memberClusters)

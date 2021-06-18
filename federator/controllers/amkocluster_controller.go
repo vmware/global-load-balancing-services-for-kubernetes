@@ -293,6 +293,6 @@ func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}),
 		).
 		For(&amkov1alpha1.AMKOCluster{}).
-		WithEventFilter(acceptGenerationChangePredicate()).
+		WithEventFilter(AcceptGenerationChangePredicate()).
 		Complete(r)
 }

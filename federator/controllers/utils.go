@@ -208,7 +208,7 @@ func generateTempKubeConfig() error {
 	return nil
 }
 
-func acceptGenerationChangePredicate() predicate.Predicate {
+func AcceptGenerationChangePredicate() predicate.Predicate {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			e.ObjectOld.GetGeneration()
