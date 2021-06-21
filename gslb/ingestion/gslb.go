@@ -663,10 +663,11 @@ func Initialize() {
 	}
 
 	// handleBootup checks AMKOCluster object, validates and then starts a reconciler to process updates.
-	isLeader, err := handleBootup(cfg)
+	isLeader, err := HandleBootup(cfg)
 	if err != nil {
 		panic("error during boot up: " + err.Error())
 	}
+	CreateController()
 	// If the current cluster is not the leader then don't progress and wait forever
 	if !isLeader {
 		<-stopCh

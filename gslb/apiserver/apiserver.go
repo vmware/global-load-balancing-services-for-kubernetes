@@ -18,12 +18,12 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
 )
 
-var amkoAPI *api.ApiServer
+var amkoAPI api.ApiServerInterface
 
-func SetAmkoAPIServer(server *api.ApiServer) {
+func SetAmkoAPIServer(server api.ApiServerInterface) {
 	amkoAPI = server
 }
 
-func GetAmkoAPIServer() *api.ApiServer {
+func GetAmkoAPIServer() api.ApiServerInterface {
 	return amkoAPI
 }

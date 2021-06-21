@@ -61,7 +61,7 @@ type AMKOClusterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-func createController() {
+func CreateController() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		MetricsBindAddress: metricsAddr,
 		Scheme:             clusterScheme,
@@ -98,7 +98,7 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("AMKOClusterObjects can't be listed, err: %v", err)
 	}
-	if len(amkoClusterList.Items) > 1 {
+	if len(amkoClusterList.Items) != 1 {
 		return reconcile.Result{}, fmt.Errorf("only one AMKOClusterObject allowed per cluster")
 	}
 
@@ -160,7 +160,7 @@ func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func handleBootup(cfg *restclient.Config) (bool, error) {
+func HandleBootup(cfg *restclient.Config) (bool, error) {
 	clusterClient, err := InitializeClusterClient(cfg)
 	if err != nil {
 		return false, fmt.Errorf("error in initializing amkocluster client: %v", err)
@@ -205,7 +205,5 @@ func handleBootup(cfg *restclient.Config) (bool, error) {
 	if len(errClusters) != 0 {
 		gslbutils.Warnf("some member clusters are invalid: %v, will ignore these", errClusters)
 	}
-
-	createController()
 	return currentLeader, nil
 }
