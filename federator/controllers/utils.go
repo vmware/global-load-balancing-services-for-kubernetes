@@ -172,11 +172,13 @@ type KubeContextDetails struct {
 	client      *client.Client
 }
 
-func getClusterContextDetails(membersKubeConfig string, memberClusters []string, skipContext string) []KubeContextDetails {
+func getClusterContextDetails(membersKubeConfig string, memberClusters []string, skipContext string) ([]KubeContextDetails, error) {
 	var clusterDetails []KubeContextDetails
 
+	currentContextPresent := false
 	for _, member := range memberClusters {
 		if member == skipContext {
+			currentContextPresent = true
 			continue
 		}
 		clusterDetails = append(clusterDetails, KubeContextDetails{
@@ -184,7 +186,11 @@ func getClusterContextDetails(membersKubeConfig string, memberClusters []string,
 			kubeconfig:  membersKubeConfig,
 		})
 	}
-	return clusterDetails
+	if !currentContextPresent {
+		return nil, fmt.Errorf("current cluster context %s not part of member clusters", skipContext)
+	}
+
+	return clusterDetails, nil
 }
 
 func generateTempKubeConfig() error {
@@ -226,8 +232,8 @@ func getStatusCondition(statusType, statusMsg, reason string) amkov1alpha1.AMKOC
 	}
 }
 
-// To Do: Move functions used by both federator and main gslb to a common library
-func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDetails) error {
+// TODO: Move functions used by both federator and main gslb to a common library
+func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDetails, currVersion string) error {
 	// Perform validation checks
 	// 1. Only one instance of AMKOCluster must be present in the avi-system namespace
 	// 2. No other cluster should be leader if the current instance is leader
@@ -250,6 +256,10 @@ func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDet
 				cluster.clusterName)
 		}
 
+		if len(amkoCluster.Items) == 0 {
+			return fmt.Errorf("no AMKOCluster object present in cluster %s, can't federate", cluster.clusterName)
+		}
+
 		obj := amkoCluster.Items[0].DeepCopy()
 		if obj.Namespace != AviSystemNS {
 			return fmt.Errorf("AMKOCluster object not present in avi-system namespace in cluster %s, can't federate",
@@ -258,6 +268,11 @@ func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDet
 
 		if obj.Spec.IsLeader {
 			return fmt.Errorf("AMKO in cluster %s is also a leader, conflicting state", cluster.clusterName)
+		}
+
+		if obj.Spec.Version != currVersion {
+			return fmt.Errorf("version mismatch, current AMKO: %s, AMKO in cluster %s: %s", currVersion,
+				cluster.clusterName, obj.Spec.Version)
 		}
 	}
 
@@ -281,9 +296,13 @@ func InitMemberClusterContexts(ctx context.Context, currentContext string, clust
 	// - obtain the list of all member cluster contexts from the kubeconfig
 	// - remove the current context
 	// - build the context config for the rest of them
-	memberClusters := getClusterContextDetails(MembersKubePath, clusterList, currentContext)
+	memberClusters, err := getClusterContextDetails(MembersKubePath, clusterList, currentContext)
+	if err != nil {
+		return nil, err
+	}
 
 	for idx, cluster := range memberClusters {
+		log.Log.Info("member cluster", "cluster", cluster.clusterName)
 		if currentContext == cluster.clusterName {
 			// skip for current context
 			continue
@@ -298,7 +317,6 @@ func InitMemberClusterContexts(ctx context.Context, currentContext string, clust
 		if err != nil {
 			return nil, fmt.Errorf("error in initializing member custer context %s: %v", cluster.clusterName, err)
 		}
-
 		memberClusters[idx].client = &client
 	}
 	return memberClusters, nil

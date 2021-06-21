@@ -124,7 +124,7 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	gslbutils.Debugf("memberClusters obtained during reconciliation: %v", memberClusters)
 
-	err = federator.ValidateMemberClusters(ctx, memberClusters)
+	err = federator.ValidateMemberClusters(ctx, memberClusters, amkoCluster.ClusterName)
 	if err != nil {
 		apiserver.GetAmkoAPIServer().ShutDown()
 		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
@@ -183,7 +183,7 @@ func handleBootup(cfg *restclient.Config) (bool, error) {
 	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
 
-	err = federator.ValidateMemberClusters(context.TODO(), memberClusters)
+	err = federator.ValidateMemberClusters(context.TODO(), memberClusters, amkoCluster.ClusterName)
 	if err != nil {
 		return false, fmt.Errorf("error in validating the member clusters: %v", err)
 	}

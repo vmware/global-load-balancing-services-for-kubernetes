@@ -17,13 +17,22 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
@@ -31,50 +40,379 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
+		"Federator Suite",
 		[]Reporter{printer.NewlineReporter{}})
 }
+
+var cfg1 *rest.Config
+var cfg2 *rest.Config
+
+var k8sClient1 client.Client
+var k8sClient2 client.Client
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+	// test envs for both cluster1 and cluster2
+	testEnv1 = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases"), AMKOCRDs},
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	var err error
+	cfg1, err = testEnv1.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	Expect(cfg1).NotTo(BeNil())
+
+	testEnv2 = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases"), AMKOCRDs},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg2, err = testEnv2.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg2).NotTo(BeNil())
 
 	err = amkovmwarecomv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
+	utilruntime.Must(amkovmwarecomv1alpha1.AddToScheme(testScheme))
+	utilruntime.Must(gslbalphav1.AddToScheme(testScheme))
+	utilruntime.Must(gdpalphav2.AddToScheme(testScheme))
+
+	// get k8s clients for cluster1 and cluster2
+	k8sClient1, err = client.New(cfg1, client.Options{Scheme: testScheme})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	Expect(k8sClient1).NotTo(BeNil())
+
+	k8sClient2, err = client.New(cfg2, client.Options{Scheme: testScheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient2).NotTo(BeNil())
+
+	k8sManager, err := ctrl.NewManager(cfg1, ctrl.Options{
+		Scheme: testScheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&AMKOClusterReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+
+	Expect(err).ToNot(HaveOccurred())
+
+	// build and create the gslb members secret
+	fmt.Fprintf(GinkgoWriter, "building and creating secret\n")
+	BuildAndCreateTestKubeConfig(k8sClient1, k8sClient2)
+
+	kdata := os.Getenv("GSLB_CONFIG")
+	fmt.Fprintf(GinkgoWriter, "kubeconfig data: %v", kdata)
+
+	go func() {
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		Expect(err).ToNot(HaveOccurred())
+	}()
 
 }, 60)
 
+var _ = Describe("Federator Validation", func() {
+	amkoCluster := getTestAMKOClusterObj(Cluster1, true)
+	gcObj := getTestGCObj()
+	gdpObj := getTestGDPObject()
+
+	// Given a federator
+	//   when an AMKOCluster object is added with empty version
+	//     status of AMKOCluster object should contain error
+	//     no federation should happen
+	Context("when an AMKOCluster object's version field is empty", func() {
+		Specify("AMKOCluster's federation status should indicate an error", func() {
+			By("Creating a new AMKOCluster object with an empty version field")
+			ctx := context.Background()
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			amkoCluster.Spec.Version = ""
+			Expect(k8sClient1.Create(ctx, &amkoCluster)).Should(Succeed())
+			VerifyTestAMKOClusterObjectFailure(k8sClient1,
+				"version field can't be empty in AMKOCluster object")
+		})
+
+		It("should not federate any objects on member clusters", func() {
+			TestGCGDPNotFederated(k8sClient2)
+		})
+
+		Specify("deletion of AMKOCluster with invalid version is successful", func() {
+			ctx := context.Background()
+			Expect(k8sClient1.Delete(ctx, &amkoCluster)).Should(Succeed())
+			deleteTestGCAndGDPObj(ctx, k8sClient1, &gcObj, &gdpObj)
+		})
+	})
+
+	//   when an AMKOCluster object is added with an invalid cluster context
+	//     status of AMKOCluster object should contain error
+	//     no federation should happen
+	//
+	Context("when an AMKOCluster object has an invalid clusterContext", func() {
+		Specify("AMKOCluster's federation status should indicate an error", func() {
+			By("Creating a new AMKOCluster object with a different clusterContext")
+			ctx := context.Background()
+			gcObj.ObjectMeta.ResourceVersion = ""
+			gdpObj.ObjectMeta.ResourceVersion = ""
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			amkoCluster = getTestAMKOClusterObj("invalid-context", true)
+			Expect(k8sClient1.Create(ctx, &amkoCluster)).Should(Succeed())
+			VerifyTestAMKOClusterObjectFailure(k8sClient1,
+				"error in initializing member cluster contexts: current cluster context invalid-context not part of member clusters")
+		})
+
+		It("should not federate any objects on member clusters", func() {
+			TestGCGDPNotFederated(k8sClient2)
+		})
+
+		Specify("deletion of AMKOCluster with invalid cluster context is successful", func() {
+			ctx := context.Background()
+			Expect(k8sClient1.Delete(ctx, &amkoCluster)).Should(Succeed())
+			deleteTestGCAndGDPObj(ctx, k8sClient1, &gcObj, &gdpObj)
+		})
+	})
+
+	//   when and AMKOCluster object is added with an invalid cluster list
+	//     status of AMKOCluster object should contain error
+	//     no federation should happen
+	Context("when an AMKOCluster object has invalid cluster list", func() {
+		Specify("the AMKOCluster's federation status indicates an error", func() {
+			By("Creating a new AMKOCluster object with a different clusterContext")
+			ctx := context.Background()
+			gcObj.ObjectMeta.ResourceVersion = ""
+			gdpObj.ObjectMeta.ResourceVersion = ""
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			amkoCluster = getTestAMKOClusterObj("cluster1", true)
+			amkoCluster.Spec.Clusters = append(amkoCluster.Spec.Clusters, "invalid-cluster")
+			Expect(k8sClient1.Create(ctx, &amkoCluster)).Should(Succeed())
+			VerifyTestAMKOClusterObjectFailure(k8sClient1,
+				"error in initializing member cluster contexts: error in building context config for kubernetes cluster invalid-cluster: context \"invalid-cluster\" does not exist")
+		})
+
+		It("should not federate any objects on member clusters", func() {
+			TestGCGDPNotFederated(k8sClient2)
+		})
+
+		Specify("deletion of AMKOCluster with invalid cluster list is successful", func() {
+			ctx := context.Background()
+			Expect(k8sClient1.Delete(ctx, &amkoCluster)).Should(Succeed())
+			deleteTestGCAndGDPObj(ctx, k8sClient1, &gcObj, &gdpObj)
+		})
+	})
+})
+
+var _ = Describe("Federation Operation", func() {
+	amkoCluster1 := getTestAMKOClusterObj(Cluster1, true)
+	amkoCluster2 := getTestAMKOClusterObj(Cluster2, false)
+	gcObj := getTestGCObj()
+	gdpObj := getTestGDPObject()
+
+	// Given a federator
+	//   when a valid AMKOCluster object is added on both clusters
+	//     status should reflect federation success
+	//     GC and GDP objects should be federated on the other cluster (POST)
+	//     GC updates should be federated on the other cluster (PUT)
+	//     GDP updates should be federated on the other cluster (PUT)
+	Context("when a valid AMKOCluster object is added to both clusters", func() {
+		Specify("AMKOCluster's federation status should indicate success", func() {
+			By("Creating a valid AMKOCluster object on both the clusters")
+			ctx := context.Background()
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
+			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+		})
+
+		It("should federate GC and GDP objects on member clusters", func() {
+			TestGCGDPExist(k8sClient2)
+		})
+
+		It("should federate GC updates to cluster2", func() {
+			By("updating the GC object on cluster1")
+			ctx := context.Background()
+			gcObj.Spec.RefreshInterval = 999
+			Expect(k8sClient1.Update(ctx, &gcObj)).Should(Succeed())
+			Eventually(func() int {
+				var obj gslbalphav1.GSLBConfig
+				Expect(k8sClient2.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      gcObj.Name,
+						Namespace: gcObj.Namespace},
+					&obj)).Should(Succeed())
+				return obj.Spec.RefreshInterval
+			}, 5*time.Second, 1*time.Second).Should(Equal(999))
+		})
+
+		It("should federate GDP updates to cluster2", func() {
+			By("updating the GDP object on cluster1")
+			ctx := context.Background()
+			ttl := 1000
+			gdpObj.Spec.TTL = &ttl
+			Expect(k8sClient1.Update(ctx, &gdpObj)).Should(Succeed())
+			Eventually(func() int {
+				var obj gdpalphav2.GlobalDeploymentPolicy
+				Expect(k8sClient2.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      gdpObj.Name,
+						Namespace: gdpObj.Namespace},
+					&obj)).Should(Succeed())
+				return *obj.Spec.TTL
+			}, 5*time.Second, 1*time.Second).Should(Equal(1000))
+		})
+
+		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {
+			CleanupTestObjects(k8sClient1, k8sClient2, &amkoCluster1, &amkoCluster2,
+				&gcObj, &gdpObj)
+		})
+	})
+
+	// when a valid AMKOCluster object is added to both the clusters, but there's a version mismatch
+	//   status in cluster1 should indicate failure
+	//   no federation
+	//   update to the cluster2's AMKOCluster version to match the versions should enable federation
+	Context("when a valid AMKOCluster object is added to both clusters but with version mismatch", func() {
+		Specify("AMKOCluster's federation status should indicate failure", func() {
+			By("Creating a AMKOCluster objects on both the clusters with different versions")
+			ctx := context.Background()
+			// re-init the objects
+			gcObj = getTestGCObj()
+			gdpObj = getTestGDPObject()
+			amkoCluster1 = getTestAMKOClusterObj(Cluster1, true)
+			amkoCluster2 = getTestAMKOClusterObj(Cluster2, false)
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			amkoCluster2.Spec.Version = TestAMKODifferentVersion
+			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
+			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectFailure(k8sClient1, "version mismatch, current AMKO: "+
+				TestAMKOVersion+", AMKO in cluster cluster2: "+TestAMKODifferentVersion)
+		})
+
+		It("should not federate GC and GDP objects on member clusters", func() {
+			TestGCGDPNotFederated(k8sClient2)
+		})
+
+		Specify("cluster1's AMKOCluster status should indicate success, if version is matched on cluster2", func() {
+			ctx := context.Background()
+			amkoCluster2.Spec.Version = TestAMKOVersion
+			Expect(k8sClient2.Update(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+		})
+
+		It("should now federate GC and GDP objects on member clusters", func() {
+			TestGCGDPExist(k8sClient2)
+		})
+
+		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {
+			CleanupTestObjects(k8sClient1, k8sClient2, &amkoCluster1, &amkoCluster2,
+				&gcObj, &gdpObj)
+		})
+	})
+
+	// when a valid AMKOCluster object is added on cluster1 and no AMKOCluster object in cluster2
+	//   status should reflect federation failure
+	//   GC and GDP objects should not be federated on the other cluster
+	//   creating an AMKOCluster object on cluster2 should start the federation
+	Context("when an AMKOCluster object is added to cluster1 but no AMKOCluster on cluster2", func() {
+		Specify("AMKOCluster's federation status should indicate failure", func() {
+			By("Creating an AMKOCluster object on cluster1")
+			ctx := context.Background()
+			// re-init the objects
+			gcObj = getTestGCObj()
+			gdpObj = getTestGDPObject()
+			amkoCluster1 = getTestAMKOClusterObj(Cluster1, true)
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
+			VerifyTestAMKOClusterObjectFailure(k8sClient1,
+				"no AMKOCluster object present in cluster cluster2, can't federate")
+		})
+
+		It("should not federate GC and GDP objects on member clusters", func() {
+			TestGCGDPNotFederated(k8sClient2)
+		})
+
+		Specify("AMKOCluster's federation status should indicate success on adding an AMKOCluster on cluster2", func() {
+			ctx := context.Background()
+			amkoCluster2 = getTestAMKOClusterObj(Cluster2, false)
+			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+		})
+
+		It("should now federate GC and GDP objects on member clusters", func() {
+			TestGCGDPExist(k8sClient2)
+		})
+
+		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {
+			CleanupTestObjects(k8sClient1, k8sClient2, &amkoCluster1, &amkoCluster2,
+				&gcObj, &gdpObj)
+		})
+	})
+
+	// when a valid AMKOCluster object is added to both cluster1 and cluster2, both are leader
+	//   status should reflect federation failure
+	//   GC and GDP objects should not be federated on the other cluster
+	//   update to the cluster2's AMKOCluster leader field to false should re-enable federation
+	Context("AMKOClusters on both cluster1 and cluster2 are leaders", func() {
+		Specify("AMKOCluster's federation status should indicate failure", func() {
+			By("Creating an AMKOCluster object on cluster1 and cluster2 as leaders")
+			ctx := context.Background()
+			// re-init the objects
+			gcObj = getTestGCObj()
+			gdpObj = getTestGDPObject()
+			amkoCluster1 = getTestAMKOClusterObj(Cluster1, true)
+			amkoCluster2 = getTestAMKOClusterObj(Cluster2, true)
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
+			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectFailure(k8sClient1,
+				"AMKO in cluster cluster2 is also a leader, conflicting state")
+		})
+
+		It("should not federate GC and GDP objects on member clusters", func() {
+			TestGCGDPNotFederated(k8sClient2)
+		})
+
+		Specify("AMKOCluster's federation status should indicate success on changing cluster2's AMKOCluster to follower", func() {
+			ctx := context.Background()
+			amkoCluster2.Spec.IsLeader = false
+			Expect(k8sClient2.Update(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+		})
+
+		It("should now federate GC and GDP objects on member clusters", func() {
+			TestGCGDPExist(k8sClient2)
+		})
+
+		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {
+			ctx := context.Background()
+			Expect(k8sClient1.Delete(ctx, &amkoCluster1)).Should(Succeed())
+			deleteTestGCAndGDPObj(ctx, k8sClient1, &gcObj, &gdpObj)
+			Expect(k8sClient2.Delete(ctx, &amkoCluster2)).Should(Succeed())
+			deleteTestGCAndGDPObj(ctx, k8sClient2, &gcObj, &gdpObj)
+		})
+	})
+})
+
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testEnv.Stop()
+	err := testEnv1.Stop()
+	Expect(err).NotTo(HaveOccurred())
+	err = testEnv2.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
