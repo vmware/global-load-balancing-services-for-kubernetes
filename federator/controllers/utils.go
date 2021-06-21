@@ -25,7 +25,7 @@ import (
 	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,6 +54,7 @@ const (
 	StatusMsgFederationFailure = "Failure in federating objects"
 	StatusMsgFederationSuccess = "Federation successful"
 	StatusMsgNotALeader        = "Won't federate"
+	ErrInitClientContext       = "error in initializing member custer context"
 )
 
 var gcGVK schema.GroupVersionKind = schema.GroupVersionKind{
@@ -100,7 +101,7 @@ func FederateObjects(ctx context.Context, memberClusters []KubeContextDetails, o
 			}
 
 			// determine if create/update
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				log.Log.Info("creating object on member cluster", "member cluster", m.clusterName)
 				// create can't happen if resource version isn't set to ""
 				obj.SetResourceVersion("")
@@ -315,7 +316,7 @@ func InitMemberClusterContexts(ctx context.Context, currentContext string, clust
 		}
 		client, err := InitializeMemberClusterClient(cfg)
 		if err != nil {
-			return nil, fmt.Errorf("error in initializing member custer context %s: %v", cluster.clusterName, err)
+			return nil, fmt.Errorf("%s %s: %v", ErrInitClientContext, cluster.clusterName, err)
 		}
 		memberClusters[idx].client = &client
 	}
