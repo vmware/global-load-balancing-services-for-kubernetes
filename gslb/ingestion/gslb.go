@@ -157,7 +157,7 @@ func (gslbController *GSLBConfigController) Run(stopCh <-chan struct{}) error {
 func initFlags() {
 	gslbutils.Logf("object: main, msg: %s", "initializing the flags")
 	defKubeConfig := os.Getenv("HOME") + "/.kube/config"
-	flag.StringVar(&kubeConfig, "kubeconfig", defKubeConfig, "Path to kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&kubeConfig, "kubeconfigpath", defKubeConfig, "Path to kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the kubernetes API server. Overrides any value in kubeconfig. Overrides any value in kubeconfig, only required if out-of-cluster.")
 	gslbutils.Logf("master: %s, kubeconfig: %s, msg: %s", masterURL, kubeConfig, "fetched from cmd")
 }
