@@ -137,8 +137,8 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
 
-	// Get the object list to be federated
-	objList, err := r.GetObjectsToBeFederated(ctx)
+	// Federate the GSLBConfig object on all member clusters
+	err = r.FederateGSLBConfig(ctx, memberClusters)
 	if err != nil {
 		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
 		if statusErr != nil {
@@ -146,11 +146,10 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				RequeueAfter: time.Second * 5,
 			}, statusErr
 		}
-		return reconcile.Result{}, fmt.Errorf("error in getting the required objects: %v", err)
+		return reconcile.Result{}, fmt.Errorf("error in federating GSLBConfig object: %v", err)
 	}
 
-	// federated the object list in objList across all member clusters
-	err = FederateObjects(ctx, memberClusters, objList)
+	err = r.FederateGDP(ctx, memberClusters)
 	if err != nil {
 		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
 		if statusErr != nil {
@@ -158,7 +157,7 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				RequeueAfter: time.Second * 5,
 			}, statusErr
 		}
-		return reconcile.Result{}, fmt.Errorf("error in federating objects: %v", err)
+		return reconcile.Result{}, fmt.Errorf("error in federating GDP object: %v", err)
 	}
 
 	// update the status of AMKOCluster
@@ -170,6 +169,72 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *AMKOClusterReconciler) FederateGSLBConfig(ctx context.Context, memberClusters []KubeContextDetails) error {
+	// Determine the state that we need to federate across all member clusters
+	var currGCList gslbalphav1.GSLBConfigList
+	err := r.List(ctx, &currGCList, &client.ListOptions{
+		Namespace: AviSystemNS,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot list GSLBConfig list on current cluster in %s namespace: %v",
+			AviSystemNS, err)
+	}
+
+	if len(currGCList.Items) > 1 {
+		return fmt.Errorf("more than one GSLBConfig objects are present in the current cluster")
+	}
+
+	// if no GC objects exist, we need to sync all member clusters to the same state
+	// which would mean, we need to delete GCs on all member clusters (if any)
+	if len(currGCList.Items) == 0 {
+		if err = DeleteObjsOnAllMemberClusters(ctx, memberClusters, AviSystemNS, &gslbalphav1.GSLBConfig{}); err != nil {
+			return fmt.Errorf("error in removing GSLBConfig objects on member clusters: %v", err)
+		}
+		return nil
+	}
+
+	// if a GC object exists in the current cluster, we need to make sure that all the member
+	// clusters have only this GC object in the avi-system namespace.
+	if err = FederateGCObjectOnMemberClusters(ctx, memberClusters, currGCList.Items[0].DeepCopy()); err != nil {
+		return fmt.Errorf("error in federating GSLBConfig object to member clusters: %v", err)
+	}
+
+	return nil
+}
+
+func (r *AMKOClusterReconciler) FederateGDP(ctx context.Context, memberClusters []KubeContextDetails) error {
+	// Determine the state that we need to federate across all member clusters
+	var currGDPList gdpalphav2.GlobalDeploymentPolicyList
+	err := r.List(ctx, &currGDPList, &client.ListOptions{
+		Namespace: AviSystemNS,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot list GlobalDeploymentPolicy list on current cluster in %s namespace: %v",
+			AviSystemNS, err)
+	}
+
+	if len(currGDPList.Items) > 1 {
+		return fmt.Errorf("more than one GlobalDeploymentPolicies are present in the current cluster")
+	}
+
+	// if no GDP objects exist, we need to sync all member clusters to the same state
+	// which would mean, we need to delete GDPs on all member clusters (if any)
+	if len(currGDPList.Items) == 0 {
+		if err = DeleteObjsOnAllMemberClusters(ctx, memberClusters, AviSystemNS, &gdpalphav2.GlobalDeploymentPolicy{}); err != nil {
+			return fmt.Errorf("error in removing GlobalDeploymentPolicies on member clusters: %v", err)
+		}
+		return nil
+	}
+
+	// if a GDP object exists in the current cluster, we need to make sure that all the member
+	// clusters have only this GDP object in the avi-system namespace.
+	if err = FederateGDPObjectOnMemberClusters(ctx, memberClusters, currGDPList.Items[0].DeepCopy()); err != nil {
+		return fmt.Errorf("error in federating GSLBConfig object to member clusters: %v", err)
+	}
+
+	return nil
 }
 
 func (r *AMKOClusterReconciler) GetObjectsToBeFederated(ctx context.Context) ([]client.Object, error) {

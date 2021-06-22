@@ -28,7 +28,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
@@ -76,68 +75,165 @@ func IsObjAMKOClusterType(ctx context.Context, name string) bool {
 	return true
 }
 
-func FederateObjects(ctx context.Context, memberClusters []KubeContextDetails, objList []client.Object) error {
+func DeleteObjsOnAllMemberClusters(ctx context.Context, memberClusters []KubeContextDetails, namespace string, obj client.Object) error {
 	for _, m := range memberClusters {
-		for _, obj := range objList {
-			clusterClient := *m.client
-			// decide whether to create or update
-			var gcObj gslbalphav1.GSLBConfig
-			var gdpObj gdpalphav2.GlobalDeploymentPolicy
-			var err error
+		clusterClient := *m.client
+		if err := clusterClient.DeleteAllOf(ctx, obj, &client.DeleteAllOfOptions{
+			ListOptions: client.ListOptions{
+				Namespace: namespace,
+			},
+		}); err != nil {
+			return fmt.Errorf("error in deleting all objects of kind %s in %s namespace and in %s cluster: %v",
+				obj.GetObjectKind().GroupVersionKind().Kind, namespace, m.clusterName, err)
+		}
+	}
+	return nil
+}
 
-			// identify the type of object and put in the relevant variable
-			if obj.GetObjectKind().GroupVersionKind() == gcGVK {
-				err = clusterClient.Get(ctx, types.NamespacedName{
-					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
-				}, &gcObj)
-			} else if obj.GetObjectKind().GroupVersionKind() == gdpGVK {
-				err = clusterClient.Get(ctx, types.NamespacedName{
-					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
-				}, &gdpObj)
-			} else {
-				return fmt.Errorf("can't federate an unsupported object: %v", obj.GetObjectKind().GroupVersionKind())
-			}
+func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
+	target client.Object, cname string) error {
 
-			// determine if create/update
-			if k8serrors.IsNotFound(err) {
-				log.Log.Info("creating object on member cluster", "member cluster", m.clusterName)
-				// create can't happen if resource version isn't set to ""
-				obj.SetResourceVersion("")
-				err := clusterClient.Create(ctx, obj)
-				if err != nil {
-					return fmt.Errorf("can't create %s object on cluster %s, obj name: %v",
-						obj.GetObjectKind(), m.clusterName, err)
+	sourceGVK := source.GetObjectKind().GroupVersionKind()
+	targetGVK := target.GetObjectKind().GroupVersionKind()
+	if sourceGVK != targetGVK {
+		return fmt.Errorf("can't update object %s/%s, source and targets are different, source type: %v, target type: %v",
+			source.GetNamespace(), source.GetName(), sourceGVK, targetGVK)
+	}
+	switch sourceGVK {
+	case gcGVK:
+		sourceGC := source.(*gslbalphav1.GSLBConfig)
+		targetGC := target.(*gslbalphav1.GSLBConfig)
+		sourceGC.Spec.DeepCopyInto(&targetGC.Spec)
+	case gdpGVK:
+		sourceGDP := source.(*gdpalphav2.GlobalDeploymentPolicy)
+		targetGDP := target.(*gdpalphav2.GlobalDeploymentPolicy)
+		sourceGDP.Spec.DeepCopyInto(&targetGDP.Spec)
+	default:
+		return fmt.Errorf("can't federate an unsupported object, object type: %v", sourceGVK)
+	}
+
+	if err := c.Update(ctx, target, &client.UpdateOptions{
+		FieldManager: "AMKO",
+	}); err != nil {
+		return fmt.Errorf("can't update object %s/%s on cluster %s: %v", source.GetNamespace(),
+			source.GetName(), cname, err)
+	}
+
+	return nil
+}
+
+func DeleteObjInMemberCluster(ctx context.Context, c client.Client, obj client.Object,
+	cname string) error {
+	if err := c.Delete(ctx, obj); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// object is already removed, continue
+			return nil
+		}
+		return fmt.Errorf("can't delete %s object %s/%s on cluster %s: %v",
+			obj.GetObjectKind().GroupVersionKind(), obj.GetNamespace(),
+			obj.GetName(), cname, err)
+	}
+	return nil
+}
+
+func FederateGCObjectOnMemberClusters(ctx context.Context, memberClusters []KubeContextDetails,
+	currObj *gslbalphav1.GSLBConfig) error {
+
+	namespace := currObj.Namespace
+
+	for _, m := range memberClusters {
+		clusterClient := *m.client
+		objList := gslbalphav1.GSLBConfigList{}
+		if err := clusterClient.List(ctx, &objList, &client.ListOptions{
+			Namespace: namespace,
+		}); err != nil {
+			return fmt.Errorf("can't list GSLBConfigs in %s namespace for %s cluster: %v",
+				namespace, m.clusterName, err)
+		}
+
+		// go through the list of GC objects in the namespace, if we find the relevant GC, just
+		// update and return
+		updated := false
+		for _, remoteObj := range objList.Items {
+			if remoteObj.Name == currObj.Name {
+				if err := UpdateObjOnMemberCluster(ctx, clusterClient, currObj, remoteObj.DeepCopy(),
+					m.clusterName); err != nil {
+					return err
 				}
+				updated = true
 			} else {
-				log.Log.Info("updating object on member cluster", "member cluster", m.clusterName)
-				if gcObj.Name != "" {
-					newGCObj := obj.(*gslbalphav1.GSLBConfig)
-					newGCObj.Spec.DeepCopyInto(&gcObj.Spec)
-					err := clusterClient.Update(ctx, &gcObj, &client.UpdateOptions{
-						FieldManager: "AMKO",
-					})
-					if err != nil {
-						return fmt.Errorf("can't update GSLBConfig object on cluster %s, obj name: %v",
-							m.clusterName, err)
-					}
-				} else if gdpObj.Name != "" {
-					newGDPObj := obj.(*gdpalphav2.GlobalDeploymentPolicy)
-					newGDPObj.Spec.DeepCopyInto(&gdpObj.Spec)
-					err := clusterClient.Update(ctx, &gdpObj, &client.UpdateOptions{
-						FieldManager: "AMKO",
-					})
-					if err != nil {
-						return fmt.Errorf("can't update GDP object on cluster %s, obj name: %v",
-							m.clusterName, err)
-					}
-				} else {
-					return fmt.Errorf("can't update unknown object")
+				// remove all other GC objects in this namespace
+				if err := DeleteObjInMemberCluster(ctx, clusterClient, remoteObj.DeepCopy(),
+					m.clusterName); err != nil {
+					return err
 				}
 			}
 		}
+
+		if updated {
+			// update is already done, return
+			return nil
+		}
+
+		// reaching here would mean, we need to create the GSLBConfig object
+		newObj := currObj.DeepCopy()
+		newObj.ResourceVersion = ""
+		if err := clusterClient.Create(ctx, newObj); err != nil {
+			return fmt.Errorf("error in creating GSLBConfig %s/%s on cluster %s: %v",
+				newObj.Namespace, newObj.Name, m.clusterName, err)
+		}
 	}
+
+	return nil
+}
+
+func FederateGDPObjectOnMemberClusters(ctx context.Context, memberClusters []KubeContextDetails,
+	currObj *gdpalphav2.GlobalDeploymentPolicy) error {
+
+	namespace := currObj.Namespace
+	for _, m := range memberClusters {
+		clusterClient := *m.client
+		objList := gdpalphav2.GlobalDeploymentPolicyList{}
+		if err := clusterClient.List(ctx, &objList, &client.ListOptions{
+			Namespace: namespace,
+		}); err != nil {
+			return fmt.Errorf("can't list GlobalDeploymentPolicies in %s namespace for %s cluster: %v",
+				namespace, m.clusterName, err)
+		}
+
+		// go through the list of GDP objects in the namespace, if we find the relevant GDP, just
+		// update and return
+		updated := false
+		for _, remoteObj := range objList.Items {
+			if remoteObj.Name == currObj.Name {
+				if err := UpdateObjOnMemberCluster(ctx, clusterClient,
+					currObj, remoteObj.DeepCopy(), m.clusterName); err != nil {
+					return err
+				}
+				updated = true
+			} else {
+				// delete rest of the GDPs (for which names don't match with the current cluster's GDP)
+				if err := DeleteObjInMemberCluster(ctx, clusterClient, remoteObj.DeepCopy(),
+					m.clusterName); err != nil {
+					return err
+				}
+			}
+		}
+
+		if updated {
+			// update is already done, return
+			return nil
+		}
+
+		// reaching here would mean, we need to create the GDP object
+		newObj := currObj.DeepCopy()
+		newObj.ResourceVersion = ""
+		if err := clusterClient.Create(ctx, newObj); err != nil {
+			return fmt.Errorf("error in creating GSLBConfig object %s/%s on cluster %s: %v",
+				newObj.Namespace, newObj.Name, m.clusterName, err)
+		}
+	}
+
 	return nil
 }
 
