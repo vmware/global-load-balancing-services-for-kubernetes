@@ -37,11 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var clusterScheme *k8sruntime.Scheme
+const metricsAddr = ":9090"
 
-const (
-	apiServerPort = 9453
-)
+var clusterScheme *k8sruntime.Scheme
 
 func InitializeClusterClient(cfg *restclient.Config) (client.Client, error) {
 	clusterScheme = k8sruntime.NewScheme()
@@ -65,8 +63,8 @@ type AMKOClusterReconciler struct {
 
 func createController() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: clusterScheme,
-		Port:   apiServerPort,
+		MetricsBindAddress: metricsAddr,
+		Scheme:             clusterScheme,
 	})
 	if err != nil {
 		gslbutils.Errf("unable to create manager for AMKOCluster controller: %v", err)
@@ -124,8 +122,10 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	gslbutils.Debugf("memberClusters obtained during reconciliation: %v", memberClusters)
 
-	err = federator.ValidateMemberClusters(ctx, memberClusters, amkoCluster.ClusterName)
+	err = federator.ValidateMemberClusters(ctx, memberClusters, amkoCluster.Spec.Version)
 	if err != nil {
+		gslbutils.Logf("ns: %s, AMKOCluster: %s, msg: validation error: %v, shutting down AMKO",
+			amkoCluster.Namespace, amkoCluster.Name, err)
 		apiserver.GetAmkoAPIServer().ShutDown()
 		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
@@ -154,11 +154,17 @@ func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func handleBootup(cfg *restclient.Config) (bool, error) {
-	clusterClient, _ := InitializeClusterClient(cfg)
+	clusterClient, err := InitializeClusterClient(cfg)
+	if err != nil {
+		return false, fmt.Errorf("error in initializing amkocluster client: %v", err)
+	}
 	var amkoClusterList amkov1alpha1.AMKOClusterList
-	clusterClient.List(context.TODO(), &amkoClusterList, &client.ListOptions{
+	err = clusterClient.List(context.TODO(), &amkoClusterList, &client.ListOptions{
 		Namespace: federator.AviSystemNS,
 	})
+	if err != nil {
+		return false, fmt.Errorf("error in listing amkocluster objects: %v", err)
+	}
 
 	if len(amkoClusterList.Items) == 0 {
 		gslbutils.Logf("No AMKOCluster object found, AMKO would start as leader")
@@ -183,7 +189,7 @@ func handleBootup(cfg *restclient.Config) (bool, error) {
 	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
 
-	err = federator.ValidateMemberClusters(context.TODO(), memberClusters, amkoCluster.ClusterName)
+	err = federator.ValidateMemberClusters(context.TODO(), memberClusters, amkoCluster.Spec.Version)
 	if err != nil {
 		return false, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
