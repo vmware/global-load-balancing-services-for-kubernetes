@@ -189,7 +189,7 @@ var _ = Describe("Federator Validation", func() {
 		})
 	})
 
-	//   when and AMKOCluster object is added with an invalid cluster list
+	//   when an AMKOCluster object is added with an invalid cluster list
 	//     status of AMKOCluster object should contain error
 	//     no federation should happen
 	Context("when an AMKOCluster object has invalid cluster list", func() {
@@ -234,6 +234,8 @@ var _ = Describe("Federation Operation", func() {
 		Specify("AMKOCluster's federation status should indicate success", func() {
 			By("Creating a valid AMKOCluster object on both the clusters")
 			ctx := context.Background()
+			gcObj.ObjectMeta.ResourceVersion = ""
+			gdpObj.ObjectMeta.ResourceVersion = ""
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
@@ -405,6 +407,152 @@ var _ = Describe("Federation Operation", func() {
 			deleteTestGCAndGDPObj(ctx, k8sClient1, &gcObj, &gdpObj)
 			Expect(k8sClient2.Delete(ctx, &amkoCluster2)).Should(Succeed())
 			deleteTestGCAndGDPObj(ctx, k8sClient2, &gcObj, &gdpObj)
+		})
+	})
+})
+
+var _ = Describe("Federation Consolidation Operations", func() {
+	amkoCluster1 := getTestAMKOClusterObj(Cluster1, true)
+	amkoCluster2 := getTestAMKOClusterObj(Cluster2, false)
+	gcObj := getTestGCObj()
+	gdpObj := getTestGDPObject()
+
+	alternateGCObj := getTestGCObj()
+	alternateGCObj.Name = "alt-test-gc"
+	alternateGDPObj := getTestGDPObject()
+	alternateGDPObj.Name = "alt-test-gdp"
+
+	//   when a valid AMKOCluster object is present on both clusters, but multiple GSLBConfig and GDP objects on the follower cluster
+	//     status should reflect federation success
+	//     federator should delete the non-relevant GSLBConfigs on follower cluster
+	//     GDP object should be federated
+	Context("when a valid AMKOCluster object is added to both clusters and cluster2 has 2 GSLBConfigs and 2 GDPs", func() {
+		Specify("AMKOCluster's federation status should indicate success", func() {
+			By("Creating a valid AMKOCluster object on both the clusters and an extra GSLBConfig on cluster2")
+			ctx := context.Background()
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			Expect(k8sClient2.Create(ctx, &alternateGCObj)).Should(Succeed())
+			Expect(k8sClient2.Create(ctx, &alternateGDPObj)).Should(Succeed())
+
+			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
+			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+		})
+
+		It("should give an error when the extra gslbconfig object is fetched from cluster 2", func() {
+			ctx := context.Background()
+			obj := gslbalphav1.GSLBConfig{}
+			Expect(k8sClient2.Get(ctx, types.NamespacedName{
+				Namespace: alternateGCObj.Namespace,
+				Name:      alternateGCObj.Name,
+			}, &obj)).ShouldNot(Succeed())
+		})
+
+		It("should give an error when the extra gdp object is fetched from cluster 2", func() {
+			ctx := context.Background()
+			obj := gdpalphav2.GlobalDeploymentPolicy{}
+			Expect(k8sClient2.Get(ctx, types.NamespacedName{
+				Namespace: alternateGDPObj.Namespace,
+				Name:      alternateGDPObj.Name,
+			}, &obj)).ShouldNot(Succeed())
+		})
+
+		Specify("one each of GC and GDP objects should be federated to present on cluster 2", func() {
+			// this does number of object checks anyway
+			TestGCGDPExist(k8sClient2)
+		})
+
+		It("should federate primary GC updates to cluster2", func() {
+			// make sure that the updates to the primary GC object is still federated
+			By("updating the GC object on cluster1")
+			ctx := context.Background()
+			gcObj.Spec.RefreshInterval = 999
+			Expect(k8sClient1.Update(ctx, &gcObj)).Should(Succeed())
+			Eventually(func() int {
+				var obj gslbalphav1.GSLBConfig
+				Expect(k8sClient2.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      gcObj.Name,
+						Namespace: gcObj.Namespace},
+					&obj)).Should(Succeed())
+				return obj.Spec.RefreshInterval
+			}, 5*time.Second, 1*time.Second).Should(Equal(999))
+		})
+
+		It("should federate primary GDP updates to cluster2", func() {
+			// make sure that the updates to the primary GDP object is still federated
+			By("updating the GDP object on cluster1")
+			ctx := context.Background()
+			ttl := 1000
+			gdpObj.Spec.TTL = &ttl
+			Expect(k8sClient1.Update(ctx, &gdpObj)).Should(Succeed())
+			Eventually(func() int {
+				var obj gdpalphav2.GlobalDeploymentPolicy
+				Expect(k8sClient2.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      gdpObj.Name,
+						Namespace: gdpObj.Namespace},
+					&obj)).Should(Succeed())
+				return *obj.Spec.TTL
+			}, 5*time.Second, 1*time.Second).Should(Equal(1000))
+		})
+
+		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {
+			CleanupTestObjects(k8sClient1, k8sClient2, &amkoCluster1, &amkoCluster2,
+				&gcObj, &gdpObj)
+		})
+	})
+
+	//   when a valid AMKOCluster object is present on both clusters and GC/GDP is deleted
+	//     status should reflect federation success
+	//     federator should delete the only GC/GDP object on cluster2
+	Context("when a valid AMKOCluster object is added to both clusters and GC/GDP is deleted", func() {
+		Specify("AMKOCluster's federation status should indicate success", func() {
+			By("Creating a valid AMKOCluster object on both the clusters")
+			ctx := context.Background()
+			gcObj.SetResourceVersion("")
+			gdpObj.SetResourceVersion("")
+			amkoCluster1.SetResourceVersion("")
+			amkoCluster2.SetResourceVersion("")
+			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
+			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
+			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
+			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+		})
+
+		It("should federate GC and GDP objects on member clusters", func() {
+			TestGCGDPExist(k8sClient2)
+		})
+
+		It("Should delete the GC on cluster2 when GC on cluster1 is deleted", func() {
+			ctx := context.Background()
+			Expect(k8sClient1.Delete(ctx, &gcObj)).Should(Succeed())
+
+			Eventually(func() int {
+				gcList := gslbalphav1.GSLBConfigList{}
+				Expect(k8sClient2.List(ctx, &gcList, &client.ListOptions{
+					Namespace: gcObj.Namespace,
+				})).Should(Succeed())
+				return len(gcList.Items)
+			}, 5*time.Second, 1*time.Second).Should(BeZero())
+		})
+
+		It("Should delete the GDP on cluster2 when GDP on cluster1 is deleted", func() {
+			ctx := context.Background()
+			Expect(k8sClient1.Delete(ctx, &gdpObj)).Should(Succeed())
+
+			Eventually(func() int {
+				gdpList := gdpalphav2.GlobalDeploymentPolicyList{}
+				Expect(k8sClient2.List(ctx, &gdpList, &client.ListOptions{
+					Namespace: gdpObj.Namespace,
+				})).Should(Succeed())
+				return len(gdpList.Items)
+			}, 5*time.Second, 1*time.Second).Should(BeZero())
+		})
+
+		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {
+			CleanupTestObjects(k8sClient1, k8sClient2, &amkoCluster1, &amkoCluster2,
+				&gcObj, &gdpObj)
 		})
 	})
 })

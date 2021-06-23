@@ -29,6 +29,7 @@ import (
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -273,8 +274,16 @@ func createTestGCAndGDPObjs(ctx context.Context, k8sClient client.Client, gc *gs
 }
 
 func deleteTestGCAndGDPObj(ctx context.Context, k8sClient client.Client, gc *gslbalphav1.GSLBConfig, gdp *gdpalphav2.GlobalDeploymentPolicy) {
-	Expect(k8sClient.Delete(ctx, gc)).Should(Succeed())
-	Expect(k8sClient.Delete(ctx, gdp)).Should(Succeed())
+	err := k8sClient.Delete(ctx, gc)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return
+	}
+	Expect(err).ToNot(HaveOccurred())
+	err = k8sClient.Delete(ctx, gdp)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return
+	}
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func TestGCGDPNotFederated(k8sClient client.Client) {
