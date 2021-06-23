@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
 	federator "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/controllers"
@@ -184,8 +185,11 @@ func handleBootup(cfg *restclient.Config) (bool, error) {
 
 	memberClusters, err := federator.FetchMemberClusterContexts(context.TODO(), amkoCluster.DeepCopy())
 	if err != nil {
-		gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
-		return false, err
+		if strings.Contains(err.Error(), federator.ErrInitClientContext) {
+			gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
+		} else {
+			return false, fmt.Errorf("unrecoverable error, error in fetching member cluster contexts: %v", err)
+		}
 	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
 
