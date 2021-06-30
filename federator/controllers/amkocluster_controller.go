@@ -155,7 +155,6 @@ func (r *AMKOClusterReconciler) FetchMemberClusterContextsAndUpdateStatus(ctx co
 		}
 	}
 
-	// if memberClusters list is empty, clear the rest of the status fields and return
 	if len(memberClusters) == 0 {
 		return nil, fmt.Errorf("no valid cluster contexts found")
 	}
@@ -419,9 +418,6 @@ func (r *AMKOClusterReconciler) UpdateAMKOClusterStatus(ctx context.Context, sta
 
 	// no such condition with status type, add a new one
 	updatedAMKOCluster.Status.Conditions = append(updatedAMKOCluster.Status.Conditions, condition)
-
-	tmpObj := amkov1alpha1.AMKOCluster{}
-	r.Get(ctx, types.NamespacedName{Name: tmpObj.Name, Namespace: tmpObj.Namespace}, &tmpObj)
 	return nil
 }
 
