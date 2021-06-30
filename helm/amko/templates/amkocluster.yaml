@@ -1,0 +1,13 @@
+apiVersion: "amko.vmware.com/v1alpha1"
+kind: "AMKOCluster"
+metadata:
+  name: "amkocluster-federation"
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterContext: {{ .Values.federation.currentCluster }}
+{{- with .Values.federation.memberClusters }}
+  clusters:
+     {{- toYaml . | nindent 4 }}
+{{- end }}
+  isLeader: {{ .Values.federation.currentClusterIsLeader }}
+  version: {{ .Chart.AppVersion }}
