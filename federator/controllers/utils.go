@@ -39,21 +39,17 @@ import (
 )
 
 const (
-	FederationTypeStatus       = "Federation"
-	AviSystemNS                = "avi-system"
-	MembersKubePath            = "/tmp/members-kubeconfig"
-	GCSuffix                   = "--amko.gslbconfig-"
-	GDPSuffix                  = "--amko.gdp-"
-	AMKOGroup                  = "amko.vmware.com"
-	GCKind                     = "GSLBConfig"
-	GDPKind                    = "GlobalDeploymentPolicy"
-	GCVersion                  = "v1alpha1"
-	GDPVersion                 = "v1alpha2"
-	StatusMsgFederating        = "Federating objects"
-	StatusMsgFederationFailure = "Failure in federating objects"
-	StatusMsgFederationSuccess = "Federation successful"
-	StatusMsgNotALeader        = "Won't federate"
-	ErrInitClientContext       = "error in initializing member custer context"
+	FederationTypeStatusStr = "Federation"
+
+	AviSystemNS     = "avi-system"
+	MembersKubePath = "/tmp/members-kubeconfig"
+	GCSuffix        = "--amko.gslbconfig-"
+	GDPSuffix       = "--amko.gdp-"
+	AMKOGroup       = "amko.vmware.com"
+	GCKind          = "GSLBConfig"
+	GDPKind         = "GlobalDeploymentPolicy"
+	GCVersion       = "v1alpha1"
+	GDPVersion      = "v1alpha2"
 )
 
 var gcGVK schema.GroupVersionKind = schema.GroupVersionKind{
@@ -68,6 +64,11 @@ var gdpGVK schema.GroupVersionKind = schema.GroupVersionKind{
 	Version: GDPVersion,
 }
 
+type ClusterErrorMsg struct {
+	cname string
+	err   error
+}
+
 func IsObjAMKOClusterType(ctx context.Context, name string) bool {
 	if strings.HasSuffix(name, GCSuffix) || strings.HasSuffix(name, GDPSuffix) {
 		return false
@@ -75,7 +76,11 @@ func IsObjAMKOClusterType(ctx context.Context, name string) bool {
 	return true
 }
 
-func DeleteObjsOnAllMemberClusters(ctx context.Context, memberClusters []KubeContextDetails, namespace string, obj client.Object) error {
+func DeleteObjsOnAllMemberClusters(ctx context.Context, memberClusters []KubeContextDetails, namespace string,
+	obj client.Object) []ClusterErrorMsg {
+
+	errClusters := []ClusterErrorMsg{}
+
 	for _, m := range memberClusters {
 		clusterClient := *m.client
 		if err := clusterClient.DeleteAllOf(ctx, obj, &client.DeleteAllOfOptions{
@@ -83,11 +88,16 @@ func DeleteObjsOnAllMemberClusters(ctx context.Context, memberClusters []KubeCon
 				Namespace: namespace,
 			},
 		}); err != nil {
-			return fmt.Errorf("error in deleting all objects of kind %s in %s namespace and in %s cluster: %v",
-				obj.GetObjectKind().GroupVersionKind().Kind, namespace, m.clusterName, err)
+			errClusters = append(errClusters,
+				ClusterErrorMsg{
+					cname: m.clusterName,
+					err: fmt.Errorf("error in deleting all objects of kind %s in %s namespace and in %s cluster: %v",
+						obj.GetObjectKind().GroupVersionKind().Kind, namespace, m.clusterName, err),
+				},
+			)
 		}
 	}
-	return nil
+	return errClusters
 }
 
 func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
@@ -96,8 +106,8 @@ func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
 	sourceGVK := source.GetObjectKind().GroupVersionKind()
 	targetGVK := target.GetObjectKind().GroupVersionKind()
 	if sourceGVK != targetGVK {
-		return fmt.Errorf("can't update object %s/%s, source and targets are different, source type: %v, target type: %v",
-			source.GetNamespace(), source.GetName(), sourceGVK, targetGVK)
+		return fmt.Errorf("can't update object %s/%s on cluster %s, source and targets are different, source type: %v, target type: %v",
+			cname, source.GetNamespace(), source.GetName(), sourceGVK, targetGVK)
 	}
 	switch sourceGVK {
 	case gcGVK:
@@ -109,7 +119,7 @@ func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
 		targetGDP := target.(*gdpalphav2.GlobalDeploymentPolicy)
 		sourceGDP.Spec.DeepCopyInto(&targetGDP.Spec)
 	default:
-		return fmt.Errorf("can't federate an unsupported object, object type: %v", sourceGVK)
+		return fmt.Errorf("can't federate an unsupported object on cluster %s, object type: %v", cname, sourceGVK)
 	}
 
 	if err := c.Update(ctx, target, &client.UpdateOptions{
@@ -137,9 +147,10 @@ func DeleteObjInMemberCluster(ctx context.Context, c client.Client, obj client.O
 }
 
 func FederateGCObjectOnMemberClusters(ctx context.Context, memberClusters []KubeContextDetails,
-	currObj *gslbalphav1.GSLBConfig) error {
+	currObj *gslbalphav1.GSLBConfig) []ClusterErrorMsg {
 
 	namespace := currObj.Namespace
+	errClusters := []ClusterErrorMsg{}
 
 	for _, m := range memberClusters {
 		clusterClient := *m.client
@@ -147,8 +158,13 @@ func FederateGCObjectOnMemberClusters(ctx context.Context, memberClusters []Kube
 		if err := clusterClient.List(ctx, &objList, &client.ListOptions{
 			Namespace: namespace,
 		}); err != nil {
-			return fmt.Errorf("can't list GSLBConfigs in %s namespace for %s cluster: %v",
-				namespace, m.clusterName, err)
+			// can't list the GSLBConfigs on this cluster, skip this cluster and continue
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: m.clusterName,
+				err: fmt.Errorf("can't list GSLBConfigs in %s namespace for %s cluster: %v",
+					namespace, m.clusterName, err),
+			})
+			continue
 		}
 
 		// go through the list of GC objects in the namespace, if we find the relevant GC, just
@@ -158,38 +174,54 @@ func FederateGCObjectOnMemberClusters(ctx context.Context, memberClusters []Kube
 			if remoteObj.Name == currObj.Name {
 				if err := UpdateObjOnMemberCluster(ctx, clusterClient, currObj, remoteObj.DeepCopy(),
 					m.clusterName); err != nil {
-					return err
+					errClusters = append(errClusters, ClusterErrorMsg{
+						cname: m.clusterName,
+						err:   err,
+					})
+					continue
 				}
 				updated = true
 			} else {
 				// remove all other GC objects in this namespace
 				if err := DeleteObjInMemberCluster(ctx, clusterClient, remoteObj.DeepCopy(),
 					m.clusterName); err != nil {
-					return err
+					if err := UpdateObjOnMemberCluster(ctx, clusterClient, currObj,
+						remoteObj.DeepCopy(), m.clusterName); err != nil {
+						errClusters = append(errClusters, ClusterErrorMsg{
+							cname: m.clusterName,
+							err:   err,
+						})
+						continue
+					}
 				}
 			}
 		}
 
 		if updated {
 			// update is already done, return
-			return nil
+			continue
 		}
 
 		// reaching here would mean, we need to create the GSLBConfig object
 		newObj := currObj.DeepCopy()
 		newObj.ResourceVersion = ""
 		if err := clusterClient.Create(ctx, newObj); err != nil {
-			return fmt.Errorf("error in creating GSLBConfig %s/%s on cluster %s: %v",
-				newObj.Namespace, newObj.Name, m.clusterName, err)
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: m.clusterName,
+				err: fmt.Errorf("error in creating GSLBConfig %s/%s on cluster %s: %v",
+					newObj.Namespace, newObj.Name, m.clusterName, err),
+			})
+			continue
 		}
 	}
 
-	return nil
+	return errClusters
 }
 
 func FederateGDPObjectOnMemberClusters(ctx context.Context, memberClusters []KubeContextDetails,
-	currObj *gdpalphav2.GlobalDeploymentPolicy) error {
+	currObj *gdpalphav2.GlobalDeploymentPolicy) []ClusterErrorMsg {
 
+	errClusters := []ClusterErrorMsg{}
 	namespace := currObj.Namespace
 	for _, m := range memberClusters {
 		clusterClient := *m.client
@@ -197,8 +229,12 @@ func FederateGDPObjectOnMemberClusters(ctx context.Context, memberClusters []Kub
 		if err := clusterClient.List(ctx, &objList, &client.ListOptions{
 			Namespace: namespace,
 		}); err != nil {
-			return fmt.Errorf("can't list GlobalDeploymentPolicies in %s namespace for %s cluster: %v",
-				namespace, m.clusterName, err)
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: m.clusterName,
+				err: fmt.Errorf("can't list GlobalDeploymentPolicies in %s namespace for %s cluster: %v",
+					namespace, m.clusterName, err),
+			})
+			continue
 		}
 
 		// go through the list of GDP objects in the namespace, if we find the relevant GDP, just
@@ -208,36 +244,48 @@ func FederateGDPObjectOnMemberClusters(ctx context.Context, memberClusters []Kub
 			if remoteObj.Name == currObj.Name {
 				if err := UpdateObjOnMemberCluster(ctx, clusterClient,
 					currObj, remoteObj.DeepCopy(), m.clusterName); err != nil {
-					return err
+					errClusters = append(errClusters, ClusterErrorMsg{
+						cname: m.clusterName,
+						err:   err,
+					})
+					continue
 				}
 				updated = true
 			} else {
 				// delete rest of the GDPs (for which names don't match with the current cluster's GDP)
 				if err := DeleteObjInMemberCluster(ctx, clusterClient, remoteObj.DeepCopy(),
 					m.clusterName); err != nil {
-					return err
+					errClusters = append(errClusters, ClusterErrorMsg{
+						cname: m.clusterName,
+						err:   err,
+					})
+					continue
 				}
 			}
 		}
 
 		if updated {
 			// update is already done, return
-			return nil
+			continue
 		}
 
 		// reaching here would mean, we need to create the GDP object
 		newObj := currObj.DeepCopy()
 		newObj.ResourceVersion = ""
 		if err := clusterClient.Create(ctx, newObj); err != nil {
-			return fmt.Errorf("error in creating GSLBConfig object %s/%s on cluster %s: %v",
-				newObj.Namespace, newObj.Name, m.clusterName, err)
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: m.clusterName,
+				err: fmt.Errorf("error in creating GSLBConfig object %s/%s on cluster %s: %v",
+					newObj.Namespace, newObj.Name, m.clusterName, err),
+			})
+			continue
 		}
 	}
 
-	return nil
+	return errClusters
 }
 
-func InitializeMemberClusterClient(cfg *restclient.Config) (client.Client, error) {
+func InitialiseMemberClusterClient(cfg *restclient.Config) (client.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(amkov1alpha1.AddToScheme(scheme))
@@ -293,7 +341,7 @@ func getClusterContextDetails(membersKubeConfig string, memberClusters []string,
 func generateTempKubeConfig() error {
 	membersKubeConfig := os.Getenv("GSLB_CONFIG")
 	if membersKubeConfig == "" {
-		return fmt.Errorf("error in fetching the GSLB_CONFIG env variable, this contains the members kube config")
+		return fmt.Errorf("error in fetching the GSLB_CONFIG env variable, this contains the members kube config, check gslb-avi-secret")
 	}
 	f, err := os.Create(MembersKubePath)
 	if err != nil {
@@ -321,16 +369,13 @@ func AcceptGenerationChangePredicate() predicate.Predicate {
 	}
 }
 
-func getStatusCondition(statusType, statusMsg, reason string) amkov1alpha1.AMKOClusterCondition {
-	return amkov1alpha1.AMKOClusterCondition{
-		Type:   statusType,
-		Status: statusMsg,
-		Reason: reason,
-	}
-}
-
 // TODO: Move functions used by both federator and main gslb to a common library
-func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDetails, currVersion string) error {
+func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDetails,
+	currVersion string) ([]KubeContextDetails, []ClusterErrorMsg, error) {
+
+	validClusters := []KubeContextDetails{}
+	errClusters := []ClusterErrorMsg{}
+
 	// Perform validation checks
 	// 1. Only one instance of AMKOCluster must be present in the avi-system namespace
 	// 2. No other cluster should be leader if the current instance is leader
@@ -338,83 +383,135 @@ func ValidateMemberClusters(ctx context.Context, memberClusters []KubeContextDet
 	for _, cluster := range memberClusters {
 		if cluster.client == nil {
 			log.Log.Info("client is nil", "cluster", cluster.clusterName)
-			return fmt.Errorf("cluster client unavailable for cluster %s", cluster.clusterName)
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: cluster.clusterName,
+				err:   fmt.Errorf("cluster client unavailable for cluster %s", cluster.clusterName),
+			})
+			continue
 		}
 		clusterClient := *(cluster.client)
 		var amkoCluster amkov1alpha1.AMKOClusterList
-		err := clusterClient.List(ctx, &amkoCluster)
+		err := clusterClient.List(context.TODO(), &amkoCluster, &client.ListOptions{
+			Namespace: AviSystemNS,
+		})
 		if err != nil {
-			return fmt.Errorf("error in getting AMKOCluster list for cluster %s: %v",
-				cluster.clusterName, err)
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: cluster.clusterName,
+				err: fmt.Errorf("error in getting AMKOCluster list for cluster %s: %v",
+					cluster.clusterName, err),
+			})
+			continue
+		}
+
+		// check if any of them is a leader, and if yes, abort operations and return
+		if IsMemberClusterLeader(amkoCluster.Items) {
+			return nil, nil, fmt.Errorf("AMKO in cluster %s is also a leader, conflicting state", cluster.clusterName)
 		}
 
 		if len(amkoCluster.Items) > 1 {
-			return fmt.Errorf("more than one AMKOCluster objects present in cluster %s, can't federate",
-				cluster.clusterName)
+			// if not, record an error that there are multiple AMKOCluster objects present
+			// in the member cluster, so just skip this cluster and continue
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: cluster.clusterName,
+				err: fmt.Errorf("more than one AMKOCluster objects present in cluster %s, can't federate",
+					cluster.clusterName),
+			})
+			continue
 		}
 
 		if len(amkoCluster.Items) == 0 {
-			return fmt.Errorf("no AMKOCluster object present in cluster %s, can't federate", cluster.clusterName)
+			// if no AMKOCluster objects on the member cluster, we are not sure what state
+			// is AMKO running on that cluster, so just record an error and skip this cluster
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: cluster.clusterName,
+				err: fmt.Errorf("no AMKOCluster object present in cluster %s, can't federate",
+					cluster.clusterName),
+			})
+			continue
 		}
 
 		obj := amkoCluster.Items[0].DeepCopy()
-		if obj.Namespace != AviSystemNS {
-			return fmt.Errorf("AMKOCluster object not present in avi-system namespace in cluster %s, can't federate",
-				cluster.clusterName)
-		}
-
-		if obj.Spec.IsLeader {
-			return fmt.Errorf("AMKO in cluster %s is also a leader, conflicting state", cluster.clusterName)
-		}
 
 		if obj.Spec.Version != currVersion {
-			return fmt.Errorf("version mismatch, current AMKO: %s, AMKO in cluster %s: %s", currVersion,
-				cluster.clusterName, obj.Spec.Version)
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: cluster.clusterName,
+				err: fmt.Errorf("version mismatch, current AMKO: %s, AMKO in cluster %s: %s", currVersion,
+					cluster.clusterName, obj.Spec.Version),
+			})
+			continue
+		}
+
+		// valid cluster, add it to the valid list
+		validClusters = append(validClusters, cluster)
+	}
+
+	return validClusters, errClusters, nil
+}
+
+func IsMemberClusterLeader(objs []amkov1alpha1.AMKOCluster) bool {
+	for _, o := range objs {
+		if o.Spec.IsLeader {
+			return true
 		}
 	}
-
-	return nil
+	return false
 }
 
-func FetchMemberClusterContexts(ctx context.Context, amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, error) {
+func FetchMemberClusterContexts(ctx context.Context,
+	amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, []ClusterErrorMsg, error) {
 	err := generateTempKubeConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	memberClusters, err := InitMemberClusterContexts(ctx, amkoCluster.Spec.ClusterContext, amkoCluster.Spec.Clusters)
+	memberClusters, errClusters, err := InitMemberClusterContexts(ctx, amkoCluster.Spec.ClusterContext, amkoCluster.Spec.Clusters)
 	if err != nil {
-		return nil, fmt.Errorf("error in initializing member cluster contexts: %v", err)
+		return nil, nil, fmt.Errorf("error in initialising member cluster contexts: %v", err)
 	}
 
-	return memberClusters, nil
+	return memberClusters, errClusters, nil
 }
 
-func InitMemberClusterContexts(ctx context.Context, currentContext string, clusterList []string) ([]KubeContextDetails, error) {
+func InitMemberClusterContexts(ctx context.Context, currentContext string,
+	clusterList []string) ([]KubeContextDetails, []ClusterErrorMsg, error) {
+
+	resClusters := []KubeContextDetails{}
+	errClusters := []ClusterErrorMsg{}
 	// - obtain the list of all member cluster contexts from the kubeconfig
 	// - remove the current context
 	// - build the context config for the rest of them
 	memberClusters, err := getClusterContextDetails(MembersKubePath, clusterList, currentContext)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	for idx, cluster := range memberClusters {
+	for _, cluster := range memberClusters {
 		log.Log.Info("member cluster", "cluster", cluster.clusterName)
 		if currentContext == cluster.clusterName {
 			// skip for current context
 			continue
 		}
-		log.Log.Info("initializing cluster context", "cluster", cluster.clusterName)
+		log.Log.Info("initialising cluster context", "cluster", cluster.clusterName)
 		cfg, err := BuildContextConfig(cluster.kubeconfig, cluster.clusterName)
 		if err != nil {
-			return nil, fmt.Errorf("error in building context config for kubernetes cluster %s: %v",
+			// user input is wrong, we have to abort
+			// has to be fixed before federator can continue
+			return nil, nil, fmt.Errorf("error in building context config for kubernetes cluster %s: %v",
 				cluster.clusterName, err)
 		}
-		client, err := InitializeMemberClusterClient(cfg)
+		client, err := InitialiseMemberClusterClient(cfg)
 		if err != nil {
-			return nil, fmt.Errorf("%s %s: %v", ErrInitClientContext, cluster.clusterName, err)
+			// client init error, record this error, skip this cluster from the final
+			// list and continue.
+			errClusters = append(errClusters, ClusterErrorMsg{
+				cname: cluster.clusterName,
+				err:   fmt.Errorf("%s %s: %v", ErrInitClientContext, cluster.clusterName, err),
+			})
+			continue
 		}
-		memberClusters[idx].client = &client
+		resClusters = append(resClusters, KubeContextDetails{
+			clusterName: cluster.clusterName,
+			client:      &client,
+		})
 	}
-	return memberClusters, nil
+	return resClusters, errClusters, nil
 }

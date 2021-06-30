@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -192,13 +193,17 @@ func getTestAMKOClusterObj(currentContext string, isLeader bool) amkovmwarecomv1
 	}
 }
 
-func getTestAMKOClusterStatusReason(status amkovmwarecomv1alpha1.AMKOClusterStatus, statusType string) string {
+func getTestAMKOClusterStatusReason(status amkovmwarecomv1alpha1.AMKOClusterStatus,
+	statusType string) map[string]string {
 	for _, condition := range status.Conditions {
 		if condition.Type == statusType {
-			return condition.Reason
+			return map[string]string{
+				"reason": condition.Reason,
+				"status": condition.Status,
+			}
 		}
 	}
-	return ""
+	return map[string]string{}
 }
 
 func getTestAMKOClusterStatusMsg(status amkovmwarecomv1alpha1.AMKOClusterStatus, statusType string) string {
@@ -308,28 +313,33 @@ func TestGCGDPExist(k8sClient client.Client) {
 	Expect(len(gdpList.Items)).Should(Equal(1))
 }
 
-func VerifyTestAMKOClusterObjectSuccess(k8sClient client.Client) {
-	Eventually(func() string {
-		var obj amkovmwarecomv1alpha1.AMKOCluster
-		Expect(k8sClient.Get(context.TODO(),
-			types.NamespacedName{
-				Name:      TestAMKOClusterName,
-				Namespace: AviSystemNS},
-			&obj)).Should(Succeed())
-		return getTestAMKOClusterStatusMsg(obj.Status, FederationTypeStatus)
-	}, 5*time.Second, 1*time.Second).Should(Equal("Federation successful"))
-}
+// func VerifyTestAMKOClusterObjectSuccess(k8sClient client.Client, statusType string) {
+// 	Eventually(func() string {
+// 		var obj amkovmwarecomv1alpha1.AMKOCluster
+// 		Expect(k8sClient.Get(context.TODO(),
+// 			types.NamespacedName{
+// 				Name:      TestAMKOClusterName,
+// 				Namespace: AviSystemNS},
+// 			&obj)).Should(Succeed())
+// 		return getTestAMKOClusterStatusReason(obj.Status, statusType)
+// 	}, 5*time.Second, 1*time.Second).Should(Equal("Federation successful"))
+// }
 
-func VerifyTestAMKOClusterObjectFailure(k8sClient client.Client, failureMsg string) {
-	Eventually(func() string {
+func VerifyTestAMKOClusterStatus(k8sClient client.Client, statusType, statusMsg, failureMsg string) {
+	Eventually(func() map[string]string {
 		var obj amkovmwarecomv1alpha1.AMKOCluster
+
 		Expect(k8sClient.Get(context.TODO(),
 			types.NamespacedName{
 				Name:      TestAMKOClusterName,
 				Namespace: AviSystemNS},
 			&obj)).Should(Succeed())
-		return getTestAMKOClusterStatusReason(obj.Status, FederationTypeStatus)
-	}, 5*time.Second, 1*time.Second).Should(Equal(failureMsg))
+
+		fmt.Printf("status of AMKOCluster: %v\n", obj.Status)
+		return getTestAMKOClusterStatusReason(obj.Status, statusType)
+	}, 5*time.Second, 1*time.Second).Should(Equal(map[string]string{"reason": failureMsg,
+		"status": statusMsg,
+	}))
 }
 
 func CleanupTestObjects(k8sClient1, k8sClient2 client.Client,
@@ -341,4 +351,17 @@ func CleanupTestObjects(k8sClient1, k8sClient2 client.Client,
 	deleteTestGCAndGDPObj(ctx, k8sClient1, gcObj, gdpObj)
 	Expect(k8sClient2.Delete(ctx, amkoCluster2)).Should(Succeed())
 	deleteTestGCAndGDPObj(ctx, k8sClient2, gcObj, gdpObj)
+}
+
+func VerifySuccessForAllStatusFields(k8sClient client.Client) {
+	VerifyTestAMKOClusterStatus(k8sClient, CurrentAMKOClusterValidationStatusField,
+		StatusMsgValidAMKOCluster, "")
+	VerifyTestAMKOClusterStatus(k8sClient, ClusterContextsStatusField,
+		StatusMsgClusterClientsSuccess, "")
+	VerifyTestAMKOClusterStatus(k8sClient, MemberValidationStatusField,
+		StatusMembersValidationSuccess, "")
+	VerifyTestAMKOClusterStatus(k8sClient, GSLBConfigFederationStatusField,
+		StatusGSLBConfigFederationSuccess, "")
+	VerifyTestAMKOClusterStatus(k8sClient, GDPFederationStatusField,
+		StatusGDPFederationSuccess, "")
 }

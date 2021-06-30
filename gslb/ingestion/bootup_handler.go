@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
 	federator "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/controllers"
@@ -116,19 +115,26 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	memberClusters, err := federator.FetchMemberClusterContexts(ctx, amkoCluster.DeepCopy())
+	memberClusters, errClusters, err := federator.FetchMemberClusterContexts(ctx, amkoCluster.DeepCopy())
 	if err != nil {
 		gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
 		return reconcile.Result{}, err
 	}
+	if len(errClusters) != 0 {
+		gslbutils.Warnf("Error in fetching some member cluster contexts: %v, will ignore these",
+			errClusters)
+	}
 	gslbutils.Debugf("memberClusters obtained during reconciliation: %v", memberClusters)
 
-	err = federator.ValidateMemberClusters(ctx, memberClusters, amkoCluster.Spec.Version)
+	_, errClusters, err = federator.ValidateMemberClusters(ctx, memberClusters, amkoCluster.Spec.Version)
 	if err != nil {
 		gslbutils.Logf("ns: %s, AMKOCluster: %s, msg: validation error: %v, shutting down AMKO",
 			amkoCluster.Namespace, amkoCluster.Name, err)
 		apiserver.GetAmkoAPIServer().ShutDown()
 		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
+	}
+	if len(errClusters) != 0 {
+		gslbutils.Warnf("some member clusters are invalid: %v, will ignore these", errClusters)
 	}
 
 	gslbutils.Debugf("AMKOCluster validation done")
@@ -183,20 +189,23 @@ func handleBootup(cfg *restclient.Config) (bool, error) {
 		gslbutils.Logf("AMKOCluster object found and AMKO would start as follower")
 	}
 
-	memberClusters, err := federator.FetchMemberClusterContexts(context.TODO(), amkoCluster.DeepCopy())
+	memberClusters, errClusters, err := federator.FetchMemberClusterContexts(context.TODO(), amkoCluster.DeepCopy())
 	if err != nil {
-		if strings.Contains(err.Error(), federator.ErrInitClientContext) {
-			gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
-		} else {
-			return false, fmt.Errorf("unrecoverable error, error in fetching member cluster contexts: %v", err)
-		}
+		return false, fmt.Errorf("unrecoverable error, error in fetching member cluster contexts: %v", err)
+	}
+	if len(errClusters) != 0 {
+		gslbutils.Warnf("some member cluster contexts couldn't be fetched: %v, will ignore these", errClusters)
 	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
 
-	err = federator.ValidateMemberClusters(context.TODO(), memberClusters, amkoCluster.Spec.Version)
+	_, errClusters, err = federator.ValidateMemberClusters(context.TODO(), memberClusters, amkoCluster.Spec.Version)
 	if err != nil {
 		return false, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
+	if len(errClusters) != 0 {
+		gslbutils.Warnf("some member clusters are invalid: %v, will ignore these", errClusters)
+	}
+
 	createController()
 	return currentLeader, nil
 }

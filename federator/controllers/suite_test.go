@@ -146,7 +146,9 @@ var _ = Describe("Federator Validation", func() {
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			amkoCluster.Spec.Version = ""
 			Expect(k8sClient1.Create(ctx, &amkoCluster)).Should(Succeed())
-			VerifyTestAMKOClusterObjectFailure(k8sClient1,
+			VerifyTestAMKOClusterStatus(k8sClient1,
+				CurrentAMKOClusterValidationStatusField,
+				StatusMsgInvalidAMKOCluster,
 				"version field can't be empty in AMKOCluster object")
 		})
 
@@ -174,8 +176,13 @@ var _ = Describe("Federator Validation", func() {
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			amkoCluster = getTestAMKOClusterObj("invalid-context", true)
 			Expect(k8sClient1.Create(ctx, &amkoCluster)).Should(Succeed())
-			VerifyTestAMKOClusterObjectFailure(k8sClient1,
-				"error in initializing member cluster contexts: current cluster context invalid-context not part of member clusters")
+			VerifyTestAMKOClusterStatus(k8sClient1,
+				CurrentAMKOClusterValidationStatusField,
+				StatusMsgValidAMKOCluster, "")
+			VerifyTestAMKOClusterStatus(k8sClient1,
+				ClusterContextsStatusField,
+				StatusMsgClusterClientsInvalid,
+				"error in initialising member cluster contexts: current cluster context invalid-context not part of member clusters")
 		})
 
 		It("should not federate any objects on member clusters", func() {
@@ -202,8 +209,9 @@ var _ = Describe("Federator Validation", func() {
 			amkoCluster = getTestAMKOClusterObj("cluster1", true)
 			amkoCluster.Spec.Clusters = append(amkoCluster.Spec.Clusters, "invalid-cluster")
 			Expect(k8sClient1.Create(ctx, &amkoCluster)).Should(Succeed())
-			VerifyTestAMKOClusterObjectFailure(k8sClient1,
-				"error in initializing member cluster contexts: error in building context config for kubernetes cluster invalid-cluster: context \"invalid-cluster\" does not exist")
+			VerifyTestAMKOClusterStatus(k8sClient1, ClusterContextsStatusField,
+				StatusMsgClusterClientsInvalid,
+				"error in initialising member cluster contexts: error in building context config for kubernetes cluster invalid-cluster: context \"invalid-cluster\" does not exist")
 		})
 
 		It("should not federate any objects on member clusters", func() {
@@ -239,7 +247,7 @@ var _ = Describe("Federation Operation", func() {
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+			VerifySuccessForAllStatusFields(k8sClient1)
 		})
 
 		It("should federate GC and GDP objects on member clusters", func() {
@@ -302,8 +310,13 @@ var _ = Describe("Federation Operation", func() {
 			amkoCluster2.Spec.Version = TestAMKODifferentVersion
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectFailure(k8sClient1, "version mismatch, current AMKO: "+
-				TestAMKOVersion+", AMKO in cluster cluster2: "+TestAMKODifferentVersion)
+			VerifyTestAMKOClusterStatus(k8sClient1, CurrentAMKOClusterValidationStatusField,
+				StatusMsgValidAMKOCluster, "")
+			VerifyTestAMKOClusterStatus(k8sClient1, ClusterContextsStatusField,
+				StatusMsgClusterClientsSuccess, "")
+			VerifyTestAMKOClusterStatus(k8sClient1, MemberValidationStatusField,
+				StatusMembersInvalid, "version mismatch, current AMKO: "+
+					TestAMKOVersion+", AMKO in cluster cluster2: "+TestAMKODifferentVersion)
 		})
 
 		It("should not federate GC and GDP objects on member clusters", func() {
@@ -314,7 +327,7 @@ var _ = Describe("Federation Operation", func() {
 			ctx := context.Background()
 			amkoCluster2.Spec.Version = TestAMKOVersion
 			Expect(k8sClient2.Update(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+			VerifySuccessForAllStatusFields(k8sClient1)
 		})
 
 		It("should now federate GC and GDP objects on member clusters", func() {
@@ -341,8 +354,12 @@ var _ = Describe("Federation Operation", func() {
 			amkoCluster1 = getTestAMKOClusterObj(Cluster1, true)
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
-			VerifyTestAMKOClusterObjectFailure(k8sClient1,
-				"no AMKOCluster object present in cluster cluster2, can't federate")
+			VerifyTestAMKOClusterStatus(k8sClient1, CurrentAMKOClusterValidationStatusField,
+				StatusMsgValidAMKOCluster, "")
+			VerifyTestAMKOClusterStatus(k8sClient1, ClusterContextsStatusField,
+				StatusMsgClusterClientsSuccess, "")
+			VerifyTestAMKOClusterStatus(k8sClient1, MemberValidationStatusField,
+				StatusMembersInvalid, "no AMKOCluster object present in cluster cluster2, can't federate")
 		})
 
 		It("should not federate GC and GDP objects on member clusters", func() {
@@ -353,7 +370,7 @@ var _ = Describe("Federation Operation", func() {
 			ctx := context.Background()
 			amkoCluster2 = getTestAMKOClusterObj(Cluster2, false)
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+			VerifySuccessForAllStatusFields(k8sClient1)
 		})
 
 		It("should now federate GC and GDP objects on member clusters", func() {
@@ -382,8 +399,12 @@ var _ = Describe("Federation Operation", func() {
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectFailure(k8sClient1,
-				"AMKO in cluster cluster2 is also a leader, conflicting state")
+			VerifyTestAMKOClusterStatus(k8sClient1, CurrentAMKOClusterValidationStatusField,
+				StatusMsgValidAMKOCluster, "")
+			VerifyTestAMKOClusterStatus(k8sClient1, ClusterContextsStatusField,
+				StatusMsgClusterClientsSuccess, "")
+			VerifyTestAMKOClusterStatus(k8sClient1, MemberValidationStatusField,
+				StatusMsgClusterClientsInvalid, "AMKO in cluster cluster2 is also a leader, conflicting state")
 		})
 
 		It("should not federate GC and GDP objects on member clusters", func() {
@@ -394,7 +415,7 @@ var _ = Describe("Federation Operation", func() {
 			ctx := context.Background()
 			amkoCluster2.Spec.IsLeader = false
 			Expect(k8sClient2.Update(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+			VerifySuccessForAllStatusFields(k8sClient1)
 		})
 
 		It("should now federate GC and GDP objects on member clusters", func() {
@@ -436,7 +457,7 @@ var _ = Describe("Federation Consolidation Operations", func() {
 
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+			VerifySuccessForAllStatusFields(k8sClient1)
 		})
 
 		It("should give an error when the extra gslbconfig object is fetched from cluster 2", func() {
@@ -517,7 +538,7 @@ var _ = Describe("Federation Consolidation Operations", func() {
 			createTestGCAndGDPObjs(ctx, k8sClient1, &gcObj, &gdpObj)
 			Expect(k8sClient1.Create(ctx, &amkoCluster1)).Should(Succeed())
 			Expect(k8sClient2.Create(ctx, &amkoCluster2)).Should(Succeed())
-			VerifyTestAMKOClusterObjectSuccess(k8sClient1)
+			VerifySuccessForAllStatusFields(k8sClient1)
 		})
 
 		It("should federate GC and GDP objects on member clusters", func() {
