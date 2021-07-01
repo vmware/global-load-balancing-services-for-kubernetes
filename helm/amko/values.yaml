@@ -8,6 +8,22 @@ image:
   repository: projects.registry.vmware.com/ako/amko
   pullPolicy: IfNotPresent
 
+# Configs related to AMKO Federator
+federation:
+  # image repository
+  image:
+    repository: projects.registry.vmware.com/ako/amko-federator
+    pullPolicy: IfNotPresent
+  # cluster context where AMKO is going to be deployed
+  currentCluster: ""
+  # Set to true if AMKO on this cluster is the leader
+  currentClusterIsLeader: false
+  # member clusters to federate the GSLBConfig and GDP objects on, if the
+  # current cluster context is part of this list, the federator will ignore it
+  memberClusters:
+  - "cluster1-admin"
+  - "cluster2-admin"
+
 configs:
   gslbLeaderController: ""
   controllerVersion: "20.1.4"
@@ -119,3 +135,5 @@ rbac:
 persistentVolumeClaim: ""
 mountPath: "/log"
 logFile: "amko.log"
+
+federatorLogFile: "amko-federator.log"

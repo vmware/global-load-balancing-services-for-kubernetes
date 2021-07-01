@@ -70,6 +70,37 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+        - name: amko-federator
+          {{ if .Values.persistentVolumeClaim }}
+          volumeMounts:
+          - mountPath: {{ .Values.mountPath }}
+            name: amko-pv-storage
+          {{ end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.federation.image.repository }}:{{ .Chart.AppVersion }}"
+          env:
+          - name: GSLB_CONFIG
+            valueFrom:
+              secretKeyRef:
+                name: "gslb-config-secret"
+                key: "gslb-members"
+          {{ if .Values.persistentVolumeClaim }}
+          - name: USE_PVC
+            value: "true"
+          {{ end }}
+          - name: LOG_FILE_PATH
+            value: {{ .Values.mountPath }}
+          - name: LOG_FILE_NAME
+            value: {{ .Values.federatorLogFile }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          imagePullPolicy: {{ .Values.federation.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
