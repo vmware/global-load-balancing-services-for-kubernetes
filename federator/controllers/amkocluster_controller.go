@@ -18,10 +18,11 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,40 +52,42 @@ type AMKOClusterReconciler struct {
 func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
+	ctrlResultRequeue := ctrl.Result{
+		RequeueAfter: time.Second * 10,
+	}
+	ctrlResultNoRequeue := ctrl.Result{
+		Requeue: false,
+	}
+
 	// check how many amkocluster objects are present, only 1 allowed per cluster
 	var amkoClusterList amkov1alpha1.AMKOClusterList
 	err := r.List(ctx, &amkoClusterList)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("AMKOClusterObjects can't be listed, err: %v", err)
+		return ctrlResultNoRequeue, fmt.Errorf("AMKOClusterObjects can't be listed, err: %v", err)
 	}
 	if len(amkoClusterList.Items) > 1 {
-		return reconcile.Result{}, fmt.Errorf("only one AMKOClusterObject allowed per cluster")
+		return ctrlResultNoRequeue, fmt.Errorf("only one AMKOClusterObject allowed per cluster")
 	}
 
 	if len(amkoClusterList.Items) == 0 {
 		log.Log.Info("No AMKOCluster object available on this cluster, nothing to do")
-		return reconcile.Result{}, nil
-	}
-	// the Reconcile function can be called for 3 objects: AMKOCluster, GC and GDP objects
-	// we have to determine what kind of an object this function is getting called for.
-	// var amkoClusterName, amkoClusterNS string
-	// amkoClusterPresent := false
-	var amkoCluster amkov1alpha1.AMKOCluster
-	if len(amkoClusterList.Items) == 1 {
-		amkoCluster = amkoClusterList.Items[0]
-		// update the status of AMKOCluster
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederating, "", &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
-		}
+		return ctrlResultNoRequeue, nil
 	}
 
+	amkoCluster := amkoClusterList.Items[0]
+	updatedAMKOCluster := amkoCluster.DeepCopy()
+	// empty out the status
+	updatedAMKOCluster.Status.Conditions = []amkov1alpha1.AMKOClusterCondition{}
+
+	defer r.UpdateStatus(updatedAMKOCluster)
+
+	// the Reconcile function can be called for 3 objects: AMKOCluster, GC and GDP objects
+	// we have to determine what kind of an object this function is getting called for.
 	if IsObjAMKOClusterType(ctx, req.Name) {
-		if err != nil && errors.IsNotFound(err) {
+		if err != nil && k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		} else if err != nil {
+			// don't requeue, it will get called when AMKOCluster is fixed
 			return ctrl.Result{}, err
 		}
 	}
@@ -92,84 +95,202 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// check if this AMKO is the leader
 	if !amkoCluster.Spec.IsLeader {
 		log.Log.Info("AMKO is not a leader, will return")
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgNotALeader, "AMKO not a leader", &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
+		if statusErr := r.UpdateAMKOClusterStatus(ctx, CurrentAMKOClusterValidationStatusType,
+			StatusMsgNotALeader, "AMKO not a leader", nil, updatedAMKOCluster); statusErr != nil {
+			return ctrlResultRequeue, statusErr
 		}
-		return ctrl.Result{}, nil
+		// don't requeue if not a leader
+		return ctrlResultNoRequeue, nil
 	}
 
 	// verify the basic sanity of the AMKOCluster object
-	err = r.VerifyAMKOClusterSanity(&amkoCluster)
-	if err != nil {
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
-		}
-		return reconcile.Result{}, err
+	if err := r.ValidateAMKOClusterSanityAndUpdateStatus(ctx, updatedAMKOCluster); err != nil {
+		// don't requeue, since Reconcile will get called anyway once the error is fixed
+		// in the AMKOCluster object
+		return ctrlResultNoRequeue, err
 	}
 
-	// fetch the member clusters' contexts
-	memberClusters, err := FetchMemberClusterContexts(ctx, amkoCluster.DeepCopy())
+	// fetch the member clusters' contexts and update status
+	memberClusters, err := r.FetchMemberClusterContextsAndUpdateStatus(ctx, updatedAMKOCluster)
 	if err != nil {
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
-		}
-		return reconcile.Result{}, fmt.Errorf("error in fetching member cluster contexts: %v", err)
+		return ctrlResultRequeue, err
 	}
 
-	// validate member clusters
-	err = ValidateMemberClusters(ctx, memberClusters, amkoCluster.Spec.Version)
+	// validate member clusters and update status
+	validClusters, err := r.ValidateMemberClustersAndUpdateStatus(ctx, memberClusters, updatedAMKOCluster)
 	if err != nil {
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
-		}
-		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
+		return ctrlResultRequeue, err
 	}
 
-	// Get the object list to be federated
-	objList, err := r.GetObjectsToBeFederated(ctx)
-	if err != nil {
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
-		}
-		return reconcile.Result{}, fmt.Errorf("error in getting the required objects: %v", err)
+	// Federate the GSLBConfig object on all member clusters
+	if err := r.FederateGSLBConfigAndUpdateStatus(ctx, validClusters, updatedAMKOCluster); err != nil {
+		return ctrlResultRequeue, err
 	}
 
-	// federated the object list in objList across all member clusters
-	err = FederateObjects(ctx, memberClusters, objList)
-	if err != nil {
-		statusErr := r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationFailure, err.Error(), &amkoCluster)
-		if statusErr != nil {
-			return ctrl.Result{
-				RequeueAfter: time.Second * 5,
-			}, statusErr
-		}
-		return reconcile.Result{}, fmt.Errorf("error in federating objects: %v", err)
-	}
-
-	// update the status of AMKOCluster
-	err = r.UpdateAMKOClusterStatus(ctx, FederationTypeStatus, StatusMsgFederationSuccess, "", &amkoCluster)
-	if err != nil {
-		return ctrl.Result{
-			RequeueAfter: time.Second * 5,
-		}, err
+	// Federate the GDP object on all member clusters
+	if err := r.FederateGDPAndUpdateStatus(ctx, validClusters, updatedAMKOCluster); err != nil {
+		return ctrlResultRequeue, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *AMKOClusterReconciler) FetchMemberClusterContextsAndUpdateStatus(ctx context.Context, amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, error) {
+	memberClusters, errClusters, err := FetchMemberClusterContexts(ctx, amkoCluster.DeepCopy())
+
+	if err != nil {
+		// update the error message in the AMKOCluster status field
+		if statusErr := r.UpdateAMKOClusterStatus(ctx, ClusterContextsStatusType, "", err.Error(),
+			errClusters, amkoCluster); statusErr != nil {
+			return nil, statusErr
+		}
+		// errors on which the execution should be stopped here and retried:
+		// - bad kubeconfig
+		// - error in generating a temporary kubeconfig file
+		return nil, fmt.Errorf("error in fetching member cluster contexts: %v", err)
+	} else {
+		if statusErr := r.UpdateAMKOClusterStatus(ctx, ClusterContextsStatusType, "", "",
+			errClusters, amkoCluster); statusErr != nil {
+			return nil, statusErr
+		}
+	}
+
+	if len(memberClusters) == 0 {
+		return nil, fmt.Errorf("no valid cluster contexts found")
+	}
+
+	return memberClusters, nil
+}
+
+func (r *AMKOClusterReconciler) ValidateAMKOClusterSanityAndUpdateStatus(ctx context.Context,
+	amkoCluster *amkov1alpha1.AMKOCluster) error {
+
+	err := r.VerifyAMKOClusterSanity(amkoCluster)
+	if err != nil {
+		if statusErr := r.UpdateAMKOClusterStatus(ctx, CurrentAMKOClusterValidationStatusType,
+			StatusMsgInvalidAMKOCluster, err.Error(), nil, amkoCluster); statusErr != nil {
+			return statusErr
+		}
+		return err
+	}
+	return r.UpdateAMKOClusterStatus(ctx, CurrentAMKOClusterValidationStatusType,
+		"", "", nil, amkoCluster)
+}
+
+func (r *AMKOClusterReconciler) ValidateMemberClustersAndUpdateStatus(ctx context.Context, memberClusters []KubeContextDetails,
+	amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, error) {
+
+	validClusters, errClusters, err := ValidateMemberClusters(ctx, memberClusters, amkoCluster.Spec.Version)
+
+	if err != nil {
+		if statusErr := r.UpdateAMKOClusterStatus(ctx, MemberValidationStatusType, "",
+			err.Error(), errClusters, amkoCluster); statusErr != nil {
+			return nil, statusErr
+		}
+		// errors on which the execution should be stopped here and retried:
+		// - another cluster has a leader AMKO instance
+		return nil, fmt.Errorf("error in validating the member clusters: %v", err)
+	} else {
+		if statusErr := r.UpdateAMKOClusterStatus(ctx, MemberValidationStatusType, "",
+			"", errClusters, amkoCluster); statusErr != nil {
+			return nil, statusErr
+		}
+	}
+
+	// if no valid clusters left, no point continuing
+	if len(validClusters) == 0 {
+		log.Log.Info("no valid clusters to federate on")
+		return nil, fmt.Errorf("no valid clusters left to federate on")
+	}
+
+	return validClusters, nil
+}
+
+func (r *AMKOClusterReconciler) FederateGSLBConfigAndUpdateStatus(ctx context.Context, validClusters []KubeContextDetails,
+	amkoCluster *amkov1alpha1.AMKOCluster) error {
+	errClusters, err := r.FederateGSLBConfig(ctx, validClusters)
+	if statusErr := r.UpdateAMKOClusterStatus(ctx, GSLBConfigFederationStatusType, "",
+		getErrorMsg(err), errClusters, amkoCluster); statusErr != nil {
+		return statusErr
+	}
+	if err != nil {
+		// errors on which the execution will stop here and will be retried (indicating that
+		// the current cluster is in a bad shape):
+		// - CRD for GSLBConfig is absent in the current cluster
+		// - more than one GSLBConfig objects in the current cluster
+		return fmt.Errorf("error in federating GSLBConfig object: %v", err)
+	}
+	return nil
+}
+
+func (r *AMKOClusterReconciler) FederateGDPAndUpdateStatus(ctx context.Context, validClusters []KubeContextDetails,
+	amkoCluster *amkov1alpha1.AMKOCluster) error {
+	// Federate the GDP object on all member clusters
+	errClusters, err := r.FederateGDP(ctx, validClusters)
+	if statusErr := r.UpdateAMKOClusterStatus(ctx, GDPFederationStatusType, "",
+		getErrorMsg(err), errClusters, amkoCluster); statusErr != nil {
+		return statusErr
+	}
+	if err != nil {
+		// errors on which the execution will stop here and will be retried:
+		// - CRD for GDP is absent in the current cluster
+		// - more than one GDPs in the current cluster
+		return fmt.Errorf("error in federating GDP object: %v", err)
+	}
+	return nil
+}
+
+func (r *AMKOClusterReconciler) FederateGSLBConfig(ctx context.Context, memberClusters []KubeContextDetails) ([]ClusterErrorMsg, error) {
+	// Determine the state that we need to federate across all member clusters
+	var currGCList gslbalphav1.GSLBConfigList
+	err := r.List(ctx, &currGCList, &client.ListOptions{
+		Namespace: AviSystemNS,
+	})
+	if err != nil {
+		// current cluster's state is not right, need to stop here
+		return nil, fmt.Errorf("cannot list GSLBConfig list on current cluster in %s namespace: %v",
+			AviSystemNS, err)
+	}
+
+	if len(currGCList.Items) > 1 {
+		// current cluster is in a state of error, have to stop here
+		return nil, fmt.Errorf("more than one GSLBConfig objects are present in the current cluster")
+	}
+
+	// if no GC objects exist, we need to sync all member clusters to the same state
+	// which would mean, we need to delete GCs on all member clusters (if any)
+	if len(currGCList.Items) == 0 {
+		return DeleteObjsOnAllMemberClusters(ctx, memberClusters, AviSystemNS, &gslbalphav1.GSLBConfig{}), nil
+	}
+
+	// if a GC object exists in the current cluster, we need to make sure that all the member
+	// clusters have only this GC object in the avi-system namespace.
+	return FederateGCObjectOnMemberClusters(ctx, memberClusters, currGCList.Items[0].DeepCopy()), nil
+}
+
+func (r *AMKOClusterReconciler) FederateGDP(ctx context.Context, memberClusters []KubeContextDetails) ([]ClusterErrorMsg, error) {
+	// Determine the state that we need to federate across all member clusters
+	var currGDPList gdpalphav2.GlobalDeploymentPolicyList
+	err := r.List(ctx, &currGDPList, &client.ListOptions{
+		Namespace: AviSystemNS,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot list GlobalDeploymentPolicy list on current cluster in %s namespace: %v",
+			AviSystemNS, err)
+	}
+
+	if len(currGDPList.Items) > 1 {
+		return nil, fmt.Errorf("more than one GlobalDeploymentPolicies are present in the current cluster")
+	}
+
+	// if no GDP objects exist, we need to sync all member clusters to the same state
+	// which would mean, we need to delete GDPs on all member clusters (if any)
+	if len(currGDPList.Items) == 0 {
+		return DeleteObjsOnAllMemberClusters(ctx, memberClusters, AviSystemNS, &gdpalphav2.GlobalDeploymentPolicy{}), nil
+	}
+	// if a GDP object exists in the current cluster, we need to make sure that all the member
+	// clusters have only this GDP object in the avi-system namespace.
+	return FederateGDPObjectOnMemberClusters(ctx, memberClusters, currGDPList.Items[0].DeepCopy()), nil
 }
 
 func (r *AMKOClusterReconciler) GetObjectsToBeFederated(ctx context.Context) ([]client.Object, error) {
@@ -211,17 +332,17 @@ func (r *AMKOClusterReconciler) GetObjectsToBeFederated(ctx context.Context) ([]
 	return objList, nil
 }
 
-func (r *AMKOClusterReconciler) FetchMemberClusterContexts(ctx context.Context, amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, error) {
+func (r *AMKOClusterReconciler) FetchMemberClusterContexts(ctx context.Context, amkoCluster *amkov1alpha1.AMKOCluster) ([]KubeContextDetails, []ClusterErrorMsg, error) {
 	err := generateTempKubeConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	memberClusters, err := InitMemberClusterContexts(ctx, amkoCluster.Spec.ClusterContext, amkoCluster.Spec.Clusters)
+	memberClusters, errClusters, err := InitMemberClusterContexts(ctx, amkoCluster.Spec.ClusterContext, amkoCluster.Spec.Clusters)
 	if err != nil {
-		return nil, fmt.Errorf("error in initializing member cluster contexts: %v", err)
+		return nil, nil, fmt.Errorf("error in initialising member cluster contexts: %v", err)
 	}
 
-	return memberClusters, nil
+	return memberClusters, errClusters, nil
 }
 
 func (r *AMKOClusterReconciler) VerifyAMKOClusterSanity(amkoCluster *amkov1alpha1.AMKOCluster) error {
@@ -242,36 +363,65 @@ func (r *AMKOClusterReconciler) VerifyAMKOClusterSanity(amkoCluster *amkov1alpha
 	return nil
 }
 
-func (r *AMKOClusterReconciler) UpdateAMKOClusterStatus(ctx context.Context, statusType, statusMsg, reason string, amkoCluster *amkov1alpha1.AMKOCluster) error {
-	updatedAMKOCluster := amkoCluster.DeepCopy()
-	log.Log.Info("updating status", "status type", statusType, "status msg", statusMsg, "reason", reason)
+func (r *AMKOClusterReconciler) UpdateStatus(updatedAMKOCluster *amkov1alpha1.AMKOCluster) {
+	currAMKOClusterList := amkov1alpha1.AMKOClusterList{}
+	if err := r.List(context.TODO(), &currAMKOClusterList, &client.ListOptions{
+		Namespace: AviSystemNS,
+	}); err != nil {
+		log.Log.Error(err, "unable to get AMKOCluster list on avi-system namespace")
+		return
+	}
+
+	if len(currAMKOClusterList.Items) != 1 {
+		log.Log.Error(errors.New("no AMKOCluster to be updated"), "unable to get AMKOCluster list on avi-system namespace")
+		return
+	}
+
+	// currAMKOClusterList.Items[0].Status.Conditions = []amkov1alpha1.AMKOClusterCondition{}
+	log.Log.Info("updated AMKO Cluster status", "status", updatedAMKOCluster.Status.Conditions)
+	if err := r.PatchAMKOClusterStatus(context.TODO(), &currAMKOClusterList.Items[0],
+		updatedAMKOCluster); err != nil {
+		log.Log.Error(err, "error while patching AMKOCluster status")
+	}
+}
+
+func (r *AMKOClusterReconciler) UpdateAMKOClusterStatus(ctx context.Context, statusType int,
+	statusMsg, reason string, errClusters []ClusterErrorMsg,
+	updatedAMKOCluster *amkov1alpha1.AMKOCluster) error {
+
+	condition, err := getStatusCondition(statusType, statusMsg, reason, errClusters)
+	if err != nil {
+		log.Log.Error(err, "error while generating status condition")
+		return err
+	}
+	log.Log.Info("status condition", "condition", condition)
+
 	// get the previous status
-	conditions := amkoCluster.Status.Conditions
+	conditions := updatedAMKOCluster.Status.Conditions
 	if len(conditions) == 0 {
-		// initialize a new set
+		// initialise a new set
 		updatedAMKOCluster.Status.Conditions = []amkov1alpha1.AMKOClusterCondition{
-			getStatusCondition(statusType, statusMsg, reason),
+			condition,
 		}
-		return r.PatchAMKOClusterStatus(ctx, amkoCluster, updatedAMKOCluster)
+		return nil
 	}
 
 	// conditions already present, update the one that we need for statusType
 	for idx, c := range conditions {
-		if c.Type == statusType {
-			updatedAMKOCluster.Status.Conditions[idx].Status = statusMsg
-			updatedAMKOCluster.Status.Conditions[idx].Reason = reason
-			return r.PatchAMKOClusterStatus(ctx, amkoCluster, updatedAMKOCluster)
+		if c.Type == condition.Type {
+			updatedAMKOCluster.Status.Conditions[idx].Type = condition.Type
+			updatedAMKOCluster.Status.Conditions[idx].Status = condition.Status
+			updatedAMKOCluster.Status.Conditions[idx].Reason = condition.Reason
+			return nil
 		}
 	}
 
 	// no such condition with status type, add a new one
-	amkoCluster.Status.Conditions = append(updatedAMKOCluster.Status.Conditions,
-		getStatusCondition(statusType, statusMsg, reason))
-	return r.PatchAMKOClusterStatus(ctx, amkoCluster, updatedAMKOCluster)
+	updatedAMKOCluster.Status.Conditions = append(updatedAMKOCluster.Status.Conditions, condition)
+	return nil
 }
 
 func (r *AMKOClusterReconciler) PatchAMKOClusterStatus(ctx context.Context, amkoCluster, updatedAMKOCluster *amkov1alpha1.AMKOCluster) error {
-	amkoCluster.Status = amkov1alpha1.AMKOClusterStatus{}
 	patch := client.MergeFrom(amkoCluster.DeepCopy())
 	err := r.Status().Patch(ctx, updatedAMKOCluster, patch)
 	if err != nil {
