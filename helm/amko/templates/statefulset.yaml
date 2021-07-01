@@ -97,7 +97,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-          imagePullPolicy: {{ .Values.federation.pullPolicy }}
+          imagePullPolicy: {{ .Values.federation.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 
