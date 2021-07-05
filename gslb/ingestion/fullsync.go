@@ -326,13 +326,13 @@ func bootupSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 	err := checkGDPsAndInitialize()
 	if err != nil {
 		// Undefined state, panic
-		panic(err.Error())
+		gslbutils.LogAndPanic(err.Error())
 	}
 
 	err = checkGslbHostRulesAndInitialize()
 	if err != nil {
 		// Undefined state, panic
-		panic(err.Error())
+		gslbutils.LogAndPanic(err.Error())
 	}
 	clusterSync(ctrlList, gsCache)
 }
