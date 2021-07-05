@@ -635,3 +635,10 @@ func GetUriFromAvi(uri string, aviClient *clients.AviClient, infiniteRetry bool)
 		time.Sleep(RestSleepTime)
 	}
 }
+
+// LogAndPanic first logs an error message and then calls panic to stop the execution.
+// This ensures that logs messages are not missing when PVC is used for storing the logs
+func LogAndPanic(panicMsg string) {
+	Errf(panicMsg)
+	panic(panicMsg)
+}
