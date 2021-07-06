@@ -654,18 +654,18 @@ func Initialize() {
 		gslbutils.Logf("masterURL: %s, kubeconfigPath: %s, msg: %s", masterURL, kubeConfig,
 			"built from flags")
 		if err != nil {
-			panic("object: main, msg: " + err.Error() + ", error building kubeconfig")
+			gslbutils.LogAndPanic("object: main, msg: " + err.Error() + ", error building kubeconfig")
 		}
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		panic("error building kubernetes clientset: " + err.Error())
+		gslbutils.LogAndPanic("error building kubernetes clientset: " + err.Error())
 	}
 
 	// handleBootup checks AMKOCluster object, validates and then starts a reconciler to process updates.
 	isLeader, err := HandleBootup(cfg)
 	if err != nil {
-		panic("error during boot up: " + err.Error())
+		gslbutils.LogAndPanic("error during boot up: " + err.Error())
 	}
 	CreateController()
 	// If the current cluster is not the leader then don't progress and wait forever
@@ -678,13 +678,13 @@ func Initialize() {
 	gslbutils.GlobalKubeClient = kubeClient
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
-		panic("error building gslb config clientset: " + err.Error())
+		gslbutils.LogAndPanic("error building gslb config clientset: " + err.Error())
 	}
 	gslbutils.GlobalGslbClient = gslbClient
 
 	gdpClient, err := gdpcs.NewForConfig(cfg)
 	if err != nil {
-		panic("error building gdp clientset: " + err.Error())
+		gslbutils.LogAndPanic("error building gdp clientset: " + err.Error())
 	}
 	gslbutils.GlobalGdpClient = gdpClient
 	// required to publish the GDP status, the reason we need this is because, during unit tests, we don't
@@ -758,15 +758,15 @@ func Initialize() {
 
 func RunControllers(gslbController *GSLBConfigController, gdpController *GDPController, gslbhrCtrl *GSLBHostRuleController, stopCh <-chan struct{}) {
 	if err := gslbController.Run(stopCh); err != nil {
-		panic("error running GSLB Controller: " + err.Error())
+		gslbutils.LogAndPanic("error running GSLB Controller: " + err.Error())
 	}
 
 	if err := gdpController.Run(stopCh); err != nil {
-		panic("error running GDP Controller: " + err.Error())
+		gslbutils.LogAndPanic("error running GDP Controller: " + err.Error())
 	}
 
 	if err := gslbhrCtrl.Run(stopCh); err != nil {
-		panic("error running GSLBHostRule Controller: " + err.Error())
+		gslbutils.LogAndPanic("error running GSLBHostRule Controller: " + err.Error())
 	}
 }
 
