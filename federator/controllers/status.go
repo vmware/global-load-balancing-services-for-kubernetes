@@ -59,11 +59,13 @@ const (
 
 	StatusMsgFederationFailure = "failure in federating objects"
 	StatusMsgFederationSuccess = "federation successful"
-	StatusMsgNotALeader        = "current AMKO is a follower, won't federate"
+	StatusMsgNotALeader        = "won't federate objects"
 
 	ErrMembersValidation = "failure in validating some members"
 	ErrFederationFailure = "object couldn't be federated to all clusters"
 	ErrInitClientContext = "error in initializing member custer context"
+
+	AMKONotALeaderReason = "AMKO not a leader"
 )
 
 type StatusMsgRecord struct {
@@ -109,7 +111,7 @@ var statusMsgTypes map[int]*StatusMsgRecord = map[int]*StatusMsgRecord{
 	},
 }
 
-func getClusterErrMsg(errClusters []ClusterErrorMsg) string {
+func GetClusterErrMsg(errClusters []ClusterErrorMsg) string {
 	var errList []string
 
 	for _, m := range errClusters {
@@ -131,6 +133,12 @@ func getStatusCondition(statusType int, statusMsg, reason string,
 		Status: statusMsg,
 	}
 
+	if statusType == CurrentAMKOClusterValidationStatusType && reason == AMKONotALeaderReason {
+		amkoClusterCondition.Reason = reason
+		amkoClusterCondition.Status = StatusMsgNotALeader
+		return amkoClusterCondition, nil
+	}
+
 	if len(errClusters) == 0 {
 		// if there are no error clusters and the reason field is empty, then it
 		// has to be a success message.
@@ -145,7 +153,7 @@ func getStatusCondition(statusType int, statusMsg, reason string,
 		amkoClusterCondition.Status = statusMsgType.allFailed
 		return amkoClusterCondition, nil
 	}
-	amkoClusterCondition.Reason = getClusterErrMsg(errClusters)
+	amkoClusterCondition.Reason = GetClusterErrMsg(errClusters)
 	amkoClusterCondition.Status = statusMsgType.someFailed
 
 	return amkoClusterCondition, nil
