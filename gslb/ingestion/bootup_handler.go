@@ -187,6 +187,7 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 		gslbutils.Logf("AMKOCluster object found and AMKO would start as leader")
 	} else {
 		gslbutils.Logf("AMKOCluster object found and AMKO would start as follower")
+		return false, nil
 	}
 
 	memberClusters, errClusters, err := federator.FetchMemberClusterContexts(context.TODO(), amkoCluster.DeepCopy())
@@ -194,7 +195,7 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 		return false, fmt.Errorf("unrecoverable error, error in fetching member cluster contexts: %v", err)
 	}
 	if len(errClusters) != 0 {
-		gslbutils.Warnf("some member cluster contexts couldn't be fetched: %v, will ignore these", errClusters)
+		gslbutils.Warnf("some member cluster contexts couldn't be fetched: %s, will ignore these", federator.GetClusterErrMsg(errClusters))
 	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
 
@@ -203,7 +204,7 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 		return false, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
 	if len(errClusters) != 0 {
-		gslbutils.Warnf("some member clusters are invalid: %v, will ignore these", errClusters)
+		gslbutils.Warnf("some member clusters are invalid: %v, will ignore these", federator.GetClusterErrMsg(errClusters))
 	}
 	return currentLeader, nil
 }

@@ -558,7 +558,7 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 	}
 	// new member object
 	if !newMember.SyncVIPOnly && (newMember.ControllerUUID == "" || newMember.VirtualServiceUUID == "") {
-		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
+		gslbutils.Errf("gsName: %s, cluster: %s, namespace: %s, member: %s, msg: controller UUID or VS UUID missing from the object, won't update member",
 			v.Name, newMember.Cluster, newMember.Namespace, newMember.Name)
 		return false
 	}
