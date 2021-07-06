@@ -123,7 +123,7 @@ func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
 	}
 
 	if err := c.Update(ctx, target, &client.UpdateOptions{
-		FieldManager: "AMKO",
+		FieldManager: "AMKO-Federator",
 	}); err != nil {
 		return fmt.Errorf("can't update object %s/%s on cluster %s: %v", source.GetNamespace(),
 			source.GetName(), cname, err)
