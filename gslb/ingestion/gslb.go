@@ -541,14 +541,15 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	// check if the controller details provided are for a leader site
 	isLeader, err := avicache.IsAviSiteLeader()
 	if err != nil {
-		gslbutils.Errf("error fetching Gslb leader site details, %s", err.Error())
-		return
+		errMsg := fmt.Sprintf("error fetching Gslb leader site details, %s", err.Error())
+		gslbutils.UpdateGSLBConfigStatus(errMsg)
+		gslbutils.Errf(errMsg)
+		panic(errMsg)
 	}
 	if !isLeader {
 		gslbutils.Errf("Controller details provided are not for a leader, returning")
 		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderMsg)
 		gslbutils.SetControllerAsFollower()
-		return
 	}
 	gslbutils.SetControllerAsLeader()
 
