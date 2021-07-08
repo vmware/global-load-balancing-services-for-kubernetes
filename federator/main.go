@@ -66,6 +66,15 @@ func main() {
 		Development: true,
 	}
 
+	newLogger, isExternalLog, err := controllers.GetLogWriter()
+	if err != nil {
+		setupLog.Error(err, "error while getting log writer")
+		return
+	}
+	if isExternalLog {
+		opts.DestWriter = newLogger
+	}
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
