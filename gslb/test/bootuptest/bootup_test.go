@@ -207,6 +207,7 @@ func getTestAMKOClusterObj(currentContext string, isLeader bool) amkovmwarecomv1
 			ClusterContext: currentContext,
 			IsLeader:       isLeader,
 			Clusters:       []string{Cluster1, Cluster2},
+			Version:        TestAMKOVersion,
 		},
 	}
 }
