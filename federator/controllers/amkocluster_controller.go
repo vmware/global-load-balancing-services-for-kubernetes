@@ -165,7 +165,7 @@ func (r *AMKOClusterReconciler) FetchMemberClusterContextsAndUpdateStatus(ctx co
 func (r *AMKOClusterReconciler) ValidateAMKOClusterSanityAndUpdateStatus(ctx context.Context,
 	amkoCluster *amkov1alpha1.AMKOCluster) error {
 
-	err := r.VerifyAMKOClusterSanity(amkoCluster)
+	err := VerifyAMKOClusterSanity(amkoCluster)
 	if err != nil {
 		if statusErr := r.UpdateAMKOClusterStatus(ctx, CurrentAMKOClusterValidationStatusType,
 			StatusMsgInvalidAMKOCluster, err.Error(), nil, amkoCluster); statusErr != nil {
@@ -343,24 +343,6 @@ func (r *AMKOClusterReconciler) FetchMemberClusterContexts(ctx context.Context, 
 	}
 
 	return memberClusters, errClusters, nil
-}
-
-func (r *AMKOClusterReconciler) VerifyAMKOClusterSanity(amkoCluster *amkov1alpha1.AMKOCluster) error {
-	log.Log.V(1).Info("Performing sanity checks on AMKOCluster object")
-	// namespace for AMKOCluster object has to be avi-system
-	if amkoCluster.Namespace != AviSystemNS {
-		return fmt.Errorf("AMKOCluster's namespace is not %s", AviSystemNS)
-	}
-	// check the current context
-	if amkoCluster.Spec.ClusterContext == "" {
-		return fmt.Errorf("clusterContext field can't be empty in AMKOCluster object")
-	}
-	// check the version field
-	if amkoCluster.Spec.Version == "" {
-		return fmt.Errorf("version field can't be empty in AMKOCluster object")
-	}
-
-	return nil
 }
 
 func (r *AMKOClusterReconciler) UpdateStatus(updatedAMKOCluster *amkov1alpha1.AMKOCluster) {

@@ -115,6 +115,12 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	// verify the basic sanity of the AMKOCluster object
+	if err := federator.VerifyAMKOClusterSanity(&amkoCluster); err != nil {
+		gslbutils.Errf("validation of AMKOCluster object failed with error: %v", err)
+		return ctrl.Result{}, err
+	}
+
 	memberClusters, errClusters, err := federator.FetchMemberClusterContexts(ctx, amkoCluster.DeepCopy())
 	if err != nil {
 		gslbutils.Warnf("Error in fetching member cluster contexts: %v", err)
@@ -188,6 +194,11 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 	} else {
 		gslbutils.Logf("AMKOCluster object found and AMKO would start as follower")
 		return false, nil
+	}
+
+	// verify the basic sanity of the AMKOCluster object
+	if err := federator.VerifyAMKOClusterSanity(&amkoCluster); err != nil {
+		return false, err
 	}
 
 	memberClusters, errClusters, err := federator.FetchMemberClusterContexts(context.TODO(), amkoCluster.DeepCopy())
