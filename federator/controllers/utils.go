@@ -515,3 +515,21 @@ func InitMemberClusterContexts(ctx context.Context, currentContext string,
 	}
 	return resClusters, errClusters, nil
 }
+
+func VerifyAMKOClusterSanity(amkoCluster *amkov1alpha1.AMKOCluster) error {
+	log.Log.V(1).Info("Performing sanity checks on AMKOCluster object")
+	// namespace for AMKOCluster object has to be avi-system
+	if amkoCluster.Namespace != AviSystemNS {
+		return fmt.Errorf("AMKOCluster's namespace is not %s", AviSystemNS)
+	}
+	// check the current context
+	if amkoCluster.Spec.ClusterContext == "" {
+		return fmt.Errorf("clusterContext field can't be empty in AMKOCluster object")
+	}
+	// check the version field
+	if amkoCluster.Spec.Version == "" {
+		return fmt.Errorf("version field can't be empty in AMKOCluster object")
+	}
+
+	return nil
+}
