@@ -718,9 +718,15 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		persistenceProfileRefPtr = &persistenceProfileRef
 	}
 
-	ttlVal, ok := gslbSvcMap["ttl"].(int)
+	ttlVal, ok := gslbSvcMap["ttl"]
 	if ok {
-		ttl = &ttlVal
+		parsedValF, ok := ttlVal.(float64)
+		if ok {
+			parsedValI := int(parsedValF)
+			ttl = &parsedValI
+		} else {
+			gslbutils.Errf("couldn't parse the ttl value: %v", ttlVal)
+		}
 	}
 
 	var poolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings
