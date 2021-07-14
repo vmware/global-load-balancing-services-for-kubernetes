@@ -41,15 +41,16 @@ import (
 const (
 	FederationTypeStatusStr = "Federation"
 
-	AviSystemNS     = "avi-system"
-	MembersKubePath = "/tmp/members-kubeconfig"
-	GCSuffix        = "--amko.gslbconfig-"
-	GDPSuffix       = "--amko.gdp-"
-	AMKOGroup       = "amko.vmware.com"
-	GCKind          = "GSLBConfig"
-	GDPKind         = "GlobalDeploymentPolicy"
-	GCVersion       = "v1alpha1"
-	GDPVersion      = "v1alpha2"
+	AviSystemNS           = "avi-system"
+	MembersKubePath       = "/tmp/members-kubeconfig"
+	GCSuffix              = "--amko.gslbconfig-"
+	GDPSuffix             = "--amko.gdp-"
+	AMKOGroup             = "amko.vmware.com"
+	GCKind                = "GSLBConfig"
+	GDPKind               = "GlobalDeploymentPolicy"
+	GCVersion             = "v1alpha1"
+	GDPVersion            = "v1alpha2"
+	FederatorFieldManager = "AMKO-Federator"
 )
 
 var gcGVK schema.GroupVersionKind = schema.GroupVersionKind{
@@ -123,7 +124,7 @@ func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
 	}
 
 	if err := c.Update(ctx, target, &client.UpdateOptions{
-		FieldManager: "AMKO-Federator",
+		FieldManager: FederatorFieldManager,
 	}); err != nil {
 		return fmt.Errorf("can't update object %s/%s on cluster %s: %v", source.GetNamespace(),
 			source.GetName(), cname, err)
@@ -205,7 +206,9 @@ func FederateGCObjectOnMemberClusters(ctx context.Context, memberClusters []Kube
 		// reaching here would mean, we need to create the GSLBConfig object
 		newObj := currObj.DeepCopy()
 		newObj.ResourceVersion = ""
-		if err := clusterClient.Create(ctx, newObj); err != nil {
+		if err := clusterClient.Create(ctx, newObj, &client.CreateOptions{
+			FieldManager: FederatorFieldManager,
+		}); err != nil {
 			errClusters = append(errClusters, ClusterErrorMsg{
 				cname: m.clusterName,
 				err: fmt.Errorf("error in creating GSLBConfig %s/%s on cluster %s: %v",
@@ -272,7 +275,9 @@ func FederateGDPObjectOnMemberClusters(ctx context.Context, memberClusters []Kub
 		// reaching here would mean, we need to create the GDP object
 		newObj := currObj.DeepCopy()
 		newObj.ResourceVersion = ""
-		if err := clusterClient.Create(ctx, newObj); err != nil {
+		if err := clusterClient.Create(ctx, newObj, &client.CreateOptions{
+			FieldManager: FederatorFieldManager,
+		}); err != nil {
 			errClusters = append(errClusters, ClusterErrorMsg{
 				cname: m.clusterName,
 				err: fmt.Errorf("error in creating GSLBConfig object %s/%s on cluster %s: %v",
