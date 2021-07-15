@@ -35,6 +35,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+const (
+	secureHMPrefix = "amko--https--"
+	maxLen         = 255
+)
+
 func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	acceptedLBSvcStore := store.GetAcceptedLBSvcStore()
 	rejectedLBSvcStore := store.GetRejectedLBSvcStore()
@@ -131,9 +136,26 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 	return svcEventHandler
 }
 
+func isIngressLengthInvalid(ihm k8sobjects.IngressHostMeta, c *GSLBMemberController) bool {
+	for _, path := range ihm.Paths {
+		hmName := secureHMPrefix + ihm.Hostname + "--" + path
+		if len(hmName) > maxLen {
+			gslbutils.Errf("cluster: %s, ns: %s, ingress: %s, msg: rejected ADD ingress because length of hostname+path for ingresses in namespace %s cannot exceed %d\n",
+				c.name, ihm.Namespace, ihm.IngName, ihm.Namespace, maxLen-len(secureHMPrefix)-len("--"))
+			return true
+		}
+	}
+	return false
+}
+
 func filterAndAddIngressMeta(ingressHostMetaObjs []k8sobjects.IngressHostMeta, c *GSLBMemberController,
 	acceptedIngStore, rejectedIngStore *store.ClusterStore, numWorkers uint32, fullsync bool) {
 	for _, ihm := range ingressHostMetaObjs {
+		// Reject the ingress if hostname+path has a invalid length
+		if isIngressLengthInvalid(ihm, c) {
+			AddOrUpdateIngressStore(rejectedIngStore, ihm, c.name)
+			continue
+		}
 		if ihm.IPAddr == "" || ihm.Hostname == "" {
 			gslbutils.Debugf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
 				c.name, ihm.Namespace, ihm.IngName,
@@ -220,6 +242,20 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, fetchedIngHost.Cluster,
 				fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
 				fetchedIngHost.Hostname, c.workqueue)
+			continue
+		}
+		// Reject the ingress if hostname+path has a invalid length
+		if isIngressLengthInvalid(newIhm, c) {
+			_, isAccepted := acceptedIngStore.GetClusterNSObjectByName(c.name, newIhm.Namespace,
+				newIhm.ObjName)
+			// If route was accepted before, delete it from accepted store and add to rejected store
+			AddOrUpdateIngressStore(rejectedIngStore, newIhm, c.name)
+			DeleteFromIngressStore(acceptedIngStore, newIhm, c.name)
+			// If part of accepted store, only then publish the delete key
+			if isAccepted {
+				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+					newIhm.Namespace, newIhm.ObjName, gslbutils.ObjectDelete, newIhm.Hostname, c.workqueue)
+			}
 			continue
 		}
 		// check if the object existed in the acceptedIngStore
@@ -313,6 +349,18 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 	return ingressEventHandler
 }
 
+func isRouteLengthInvalid(route k8sobjects.RouteMeta, c *GSLBMemberController) bool {
+	for _, path := range route.Paths {
+		hmName := secureHMPrefix + route.Hostname + "--" + path
+		if len(hmName) > maxLen {
+			gslbutils.Errf("cluster: %s, ns: %s, route: %s, msg: rejected ADD route because length of hostname+path for routes in namespace %s cannot exceed %d\n",
+				c.name, route.Namespace, route.Name, route.Namespace, maxLen-len(secureHMPrefix)-len("--"))
+			return true
+		}
+	}
+	return false
+}
+
 func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	acceptedRouteStore := store.GetAcceptedRouteStore()
 	rejectedRouteStore := store.GetRejectedRouteStore()
@@ -328,6 +376,11 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 				return
 			}
 			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
+			// Reject the route if hostname+path has a invalid length
+			if isRouteLengthInvalid(routeMeta, c) {
+				AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+				return
+			}
 			if !filter.ApplyFilter(filter.FilterArgs{
 				Cluster: c.name,
 				Obj:     routeMeta,
@@ -382,6 +435,23 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 					// Add a DELETE key for this route
 					publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, fetchedRoute.Namespace,
 						fetchedRoute.Name, gslbutils.ObjectDelete, fetchedRoute.Hostname, c.workqueue)
+					return
+				}
+				// Reject the route if hostname+path has a invalid length
+				if isRouteLengthInvalid(routeMeta, c) {
+					AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+					fetchedObj, isAccepted := acceptedRouteStore.GetClusterNSObjectByName(c.name,
+						oldRoute.ObjectMeta.Namespace, oldRoute.ObjectMeta.Name)
+					// If route was accepted before, delete it from accepted store and add to rejected store
+					if isAccepted {
+						AddOrUpdateRouteStore(rejectedRouteStore, route, c.name)
+						DeleteFromRouteStore(acceptedRouteStore, route, c.name)
+
+						fetchedRoute := fetchedObj.(k8sobjects.RouteMeta)
+						// Add a DELETE key for this route
+						publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, fetchedRoute.Namespace,
+							fetchedRoute.Name, gslbutils.ObjectDelete, fetchedRoute.Hostname, c.workqueue)
+					}
 					return
 				}
 				op := gslbutils.ObjectUpdate
