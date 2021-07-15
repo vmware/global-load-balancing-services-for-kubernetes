@@ -107,6 +107,14 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 	return operation, objType, cluster, ns, name
 }
 
+func ExtractIngestionRetryQueueKey(key string) (string, string, string, string, error) {
+	segments := strings.Split(key, "/")
+	if len(segments) != 4 {
+		return "", "", "", "", fmt.Errorf("unexpected segment length for key %s", key)
+	}
+	return segments[0], segments[1], segments[2], segments[3], nil
+}
+
 func GetObjectTypeFromKey(key string) (string, error) {
 	segments := strings.Split(key, "/")
 	if len(segments) < 2 {
@@ -436,10 +444,11 @@ var waitGroupMap map[string]*sync.WaitGroup
 var wgSyncOnce sync.Once
 
 const (
-	WGIngestion = "ingestion"
-	WGFastRetry = "fastretry"
-	WGSlowRetry = "slowretry"
-	WGGraph     = "graph"
+	WGIngestion      = "ingestion"
+	WGFastRetry      = "fastretry"
+	WGSlowRetry      = "slowretry"
+	WGGraph          = "graph"
+	WGIngestionRetry = "ingestionretry"
 )
 
 func SetWaitGroupMap() {
@@ -449,6 +458,7 @@ func SetWaitGroupMap() {
 		waitGroupMap[WGFastRetry] = &sync.WaitGroup{}
 		waitGroupMap[WGGraph] = &sync.WaitGroup{}
 		waitGroupMap[WGSlowRetry] = &sync.WaitGroup{}
+		waitGroupMap[WGIngestionRetry] = &sync.WaitGroup{}
 	})
 }
 
@@ -625,12 +635,12 @@ func GetUriFromAvi(uri string, aviClient *clients.AviClient, infiniteRetry bool)
 		}
 		// For 404, return
 		if aviError.HttpStatusCode == 404 {
-			return nil, fmt.Errorf("%s", *aviError.Message)
+			return nil, GetIngestionErrorForObjectNotFound(fmt.Sprintf("object not found for uri: %s", uri))
 		}
 		// All other errors, retry
 		Errf("uri: %s, aviErr: %v, will retry %d", uri, aviError, i)
 		if !infiniteRetry && i == 2 {
-			return nil, err
+			return nil, GetIngestionErrorForController(err.Error())
 		}
 		time.Sleep(RestSleepTime)
 	}
