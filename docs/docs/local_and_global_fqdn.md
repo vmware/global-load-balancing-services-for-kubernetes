@@ -4,7 +4,7 @@
 AMKO decides the FQDNs for the GslbServices based on two modes:
 1. Default Mode: In this mode, the hostname(s) field in the status of the Ingress/Route/Service of type Loadbalancer object is used to determine the hostname of the GSLB Service. Each hostname uniquely maps to a GS FQDN automatically. For common hostname across clusters, a single GSLB Service is created with pool members from each cluster that share the hostname.
 
-2. Custom Global Fqdn Mode: In this mode, AMKO checks the AKO HostRules to figure out the GslbService Fqdn. To expose an application via GSLB, the user must provide a mapping between the local fqdn and the global fqdn via AKO's HostRule object. See [this](https://github.com/avinetworks/avi-helm-charts/blob/master/docs/AKO/crds/hostrule.md#configure-gslb-fqdn). If the user wishes to map two application instances (which have different FQDNs) in two different clusters, they have to create HostRules in both clusters specifying the mapping.
+2. Custom Global Fqdn Mode: In this mode, AMKO checks the AKO HostRules to figure out the GslbService Fqdn. To expose an application via GSLB, the user must provide a mapping between the local fqdn and the global fqdn via AKO's HostRule object. See [this](https://github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/blob/master/docs/crds/hostrule.md#configure-gslb-fqdn). If the user wishes to map two application instances (which have different FQDNs) in two different clusters, they have to create HostRules in both clusters specifying the mapping.
 
 ![Alt text](../images/local_vs_global_fqdn.png?raw=true "local and global fqdn modes")
 
