@@ -215,12 +215,14 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 type AviSpCache struct {
 	cacheLock sync.RWMutex
 	Cache     map[interface{}]interface{}
+	UUIDCache map[string]interface{}
 }
 
 func GetAviSpCache() *AviSpCache {
 	spObjCacheOnce.Do(func() {
 		aviSpCache = &AviSpCache{}
 		aviSpCache.Cache = make(map[interface{}]interface{})
+		aviSpCache.UUIDCache = make(map[string]interface{})
 	})
 	return aviSpCache
 }
@@ -231,10 +233,23 @@ func (s *AviSpCache) AviSpCacheAdd(k interface{}, val interface{}) {
 	s.Cache[k] = val
 }
 
+func (s *AviSpCache) AviSpCacheAddByUUID(uuid string, val interface{}) {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	s.UUIDCache[uuid] = val
+}
+
 func (s *AviSpCache) AviSpCacheGet(k interface{}) (interface{}, bool) {
 	s.cacheLock.RLock()
 	defer s.cacheLock.RUnlock()
 	val, ok := s.Cache[k]
+	return val, ok
+}
+
+func (s *AviSpCache) AviSpCacheGetByUUID(uuid string) (interface{}, bool) {
+	s.cacheLock.RLock()
+	defer s.cacheLock.RUnlock()
+	val, ok := s.UUIDCache[uuid]
 	return val, ok
 }
 
@@ -258,7 +273,7 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 		elems := make([]json.RawMessage, result.Count)
 		err = json.Unmarshal(result.Results, &elems)
 		if err != nil {
-			return errors.New("failed to unmarshal health monitor data, err: " + err.Error())
+			return errors.New("failed to unmarshal site persistence profile ref, err: " + err.Error())
 		}
 
 		processedObjs := 0
@@ -266,18 +281,19 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 			sp := models.ApplicationPersistenceProfile{}
 			err := json.Unmarshal(elems[i], &sp)
 			if err != nil {
-				gslbutils.Warnf("failed to unmarshal health monitor element, err: %s", err.Error())
+				gslbutils.Warnf("failed to unmarshal site persistence element, err: %s", err.Error())
 				continue
 			}
 
 			if sp.Name == nil || sp.UUID == nil {
-				gslbutils.Warnf("incomplete health monitor data unmarshalled %s", utils.Stringify(sp))
+				gslbutils.Warnf("incomplete site persistence ref unmarshalled %s", utils.Stringify(sp))
 				continue
 			}
 
 			k := TenantName{Tenant: utils.ADMIN_NS, Name: *sp.Name}
 			s.AviSpCacheAdd(k, &sp)
-			gslbutils.Debugf("processed site persistence %s", *sp.Name)
+			s.AviSpCacheAddByUUID(*sp.UUID, &sp)
+			gslbutils.Debugf("processed site persistence %s, UUID: %s", *sp.Name, *sp.UUID)
 			processedObjs++
 		}
 		gslbutils.Logf("processed %d Site Persistence profiles", processedObjs)
@@ -602,9 +618,29 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	}
 
 	sitePersistenceRequired = *gsObj.SitePersistenceEnabled
-	if sitePersistenceRequired {
-		persistenceProfileRef = *gsObj.ApplicationPersistenceProfileRef
-		persistenceProfileRefPtr = &persistenceProfileRef
+	if sitePersistenceRequired && gsObj.ApplicationPersistenceProfileRef != nil {
+		// find out the name of the profile
+		refSplit := strings.Split(*gsObj.ApplicationPersistenceProfileRef, "/applicationpersistenceprofile/")
+		if len(refSplit) == 2 {
+			spCache := GetAviSpCache()
+			sp, present := spCache.AviSpCacheGetByUUID(refSplit[1])
+			if present {
+				spObj, ok := sp.(*models.ApplicationPersistenceProfile)
+				if ok {
+					persistenceProfileRef = *spObj.Name
+					persistenceProfileRefPtr = &persistenceProfileRef
+				} else {
+					gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: stored site persistence not in right format",
+						*gsObj.Name, *gsObj.ApplicationPersistenceProfileRef)
+				}
+			} else {
+				gslbutils.Warnf("gsName: %s, fetchedRef: %s, uuid: %s, msg: site persistence not present in cache by UUID",
+					*gsObj.Name, *gsObj.ApplicationPersistenceProfileRef, refSplit[1])
+			}
+		} else {
+			gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: wrong format for site persistence ref", *gsObj.Name,
+				*gsObj.ApplicationPersistenceProfileRef)
+		}
 	}
 	if gsObj.TTL != nil {
 		ttlVal := int(*gsObj.TTL)
@@ -858,8 +894,7 @@ func PopulateHMCache(createSharedCache bool) *AviHmCache {
 
 func PopulateSPCache() *AviSpCache {
 	aviRestClientPool := SharedAviClients()
-	aviSpCache := &AviSpCache{}
-	aviSpCache.Cache = make(map[interface{}]interface{})
+	aviSpCache := GetAviSpCache()
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviSitePersistenceCachePopulate(aviRestClientPool.AviClient[0])
 	}
