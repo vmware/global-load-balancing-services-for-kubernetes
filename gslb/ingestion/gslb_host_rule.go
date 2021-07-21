@@ -101,6 +101,27 @@ func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool
 		return false
 	}
 
+	// if site persistence profile exists and is not present in the internal cache, add it
+	elems := make([]json.RawMessage, result.Count)
+	err = json.Unmarshal(result.Results, &elems)
+	if err != nil {
+		gslbutils.Errf("failed to unmarshal site persistence profile ref, err: %v", err.Error())
+		return false
+	}
+	sp := models.ApplicationPersistenceProfile{}
+	if err = json.Unmarshal(elems[0], &sp); err != nil {
+		gslbutils.Errf("failed to unmarshal site persistence element, err: %v", err.Error())
+		return false
+	}
+	if sp.Name == nil || sp.UUID == nil {
+		gslbutils.Errf("incomplete site persistence ref unmarshalled %s", utils.Stringify(sp))
+		return false
+	}
+	k := avictrl.TenantName{Tenant: utils.ADMIN_NS, Name: *sp.Name}
+	spCache := avictrl.GetAviSpCache()
+	spCache.AviSpCacheAdd(k, &sp)
+	spCache.AviSpCacheAddByUUID(*sp.UUID, &sp)
+	gslbutils.Debugf("sitePersistence: %s, msg: added site persistence to in memory cache", *sp.Name)
 	return true
 }
 
