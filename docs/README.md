@@ -20,23 +20,23 @@ For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Kubernetes     | 1.16+       |
-| AKO            | 1.4.1       |
-| AVI Controller | 20.1.4-2p3+ |
+| AKO            | 1.4.3       |
+| AVI Controller | 20.1.6+     |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Openshift      | 4.4+        |
-| AKO            | 1.4.1       |
-| AVI Controller | 20.1.4-2p3+ |
+| AKO            | 1.4.3       |
+| AVI Controller | 20.1.6+     |
 
 #### Pre-requisites
 To kick-start AMKO, we need:
 1. Atleast one kubernetes/openshift cluster.
 2. Atleast one AVI controller.
 3. AMKO assumes that it has connectivity to all the member clusters' kubernetes API servers. Without this, AMKO won't be able to watch over the kubernetes and openshift resources in the member clusters.
-4. Choose one of the kubernetes/openshift clusters where AMKO should be deployed. All the configs for `amko` will be added to this cluster. Let's call this cluster `cluster-amko` for further references.
-5. Create a namespace `avi-system` in `cluster-amko`:
+4. Choose one of the kubernetes/openshift clusters where the leader AMKO should be deployed. On all other clusters, deploy AMKO as follower. This is to ensure that the leader AMKO would federate the AMKO config objects like `GSLBConfig` and `GlobalDeploymentPolicy` to all member clusters. See [this](federation.md) to know more about how AMKO federation works and how it can be used to recover from disasters.
+5. On all clusters, create a namespace `avi-system`:
    ```
    $ kubectl create ns avi-system
    ```
@@ -45,17 +45,18 @@ To kick-start AMKO, we need:
    ```
    $ kubectl create secret generic gslb-config-secret --from-file gslb-members -n avi-system
    ```
+This has to be done for all the member clusters wherever AMKO is going to be deployed.
 
 *Note* that the permissions provided in the kubeconfig file for all the clusters must have atleast the permissions to `[get, list, watch]` on:
    * Kubernetes ingress and service type load balancers.
    * Openshift routes and service type load balancers.
-AMKO also needs permissisons to `[get, list, watch, update]` on:
+AMKO also needs permissisons to `[create, get, list, watch, update, delete]` on:
    * GSLBConfig object
    * GlobalDeploymentPolicy object
-The extra `update` permission is to update the `GSLBConfig` and `GlobalDeploymentPolicy` objects' status fields to reflect the current state of the object, whether its accepted or rejected.
-
 #### Install using helm
 *Note* that only helm v3 is supported.
+
+Following steps have to be executed on all member clusters:
 
 1. Create the `avi-system` namespace:
    ```
@@ -74,28 +75,34 @@ The extra `update` permission is to update the `GSLBConfig` and `GlobalDeploymen
    $ helm search repo
 
    NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
-   ako/amko	1.4.1	            1.4.1	            A helm chart for Avi Multicluster Kubernetes Operator
+   ako/amko	1.4.2	            1.4.2	            A helm chart for Avi Multicluster Kubernetes Operator
 
    ```
 
 4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values ako/amko --version 1.4.1 > values.yaml
+   helm show values ako/amko --version 1.4.2 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
 
-5. Install AMKO:
+5. On the leader cluster, set the following fields in `values.yaml`:
+   * Set `configs.federation.currentClusterIsLeader` to `true` only on the leader cluster. For all other clusters, set this to `false`.
+   * Set `configs.federation.currentCluster` to the current cluster context.
+   * Add the member clusters to `configs.federation.memberClusters`.
+   The above values will configure the AMKO federator.
+
+6. Install AMKO:
    ```
-   $ helm install  ako/amko  --generate-name --version 1.4.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install  ako/amko  --generate-name --version 1.4.2 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
-6. Check the installation:
+7. Check the installation:
    ```
    $ helm list -n avi-system
 
    NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
-   amko-1598451370	avi-system	1       	2020-08-26 14:16:21.889538175 +0000 UTC	deployed	amko-1.4.1	            1.4.1
+   amko-1598451370	avi-system	1       	2020-08-26 14:16:21.889538175 +0000 UTC	deployed	amko-1.4.2	            1.4.2
    ```
 
 #### Troubleshooting and Log collection
@@ -120,6 +127,11 @@ kubectl delete ns avi-system
 | **Parameter**                                    | **Description**                                                                                                          | **Default**                           |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
 | `configs.controllerVersion`                      | GSLB leader controller version                                                                                           | 20.1.4                                |
+| `configs.federation.image.repository`            | Image repository for AMKO federator                                                                                         | projects.registry.vmware.com/ako/amko-federator|
+| `configs.federation.image.pullPolicy`            | Image pull policy for AMKO federator                                                                                         | IfNotPresent|
+| `configs.federation.currentCluster`            | Current cluster context (required)                                                                                         | Nil |
+| `configs.federation.currentClusterIsLeader`            | Set to `true` if current cluster is the leader (required)                                                                                         | false |
+| `configs.federation.memberClusters`            | member clusters on which federation should be done                                                                                    |  |
 | `configs.gslbLeaderController`                         | GSLB leader site URL                                                                                                     | Nil                                   |
 | `gslbLeaderCredentials.username`         | GSLB leader controller username                                                                                          | `admin`                               |
 | `gslbLeaderCredentials.password`         | GSLB leader controller password                                                                                          |                               |
@@ -138,13 +150,19 @@ kubectl delete ns avi-system
 
 
 #### Custom resources
-AMKO uses a couple of custom resources to configure the GSLB services in the GSLB leader site:
+AMKO uses a custom resource to configure federation to member clusters:
+- [AMKOCluster](federation.md#amkocluster-crd-to-control-federation)
+
+AMKO uses the following custom resources to configure the GSLB services in the GSLB leader site:
 1. [GSLBConfig](crds/gslbconfig.md)
 2. [GlobalDeploymentPolicy](crds/gdp.md)
 
 Follow the above links to take a look at the CRD objects and how to use them.
 
-If AMKO is installed via `helm`, it by default creates one instance of each type in the `avi-system` namespace. To see these objects:
+If AMKO is installed via `helm`, it by default creates one i
+| `configs.federation.memberClusters`            | member clusters on which federation should be done                                                                                    | false |
+
+pnstance of each type in the `avi-system` namespace. To see these objects:
 ```
 $ kubectl get gc -n avi-system gc-1
 NAME            AGE
