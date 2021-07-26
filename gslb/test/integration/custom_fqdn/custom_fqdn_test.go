@@ -337,6 +337,7 @@ func (f forGomega) Fatalf(format string, args ...interface{}) {
 }
 
 func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
+	useCustomGlobalFqdn := true
 	return &gslbalphav1.GSLBConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      GslbConfigName,
@@ -355,7 +356,7 @@ func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
 			},
 			RefreshInterval:     100,
 			LogLevel:            "DEBUG",
-			UseCustomGlobalFqdn: true,
+			UseCustomGlobalFqdn: &useCustomGlobalFqdn,
 		},
 	}
 }

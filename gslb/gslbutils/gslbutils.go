@@ -584,9 +584,13 @@ func GetHostRuleMeta(gsFqdn string, tls bool) HostRuleMeta {
 var customFqdnMode bool
 var fqdnOnce sync.Once
 
-func SetCustomFqdnMode(custom bool) {
+func SetCustomFqdnMode(custom *bool) {
+	value := false
+	if custom != nil {
+		value = *custom
+	}
 	fqdnOnce.Do(func() {
-		customFqdnMode = custom
+		customFqdnMode = value
 	})
 }
 
