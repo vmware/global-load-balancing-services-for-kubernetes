@@ -48,7 +48,7 @@ type GSLBConfigSpec struct {
 	MemberClusters      []MemberCluster `json:"memberClusters,omitempty"`
 	RefreshInterval     int             `json:"refreshInterval,omitempty"`
 	LogLevel            string          `json:"logLevel,omitempty"`
-	UseCustomGlobalFqdn bool            `json:"useCustomGlobalFqdn,omitempty"`
+	UseCustomGlobalFqdn *bool           `json:"useCustomGlobalFqdn,omitempty"`
 }
 
 // GSLBLeader is the leader node in the GSLB cluster

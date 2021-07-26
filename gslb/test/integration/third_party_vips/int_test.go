@@ -355,9 +355,8 @@ func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
 				{ClusterContext: K8sContext},
 				{ClusterContext: OshiftContext},
 			},
-			RefreshInterval:     100,
-			LogLevel:            "DEBUG",
-			UseCustomGlobalFqdn: false,
+			RefreshInterval: 100,
+			LogLevel:        "DEBUG",
 		},
 	}
 }
