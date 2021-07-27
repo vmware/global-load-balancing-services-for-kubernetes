@@ -564,10 +564,13 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 	}
 
 	v.MemberObjs = append(v.MemberObjs, newMember)
-	if newMember.ObjType == gslbutils.SvcType || newMember.IsPassthrough {
-		v.checkAndUpdateNonPathHealthMonitor(newMember.ObjType, newMember.IsPassthrough)
-	} else {
-		v.updateGSHmPathListAndProtocol()
+	if v.HmRefs == nil || len(v.HmRefs) == 0 {
+		// update the health monitors if hm refs is not nil or non-zero
+		if newMember.ObjType == gslbutils.SvcType || newMember.IsPassthrough {
+			v.checkAndUpdateNonPathHealthMonitor(newMember.ObjType, newMember.IsPassthrough)
+		} else {
+			v.updateGSHmPathListAndProtocol()
+		}
 	}
 	return false
 }
