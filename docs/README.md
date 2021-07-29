@@ -21,21 +21,21 @@ For Kubernetes clusters:
 | -------------- | ----------- |
 | Kubernetes     | 1.16+       |
 | AKO            | 1.4.3       |
-| AVI Controller | 20.1.6+     |
+| AVI Controller | 20.1.4-2p3+ |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Openshift      | 4.4+        |
 | AKO            | 1.4.3       |
-| AVI Controller | 20.1.6+     |
+| AVI Controller | 20.1.4-2p3+ |
 
 #### Pre-requisites
 To kick-start AMKO, we need:
 1. Atleast one kubernetes/openshift cluster.
 2. Atleast one AVI controller.
 3. AMKO assumes that it has connectivity to all the member clusters' kubernetes API servers. Without this, AMKO won't be able to watch over the kubernetes and openshift resources in the member clusters.
-4. Choose one of the kubernetes/openshift clusters where the leader AMKO should be deployed. On all other clusters, deploy AMKO as follower. This is to ensure that the leader AMKO would federate the AMKO config objects like `GSLBConfig` and `GlobalDeploymentPolicy` to all member clusters. See [this](federation.md) to know more about how AMKO federation works and how it can be used to recover from disasters.
+4. Before deploying AMKO, one of the clusters have to be designated as the leader and rest of the clusters as followers. AMKO has to be deployed on all clusters (wherever federation is required). This is to ensure that the leader cluster's AMKO would federate the AMKO config objects like `GSLBConfig` and `GlobalDeploymentPolicy` objects to all follower clusters. See [this](federation.md) for more details on the specifics of federation and how to recover from a disaster recovery scenario.
 5. On all clusters, create a namespace `avi-system`:
    ```
    $ kubectl create ns avi-system
@@ -87,11 +87,10 @@ Following steps have to be executed on all member clusters:
    ```
    Values and their corresponding index can be found [here](#parameters)
 
-5. On the leader cluster, set the following fields in `values.yaml`:
-   * Set `configs.federation.currentClusterIsLeader` to `true` only on the leader cluster. For all other clusters, set this to `false`.
+5. To configure federation via `values.yaml`:
+   * Set `configs.federation.currentClusterIsLeader` to `true` for the leader cluster. For all follower clusters, set this to `false`.
    * Set `configs.federation.currentCluster` to the current cluster context.
    * Add the member clusters to `configs.federation.memberClusters`.
-   The above values will configure the AMKO federator.
 
 6. Install AMKO:
    ```
@@ -159,11 +158,12 @@ AMKO uses the following custom resources to configure the GSLB services in the G
 
 Follow the above links to take a look at the CRD objects and how to use them.
 
-If AMKO is installed via `helm`, it by default creates one i
-| `configs.federation.memberClusters`            | member clusters on which federation should be done                                                                                    | false |
-
-pnstance of each type in the `avi-system` namespace. To see these objects:
+If AMKO is installed via `helm`, it by default creates one instance of each type in the `avi-system` namespace. To see these objects:
 ```
+$ kubectl get amkocluster amkocluster-federation -n avi-system
+NAME                       AGE
+amkocluster-federation     45m
+
 $ kubectl get gc -n avi-system gc-1
 NAME            AGE
 gc-1            45m
