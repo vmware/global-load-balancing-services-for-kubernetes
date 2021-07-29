@@ -1,17 +1,17 @@
 ## Federation
 
-AMKO has a federator which can federate the AMKO configuration to a set of member clusters. This is done to ensure that a user can initiate a recovery whenever there's some kind of a disaster (without the need of backing up the AMKO configs).
+AMKO uses federation to replicate AMKO configuration to a set of member clusters. This ensures a seamless recovery of AMKO configs for disaster recovery.
 
 ### Federation Set
-Federation works on a set of clusters where AMKO is deployed. We will call this set of clusters as the federation set. One of these clusters in the federation set must be designated as the **leader**. And, all the other clusters are designated as **followers**.
+The set of clusters registered on AMKO is considered as a federation set. One of these clusters in the federation set must be designated as the **leader**. And, all the other clusters are designated as the **followers**.
 
 ### Responsibilities of a leader and a follower
 1. A **leader** cluster is responsible for distributing the AMKO configuration to all the follower clusters in the federation set. AMKO in the leader cluster is also responsible to create/update GSLB Services on the Avi Controller.
-2. AMKO in a **follower** cluster runs in a no-op mode. The federator in the follower clusters won't federate the objects. And, AMKO in the follower clusters won't sync the GSLB Services in the Avi Controller. It just runs in a passive mode.
+2. AMKO in a **follower** cluster runs passively and does not carry out federation activities or GslbService sync operations unlike the leader.
 
-Whenever there's a disaster, taking the leader cluster down, the user can then pick any of the follower clusters and mark this AMKO to be the new leader. Though, **note** that at any point in time, the user has to ensure that there's only one leader AMKO.
+Post a disaster, the user should manually pick any of the erstwhile follower clusters and designate that as the new leader. The user must ensure that only a single AMKO is designated as the **leader** at any given point in time.
 
-### Objects to be federated
+### Federated Objects
 Following objects are federated from the leader cluster to the follower:
 1. `GSLBConfig`
 2. `GlobalDeploymentPolicy` or `GDP`
@@ -19,7 +19,7 @@ Following objects are federated from the leader cluster to the follower:
 Add/Update/Delete events of the above objects are federated to the follower clusters.
 
 ### Flow
-Assuming that there are three sites, and each site has one cluster:
+Assume the following topology (a cluster is a kubernetes kubernetes/openshift cluster):
 - Cluster 1 in Site 1
 - Cluster 2 in Site 2
 - Cluster 3 in Site 3
@@ -28,10 +28,8 @@ Assuming that there are three sites, and each site has one cluster:
 
 Each site has an Avi Controller deployed. Site 1's Avi Controller is chosen as the GSLB Leader and all the other sites are GSLB followers. AMKO is deployed on all three sites. For cluster 1 (in site 1), it is marked as the leader. And, for clusters 2 and 3, it is marked as follower. User adds/updates the `GSLBConfig` and `GDP` objects in cluster 1, AMKO's federator in cluster 1 federates the changes to these objects to all the follower clusters.
 
-### AMKOCluster CRD to control federation
-A CRD called `AMKOCluster` governs the federation. With this CR, users can specify which clusters to federate on, along with a few other parameters.
-
-A typical `AMKOCluster` object for a leader AMKO looks like this:
+### Federation Configuration using AMKOCluster CRD
+A CRD called `AMKOCluster` governs the federation. A typical `AMKOCluster` object for a leader AMKO looks like this:
 ```yaml
 apiVersion: amko.vmware.com/v1alpha1
 kind: AMKOCluster
@@ -75,14 +73,13 @@ status:
 
 **Additional Notes**:
 * The federation set can be a subset of the overall member cluster set used for GSLB.
-* AMKO has to be deployed on all clusters in the federation set.
 * `spec.clusterContext` must contain the current cluster's context.
-* `spec.version` is compared against the versions of all member clusters. If there's a version mismatch, the current AMKO will error out and the AMKO federator won't federate.
+* `spec.version` is compared against the versions of all member clusters. All AMKO clusters must have the same version as the `leader` cluster. The federation logic will not work if there's a version mismatch.
 * `spec.clusters` contains the federation cluster set.
 * Only one AMKO can be a leader, all other AMKOs have to be followers. If there are two leaders at any point, federation will stop and the error will be written to the `AMKOCluster`'s status.
 
 ### Disasters and Recovery
-Whenever a disaster occurs and it takes down the cluster where the leader AMKO is deployed, the kubernetes/openshift objects will not be synced to the Avi GSLB Leader Controller anymore. At this point, the user has to switch one of the follower AMKOs to leader and the syncing should just resume.
+During a cluster down event on the `leader` AMKO, the federation of config objects will stop. However, at this point, all other clusters participating in federation would be synced with up to date configuration of the erstwhile GSLB `leader`. Hence, switching to a new AMKO `leader` does not require any manual steps of recovering the AMKO config objects.
 
 Let's assume that there are 3 sites with one cluster in each of them:
 1. Cluster 1 in Site 1
@@ -107,20 +104,22 @@ The site where the leader AMKO was deployed and which hosted the Avi GSLB leader
 
     $ kubectl edit amkocluster amkocluster-federation -n avi-system
 
-This would reboot AMKO in leader mode and will resume syncing objects to the Avi GSLB leader controller.
+This would reboot the new leader AMKO. Post reboot, the new `leader` will take over the responsibilities of the earlier leader.
 
 #### Cluster Failure Scenario
 
  ![Alt text](images/amko_fed_cluster_failure.png?raw=true "AMKO cluster failure switch")
 
-The cluster where the leader AMKO was deployed, fails. Since the Avi GSLB leader is still active, the user only has to choose a new AMKO leader out of the followers. On that cluster, the `AMKOCluster` object must be edited and `spec.isLeader` field must be set to `true`:
+The cluster where the leader AMKO was deployed, fails. Since the Avi GSLB leader is still active, the user only has to choose a new AMKO leader out of the followers. The steps to recover AMKO and designation of the new `leader` remains the same as the above section:
 ```
 $ kubectl edit amkocluster amkocluster-federation -n avi-system
+// set the spec.leader field to true
 ```
 
 #### Old leader AMKO boots up
-Note that at any point in time, there cannot be more than one leader AMKOs. If a leader AMKO finds that there's another leader in its member list, it won't federate. And, this AMKO won't sync any objects to the Avi GSLB leader controller. While the traffic will still continue to work, the kubernetes/openshift objects won't be synced to Avi GSLB leader any more. The user must intervene and set one of these AMKOs to follower by setting `spec.isLeader` field to `false` in the `AMKOCluster` object:
+At any given point in time, the architecture only allows a single AMKO `leader`. Conflicts leading from more than 1 leader must be resolved by the admin manually. This does not have any traffic impact on the existing GslbServices objects.
+To resolve this situation, the admin must convert one of the leader AMKOs to follower by setting `spec.isLeader` field to `false` in the `AMKOCluster` object:
 ```
 $ kubectl edit amkocluster amkocluster-federation -n avi-system
 ```
-This is especially important for situations when a cluster, which hosted a leader instance of AMKO, previously failed. The user has switched a follower AMKO to be the new leader. And, the failed cluster recovers and brings back the old leader AMKO. The user must set the old leader to follower.
+This is especially important for situations, when a cluster, which hosted a leader instance of AMKO, previously failed. The user has switched a follower AMKO to be the new leader. And, the failed cluster recovers and brings back the old leader AMKO. The user must set the old leader to follower.
