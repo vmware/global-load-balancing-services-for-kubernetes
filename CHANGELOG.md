@@ -23,7 +23,7 @@ All notable changes to this project will be documented in this file. The format 
   - AMKO can now boot up, even if one of the member clusters is unreachable. If the cluster is available later on, AMKO will start it's informers.
 
 ### Bugs fixed:
-  - Fix parsing of TTL and hash mask after creating GslbServices.
-  - Fix an unnecessary creation and deletion of path based health monitors, even if health monitor references are given.
-  - Fix unnecessary updates to GslbServices due to incorrect parsing of GslbServices.
-  - AMKO should panic if it can't find out the GSLB leader details.
+  - Parsing error for TTL and hash mask fields after creation of GslbServices
+  - Path based health monitors gets unnecessarily created and then deleted sometimes, even if custom health monitor refs are provided
+  - GslbServices unnecessarily updated due to incorrect parsing of site persistence field
+  - AMKO doesn't panic if the GSLB leader details couldn't be fetched
