@@ -251,6 +251,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 			}
 			gslbutils.Warnf("an update has been made to the GSLBConfig object, AMKO needs a reboot to register the changes")
 			gslbutils.UpdateGSLBConfigStatus(EditRestartMsg)
+			gslbutils.SetGSLBConfig(true)
 		},
 	})
 	return gslbController
