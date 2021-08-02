@@ -326,6 +326,12 @@ func UpdateGSLBConfigStatus(msg string) error {
 		return nil
 	}
 
+	// ensure that once the GSLBConfig object has been updated and the status already reflects
+	// that, no other status updates can be done unless AMKO is rebooted
+	if GetGslbConfigObjUpdated() {
+		Logf("GSLBConfig object has been updated, AMKO reboot is required")
+		return nil
+	}
 	updateGSLBConfigStatusMsg(msg)
 	gcStatus := gslbalphav1.GSLBConfigStatus{
 		State: msg,
@@ -645,4 +651,17 @@ func GetUriFromAvi(uri string, aviClient *clients.AviClient, infiniteRetry bool)
 func LogAndPanic(panicMsg string) {
 	Errf(panicMsg)
 	panic(panicMsg)
+}
+
+var gslbConfigObjUpdated bool
+var updatedOnce sync.Once
+
+func SetGslbConfigObjUpdated(value bool) {
+	updatedOnce.Do(func() {
+		gslbConfigObjUpdated = true
+	})
+}
+
+func GetGslbConfigObjUpdated() bool {
+	return gslbConfigObjUpdated
 }
