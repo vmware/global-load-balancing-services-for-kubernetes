@@ -308,6 +308,20 @@ func BuildAddAndVerifyAppSelectorTestGDP(t *testing.T) (*gdpalphav2.GlobalDeploy
 	return AddAndVerifyTestGDPSuccess(t, gdpObj)
 }
 
+func BuildAddAndVerifyPoolPriorityTestGDP(t *testing.T, trafficSplit []gdpalphav2.TrafficSplitElem) (*gdpalphav2.GlobalDeploymentPolicy, error) {
+	gdpObj := GetTestDefaultGDPObject()
+	gdpObj.Spec.MatchRules.AppSelector = gdpalphav2.AppSelector{
+		Label: appLabel,
+	}
+	gdpObj.Spec.MatchClusters = []gdpalphav2.ClusterProperty{
+		{Cluster: K8sContext}, {Cluster: OshiftContext},
+	}
+
+	// add pool priority
+	gdpObj.Spec.TrafficSplit = trafficSplit
+	return AddAndVerifyTestGDPSuccess(t, gdpObj)
+}
+
 func BuildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
 	expectedKey := ingestion_test.GetIngressKey(op, cname, ns, name, hostname)
 	t.Logf("key: %s, msg: will verify key", expectedKey)
@@ -351,6 +365,26 @@ func AddTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalpha
 	return newGdpObj, nil
 }
 
+func UpdateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
+	newGdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(),
+		gdp, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	t.Logf("updated GDP object %s in %s namespace", newGdpObj.Name, newGdpObj.Namespace)
+	return newGdpObj, nil
+}
+
+func GetTestGDP(t *testing.T, name, ns string) (*gdpalphav2.GlobalDeploymentPolicy, error) {
+	gdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(),
+		name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	t.Logf("fetched GDP object %s in %s namespace", gdpObj.Name, gdpObj.Namespace)
+	return gdpObj, nil
+}
+
 func VerifyGDPStatus(t *testing.T, ns, name, status string) {
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() string {
@@ -365,6 +399,20 @@ func VerifyGDPStatus(t *testing.T, ns, name, status string) {
 
 func AddAndVerifyTestGDPSuccess(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
 	newGdpObj, err := AddTestGDP(t, gdp)
+	if err != nil {
+		return nil, err
+	}
+	VerifyGDPStatus(t, newGdpObj.Namespace, newGdpObj.Name, "success")
+	return newGdpObj, nil
+}
+
+func UpdateAndVerifyTestGDPPrioritySuccess(t *testing.T, name, ns string, trafficSplit []gdpalphav2.TrafficSplitElem) (*gdpalphav2.GlobalDeploymentPolicy, error) {
+	oldGdpObj, err := GetTestGDP(t, name, ns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldGdpObj.Spec.TrafficSplit = trafficSplit
+	newGdpObj, err := UpdateTestGDP(t, oldGdpObj)
 	if err != nil {
 		return nil, err
 	}
@@ -485,6 +533,10 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 				t.Logf("Weight for members don't match, expected: %d, fetched: %d", e.Weight, m.Weight)
 				return false
 			}
+			if e.Priority != m.Priority {
+				t.Logf("Priorities for members don't match, expected: %d, fetched: %d", e.Priority, m.Priority)
+				return false
+			}
 			if e.TLS != m.TLS {
 				t.Logf("TLS for members don't match, expected: %v, fetched: %v", e.TLS, m.TLS)
 				return false
@@ -500,7 +552,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 }
 
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1beta1.Ingress, cname string,
-	weight int32) nodes.AviGSK8sObj {
+	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", ingObj.Annotations, err)
@@ -526,11 +578,11 @@ func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1beta1.Ingress, cna
 	return getTestGSMember(cname, gslbutils.IngressType, ingObj.Name, ingObj.Namespace,
 		ingObj.Status.LoadBalancer.Ingress[0].IP, vsUUIDs[hostName],
 		ingObj.Annotations[k8sobjects.ControllerAnnotation],
-		true, false, tls, paths, weight)
+		true, false, tls, paths, weight, priority)
 }
 
 func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname string,
-	weight int32) nodes.AviGSK8sObj {
+	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", routeObj.Annotations, err)
@@ -545,11 +597,11 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 	return getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
 		routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[hostName],
 		routeObj.Annotations[k8sobjects.ControllerAnnotation],
-		true, false, tls, paths, weight)
+		true, false, tls, paths, weight, priority)
 }
 
 func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID string,
-	syncVIPOnly, isPassthrough, tls bool, paths []string, weight int32) nodes.AviGSK8sObj {
+	syncVIPOnly, isPassthrough, tls bool, paths []string, weight int32, priority int32) nodes.AviGSK8sObj {
 	return nodes.AviGSK8sObj{
 		Cluster:            cname,
 		ObjType:            objType,
@@ -563,6 +615,7 @@ func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID st
 		TLS:                tls,
 		Paths:              paths,
 		Weight:             weight,
+		Priority:           priority,
 	}
 }
 

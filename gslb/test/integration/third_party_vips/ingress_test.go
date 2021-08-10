@@ -183,8 +183,8 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 		routeCluster, host, routeIPAddr, false)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
@@ -230,8 +230,8 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 		routeCluster, host, routeIPAddr, false)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
@@ -241,7 +241,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	newIng := k8sGetIngress(t, clusterClients[K8s], ingObj.Name, ingObj.Namespace, ingCluster)
 	k8sCleanupIngressStatus(t, clusterClients[K8s], ingCluster, newIng)
 
-	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
+	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10)}
 	t.Logf("verifying the GS to have only 1 member as route")
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)

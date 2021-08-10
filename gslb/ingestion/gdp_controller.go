@@ -319,6 +319,9 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 		if tp.Weight < 1 || tp.Weight > 20 {
 			return errors.New("traffic weight " + strconv.Itoa(int(tp.Weight)) + " must be between 1 and 20")
 		}
+		if tp.Priority > 100 {
+			return errors.New("priority " + strconv.Itoa(int(tp.Priority)) + " must be between 1 and 100")
+		}
 	}
 
 	// Health monotor validity

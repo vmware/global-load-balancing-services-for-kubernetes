@@ -137,8 +137,8 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -185,8 +185,8 @@ func TestGDPPropertiesForPersistenceProfile(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -205,8 +205,8 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -239,8 +239,8 @@ func TestGDPPropertiesForPoolAlgorithm(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -282,8 +282,8 @@ func TestGDPPropertiesForPoolAlgorithmCombinations(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	verifyMembers := func(pa gslbalphav1.PoolAlgorithmSettings) {
 		var expectedMembers []nodes.AviGSK8sObj
-		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 		g := gomega.NewGomegaWithT(t)
 
 		g.Eventually(func() bool {
@@ -355,8 +355,8 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -388,8 +388,8 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	hostName := routeObj.Spec.Host
@@ -442,8 +442,8 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	hostName := routeObj.Spec.Host
@@ -476,8 +476,8 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -506,8 +506,8 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
-	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
@@ -556,8 +556,8 @@ func TestGSLBHostRuleAlgorithmCombinations(t *testing.T) {
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	verifyMembers := func(pa gslbalphav1.PoolAlgorithmSettings) {
 		var expectedMembers []nodes.AviGSK8sObj
-		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 		g := gomega.NewGomegaWithT(t)
 
 		g.Eventually(func() bool {

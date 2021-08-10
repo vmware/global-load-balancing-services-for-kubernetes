@@ -16,6 +16,7 @@ package rest
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +38,7 @@ import (
 const (
 	ControllerNotLeaderErr      = "Config Operations can be done ONLY on leader"
 	ControllerInMaintenanceMode = "GSLB system is in maintenance mode."
+	GsGroupNamePrefix           = "amko-gs-group-"
 )
 
 var restLayer *RestOperations
@@ -797,63 +799,81 @@ func (restOp *RestOperations) getGSPoolAlgorithmSettings(gsMeta *nodes.AviGSObje
 	return nil, nil, nil
 }
 
-func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
-	cacheObj *avicache.AviGSCache, key string, hmRequired bool) *utils.RestOp {
-	gslbutils.Logf("key: %s, msg: creating rest operation", key)
-	// description field needs references
-	var gslbPoolMembers []*avimodels.GslbPoolMember
-	var gslbSvcGroups []*avimodels.GslbPool
-	memberObjs := gsMeta.GetUniqueMemberObjs()
-	for _, member := range memberObjs {
-		if member.IPAddr == "" {
-			continue
-		}
-		enabled := true
-		ipVersion := "V4"
-		ipAddr := member.IPAddr
-		ratio := member.Weight
-		clusterUUID := member.ControllerUUID
-		vsUUID := member.VirtualServiceUUID
+func buildGsPoolMember(member nodes.AviGSK8sObj, key string) *avimodels.GslbPoolMember {
+	enabled := true
+	ipVersion := "V4"
+	ipAddr := member.IPAddr
+	ratio := member.Weight
+	clusterUUID := member.ControllerUUID
+	vsUUID := member.VirtualServiceUUID
 
-		gslbPoolMember := avimodels.GslbPoolMember{
-			Enabled: &enabled,
-			Ratio:   &ratio,
-			IP:      &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
-		}
-		if !member.SyncVIPOnly {
-			if clusterUUID != "" {
-				gslbPoolMember.ClusterUUID = &clusterUUID
-			} else {
-				gslbutils.Warnf("key: %s, cluster: %s, namespace: %s, member: %s, msg: %s",
-					key, member.Cluster, member.Namespace, member.Name, "controller cluster UUID is empty, will try to update the GS member")
-			}
-			if vsUUID != "" {
-				gslbPoolMember.VsUUID = &vsUUID
-			} else {
-				gslbutils.Warnf("key: %s, cluster: %s, namespace: %s, member: %s, msg: %s",
-					key, member.Cluster, member.Namespace, member.Name, "VS UUID is empty, will try to update the GS member")
-			}
-			gslbPoolMember.VsUUID = &vsUUID
-		}
-		gslbPoolMembers = append(gslbPoolMembers, &gslbPoolMember)
+	gsPoolMember := avimodels.GslbPoolMember{
+		Enabled: &enabled,
+		Ratio:   &ratio,
+		IP:      &avimodels.IPAddr{Addr: &ipAddr, Type: &ipVersion},
 	}
-	// Now, build a GSLB pool
+	if !member.SyncVIPOnly {
+		if clusterUUID != "" {
+			gsPoolMember.ClusterUUID = &clusterUUID
+		} else {
+			gslbutils.Warnf("key: %s, cluster: %s, namespace: %s, member: %s, msg: %s",
+				key, member.Cluster, member.Namespace, member.Name, "controller cluster UUID is empty, will try to update the GS member")
+		}
+		gsPoolMember.VsUUID = &vsUUID
+	}
+	return &gsPoolMember
+}
+
+func buildGsPool(gsMeta *nodes.AviGSObjectGraph, gsPoolMembers []*avimodels.GslbPoolMember, priority int32, restOp *RestOperations) *avimodels.GslbPool {
 	poolEnabled := true
-	poolName := "amko-gs-group"
-	priority := int32(10)
+	poolName := GsGroupNamePrefix + strconv.Itoa(int(priority))
 	minHealthMonUp := int32(2)
 	poolAlgorithm, hashMask, fallback := restOp.getGSPoolAlgorithmSettings(gsMeta)
-	gslbPool := avimodels.GslbPool{
+	return &avimodels.GslbPool{
 		Algorithm:           poolAlgorithm,
 		ConsistentHashMask:  hashMask,
 		FallbackAlgorithm:   fallback,
 		Enabled:             &poolEnabled,
-		Members:             gslbPoolMembers,
+		Members:             gsPoolMembers,
 		Name:                &poolName,
 		Priority:            &priority,
 		MinHealthMonitorsUp: &minHealthMonUp,
 	}
-	gslbSvcGroups = append(gslbSvcGroups, &gslbPool)
+}
+
+func buildGslbSvcGroups(gsMeta *nodes.AviGSObjectGraph, key string, restOp *RestOperations) []*avimodels.GslbPool {
+	pools := []*avimodels.GslbPool{}
+	poolPriorityMap := map[int32][]nodes.AviGSK8sObj{}
+	// first group all members according to their priorities
+	for _, member := range gsMeta.GetUniqueMemberObjs() {
+		poolPriorityMap[member.Priority] = append(poolPriorityMap[member.Priority], member)
+	}
+	// build the pool list from the poolPriorityMap
+	for priority, members := range poolPriorityMap {
+		// each priority makes one pool with `members` as the pool members
+		gsPoolMembers := []*avimodels.GslbPoolMember{}
+		for _, m := range members {
+			if m.IPAddr == "" {
+				gslbutils.Warnf("GS pool member doesn't have an IP address: %v", m)
+				continue
+			}
+			gsPoolMembers = append(gsPoolMembers, buildGsPoolMember(m, key))
+		}
+		if len(gsPoolMembers) == 0 {
+			continue
+		}
+		// build a new pool for this priority
+		pools = append(pools, buildGsPool(gsMeta, gsPoolMembers, priority, restOp))
+	}
+	return pools
+}
+
+func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
+	cacheObj *avicache.AviGSCache, key string, hmRequired bool) *utils.RestOp {
+	gslbutils.Logf("key: %s, msg: creating rest operation", key)
+
+	// build the gslb service pools
+	gslbSvcGroups := buildGslbSvcGroups(gsMeta, key, restOp)
 
 	// Now, build the GSLB service
 	ctrlHealthStatusEnabled := true
@@ -867,6 +887,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	tenantRef := gslbutils.GetAviAdminTenantRef()
 	useEdnsClientSubnet := true
 	wildcardMatch := false
+	// description field needs references
 	description := strings.Join(gsMeta.GetMemberObjList(), ",")
 	var hmRefs []string
 	if len(gsMeta.HmRefs) > 0 {
