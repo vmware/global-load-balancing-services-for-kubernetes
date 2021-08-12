@@ -246,6 +246,12 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 				}
 			}
 
+			if oldGc.Spec.GSLBLeader.ControllerIP != newGc.Spec.GSLBLeader.ControllerIP {
+				gslbutils.Warnf("GSLB Leader IP has changed, will restart")
+				apiserver.GetAmkoAPIServer().ShutDown()
+				return
+			}
+
 			if getGSLBConfigChecksum(oldGc) == getGSLBConfigChecksum(newGc) {
 				return
 			}
