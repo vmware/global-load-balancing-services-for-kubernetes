@@ -16,6 +16,8 @@ package gslbutils
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -267,9 +269,15 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 	return cksum
 }
 
-func GetGSLBHmChecksum(name, hmType string, port int32) uint32 {
+// description is taken as []string
+// For path based Hms, the checksum is computed for all paths
+func GetGSLBHmChecksum(hmType string, port int32, description []string) uint32 {
 	portStr := strconv.FormatInt(int64(port), 10)
-	return utils.Hash(name) + utils.Hash(hmType) + utils.Hash(portStr)
+	checksum := utils.Hash(hmType) + utils.Hash(portStr)
+	for _, desc := range description {
+		checksum = checksum + utils.Hash(desc)
+	}
+	return checksum
 }
 
 func GetAviAdminTenantRef() string {
@@ -533,26 +541,17 @@ func GetHmTypeForTLS(tls bool) string {
 	return SystemGslbHealthMonitorHTTP
 }
 
-func BuildHmPathName(gsName, path string, isSec bool) string {
-	prefix := "amko--http--"
-	if isSec {
-		prefix = "amko--https--"
+func CheckNameLength(name string, prefixToExclude string) bool {
+	if len(name)-len(prefixToExclude) < 256 {
+		return true
 	}
-	return prefix + gsName + "--" + path
+	return false
 }
 
-func GetPathFromHmName(hmName string) string {
-	hmNameSplit := strings.Split(hmName, "--")
-	if len(hmNameSplit) != 4 {
-		Errf("hmName: %s, msg: hm is malformed, expected a path based hm", hmName)
-		return ""
-	}
-
-	return hmNameSplit[3]
-}
-
-func BuildNonPathHmName(gsName string) string {
-	return "amko--" + gsName
+func EncodeHMName(gsName string) string {
+	gsNameHash := sha1.Sum([]byte(gsName))
+	encodedHMName := hex.EncodeToString(gsNameHash[:])
+	return encodedHMName
 }
 
 // hmCreatedByAMKO checks if the health monitor is created by AMKO by checking the prefix of the
@@ -565,7 +564,7 @@ func HMCreatedByAMKO(hmName string) bool {
 	return false
 }
 
-func GetGSFromHmName(hmName string) (string, error) {
+func GetEncodedGSFromHmName(hmName string) (string, error) {
 	// for path based hms
 	hmNameSplit := strings.Split(hmName, "--")
 	if len(hmNameSplit) == 4 {

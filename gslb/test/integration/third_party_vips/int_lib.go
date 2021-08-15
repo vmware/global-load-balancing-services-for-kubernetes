@@ -27,6 +27,7 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
@@ -723,7 +724,7 @@ func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sOb
 	}
 
 	sort.Strings(hmRefs)
-	fetchedHmNames := gs.HealthMonitorNames
+	fetchedHmNames := cache.GetHmNameList(gs.HealthMonitor)
 	sort.Strings(fetchedHmNames)
 	if len(hmRefs) != len(fetchedHmNames) {
 		t.Logf("length of hm names don't match, expected: %v, got: %v", hmRefs, fetchedHmNames)

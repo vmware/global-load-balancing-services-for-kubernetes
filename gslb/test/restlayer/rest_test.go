@@ -96,10 +96,17 @@ func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType stri
 		DomainNames: []string{host},
 		MemberObjs:  memberObjs,
 		Hm: nodes.HealthMonitor{
-			Custom:    true,
-			Protocol:  gslbutils.SystemGslbHealthMonitorHTTPS,
-			Port:      443,
-			PathNames: []string{"amko--https--host1.foo.com--/"},
+			Custom:   true,
+			Protocol: gslbutils.SystemGslbHealthMonitorHTTPS,
+			Port:     443,
+			PathNames: []nodes.HealthMonitorPathDescription{
+				{
+					HmName:      "amko--d32527f936da2c6c888e4c53d19e1eda52735f5c",
+					GsName:      "host1.foo.com",
+					Path:        "/",
+					Protocol:    "https",
+					Description: "created by: amko, gsname: host1.foo.com, path: /, protocol: https",
+				}},
 		},
 	}
 	gsGraph.GetChecksum()

@@ -26,6 +26,10 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
+const (
+	createdbyamko = "created by: amko"
+)
+
 var aviGSGraphInstance *AviGSGraphLister
 var avionce sync.Once
 
@@ -117,28 +121,39 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 	return obj
 }
 
-type HealthMonitor struct {
-	Name      string
-	Protocol  string
-	Port      int32
-	Custom    bool
-	PathNames []string
+// This struct is used to store all details for path based Hms
+type HealthMonitorPathDescription struct {
+	HmName      string
+	GsName      string
+	Path        string
+	Protocol    string // http or https
+	Description string
 }
 
-func (hm HealthMonitor) getChecksum() uint32 {
-	return gslbutils.GetGSLBHmChecksum(hm.Name, hm.Protocol, hm.Port)
+type HealthMonitor struct {
+	Name        string
+	Protocol    string
+	Port        int32
+	Custom      bool
+	PathNames   []HealthMonitorPathDescription
+	Description string // for non path based Hms
+}
+
+func (hm HealthMonitor) getChecksum(hmDescription []string) uint32 {
+	return gslbutils.GetGSLBHmChecksum(hm.Protocol, hm.Port, hmDescription)
 }
 
 func (hm HealthMonitor) getCopy() HealthMonitor {
-	pathNames := make([]string, len(hm.PathNames))
+	pathNames := make([]HealthMonitorPathDescription, len(hm.PathNames))
 	copy(pathNames, hm.PathNames)
 
 	hmObj := HealthMonitor{
-		Name:      hm.Name,
-		Protocol:  hm.Protocol,
-		Port:      hm.Port,
-		Custom:    hm.Custom,
-		PathNames: pathNames,
+		Name:        hm.Name,
+		Protocol:    hm.Protocol,
+		Port:        hm.Port,
+		Custom:      hm.Custom,
+		PathNames:   pathNames,
+		Description: hm.Description,
 	}
 	return hmObj
 }
@@ -196,8 +211,8 @@ func (v *AviGSObjectGraph) GetChecksum() uint32 {
 	return v.GraphChecksum
 }
 
-func (v *AviGSObjectGraph) GetHmChecksum() uint32 {
-	return v.Hm.getChecksum()
+func (v *AviGSObjectGraph) GetHmChecksum(hmDescription []string) uint32 {
+	return v.Hm.getChecksum(hmDescription)
 }
 
 func (v *AviGSObjectGraph) CalculateChecksum() {
@@ -225,7 +240,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 		if v.Hm.Name != "" {
 			hmNames = append(hmNames, v.Hm.Name)
 		} else {
-			hmNames = v.Hm.PathNames
+			hmNames = v.GetHmPathNamesList()
 		}
 	} else {
 		hmNames = make([]string, len(v.HmRefs))
@@ -252,6 +267,27 @@ func NewAviGSObjectGraph() *AviGSObjectGraph {
 	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount}
 }
 
+func (v *AviGSObjectGraph) BuildHmPathName(gsName, path string, isSec bool) HealthMonitorPathDescription {
+	protocol := "http"
+	prefix := "amko--"
+	if isSec {
+		protocol = "https"
+	}
+	encodedHMName := gslbutils.EncodeHMName(protocol + "--" + gsName + "--" + path)
+	if gslbutils.CheckNameLength(encodedHMName, prefix) {
+		hmPathDescription := HealthMonitorPathDescription{
+			HmName:      prefix + encodedHMName,
+			GsName:      gsName,
+			Path:        path,
+			Protocol:    protocol,
+			Description: createdbyamko + ", gsname: " + gsName + ", path: " + path + ", protocol: " + protocol,
+		}
+		return hmPathDescription
+	}
+	gslbutils.Errf("hm: %s, msg: hm name could not be encoded", gsName+path)
+	return HealthMonitorPathDescription{}
+}
+
 func (v *AviGSObjectGraph) buildHmPathList() {
 	// if any member object is TLS, we put HTTPS health monitors for the entire object, basically,
 	// TLS takes precedence
@@ -262,26 +298,38 @@ func (v *AviGSObjectGraph) buildHmPathList() {
 		}
 	}
 	// clear out all path based HM names first
-	v.Hm.PathNames = make([]string, 0)
+	v.Hm.PathNames = make([]HealthMonitorPathDescription, 0)
 
 	// add the member paths
 	for _, member := range v.MemberObjs {
 		for _, path := range member.Paths {
-			hmName := gslbutils.BuildHmPathName(v.Name, path, ifSec)
-			if gslbutils.PresentInList(hmName, v.Hm.PathNames) {
+			hmPath := v.BuildHmPathName(v.Name, path, ifSec)
+
+			if PresentInHealthMonitorPathList(hmPath.Description, v.Hm.PathNames) {
 				continue
 			}
-			v.Hm.PathNames = append(v.Hm.PathNames, hmName)
+			v.Hm.PathNames = append(v.Hm.PathNames, hmPath)
 		}
 	}
 	gslbutils.Debugf("gsName: %s, pathList: %v, msg: rebuilt path list for GS", v.Name, v.Hm.PathNames)
+}
+
+func (v *AviGSObjectGraph) BuildNonPathHmName(gsName string) string {
+	encodedHMName := gslbutils.EncodeHMName(gsName)
+	prefix := "amko--"
+	if gslbutils.CheckNameLength(encodedHMName, prefix) {
+		v.Hm.Description = createdbyamko + ", gsname: " + gsName
+		return prefix + encodedHMName
+	}
+	gslbutils.Errf("hm: %s, msg: hm name could not be encoded", gsName)
+	return ""
 }
 
 func (v *AviGSObjectGraph) buildNonPathHealthMonitorFromObj(port int32, isPassthrough bool, protocol, key string) {
 	if isPassthrough {
 		v.Hm.Name = gslbutils.SystemGslbHealthMonitorPassthrough
 	} else {
-		v.Hm.Name = gslbutils.BuildNonPathHmName(v.Name)
+		v.Hm.Name = v.BuildNonPathHmName(v.Name)
 	}
 	v.Hm.Port = port
 	v.MemberObjs[0].Port = port
@@ -306,7 +354,7 @@ func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObje
 	if metaObj.IsPassthrough() {
 		v.Hm.Name = gslbutils.SystemGslbHealthMonitorPassthrough
 	} else {
-		v.Hm.Name = gslbutils.BuildNonPathHmName(v.Name)
+		v.Hm.Name = v.BuildNonPathHmName(v.Name)
 	}
 	v.Hm.Port = port
 	v.MemberObjs[0].Port = port
@@ -455,7 +503,7 @@ func (v *AviGSObjectGraph) checkAndUpdateNonPathHealthMonitor(objType string, is
 	if isPassthrough {
 		v.Hm.Name = gslbutils.SystemGslbHealthMonitorPassthrough
 	} else {
-		v.Hm.Name = gslbutils.BuildNonPathHmName(v.Name)
+		v.Hm.Name = v.BuildNonPathHmName(v.Name)
 	}
 	v.Hm.Custom = true
 
@@ -639,11 +687,13 @@ func (v *AviGSObjectGraph) IsHmTypeCustom() bool {
 }
 
 func (v *AviGSObjectGraph) GetHmPathNamesList() []string {
-	v.Lock.RLock()
-	defer v.Lock.RUnlock()
 
 	gslbutils.Debugf("gs object and its path names: %v, paths: %v", v, v.Hm.PathNames)
-	return v.Hm.PathNames
+	var hmNameList []string
+	for _, hm := range v.Hm.PathNames {
+		hmNameList = append(hmNameList, hm.HmName)
+	}
+	return hmNameList
 }
 
 func (v *AviGSObjectGraph) MembersLen() int {

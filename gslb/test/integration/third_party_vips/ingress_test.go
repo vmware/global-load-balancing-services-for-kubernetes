@@ -15,6 +15,8 @@
 package third_party_vips
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -137,6 +139,12 @@ func initMiddlewares(t *testing.T) {
 	})
 }
 
+func EncodeHMName(name string) string {
+	gsNameHash := sha1.Sum([]byte(name))
+	encodedHMName := hex.EncodeToString(gsNameHash[:])
+	return encodedHMName
+}
+
 func BuildTestHmNames(hostname string, paths []string, tls bool) []string {
 	httpType := "http"
 	if tls {
@@ -144,7 +152,7 @@ func BuildTestHmNames(hostname string, paths []string, tls bool) []string {
 	}
 	hmNames := []string{}
 	for _, p := range paths {
-		hmName := "amko--" + httpType + "--" + hostname + "--" + p
+		hmName := "amko--" + EncodeHMName(httpType+"--"+hostname+"--"+p)
 		hmNames = append(hmNames, hmName)
 	}
 	return hmNames

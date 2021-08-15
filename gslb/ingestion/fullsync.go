@@ -399,7 +399,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 			continue
 		}
 		tenant, hmName := hmKey.Tenant, hmKey.Name
-		gsName, err := gslbutils.GetGSFromHmName(hmName)
+		gsName, err := gslbutils.GetEncodedGSFromHmName(hmName)
 		if err != nil {
 			gslbutils.Debugf("key: %v, msg: can't get gs name from hm", hmKey)
 			continue

@@ -184,3 +184,41 @@ func updateThirdPartyMembers(gsGraph *AviGSObjectGraph, thirdPartyMembers []v1al
 	}
 	gslbutils.Logf("gslb members: %v", gsGraph.MemberObjs)
 }
+
+func PresentInHealthMonitorPathList(key string, hmPathList []HealthMonitorPathDescription) bool {
+	for _, path := range hmPathList {
+		if path.Description == key {
+			return true
+		}
+	}
+	return false
+}
+
+func GetDescriptionForPathHMName(hmName string, gsMeta *AviGSObjectGraph) string {
+	for _, pathnames := range gsMeta.Hm.PathNames {
+		if pathnames.HmName == hmName {
+			return pathnames.Description
+		}
+	}
+	gslbutils.Warnf("hmName: %s, msg: cannot find path description", hmName)
+	return ""
+}
+
+func GetHMPathFromDescription(hmName, hmDescription string) string {
+	hmDescriptionSplit := strings.Split(hmDescription, ": ")
+	if len(hmDescriptionSplit) != 5 {
+		gslbutils.Warnf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDescription)
+		return ""
+	}
+	hmPathField := strings.Split(hmDescriptionSplit[3], ",")
+	hmPath := strings.Trim(hmPathField[0], " ")
+	return hmPath
+}
+
+func GetDescriptionListForPathHms(pathname []HealthMonitorPathDescription) []string {
+	var descriptionList []string
+	for _, paths := range pathname {
+		descriptionList = append(descriptionList, paths.Description)
+	}
+	return descriptionList
+}
