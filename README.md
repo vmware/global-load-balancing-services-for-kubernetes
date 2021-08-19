@@ -1,238 +1,207 @@
 # AMKO: Avi Multi Kubernetes Operator
 
 ## What's AMKO?
-AMKO provides application load-balancing across multiple clusters using AVI's enterprise grade GSLB capabilities.
+AMKO provides application load-balancing across multiple kubernetes clusters using AVI's enterprise grade GSLB capabilities.
 
-GSLB - Load balancing across instances of the application that have been deployed to multiple locations (typically, multiple data centers and/or public clouds). Avi uses the Domain Name System (DNS) for providing the optimal destination information to the user clients 
+GSLB - Load balancing across instances of the application that have been deployed to multiple locations (typically, multiple data centers and/or public clouds). Avi uses the Domain Name System (DNS) for providing the optimal destination information to the user clients.
 
-## Prerequisites
-Few things are needed before we can kickstart AMKO:
+ ![Alt text](docs/images/amko_ss.png?raw=true "amko architecture")
+
+AMKO is aware of the following object types:
+- Kubernetes
+  * Ingress
+  * Service type load balancer
+
+- Openshift
+  * Routes
+  * Service type load balancer
+
+#### Dependencies
+For Kubernetes clusters:
+| **Components** | **Version** |
+| -------------- | ----------- |
+| Kubernetes     | 1.16+       |
+| AKO            | 1.4.3       |
+| AVI Controller | 20.1.4-2p3+ |
+
+For openshift clusters:
+| **Components** | **Version** |
+| -------------- | ----------- |
+| Openshift      | 4.4+        |
+| AKO            | 1.4.3       |
+| AVI Controller | 20.1.4-2p3+ |
+
+#### Pre-requisites
+To kick-start AMKO, we need:
 1. Atleast one kubernetes/openshift cluster.
-2. Atleast one AVI controller which manages the above kubernetes/openshift cluster. Additional controllers with openshift/kubernetes clusters can be added.
-3. One controller (site) designated as the GSLB leader site. Enable GSLB on the required controller and the other controllers (sites) as the follower nodes.
-4. AMKO assumes that it has connectivity to all the member clusters' kubernetes API servers. Without this, AMKO wouldn't be able to watch over the ingress/route/services objects in the member kubernetes clusters.
-5. Designate one openshift/kubernetes cluster which will be communicating with the GSLB leader. All the configs for `amko` will be added to this cluster. We will call this cluster, `cluster-amko`.
-6. Create a namespace `avi-system` in `cluster-amko`:
-```
-kubectl create ns avi-system
-```
-7. Create a kubeconfig file with the permissions to read the service and ingress/route objects for multiple clusters. See how to create a kubeconfig file for multiple clusters [here](#Multi-cluster-kubeconfig). Name this file `gslb-members` and generate a secret with the kubeconfig file in `cluster-amko` by following:
-```
-kubectl --kubeconfig my-config create secret generic gslb-config-secret --from-file gslb-members -n avi-system
-```
-**Note** that the permissions provided in the kubeconfig file above, for multiple clusters are important. They should contain permissions to at least `[get, list, watch]` on kubernetes services and ingresses (routes for openshift).
+2. Atleast one AVI controller.
+3. AMKO assumes that it has connectivity to all the member clusters' kubernetes API servers. Without this, AMKO won't be able to watch over the kubernetes and openshift resources in the member clusters.
+4. Before deploying AMKO, one of the clusters have to be designated as the leader and rest of the clusters as followers. AMKO has to be deployed on all clusters (wherever federation is required). This is to ensure that the leader cluster's AMKO would federate the AMKO config objects like `GSLBConfig` and `GlobalDeploymentPolicy` objects to all follower clusters. See [this](docs/federation.md) for more details on the specifics of federation and how to recover from a disaster recovery scenario.
+5. On all clusters, create a namespace `avi-system`:
+   ```
+   $ kubectl create ns avi-system
+   ```
 
-## Install using helm
-The next step is to use helm to bootstrap amko:
+6. Create a kubeconfig file with the permissions to read the service and the ingress/route objects for all the member clusters. Follow [this tutorial](docs/kubeconfig.md) to create a kubeconfig file with multi-cluster access. Name this file `gslb-members` and generate a secret with the kubeconfig file in `cluster-amko` by following:
+   ```
+   $ kubectl create secret generic gslb-config-secret --from-file gslb-members -n avi-system
+   ```
+This has to be done for all the member clusters wherever AMKO is going to be deployed.
+
+*Note* that the permissions provided in the kubeconfig file for all the clusters must have atleast the permissions to `[get, list, watch]` on:
+   * Kubernetes ingress and service type load balancers.
+   * Openshift routes and service type load balancers.
+AMKO also needs permissisons to `[create, get, list, watch, update, delete]` on:
+   * GSLBConfig object
+   * GlobalDeploymentPolicy object
+
+
+#### Install using helm
+*Note* that only helm v3 is supported.
+
+Following steps have to be executed on all member clusters:
+
+1. Create the `avi-system` namespace:
+   ```
+   $ kubectl create ns avi-system
+   ```
+
+2. Add this repository to your helm client:
+   ```
+   $ helm repo add amko https://projects.registry.vmware.com/chartrepo/ako
+
+   ```
+   Note: The helm charts are present in VMWare's public harbor repository
+
+3. Search the available charts for AMKO:
+   ```
+   $ helm search repo
+
+   NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
+   ako/amko	1.4.2	            1.4.2	            A helm chart for Avi Multicluster Kubernetes Operator
+
+   ```
+
+4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
+
+   ```
+   helm show values ako/amko --version 1.4.2 > values.yaml
+
+   ```
+   Values and their corresponding index can be found [here](#parameters)
+
+5. To configure federation via `values.yaml`:
+   * Set `configs.federation.currentClusterIsLeader` to `true` for the leader cluster. For all follower clusters, set this to `false`.
+   * Set `configs.federation.currentCluster` to the current cluster context.
+   * Add the member clusters to `configs.federation.memberClusters`.
+
+6. Install AMKO:
+   ```
+   $ helm install  ako/amko  --generate-name --version 1.4.2 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   ```
+7. Check the installation:
+   ```
+   $ helm list -n avi-system
+
+   NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
+   amko-1598451370	avi-system	1       	2020-08-26 14:16:21.889538175 +0000 UTC	deployed	amko-1.4.2	            1.4.2
+   ```
+
+#### Troubleshooting and Log collection
+If you face any issues during installing/configuring/using AMKO, see if your problem is listed in the troubleshooting [page](docs/troubleshooting.md).
+
+Follow [this](docs/troubleshooting.md#how-do-i-gather-the-amko-logs) to gather logs for tech-support in case of an unrecoverable failure.
+
+#### Uninstall using helm
 ```
-helm install amko --generate-name --namespace=avi-system --set configs.gslbLeaderController="10.10.10.10" 
+helm uninstall -n avi-system <amko-release-name>
 ```
-Use the [values.yaml](helm/amko/values.yaml) to edit values related to Avi configuration. Please refer to the [parameters](#parameters).
-
-## Uninstall using helm
+If a user needs to remove the already created GSLB services, one has to remove the GDP object first. This will remove all the GSLB services selected via the GDP object.
 ```
-helm uninstall -n avi-system <release_name>
-```
-If a user needs to remove the already created GSLB services, one has to remove the GDP object first. This would prompt a deletion of all the GSLB Services selected via that GDP object.
-
-```
-kubectl delete gdp -n avi-system <gdp_name>
-```
-
-## parameters
-| **Parameter**                                                 | **Description**                                                                                                          | **Default**                           |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `configs.gslbLeaderController`                                | GSLB leader controller version                                                                                           | 20.1.1                                |
-| `gslbLeaderCredentials.username`                              | GSLB leader controller username                                                                                          | `admin`                               |
-| `gslbLeaderCredentials.password`                              | GSLB leader controller password                                                                                          | `avi123`                              |
-| `configs.memberClusters.clusterContext`                       | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
-| `configs.refreshInterval`                                     | The time interval which triggers a AVI cache refresh                                                                     | 120 seconds                           |
-| `configs.logLevel`                                            | Log level to be used                                                                                                     | `INFO`                                |
-| `globalDeploymentPolicy.appSelector.label{.key,.value}`       | Selection criteria for applications, label key and value are provided                                                    | Nil                                   |
-| `globalDeploymentPolicy.namespaceSelector.label{.key,.value}` | Selection criteria for namespaces, label key and value are provided                                                      | Nil                                   |
-| `globalDeploymentPolicy.matchClusters`                        | List of clusters (names must match the names in configs.memberClusters) from where the objects will be selected          | Nil                                   |
-| `globalDeploymentPolicy.trafficSplit`                         | List of weights for clusters (names must match the names in configs.memberClusters), each weight must range from 1 to 20 | Nil                                   |
-
-## Use the GSLBConfig CRD
-A CRD has been provided to add the GSLB configuration. The name of the object is GSLBConfig and it has the following parameters:
-```yaml
-apiVersion: "avilb.k8s.io/v1alpha1"
-kind: "GSLBConfig"
-metadata:
-  name: "gslb-policy-1"
-  namespace: "avi-system"
-spec:
-  gslbLeader:
-    credentials: gslb-avi-secret
-    controllerVersion: 18.2.9
-    controllerIP: 10.10.10.10
-  memberClusters:
-    - clusterContext: cluster1-admin
-    - clusterContext: cluster2-admin
-  refreshInterval: 1800
-  logLevel: "INFO"
-```
-1. `apiVersion`: The api version for this object has to be `avilb.k8s.io/v1alpha1`.
-2. `kind`: the object kind is `GSLBConfig`.
-3. `metadata.name`: Can be anything, but it has to be specified in the GDP object.
-4. `metada.namespace`: By default, this object is supposed to be created in `avi-system`.
-5. `spec.gslbLeader.credentials`: A secret object has to be created for (`helm install` does that automatically) the GSLB Leader cluster. The username and password have to be provided as part of this secret object. Refer to `username` and `password` in [parameters](#parameters).
-6. `spec.gslbLeader.controllerVersion`: The version of the GSLB leader cluster.
-7. `spec.gslbLeader.controllerIP`: The GSLB leader IP address or the hostname along with the port number, if any.
-8. `spec.memberClusters`: The kubernetes/openshift cluster contexts which are part of this GSLB cluster. See [here](#Multi-cluster kubeconfig) to create contexts for multiple kubernetes clusters.
-9.  `spec.refreshInterval`: This is an internal cache refresh time interval, on which syncs up with the AVI objects and checks if a sync is required.
-10. `spec.logLevel`: Specify the required types of logs that should be printed by AMKO. There are currently 4 supported types: `INFO`, `DEBUG`, `WARN` and `ERROR`.
-
-**Few Notes**:
-- Only one GSLBConfig object is allowed.
-- If using `helm install`, the GSLB Config object is created, just provide the right parameters in `values.yml`.
-- Once this object is defined and is accepted, it can't be changed (as of now). The only allowable edit is for the `logLevel` field. For all other fields, if changed, the changes will not take any effect. For the changes to take effect, one has to restart the AMKO pod.
-
-## Selecting kubernetes/openshift objects from different clusters
-A CRD called GlobalDeploymentPolicy allows users to select kubernetes/openshift objects based on certain rules. This GDP object has to be created on the same system wherever the GSLBConfig object was created and `amko` is running. The selection policy applies to all the clusters which are mentioned in the GDP object. A typical GlobalDeploymentPolicy looks like this:
-
-```yaml
-apiVersion: "amko.vmware.com/v1alpha1"
-kind: "GlobalDeploymentPolicy"
-metadata:
-  name: "global-gdp"
-  namespace: "avi-system"   // a cluster-wide GDP
-spec:
-  matchRules:
-    appSelector:
-      label:
-        app: gslb
-    namespaceSelector:
-      label:
-        app: gslb
- 
-  matchClusters:
-    - cluster: cluster1-admin    // cluster names are kubernetes cluster contexts
-    - cluster: cluster2-admin
- 
-  trafficSplit:
-    - cluster: cluster1
-      weight: 8
-    - cluster: cluster2
-      weight: 2
-```
-1. `namespace`: an important piece here, as a GDP object created in `avi-system` namespace is recognised and all other GDP objects created in other namespaces are ignored.
-2. `matchRules`: List of selection policy rules. If a user wants to select certain objects in a namespace (mentioned in `namespace`), they have to add those rules here. A typical `matchRule` looks like:
-```yaml
-matchRules:
-    appSelector:                       // application selection criteria
-      label:
-        app: gslb                       // kubernetes/openshift label key-value
-    namespaceSelector:                 // namespace selection criteria
-      label:
-        ns: gslb                        // kubernetes/openshift label key-value
-```
-A combination of appSelector and namespaceSelector will decide which objects will be selected for GSLB service consideration.
-- appSelector: Selection criteria only for applications:
-  * label: will be used to match the ingress/service type load balancer labels (key:value pair).
-- namespaceSelector: Selection criteria only for namespaces:
-  * label: will be used to match the namespace labels (key:value pair).
-
-AMKO supports the following combinations for GDP matchRules:
-| **appSelector** | **namespaceSelector** | **Result**                                                                                         |
-| --------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
-| yes             | yes                   | Select all objects satisfying appSelector and from the namespaces satisfying the namespaceSelector |
-| no              | yes                   | Select all objects from the selected namespaces (satisfying namespaceSelector)                     |
-| yes             | no                    | Select all objects satisfying the appSelector criteria from all namespaces                         |
-| no              | no                    | No objects selected (default action)                                                               |
-
-Example Scenarios:
-
-> Select objects with label `app:gslb` from all the namespaces:
-```yaml
-  matchRules:
-    appSelector:
-      label:
-        app: gslb
+kubectl delete gdp -n avi-system global-gdp
 ```
 
-> Select objects with label `app:gslb` and from namespaces labelled `ns:prod`:
-```yaml
-matchRules:
-    appSelector:
-      label:
-        app: gslb
-    namespaceSelector:
-      label:
-        ns: prod
+Typically, an AKO instance could have been deployed in the `avi-system` namespace. But, if it is not, then the `avi-system` namespace can also be removed:
+```
+kubectl delete ns avi-system
 ```
 
-3. `matchClusters`: List of clusters on which the above `matchRules` will be applied on. The member object of this list are cluster contexts of the individual k8s/openshift clusters.
+#### parameters
+| **Parameter**                                    | **Description**                                                                                                          | **Default**                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `configs.controllerVersion`                      | GSLB leader controller version                                                                                           | 20.1.4                                |
+| `configs.federation.image.repository`            | Image repository for AMKO federator                                                                                         | projects.registry.vmware.com/ako/amko-federator|
+| `configs.federation.image.pullPolicy`            | Image pull policy for AMKO federator                                                                                         | IfNotPresent|
+| `configs.federation.currentCluster`            | Current cluster context (required)                                                                                         | Nil |
+| `configs.federation.currentClusterIsLeader`            | Set to `true` if current cluster is the leader (required)                                                                                         | false |
+| `configs.federation.memberClusters`            | member clusters on which federation should be done                                                                                    |  |
+| `configs.gslbLeaderController`                         | GSLB leader site URL                                                                                                     | Nil                                   |
+| `gslbLeaderCredentials.username`         | GSLB leader controller username                                                                                          | `admin`                               |
+| `gslbLeaderCredentials.password`         | GSLB leader controller password                                                                                          |                               |
+| `configs.memberClusters.clusterContext`          | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
+| `configs.refreshInterval`                        | The time interval which triggers a AVI cache refresh                                                                     | 1800 seconds                           |
+| `configs.logLevel`                         | Log level to be used by AMKO to print the type of logs, supported values are `INFO`, `DEBUG`, `WARN` and `ERROR` | `INFO`                                   |
+| `configs.useCustomGlobalFqdn`                         | Select the GslbService FQDN mode for AMKO. If set to `true`, AMKO observes the HostRules to look for mapping between local and global FQDNs | `false`                                   |
+| `gdpConfig.appSelector.label{.key,.value}`       | Selection criteria for applications, label key and value are provided                                                    | Nil                                   |
+| `gdpConfig.namespaceSelector.label{.key,.value}` | Selection criteria for namespaces, label key and value are provided                                                      | Nil                                   |
+| `gdpConfig.matchClusters`                        | List of clusters (names must match the names in configs.memberClusters) from where the objects will be selected          | Nil                                   |
+| `gdpConfig.trafficSplit`                         | List of weights for clusters (names must match the names in configs.memberClusters), each weight must range from 1 to 20 | Nil                                   |
+| `gdpConfig.ttl`                         | Time To Live, ranges from 1-86400 seconds | Nil                                   |
+| `gdpConfig.healthMonitorRefs`                         | List of health monitor references to be applied on all Gslb Services | Nil                                   |
+| `gdpConfig.sitePersistenceRef`                         | Reference for a federated application persistence profile created on the Avi Controller | Nil                                   |
+| `gdpConfig.poolAlgorithmSettings`   | Pool algorithm settings to be used by the GslbServices for traffic distribution across pool members. See [pool algorithm settings](docs/crds/gslbhostrule.md#pool-algorithm-settings) to configure the appropriate settings. |          GSLB_ALGORITHM_ROUND_ROBIN         |
 
-4. `trafficSplit` is required if we want to route a certain percentage of traffic to certain objects in a certain cluster. These are weights and the range for them is 1 to 20.
 
-**Few Notes**
-- A GDP object must be created in the `avi-system` namespace. GDP objects in all ther namespaces will *not* be considered. For now, AMKO supports only one GDP object in the entire cluster. Any other additonal GDP objects will be ignored.
-- A GDP object is created as part of `helm install`. User can then edit this GDP object to modify their selection of objects.
-- GDP objects are editable. Changes made to a GDP object will be reflected on the AVI objects in the runtime, if applicable.
-- Deletion of a GDP rule will trigger all the objects to be again checked against the remaining set of rules.
-- Deletion of a cluster member from the `matchClusters` will trigger deletion of objects selected from that cluster in AVI.
+#### Custom resources
+AMKO uses a custom resource to configure federation to member clusters:
+- [AMKOCluster](docs/federation.md#amkocluster-crd-to-control-federation)
 
-## Supported Objects
-AMKO supports selection of these kind of objects:
-* Openshift Routes
-* Kubernetes Ingresses
-* Openshift/Kubernetes Service type Load Balancer
+AMKO uses the following custom resources to configure the GSLB services in the GSLB leader site:
+1. [GSLBConfig](docs/crds/gslbconfig.md)
+2. [GlobalDeploymentPolicy](docs/crds/gdp.md)
 
-No other objects are supported.
+Follow the above links to take a look at the CRD objects and how to use them.
 
-## Multi-cluster kubeconfig
-* The structure of a kubeconfig file looks like:
-```yaml
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: <ca.crt data>
-    server: https://10.10.10.10:6443
-  name: cluster1
-- cluster:
-    certificate-authority-data: <ca.crt data>
-    server: https://10.10.10.11:6443
-  name: cluster2
-contexts:
-- context:
-    cluster: cluster1
-    namespace: default
-    user: admin1
-  name: cluster1-admin
-- context:
-    cluster: cluster2
-    namespace: default
-    user: admin2
-  name: cluster2-admin
-current-context: cluster2-admin
-kind: Config
-preferences: {}
-users:
-- name: admin1
-  user:
-    client-certificate-data: <client.crt>
-    client-key-data: <client.key>
-- name: admin2
-  user:
-    client-certificate-data: <client.crt>
-    client-key-data: <client.key>
+If AMKO is installed via `helm`, it by default creates one instance of each type in the `avi-system` namespace. To see these objects:
 ```
-* The above example is for two clusters. Obtain the server addresses, ca.crts, client certs and client keys for the required clusters.
-* The names `cluster1-admin` and `cluster2-admin` are the respective cluster contexts for both these clusters.
+$ kubectl get amkocluster amkocluster-federation -n avi-system
+NAME                       AGE
+amkocluster-federation     45m
 
-## Build and Test
-Use:
-```
-make docker
-```
-to build and the image that will be generated will be named: `amko:latest`.
+$ kubectl get gc -n avi-system gc-1
+NAME            AGE
+gc-1            45m
 
-Use:
+$ kubectl get gdp -n avi-system
+NAME         AGE
+global-gdp   46m
 ```
-make test
-```
-to run the test cases.
 
-### HA Cloud
-HACloud - Federation of services across multiple kubernetes clusters which are typically within same region, without using DNS based load balancing. 
+**Note** that, only one instance of each `GDP` and `GSLBConfig` is supported and AMKO *will* ignore other instances.
+
+3. [GSLBHostRule](docs/crds/gslbhostrule.md): Override specific GslbService properties. No instances are created by default (helm install). Users have to create these in the `avi-system` namespace. To see these objects:
+```
+$ kubectl get gslbhostrule -n avi-system
+```
+
+#### Editing runtime parameters of AMKO
+The `GDP` object can be edited at runtime to change the application selection parameters, traffic split and the applicable clusters. AMKO will recognize these changes and will update the GSLBServices accordingly.
+
+Changing only `logLevel` is permissible at runtime via an edit of the `GSLBConfig`. For all other changes to the `GSLBConfig`, the AMKO pod has to be restarted.
+
+#### Choosing a mode of GslbService FQDN
+There can be different requirements for a user to either use local FQDNs as the GslbService FQDNs, or use a different FQDN as the Global FQDN. Please see [this](docs/local_and_global_fqdn.md) to choose a mode fit for the use-case and enable accordingly.
+
+#### Gslb Service Properties
+Certain Gslb Service properties can be set and modified at runtime. If these are set through the GDP object, they are applied to all the Gslb Services. If a user wants to override specific properties, they can use a `GSLBHostRule` object for a GslbService.
+
+| **Properties** | **Configured via** |
+| -------------- | ---------------- |
+| TTL      | `GDP`, `GSLBHostRule`        |
+| Site Persistence            |  `GDP`, `GSLBHostRule`     |
+| Custom Health Monitors | `GDP`, `GSLBHostRule`      |
+| Third party members | `GSLBHostRule`      |
+| Traffic Split| `GDP`, `GSLBHostRule`      |
+| Pool Algorithm Settings | `GDP`, `GSLBHostRule`|
+
+To set them, follow steps for [GlobalDeploymentPolicy](docs/crds/gdp.md) and for [GSLBHostRule](docs/crds/gslbhostrule.md).
