@@ -19,9 +19,9 @@ import (
 	"sync"
 	"time"
 
-	avimodels "github.com/avinetworks/sdk/go/models"
 	oshiftclientset "github.com/openshift/client-go/route/clientset/versioned"
 	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions/route/v1"
+	avimodels "github.com/vmware/alb-sdk/go/models"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	netinformers "k8s.io/client-go/informers/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -198,6 +198,17 @@ type K8ValidNamespaces struct {
 	nsFilter        NamespaceFilter
 	EnableMigration bool
 	validNSList     K8NamespaceList
+}
+
+type AviObjectMarkers struct {
+	Namespace        string
+	Host             string
+	InfrasettingName string
+	ServiceName      string
+	Path             string
+	Port             string
+	IngressName      string
+	GatewayName      string
 }
 
 /*

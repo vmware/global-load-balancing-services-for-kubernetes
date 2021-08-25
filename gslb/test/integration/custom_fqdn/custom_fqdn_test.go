@@ -167,16 +167,28 @@ func SetUpClients() {
 	oshiftClient = oc
 }
 
-func SyncFromTestIngestionLayer(key string, wg *sync.WaitGroup) error {
+func SyncFromTestIngestionLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
+
 	gslbutils.Logf("recieved key from ingestion layer: %s", key)
-	ingestionKeyChan <- key
+	ingestionKeyChan <- keyStr
 
 	return nil
 }
 
-func SyncFromTestNodesLayer(key string, wg *sync.WaitGroup) error {
+func SyncFromTestNodesLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
+
 	gslbutils.Logf("recived key from graph layer: %s", key)
-	graphKeyChan <- key
+	graphKeyChan <- keyStr
 
 	return nil
 }

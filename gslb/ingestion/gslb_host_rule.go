@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/avinetworks/sdk/go/models"
+	"github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 

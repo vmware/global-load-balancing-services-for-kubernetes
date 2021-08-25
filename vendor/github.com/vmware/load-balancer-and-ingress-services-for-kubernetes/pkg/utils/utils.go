@@ -16,6 +16,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"hash/fnv"
 	"math/rand"
 	"net"
@@ -157,7 +158,7 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 		AviLog.Infof("Initialized informer factory for namespace :%s", namespace)
 	}
 
-	// We listen to configmaps only in`avi-system or vmware-system-ako`
+	// We listen to configmaps only in the namespace in which AKO runs.
 	akoNS := GetAKONamespace()
 
 	SetIngressClassEnabled(cs)
@@ -226,7 +227,7 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 			case INFORMERS_ADVANCED_L4:
 				akoNSBoundInformer, ok = v.(bool)
 				if !ok {
-					AviLog.Infof("Running AKO in avi-system namespace")
+					AviLog.Infof("Running AKO in %s namespace", GetAKONamespace())
 				}
 			case INFORMERS_OPENSHIFT_CLIENT:
 				oshiftclient, ok = v.(oshiftclientset.Interface)
@@ -311,6 +312,15 @@ func Remove(arr []string, item string) []string {
 	return arr
 }
 
+func RemoveNamespaceName(s []NamespaceName, r NamespaceName) []NamespaceName {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
 var globalNSFilterObj *K8ValidNamespaces = &K8ValidNamespaces{}
 
 func GetGlobalNSFilter() *K8ValidNamespaces {
@@ -386,9 +396,8 @@ func CheckIfNamespaceAccepted(namespace string, opts ...interface{}) bool {
 	return false
 }
 func IsServiceNSValid(namespace string) bool {
-	//L4 Namespace sync not applicable for advance L4 and service API
-
-	if !GetAdvancedL4() && !UseServicesAPI() {
+	//L4 Namespace sync not applicable for advance L4
+	if !GetAdvancedL4() {
 		if !CheckIfNamespaceAccepted(namespace) {
 			return false
 		}
@@ -404,19 +413,77 @@ func GetAdvancedL4() bool {
 	}
 	return false
 }
-func UseServicesAPI() bool {
-	if ok, _ := strconv.ParseBool(os.Getenv(SERVICES_API)); ok {
-		return true
-	}
-	return false
-}
 
 // GetAKONamespace returns the namespace of AKO pod.
-// In Advance L4 Mode this is vmware-system-ako
-// In all other cases this is avi-system
+// In AdvancedL4 Mode this is vmware-system-ako
+// In all other cases this is the namespace in which the
+// statefulset runs.
 func GetAKONamespace() string {
+	akoNS := os.Getenv(POD_NAMESPACE)
 	if GetAdvancedL4() {
-		return VMWARE_SYSTEM_AKO
+		akoNS = VMWARE_SYSTEM_AKO
 	}
-	return AKO_DEFAULT_NS
+	return akoNS
+}
+
+func GetTokenFromRestObj(robj interface{}, ctrlAuthToken string) (oldTokenID string, refresh bool, err error) {
+	oldTokenID = ""
+	refresh = false
+	err = nil
+	parseError := errors.New("Failed to parse token response obj")
+
+	if _, ok := robj.(map[string]interface{}); !ok {
+		err = parseError
+		return
+	}
+	tokenList, ok := robj.(map[string]interface{})["results"].([]interface{})
+	if !ok {
+		err = parseError
+		return
+	}
+	for _, aviToken := range tokenList {
+		if _, ok := aviToken.(map[string]interface{}); !ok {
+			err = parseError
+			return
+		}
+		token, ok := aviToken.(map[string]interface{})["token"].(string)
+		if !ok {
+			err = parseError
+			return
+		}
+		if token == ctrlAuthToken {
+			expiry, ok := aviToken.(map[string]interface{})["expires_at"].(string)
+			if !ok {
+				err = parseError
+				return
+			}
+			layout := "2006-01-02T15:04:05.000000+00:00"
+			expiryTime, err2 := time.Parse(layout, expiry)
+			if err != nil {
+				AviLog.Errorf("Unable to parse token expiry time, err: %+v", err2)
+				err = err2
+				return
+			}
+			AviLog.Infof("Expiry time for current token: %+v", expiryTime)
+			if expiryTime.Sub(time.Now()) > (RefreshAuthTokenPeriod*AuthTokenExpiry)*time.Hour {
+				return
+			}
+			refresh = true
+			if tokenIDToDelete, ok := aviToken.(map[string]interface{})["uuid"].(string); ok {
+				oldTokenID = tokenIDToDelete
+			}
+			return
+		}
+
+	}
+	refresh = true
+	return
+}
+
+func GetAuthtokenFromCache() (string, error) {
+	ctrlAuthToken, ok := SharedCtrlProp().AviCacheGet(ENV_CTRL_AUTHTOKEN)
+	if !ok || ctrlAuthToken == nil {
+		return "", errors.New("authToken not updated in cache")
+	}
+	return ctrlAuthToken.(string), nil
 }

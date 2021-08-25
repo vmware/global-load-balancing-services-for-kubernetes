@@ -169,15 +169,27 @@ func SetUpClients() {
 	oshiftClient = oc
 }
 
-func SyncFromTestIngestionLayer(key string, wg *sync.WaitGroup) error {
+func SyncFromTestIngestionLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
+
 	gslbutils.Logf("recieved key from ingestion layer: %s", key)
-	ingestionKeyChan <- key
+	ingestionKeyChan <- keyStr
 
 	return nil
 }
 
-func SyncFromTestNodesLayer(key string, wg *sync.WaitGroup) error {
-	gslbutils.Logf("recieved key from graph layer: %s", key)
+func SyncFromTestNodesLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
+
+	gslbutils.Logf("recieved key from graph layer: %s", keyStr)
 
 	return nil
 }
@@ -197,7 +209,6 @@ func SetUpTestWorkerQueues() {
 	// Set workers for layer 3 (REST layer)
 	graphSharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)
 	graphSharedQueue.SyncFunc = amkorest.SyncFromNodesLayer
-	// graphSharedQueue.SyncFunc = SyncFromTestNodesLayer
 	graphSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGGraph))
 }
 

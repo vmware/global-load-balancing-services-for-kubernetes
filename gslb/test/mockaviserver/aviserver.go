@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/avinetworks/sdk/go/models"
+	"github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 

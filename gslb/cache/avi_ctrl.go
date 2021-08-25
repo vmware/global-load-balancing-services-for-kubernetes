@@ -22,8 +22,8 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
-	"github.com/avinetworks/sdk/go/clients"
-	"github.com/avinetworks/sdk/go/session"
+	"github.com/vmware/alb-sdk/go/clients"
+	"github.com/vmware/alb-sdk/go/session"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
@@ -41,7 +41,7 @@ func SharedAviClients() *utils.AviRestClientPool {
 			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
 		}
 		os.Setenv("CTRL_VERSION", ctrlCfg.Version)
-		aviClientInstance, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password)
+		aviClientInstance, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "")
 		if err != nil {
 			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
 		}

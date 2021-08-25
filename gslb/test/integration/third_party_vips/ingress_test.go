@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/avinetworks/sdk/go/models"
 	"github.com/onsi/gomega"
+	"github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"

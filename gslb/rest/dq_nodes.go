@@ -26,10 +26,10 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
-	"github.com/avinetworks/sdk/go/clients"
-	avimodels "github.com/avinetworks/sdk/go/models"
-	"github.com/avinetworks/sdk/go/session"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/vmware/alb-sdk/go/clients"
+	avimodels "github.com/vmware/alb-sdk/go/models"
+	"github.com/vmware/alb-sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -1281,13 +1281,18 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 	return nil
 }
 
-func SyncFromNodesLayer(key string, wg *sync.WaitGroup) error {
+func SyncFromNodesLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
 	cache := avicache.GetAviCache()
 	hmCache := avicache.GetAviHmCache()
 	aviclient := avicache.SharedAviClients()
 	restLayerF := NewRestOperations(cache, hmCache, aviclient)
 	gslbutils.Debugf("key: %s, msg: processing for key in rest layer", key)
-	restLayerF.DqNodes(key)
+	restLayerF.DqNodes(keyStr)
 	gslbutils.Debugf("key: %s, msg: processing for key is done in rest layer", key)
 	return nil
 }

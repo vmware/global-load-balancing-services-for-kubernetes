@@ -27,8 +27,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/avinetworks/sdk/go/clients"
-	"github.com/avinetworks/sdk/go/session"
+	"github.com/vmware/alb-sdk/go/clients"
+	"github.com/vmware/alb-sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 
 	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
