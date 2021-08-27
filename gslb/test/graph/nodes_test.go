@@ -70,8 +70,14 @@ func setUp() {
 	gf.ApplicableClusters[BarCluster] = gslbutils.ClusterProperties{true}
 }
 
-func graphSyncFuncForTest(key string, wg *sync.WaitGroup) error {
-	keyChan <- key
+func graphSyncFuncForTest(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
+
+	keyChan <- keyStr
 	return nil
 }
 

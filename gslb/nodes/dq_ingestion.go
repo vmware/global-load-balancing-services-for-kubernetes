@@ -496,7 +496,12 @@ func DequeueIngestion(key string) {
 	}
 }
 
-func SyncFromIngestionLayer(key string, wg *sync.WaitGroup) error {
-	DequeueIngestion(key)
+func SyncFromIngestionLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
+	DequeueIngestion(keyStr)
 	return nil
 }

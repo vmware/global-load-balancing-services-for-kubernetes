@@ -23,10 +23,15 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
-func SyncFromRetryLayer(key string, wg *sync.WaitGroup) error {
+func SyncFromRetryLayer(key interface{}, wg *sync.WaitGroup) error {
+	keyStr, ok := key.(string)
+	if !ok {
+		gslbutils.Errf("unexpected object type: expected string, got %T", key)
+		return nil
+	}
 	// Retrieve the Key and note the time.
 	gslbutils.Logf("key: %s, msg: Retrieved the key in Retry layer", key)
-	tenant, gsName := utils.ExtractNamespaceObjectName(key)
+	tenant, gsName := utils.ExtractNamespaceObjectName(keyStr)
 
 	// At this point, we re-enqueue the key back to the rest layer.
 	sharedQueue := utils.SharedWorkQueue().GetQueueByName(utils.GraphLayer)

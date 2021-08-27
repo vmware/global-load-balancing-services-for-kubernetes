@@ -681,8 +681,14 @@ github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijb
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/vektah/gqlparser v1.1.2/go.mod h1:1ycwN7Ij5njmMkPPAOaRFY4rET2Enx7IkVv3vaXspKw=
 github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618/go.mod h1:afqpDk9He9v+/qWix0RRotm3RNyni4Lmc1y9geDCPuo=
+github.com/vmware/alb-sdk v0.0.0-20210721142023-8e96475b833b h1:xSos8K/8ONRdH1taJwnI/lFWpmy2BG7VuiVHPSVxtU4=
+github.com/vmware/alb-sdk v0.0.0-20210721142023-8e96475b833b/go.mod h1:GuFjFl3UCYMUyEnbwPjpu+9wlkGs/10xuJuqE/1rqKI=
+github.com/vmware/alb-sdk v0.0.0-20210825043329-57e24209d6b5 h1:j7N7nCs+EvAl32hltYnjCSdvZUv0HVwSYmCQCE2XkLY=
+github.com/vmware/alb-sdk v0.0.0-20210825043329-57e24209d6b5/go.mod h1:GuFjFl3UCYMUyEnbwPjpu+9wlkGs/10xuJuqE/1rqKI=
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20210319171726-25358c8f151e h1:1DDFkOTvwec2DGmUAxYyyuJ1D5FLmYqQfe4t/I6nmsE=
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20210319171726-25358c8f151e/go.mod h1:0qezFFN03SfSqHwMeM+t+iIgGyH0zVgNbSBD3Q3VTuQ=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20210825060056-d7fc8b92be41 h1:QkAPNRkbX4Bs6L8ucRtmxLzk6Zm/xhQ3uXEfd+p0QvA=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20210825060056-d7fc8b92be41/go.mod h1:RGqS+sHyvPPXHvpSiicfpS5jOYrTWRJZQP9vl7M15M4=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=

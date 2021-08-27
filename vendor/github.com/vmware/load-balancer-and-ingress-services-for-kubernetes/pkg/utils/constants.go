@@ -17,6 +17,7 @@ package utils
 const (
 	GraphLayer                    = "GraphLayer"
 	ObjectIngestionLayer          = "ObjectIngestionLayer"
+	StatusQueue                   = "StatusQueue"
 	LeastConnection               = "LB_ALGORITHM_LEAST_CONNECTIONS"
 	RandomConnection              = "RANDOM_CONN"
 	PassthroughConnection         = "PASSTHROUGH_CONN"
@@ -51,15 +52,17 @@ const (
 	TCP                           = "TCP"
 	UDP                           = "UDP"
 	SYSTEM_UDP_FAST_PATH          = "System-UDP-Fast-Path"
-	DEFAULT_TCP_NW_PROFILE        = "System-TCP-Proxy"
-	DEFAULT_L4_APP_PROFILE        = "System-L4-Application"
 	TCP_NW_FAST_PATH              = "System-TCP-Fast-Path"
+	DEFAULT_TCP_NW_PROFILE        = "System-TCP-Proxy"
+	MIXED_NET_PROFILE             = "Mixed-Network-Profile-Internal"
+	DEFAULT_L4_APP_PROFILE        = "System-L4-Application"
 	DEFAULT_L7_APP_PROFILE        = "System-HTTP"
 	DEFAULT_L7_SECURE_APP_PROFILE = "System-Secure-HTTP"
 	DEFAULT_SHARD_VS_PREFIX       = "Shard-VS-"
 	L7_PG_PREFIX                  = "-PG-l7"
 	VS_DATASCRIPT_EVT_HTTP_REQ    = "VS_DATASCRIPT_EVT_HTTP_REQ"
 	HTTP_DS_SCRIPT                = "host = avi.http.get_host_tokens(1)\npath = avi.http.get_path_tokens(1)\nif host and path then\nlbl = host..\"/\"..path\nelse\nlbl = host..\"/\"\nend\navi.poolgroup.select(\"POOLGROUP\", string.lower(lbl) )"
+	HTTP_DS_SCRIPT_MODIFIED       = "host = avi.http.get_host_tokens(\"MODIFIED\", 1)\npath = avi.http.get_path_tokens(1)\nif host and path then\nlbl = host..\"/\"..path\nelse\nlbl = host..\"/\"\nend\navi.poolgroup.select(\"POOLGROUP\", string.lower(lbl) )"
 	ADMIN_NS                      = "admin"
 	TLS_PASSTHROUGH               = "TLS_PASSTHROUGH"
 	VS_TYPE_VH_PARENT             = "VS_TYPE_VH_PARENT"
@@ -73,6 +76,15 @@ const (
 	K8S_ETIMEDOUT                 = "timed out"
 	ADVANCED_L4                   = "ADVANCED_L4"
 	SERVICES_API                  = "SERVICES_API"
+	ENV_CTRL_USERNAME             = "CTRL_USERNAME"
+	ENV_CTRL_PASSWORD             = "CTRL_PASSWORD"
+	ENV_CTRL_AUTHTOKEN            = "CTRL_AUTHTOKEN"
+	ENV_CTRL_IPADDRESS            = "CTRL_IPADDRESS"
+	POD_NAMESPACE                 = "POD_NAMESPACE"
+
+	RefreshAuthTokenInterval = 12  //hours
+	AuthTokenExpiry          = 240 //hours
+	RefreshAuthTokenPeriod   = 0.5 //ratio
 
 	// container-lib/api constants
 	AVIAPI_INITIATING   = "INITIATING"
