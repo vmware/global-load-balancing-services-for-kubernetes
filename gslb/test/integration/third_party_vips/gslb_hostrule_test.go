@@ -28,7 +28,7 @@ import (
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -106,7 +106,7 @@ func updateTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy,
 	return newGdp
 }
 
-func addIngressAndRouteObjects(t *testing.T, testPrefix string) (*networkingv1beta1.Ingress, *routev1.Route) {
+func addIngressAndRouteObjects(t *testing.T, testPrefix string) (*networkingv1.Ingress, *routev1.Route) {
 	ingName := testPrefix + "def-ing"
 	routeName := testPrefix + "def-route"
 	ns := "default"

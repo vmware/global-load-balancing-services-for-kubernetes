@@ -23,9 +23,9 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	"k8s.io/api/networking/v1beta1"
 )
 
 var ihMapInit sync.Once
@@ -38,7 +38,7 @@ func getIngHostMap() *ObjHostMap {
 	return &ihMap
 }
 
-func getPathsForHost(host string, ingress *v1beta1.Ingress) []string {
+func getPathsForHost(host string, ingress *networkingv1.Ingress) []string {
 	pathList := []string{}
 	for _, rule := range ingress.Spec.Rules {
 		if rule.Host != host {
@@ -70,7 +70,7 @@ func getPathsForHost(host string, ingress *v1beta1.Ingress) []string {
 	return pathList
 }
 
-func getTLSHosts(ingress *v1beta1.Ingress) []string {
+func getTLSHosts(ingress *networkingv1.Ingress) []string {
 	tlsHosts := []string{}
 
 	for _, hosts := range ingress.Spec.TLS {
@@ -107,7 +107,7 @@ func parseVSAndControllerAnnotations(annotations map[string]string) (map[string]
 }
 
 // GetIngressHostMeta returns a ingress split into its backends
-func GetIngressHostMeta(ingress *v1beta1.Ingress, cname string) []IngressHostMeta {
+func GetIngressHostMeta(ingress *networkingv1.Ingress, cname string) []IngressHostMeta {
 	ingHostMetaList := []IngressHostMeta{}
 	hostIPList := gslbutils.IngressGetIPAddrs(ingress)
 	tlsHosts := getTLSHosts(ingress)
