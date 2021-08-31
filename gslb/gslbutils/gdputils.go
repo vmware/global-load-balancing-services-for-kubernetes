@@ -298,6 +298,7 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		ct := ClusterTraffic{
 			ClusterName: ts.Cluster,
 			Weight:      int32(ts.Weight),
+			Priority:    int32(ts.Priority),
 		}
 		gf.TrafficSplit = append(gf.TrafficSplit, ct)
 	}
@@ -389,6 +390,18 @@ func (gf *GlobalFilter) GetTrafficWeight(cname string) (int32, error) {
 	return 0, errors.New("no weight available for cluster " + cname)
 }
 
+func (gf *GlobalFilter) GetTrafficPriority(cname string) (int32, error) {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+	for _, ts := range gf.TrafficSplit {
+		if ts.ClusterName == cname {
+			return ts.Priority, nil
+		}
+	}
+	Logf("cname: %s, msg: no priority available for this cluster", cname)
+	return 0, errors.New("no priority available for cluster " + cname)
+}
+
 func (gf *GlobalFilter) IsClusterSyncVIPOnly(cname string) (bool, error) {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
@@ -436,9 +449,12 @@ func isTrafficWeightChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 				if oldMember.Weight != newMember.Weight {
 					return true
 				}
+				if oldMember.Priority != newMember.Priority {
+					return true
+				}
 			}
 		}
-		if found == false {
+		if !found {
 			// this member was not found in the new GDP, so return true
 			return true
 		}
@@ -589,4 +605,5 @@ func GetNewGlobalFilter() *GlobalFilter {
 type ClusterTraffic struct {
 	ClusterName string
 	Weight      int32
+	Priority    int32
 }

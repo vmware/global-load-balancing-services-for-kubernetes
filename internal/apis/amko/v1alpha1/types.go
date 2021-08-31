@@ -84,8 +84,9 @@ type GSLBConfigSpecList struct {
 // TrafficSplitElem determines how much traffic to be routed to a cluster.
 type TrafficSplitElem struct {
 	// Cluster is the cluster context
-	Cluster string `json:"cluster,omitempty"`
-	Weight  uint32 `json:"weight,omitempty"`
+	Cluster  string `json:"cluster,omitempty"`
+	Weight   uint32 `json:"weight,omitempty"`
+	Priority uint32 `json:"priority,omitempty"`
 }
 
 // +genclient

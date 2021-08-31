@@ -82,6 +82,7 @@ type AviGSK8sObj struct {
 	Namespace     string
 	IPAddr        string
 	Weight        int32
+	Priority      int32
 	IsPassthrough bool
 	// Port and protocol will be only used by LB service
 	Port               int32
@@ -103,6 +104,7 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 		Namespace:          gsk8sObj.Namespace,
 		IPAddr:             gsk8sObj.IPAddr,
 		Weight:             gsk8sObj.Weight,
+		Priority:           gsk8sObj.Priority,
 		Port:               gsk8sObj.Port,
 		Proto:              gsk8sObj.Proto,
 		TLS:                gsk8sObj.TLS,
@@ -210,7 +212,8 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 		} else {
 			server = gsMember.IPAddr
 		}
-		memberAddrs = append(memberAddrs, server+"-"+strconv.Itoa(int(gsMember.Weight)))
+		memberAddrs = append(memberAddrs, server+"-"+strconv.Itoa(int(gsMember.Weight))+
+			"-"+strconv.Itoa(int(gsMember.Priority)))
 		if gsMember.ObjType == gslbutils.ThirdPartyMemberType {
 			continue
 		}
@@ -670,6 +673,7 @@ func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 		objs[idx].Namespace = v.MemberObjs[idx].Namespace
 		objs[idx].IPAddr = v.MemberObjs[idx].IPAddr
 		objs[idx].Weight = v.MemberObjs[idx].Weight
+		objs[idx].Priority = v.MemberObjs[idx].Priority
 		objs[idx].ObjType = v.MemberObjs[idx].ObjType
 	}
 	return objs
@@ -695,6 +699,7 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 			Namespace:          memberObj.Namespace,
 			IPAddr:             memberObj.IPAddr,
 			Weight:             memberObj.Weight,
+			Priority:           memberObj.Priority,
 			ControllerUUID:     memberObj.ControllerUUID,
 			VirtualServiceUUID: memberObj.VirtualServiceUUID,
 			SyncVIPOnly:        memberObj.SyncVIPOnly,
@@ -745,6 +750,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 	var svcProtocol string
 
 	weight := int32(-1)
+	priority := int32(-1)
 	cname := metaObj.GetCluster()
 	ns := metaObj.GetNamespace()
 	objType := metaObj.GetType()
@@ -759,10 +765,15 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 	for _, c := range ghRules.TrafficSplit {
 		if c.Cluster == cname {
 			weight = int32(c.Weight)
+			priority = int32(c.Priority)
 		}
 	}
 	if weight == -1 {
 		weight = GetObjTrafficRatio(ns, cname)
+	}
+
+	if priority == -1 {
+		priority = GetObjTrafficPriority(ns, cname)
 	}
 
 	paths, err := metaObj.GetPaths()
@@ -790,6 +801,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 		Name:               metaObj.GetName(),
 		IPAddr:             metaObj.GetIPAddr(),
 		Weight:             weight,
+		Priority:           priority,
 		ObjType:            objType,
 		Port:               svcPort,
 		Proto:              svcProtocol,

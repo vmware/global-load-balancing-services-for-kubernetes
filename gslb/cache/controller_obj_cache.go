@@ -316,6 +316,7 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 type GSMember struct {
 	IPAddr     string
 	Weight     int32
+	Priority   int32
 	VsUUID     string
 	Controller string
 }
@@ -564,7 +565,7 @@ func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbal
 		hashMaskI := int32(hashMaskF)
 		consistentHashMask = &hashMaskI
 	} else {
-		gslbutils.Errf("couldn't parse hash mask: %v", group["consistent_hash_mask"])
+		gslbutils.Logf("couldn't parse hash mask: %v", group["consistent_hash_mask"])
 	}
 
 	return ParsePoolAlgorithmSettings(algorithm, fallbackAlgorithm, consistentHashMask)
@@ -652,6 +653,11 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	var poolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings
 	for _, val := range groups {
 		group := *val
+		if group.Priority == nil {
+			gslbutils.Errf("no priority set for group in GslbService")
+			continue
+		}
+		priority := *group.Priority
 		members := group.Members
 		if len(members) == 0 {
 			gslbutils.Warnf("no members in gslb pool: %v", group)
@@ -687,7 +693,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 			if server == "" {
 				server = ipAddr
 			}
-			serverList = append(serverList, server+"-"+strconv.Itoa(int(weight)))
+			serverList = append(serverList, server+"-"+strconv.Itoa(int(weight))+"-"+strconv.Itoa(int(priority)))
 			gsMembers = append(gsMembers, gsMember)
 		}
 	}
@@ -775,6 +781,12 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			gslbutils.Warnf("couldn't parse group: %v", val)
 			continue
 		}
+		priorityF, ok := group["priority"].(float64)
+		if !ok {
+			gslbutils.Warnf("couldn't parse the priority, won't proceed")
+			continue
+		}
+		priority := int32(priorityF)
 		poolAlgorithmSettings = ParsePoolAlgorithmSettingsFromPoolRaw(group)
 		members, ok := group["members"].([]interface{})
 		if !ok {
@@ -819,7 +831,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			} else {
 				server = ipAddr
 			}
-			serverList = append(serverList, server+"-"+strconv.Itoa(int(weightI)))
+			serverList = append(serverList, server+"-"+strconv.Itoa(int(weightI))+"-"+strconv.Itoa(int(priority)))
 			gsMember := GSMember{
 				IPAddr:     ipAddr,
 				Weight:     weightI,

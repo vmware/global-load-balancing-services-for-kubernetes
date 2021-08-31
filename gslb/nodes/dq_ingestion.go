@@ -68,6 +68,22 @@ func GetObjTrafficRatio(ns, cname string) int32 {
 	return val
 }
 
+func GetObjTrafficPriority(ns, cname string) int32 {
+	globalFilter := gslbutils.GetGlobalFilter()
+	if globalFilter == nil {
+		// return default priority
+		gslbutils.Errf("ns: %s, cname: %s, msg: global filter can't be nil at this stage", ns, cname)
+		return 10
+	}
+	val, err := globalFilter.GetTrafficPriority(cname)
+	if err != nil {
+		gslbutils.Warnf("ns: %s, cname: %s, msg: error occured while fetching traffic priority info for this cluster, %s",
+			ns, cname, err.Error())
+		return 10
+	}
+	return val
+}
+
 func getObjFromStore(objType, cname, ns, objName, key, storeType string) interface{} {
 	var cstore *store.ClusterStore
 	switch objType {
