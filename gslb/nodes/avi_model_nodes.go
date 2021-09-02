@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	createdbyamko = "created by: amko"
+	CreatedByAMKO = "created by: amko"
 )
 
 var aviGSGraphInstance *AviGSGraphLister
@@ -280,7 +280,7 @@ func (v *AviGSObjectGraph) BuildHmPathName(gsName, path string, isSec bool) Heal
 			GsName:      gsName,
 			Path:        path,
 			Protocol:    protocol,
-			Description: createdbyamko + ", gsname: " + gsName + ", path: " + path + ", protocol: " + protocol,
+			Description: CreatedByAMKO + ", gsname: " + gsName + ", path: " + path + ", protocol: " + protocol,
 		}
 		return hmPathDescription
 	}
@@ -318,7 +318,7 @@ func (v *AviGSObjectGraph) BuildNonPathHmName(gsName string) string {
 	encodedHMName := gslbutils.EncodeHMName(gsName)
 	prefix := "amko--"
 	if gslbutils.CheckNameLength(encodedHMName, prefix) {
-		v.Hm.Description = createdbyamko + ", gsname: " + gsName
+		v.Hm.Description = CreatedByAMKO + ", gsname: " + gsName
 		return prefix + encodedHMName
 	}
 	gslbutils.Errf("hm: %s, msg: hm name could not be encoded", gsName)

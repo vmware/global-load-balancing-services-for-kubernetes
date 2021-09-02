@@ -175,6 +175,7 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	ingCluster := "k8s"
 	routeCluster := "oshift"
 	ingHostIPMap := map[string]string{host: ingIPAddr}
+	path := []string{"/"}
 
 	t.Cleanup(func() {
 		k8sDeleteIngress(t, clusterClients[K8s], ingName, ns)
@@ -184,23 +185,24 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	initMiddlewares(t)
 
 	g := gomega.NewGomegaWithT(t)
+	tls := false
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, false)
+		ingHostIPMap, path, tls)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
-		routeCluster, host, routeIPAddr, false)
+		routeCluster, host, routeIPAddr, path[0], tls)
 
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
-	hmNames := BuildTestHmNames(host, []string{"/"}, false)
+	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -212,7 +214,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 		t.Fatalf("error in building, adding and verifying app selector GDP: %v", err)
 	}
 
-	testPrefix := "tdrs-"
+	testPrefix := "tdr-"
 	ingName := testPrefix + "def-ing"
 	routeName := testPrefix + "def-route"
 	ns := "default"
@@ -222,6 +224,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	ingCluster := "k8s"
 	routeCluster := "oshift"
 	ingHostIPMap := map[string]string{host: ingIPAddr}
+	path := []string{"/"}
 
 	t.Cleanup(func() {
 		k8sDeleteIngress(t, clusterClients[K8s], ingName, ns)
@@ -231,18 +234,19 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 
 	initMiddlewares(t)
 	g := gomega.NewGomegaWithT(t)
+	tls := false
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, false)
+		ingHostIPMap, path, tls)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
-		routeCluster, host, routeIPAddr, false)
+		routeCluster, host, routeIPAddr, path[0], tls)
 
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update the ingress object with an empty status field
@@ -252,11 +256,11 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10)}
 	t.Logf("verifying the GS to have only 1 member as route")
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
-	hmNames := BuildTestHmNames(host, []string{"/"}, false)
+	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

@@ -740,12 +740,14 @@ func GetHmDescriptionFromName(hmName string) string {
 	uri := "/api/healthmonitor?name=" + hmName
 	result, err := gslbutils.GetUriFromAvi(uri, aviRestClientPool.AviClient[0], false)
 	if err != nil {
+		gslbutils.Logf("error getting hm data, err : %v", err)
 		return ""
 	}
 
 	elems := make([]json.RawMessage, result.Count)
 	err = json.Unmarshal(result.Results, &elems)
 	if err != nil {
+		gslbutils.Logf("error unmarshalling hm data, err : %v", err)
 		return ""
 	}
 	hmDescription := ""

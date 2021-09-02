@@ -222,3 +222,11 @@ func GetDescriptionListForPathHms(pathname []HealthMonitorPathDescription) []str
 	}
 	return descriptionList
 }
+
+func GetHmNameListFromPathNames(pathname []HealthMonitorPathDescription) []string {
+	var hmNameList []string
+	for _, path := range pathname {
+		hmNameList = append(hmNameList, path.HmName)
+	}
+	return hmNameList
+}

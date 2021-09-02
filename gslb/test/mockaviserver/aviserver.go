@@ -120,6 +120,8 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 			if PostHMMiddleware != nil && PostHMMiddleware(data, w) {
 				return
 			}
+			objURL := fmt.Sprintf("https://localhost/api/%s/%s-%s-%s#%s", aviObject, aviObject, rName, RandomUUID, rName)
+			rData["url"] = objURL
 			rData["uuid"] = fmt.Sprintf("%s-%s-%s", aviObject, rName, RandomUUID)
 			finalResponse, _ = json.Marshal(rData)
 			w.WriteHeader(http.StatusOK)
@@ -135,7 +137,21 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		}
 		json.Unmarshal(data, &resp)
 		resp["uuid"] = strings.Split(strings.Trim(url, "/"), "/")[2]
-		resp["health_monitor_refs"] = []interface{}{"https://10.10.10.10/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#System-GSLB-TCP"}
+		if resp["health_monitor_refs"] == nil {
+			resp["health_monitor_refs"] = []interface{}{"https://10.10.10.10/api/healthmonitor/healthmonitor-dfe63e98-2e8c-41c7-9390-6992ed71106f#System-GSLB-TCP"}
+		} else {
+			respHm := fmt.Sprintf("%v", resp["health_monitor_refs"])
+			respHmList := strings.Split(respHm, " ")
+			hmrefs := []string{}
+			for _, hm := range respHmList {
+				hmName := strings.Trim(hm, " ")
+				hmName = strings.Trim(hmName, "]")
+				hmName = strings.Split(hmName, "name=")[1]
+				hmRef := fmt.Sprintf("https://10.10.10.10/api/healthmonitor/healthmonitor-%s-%s#%s", hmName, RandomUUID, hmName)
+				hmrefs = append(hmrefs, hmRef)
+			}
+			resp["health_monitor_refs"] = hmrefs
+		}
 		finalResponse, _ = json.Marshal(resp)
 		w.WriteHeader(http.StatusOK)
 		w.Write(finalResponse)
