@@ -185,9 +185,9 @@ func updateThirdPartyMembers(gsGraph *AviGSObjectGraph, thirdPartyMembers []v1al
 	gslbutils.Logf("gslb members: %v", gsGraph.MemberObjs)
 }
 
-func PresentInHealthMonitorPathList(key string, hmPathList []HealthMonitorPathDescription) bool {
-	for _, path := range hmPathList {
-		if path.Description == key {
+func PresentInHealthMonitorPathList(key PathHealthMonitorDetails, pathHmList []PathHealthMonitorDetails) bool {
+	for _, pathHM := range pathHmList {
+		if pathHM.Path == key.Path && pathHM.IngressProtocol == key.IngressProtocol {
 			return true
 		}
 	}
@@ -195,16 +195,16 @@ func PresentInHealthMonitorPathList(key string, hmPathList []HealthMonitorPathDe
 }
 
 func GetDescriptionForPathHMName(hmName string, gsMeta *AviGSObjectGraph) string {
-	for _, pathnames := range gsMeta.Hm.PathNames {
-		if pathnames.HmName == hmName {
-			return pathnames.Description
+	for _, pathnames := range gsMeta.Hm.PathHM {
+		if pathnames.Name == hmName {
+			return pathnames.GetPathHMDescription(gsMeta.Name)
 		}
 	}
-	gslbutils.Warnf("hmName: %s, msg: cannot find path description", hmName)
+	gslbutils.Warnf("hmName: %s, msg: cannot find description for health monitor", hmName)
 	return ""
 }
 
-func GetHMPathFromDescription(hmName, hmDescription string) string {
+func GetPathFromHmDescription(hmName, hmDescription string) string {
 	hmDescriptionSplit := strings.Split(hmDescription, ": ")
 	if len(hmDescriptionSplit) != 5 {
 		gslbutils.Warnf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDescription)
@@ -215,18 +215,10 @@ func GetHMPathFromDescription(hmName, hmDescription string) string {
 	return hmPath
 }
 
-func GetDescriptionListForPathHms(pathname []HealthMonitorPathDescription) []string {
-	var descriptionList []string
-	for _, paths := range pathname {
-		descriptionList = append(descriptionList, paths.Description)
-	}
-	return descriptionList
-}
-
-func GetHmNameListFromPathNames(pathname []HealthMonitorPathDescription) []string {
+func GetPathHmNameList(hm HealthMonitor) []string {
 	var hmNameList []string
-	for _, path := range pathname {
-		hmNameList = append(hmNameList, path.HmName)
+	for _, path := range hm.PathHM {
+		hmNameList = append(hmNameList, path.Name)
 	}
 	return hmNameList
 }

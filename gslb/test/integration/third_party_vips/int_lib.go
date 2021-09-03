@@ -28,7 +28,6 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
@@ -648,22 +647,54 @@ func BuildTestPathHmNames(hostname string, paths []string, tls bool) []string {
 }
 
 func BuildTestNonPathHmNames(hostname string) string {
-	return "amko--" + gslbutils.EncodeHMName(hostname)
+	return nodes.HmNamePrefix + gslbutils.EncodeHMName(hostname)
 }
 
-func BuildExpectedPathHmNameDescription(host string, path string, tls bool) (string, string) {
+func BuildExpectedPathHM(host string, paths []string, tls bool) nodes.HealthMonitor {
 	protocol := "http"
 	if tls {
 		protocol = "https"
 	}
-	hmName := "amko--" + gslbutils.EncodeHMName(protocol+"--"+host+"--"+path)
-	hmDesc := nodes.CreatedByAMKO + ", gsname: " + host + ", path: " + path + ", protocol: " + protocol
-	return hmName, hmDesc
-
+	pathHMs := []nodes.PathHealthMonitorDetails{}
+	for _, path := range paths {
+		pathHm := nodes.PathHealthMonitorDetails{
+			Name:            nodes.HmNamePrefix + gslbutils.EncodeHMName(protocol+"--"+host+"--"+path),
+			IngressProtocol: protocol,
+			Path:            path,
+		}
+		pathHMs = append(pathHMs, pathHm)
+	}
+	return nodes.HealthMonitor{
+		Name:       "",
+		HMProtocol: "",
+		Port:       0,
+		Type:       nodes.PathHM,
+		PathHM:     pathHMs,
+	}
 }
 
-func BuildExpectedNonPathHmDescription(host string) string {
-	return nodes.CreatedByAMKO + ", gsname: " + host
+func BuildExpectedNonPathHmDescription(host string) nodes.HealthMonitor {
+	return nodes.HealthMonitor{
+		Name:       nodes.HmNamePrefix + gslbutils.EncodeHMName(host),
+		HMProtocol: "",
+		Port:       0,
+		Type:       nodes.NonPathHM,
+		PathHM:     nil,
+	}
+}
+
+func BuildExpectedPathHmDescriptionString(host string, path []string, tls bool) []string {
+	hm := BuildExpectedPathHM(host, path, tls)
+	descList := []string{}
+	for _, pathHm := range hm.PathHM {
+		descList = append(descList, pathHm.GetPathHMDescription(host))
+	}
+	return descList
+}
+
+func BuildExpectedNonPathHmDescriptionString(host string) string {
+	hm := BuildExpectedNonPathHmDescription(host)
+	return hm.GetHMDescription(host)[0]
 }
 
 func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
@@ -706,23 +737,26 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 			}
 		} else if paths != nil {
 			// path based HMs
-			fetchedHmRefs := nodes.GetHmNameListFromPathNames(gs.Hm.PathNames)
-			sort.Strings(fetchedHmRefs)
-			if len(hmRefs) != len(fetchedHmRefs) {
-				t.Logf("length of hm refs don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
+			fetchedPathHM := gs.Hm.PathHM
+			expectedPathHM := BuildExpectedPathHM(name, paths, tls).PathHM
+			if len(expectedPathHM) != len(fetchedPathHM) {
+				t.Logf("expected path hm lenght doesnt match fetched path hm length, expected path hm: %v, fetched path hm : %v",
+					expectedPathHM, fetchedPathHM)
 				return false
 			}
-			if !compareHmRefs(t, hmRefs, fetchedHmRefs) {
-				return false
-			}
-			for _, path := range paths {
-				expectedHmName, expectedHmDesc := BuildExpectedPathHmNameDescription(name, path, tls)
-				for _, p := range gs.Hm.PathNames {
-					if p.Path == path && (p.HmName != expectedHmName || p.Description != expectedHmDesc) {
-						t.Logf("hm name, description didn't match, expected : %s,%s , fetched list: %s,%s", expectedHmName, expectedHmDesc, p.HmName, p.Description)
-						return false
+			matchedMembersLen := 0
+			for _, fetchedPathHm := range fetchedPathHM {
+				for _, expectedPathHm := range expectedPathHM {
+					if fetchedPathHm.Name == expectedPathHm.Name && fetchedPathHm.Path == expectedPathHm.Path &&
+						fetchedPathHm.IngressProtocol == expectedPathHm.IngressProtocol {
+						matchedMembersLen = matchedMembersLen + 1
 					}
 				}
+			}
+			if matchedMembersLen != len(fetchedPathHM) {
+				t.Logf("expected path hms and fetched path hms donot match, expected path hm : %v, fetched path hm %v",
+					expectedPathHM, fetchedPathHM)
+				return false
 			}
 		} else {
 			// non path based HM
@@ -732,11 +766,6 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 			}
 			if port != nil && *port != gs.Hm.Port {
 				t.Logf("hm port do not match, expected : %d, got : %d", *port, gs.Hm.Port)
-				return false
-			}
-			expectedHmDesc := BuildExpectedNonPathHmDescription(name)
-			if gs.Hm.Description != expectedHmDesc {
-				t.Logf("hm description do not match, expected : %s, got : %s", expectedHmDesc, gs.Hm.Description)
 				return false
 			}
 		}
@@ -1027,7 +1056,7 @@ func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sOb
 	}
 	if hmRefs != nil && len(hmRefs) != 0 {
 		sort.Strings(hmRefs)
-		fetchedHmRefs := cache.GetHmNameList(gs.HealthMonitor)
+		fetchedHmRefs := gs.HealthMonitor
 		sort.Strings(fetchedHmRefs)
 		if len(hmRefs) != len(fetchedHmRefs) {
 			t.Logf("length of hm names don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
@@ -1036,15 +1065,12 @@ func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sOb
 		if !compareHmRefs(t, hmRefs, fetchedHmRefs) {
 			return false
 		}
+		fetchedHMObjs := amkorest.GetHMCacheObjFromGSCache(gs)
 		if paths != nil {
-			expectedHmDesc := []string{}
-			for _, path := range paths {
-				_, desc := BuildExpectedPathHmNameDescription(name, path, tls)
-				expectedHmDesc = append(expectedHmDesc, desc)
-			}
+			expectedHmDesc := BuildExpectedPathHmDescriptionString(name, paths, tls)
 			hmDesc := []string{}
-			for _, gsHm := range gs.HealthMonitor {
-				hmDesc = append(hmDesc, gsHm.HealthMonitorDescription)
+			for _, gsHm := range fetchedHMObjs {
+				hmDesc = append(hmDesc, gsHm.Description)
 			}
 			if len(expectedHmDesc) != len(hmDesc) {
 				t.Logf("length of hm descriptions dont match, expected: %v, got: %v", expectedHmDesc, hmDesc)
@@ -1059,8 +1085,8 @@ func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sOb
 				}
 			}
 		} else {
-			for _, gsHm := range gs.HealthMonitor {
-				if gsHm.HealthMonitorDescription != BuildExpectedNonPathHmDescription(name) {
+			for _, gsHm := range fetchedHMObjs {
+				if gsHm.Description != BuildExpectedNonPathHmDescriptionString(name) {
 					t.Logf("hm descriptions dont match")
 				}
 			}

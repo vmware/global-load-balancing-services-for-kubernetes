@@ -157,14 +157,28 @@ func (restOp *RestOperations) DqNodes(key string) {
 	restOp.RestOperation(gsName, tenant, aviModelCopy, gsCacheObj, key)
 }
 
-func GetDescriptionFromHmCacheDetails(hmName string, hmCacheDetails []cache.HealthMonitorDetails) string {
-	for _, hm := range hmCacheDetails {
-		if hm.HealthMonitorNames == hmName {
-			return hm.HealthMonitorDescription
-		}
+func GetHMCacheObj(gsName string, key avicache.TenantName) avicache.AviHmObj {
+	hmCache := cache.GetAviHmCache()
+	hmObj, ok := hmCache.AviHmCacheGet(key)
+	if !ok {
+		gslbutils.Debugf("gs: %s, msg: health monitor %s not found", gsName, key.Name)
+		return avicache.AviHmObj{}
 	}
-	gslbutils.Warnf("hmName: %s, msg: hm not found in hm cache details", hmName)
-	return ""
+	hmCacheObj, ok := hmObj.(*avicache.AviHmObj)
+	if !ok {
+		gslbutils.Warnf("key: %s, msg: hm cache object malformed", gsName)
+		return avicache.AviHmObj{}
+	}
+	return *hmCacheObj
+}
+
+func GetHMCacheObjFromGSCache(gsCacheObj *avicache.AviGSCache) []avicache.AviHmObj {
+	hmCacheObjs := []avicache.AviHmObj{}
+	for _, hmName := range gsCacheObj.HealthMonitor {
+		key := avicache.TenantName{Tenant: gsCacheObj.Tenant, Name: hmName}
+		hmCacheObjs = append(hmCacheObjs, GetHMCacheObj(gsCacheObj.Name, key))
+	}
+	return hmCacheObjs
 }
 
 func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, gsCacheObj *avicache.AviGSCache) ([]string, []string) {
@@ -179,10 +193,9 @@ func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, 
 		return toBeAdded, toBeDeleted
 	}
 
-	existingHmNameList := cache.GetHmNameList(gsCacheObj.HealthMonitor)
 	// create a map of health monitors in the existing GS object and the new GS object
 	existingHms := make(map[string]struct{})
-	for _, hmName := range existingHmNameList {
+	for _, hmName := range gsCacheObj.HealthMonitor {
 		existingHms[hmName] = struct{}{}
 	}
 	newHms := make(map[string]struct{})
@@ -195,14 +208,15 @@ func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, 
 			toBeAdded = append(toBeAdded, hmName)
 		}
 	}
-	for _, gsHmName := range existingHmNameList {
-		description := GetDescriptionFromHmCacheDetails(gsHmName, gsCacheObj.HealthMonitor)
-		path := nodes.GetHMPathFromDescription(gsHmName, description)
+	existingHMObjs := GetHMCacheObjFromGSCache(gsCacheObj)
+	for _, hmObj := range existingHMObjs {
+		hmName := hmObj.Name
+		path := nodes.GetPathFromHmDescription(hmName, hmObj.Description)
 		if path == "" {
 			continue
 		}
-		if _, exists := newHms[gsHmName]; !exists {
-			toBeDeleted = append(toBeDeleted, gsHmName)
+		if _, exists := newHms[hmName]; !exists {
+			toBeDeleted = append(toBeDeleted, hmName)
 		}
 	}
 	gslbutils.Debugf("gsName: %s, toBeAdded: %v, toBeDeleted: %v, msg: hms to be added and deleted", aviGSGraph.Name, toBeAdded,
@@ -279,7 +293,7 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 	hm := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
 	if hm != nil {
 		hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hm.Name}
-		hmCksum := aviGSGraph.GetHmChecksum([]string{aviGSGraph.Hm.Description})
+		hmCksum := aviGSGraph.GetHmChecksum(aviGSGraph.Hm.GetHMDescription(aviGSGraph.Name))
 		gslbutils.Debugf(spew.Sprintf("key: %s, hmKey: %v, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
 			key, hmKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 		if hm.CloudConfigCksum != hmCksum {
@@ -351,7 +365,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 		if len(pathNames) > 0 {
 			// path based default HMs
 			err = restOp.createOrDeletePathHm(aviGSGraph, gsCacheObj, key, gsKey)
-		} else if aviGSGraph.Hm.Protocol != "" {
+		} else if aviGSGraph.Hm.HMProtocol != "" {
 			// non-path based default Hms
 			err = restOp.createOrUpdateNonPathHm(aviGSGraph, gsCacheObj, gsKey, key)
 		} else {
@@ -384,7 +398,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 		// non-path based HMs (System-GSLB-TCP/UDP)
 		hm := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
 		if hm == nil {
-			if aviGSGraph.IsHmTypeCustom() {
+			if aviGSGraph.IsHmTypeCustom(aviGSGraph.Hm.Name) {
 				// create a new health monitor
 				op := restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, "")
 				if op == nil {
@@ -404,7 +418,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 			gslbutils.Debugf("key: %s, gsKey: %v, msg: nothing to be done for default HM", key, gsKey)
 		} else {
 			// a health monitor already exists, see if we need to re-create it
-			hmCksum := aviGSGraph.GetHmChecksum([]string{aviGSGraph.Hm.Description})
+			hmCksum := aviGSGraph.GetHmChecksum(aviGSGraph.Hm.GetHMDescription(aviGSGraph.Name))
 			gslbutils.Debugf(spew.Sprintf("key: %s, gsKey: %s, aviGSGraph: %s, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
 				key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 			if hm.CloudConfigCksum != hmCksum {
@@ -416,7 +430,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 					return
 				}
-				op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, aviGSGraph.Name)
+				op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, "")
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
 					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
@@ -695,11 +709,11 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	var monitorPort int32
 	var hmHTTP avimodels.HealthMonitorHTTP
 
-	hmProto := gsMeta.Hm.Protocol
+	hmProto := gsMeta.Hm.HMProtocol
 	isFederated := true
 	allowDup := true
 	tenantRef := gslbutils.GetAviAdminTenantRef()
-	description := gsMeta.Hm.Description
+	description := ""
 	sendInterval := int32(10)
 	receiveTimeout := int32(4)
 	successfulChecks := int32(3)
@@ -721,7 +735,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	if pathHm != "" {
 		// path based http/https health monitor
 		description = nodes.GetDescriptionForPathHMName(pathHm, gsMeta)
-		path := nodes.GetHMPathFromDescription(pathHm, description)
+		path := nodes.GetPathFromHmDescription(pathHm, description)
 		if path == "" {
 			gslbutils.Errf("key: %s, pathHm: %s, msg: malformed path HM name provided for hm build", key, pathHm)
 			return nil
@@ -745,6 +759,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 		}
 
 	} else {
+		description = gsMeta.Hm.GetHMDescription(gsMeta.Name)[0]
 		hmName = gsMeta.Hm.Name
 		monitorPort = gsMeta.Hm.Port
 		switch hmProto {
@@ -948,15 +963,15 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	// Add the default health monitor(s) only if custom health monitor refs are not provided
 	if hmRequired && len(gsMeta.HmRefs) == 0 {
 		// check if path based (HTTP(S)) HMs are required or just a single non-path based (TCP/UDP) HM
-		if len(gsMeta.Hm.PathNames) == 0 {
+		if len(gsMeta.Hm.PathHM) == 0 {
 			if gsMeta.Hm.Name == "" {
 				gslbutils.Errf("gs %s doesn't have a health monitor", gsMeta.Name)
 			}
 			aviGslbSvc.HealthMonitorRefs = []string{hmAPI + gsMeta.Hm.Name}
 		} else {
 			aviGslbSvc.HealthMonitorRefs = []string{}
-			for _, hmName := range gsMeta.Hm.PathNames {
-				aviGslbSvc.HealthMonitorRefs = append(aviGslbSvc.HealthMonitorRefs, hmAPI+hmName.HmName)
+			for _, hmName := range gsMeta.Hm.PathHM {
+				aviGslbSvc.HealthMonitorRefs = append(aviGslbSvc.HealthMonitorRefs, hmAPI+hmName.Name)
 			}
 		}
 	} else if len(gsMeta.HmRefs) > 0 {
@@ -1133,7 +1148,7 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 
 		// if no HM refs for this GS, delete all HMs for this GS
 		if len(gsGraph.HmRefs) == 0 {
-			for _, hmName := range cache.GetHmNameList(gsCacheObj.HealthMonitor) {
+			for _, hmName := range gsCacheObj.HealthMonitor {
 				// check if this HM is created by AMKO, if not, don't try to remove it
 				if !gslbutils.HMCreatedByAMKO(hmName) {
 					continue

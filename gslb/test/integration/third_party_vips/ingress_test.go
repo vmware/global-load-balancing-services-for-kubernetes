@@ -214,7 +214,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 		t.Fatalf("error in building, adding and verifying app selector GDP: %v", err)
 	}
 
-	testPrefix := "tdr-"
+	testPrefix := "tdrns-"
 	ingName := testPrefix + "def-ing"
 	routeName := testPrefix + "def-route"
 	ns := "default"

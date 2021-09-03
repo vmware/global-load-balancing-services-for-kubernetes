@@ -274,6 +274,7 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 func GetGSLBHmChecksum(hmType string, port int32, description []string) uint32 {
 	portStr := strconv.FormatInt(int64(port), 10)
 	checksum := utils.Hash(hmType) + utils.Hash(portStr)
+	sort.Strings(description)
 	for _, desc := range description {
 		checksum = checksum + utils.Hash(desc)
 	}
@@ -542,7 +543,7 @@ func GetHmTypeForTLS(tls bool) string {
 }
 
 func CheckNameLength(name string, prefixToExclude string) bool {
-	if len(name)-len(prefixToExclude) < 256 {
+	if len(name)+len(prefixToExclude) < 256 {
 		return true
 	}
 	return false
@@ -562,17 +563,6 @@ func HMCreatedByAMKO(hmName string) bool {
 		return true
 	}
 	return false
-}
-
-func GetEncodedGSFromHmName(hmName string) (string, error) {
-	// for path based hms
-	hmNameSplit := strings.Split(hmName, "--")
-	if len(hmNameSplit) == 4 {
-		return hmNameSplit[2], nil
-	} else if len(hmNameSplit) == 2 {
-		return hmNameSplit[1], nil
-	}
-	return "", errors.New("error in parsing gs name, unexpected format")
 }
 
 // HostRuleMeta stores a partial set of information stripped from the HostRule object,

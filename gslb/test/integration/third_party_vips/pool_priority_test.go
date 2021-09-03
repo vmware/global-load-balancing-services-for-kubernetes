@@ -252,7 +252,7 @@ func TestPriorityOneClusterUpdate(t *testing.T) {
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
 		ingHostIPMap, defaultPath, TlsFalse)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
-		routeCluster, host, routeIPAddr, defaultPath[0], false)
+		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster,
@@ -319,9 +319,9 @@ func TestMultiplePriorityUpdate(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, false)
+		ingHostIPMap, defaultPath, TlsFalse)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
-		routeCluster, host, routeIPAddr, false)
+		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster,
@@ -330,7 +330,7 @@ func TestMultiplePriorityUpdate(t *testing.T) {
 		int32(oshiftWeight), int32(oshiftPriority)))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	updTrafficSplit := BuildTestTrafficSplit(k8sWeight, k8sPriority, oshiftWeight, UpdatedPriorityOshift)
@@ -345,6 +345,6 @@ func TestMultiplePriorityUpdate(t *testing.T) {
 	updatedGSMembers = append(updatedGSMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster,
 		int32(oshiftWeight), int32(UpdatedPriorityOshift)))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, updatedGSMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+		return verifyGSMembers(t, updatedGSMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

@@ -327,18 +327,13 @@ type GSMember struct {
 	Controller string
 }
 
-type HealthMonitorDetails struct {
-	HealthMonitorNames       string
-	HealthMonitorDescription string
-}
-
 type AviGSCache struct {
 	Name             string
 	Tenant           string
 	Uuid             string
 	Members          []GSMember
 	K8sObjects       []string
-	HealthMonitor    []HealthMonitorDetails
+	HealthMonitor    []string
 	CloudConfigCksum uint32
 }
 
@@ -582,17 +577,9 @@ func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbal
 	return ParsePoolAlgorithmSettings(algorithm, fallbackAlgorithm, consistentHashMask)
 }
 
-func GetHmNameList(hmList []HealthMonitorDetails) []string {
-	var hmNameList []string
-	for _, hm := range hmList {
-		hmNameList = append(hmNameList, hm.HealthMonitorNames)
-	}
-	return hmNameList
-}
-
-func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []HealthMonitorDetails, error) {
+func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, error) {
 	var serverList, domainList, memberObjs []string
-	var hms []HealthMonitorDetails
+	var hms []string
 	var gsMembers []GSMember
 	var persistenceProfileRef string
 	var persistenceProfileRefPtr *string
@@ -636,10 +623,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 			gslbutils.Debugf("gsName: %s, msg: health monitor cache object can't be parsed", *gsObj.Name)
 			continue
 		}
-		hm := HealthMonitorDetails{
-			HealthMonitorNames:       hmObj.Name,
-			HealthMonitorDescription: hmObj.Description,
-		}
+		hm := hmObj.Name
 		hms = append(hms, hm)
 	}
 
@@ -725,7 +709,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, GetHmNameList(hms),
+	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
 		persistenceProfileRefPtr, ttl, poolAlgorithmSettings)
 	return checksum, gsMembers, memberObjs, hms, nil
 }
@@ -740,14 +724,14 @@ func GetHmDescriptionFromName(hmName string) string {
 	uri := "/api/healthmonitor?name=" + hmName
 	result, err := gslbutils.GetUriFromAvi(uri, aviRestClientPool.AviClient[0], false)
 	if err != nil {
-		gslbutils.Logf("error getting hm data, err : %v", err)
+		gslbutils.Errf("error getting hm data, err : %v", err)
 		return ""
 	}
 
 	elems := make([]json.RawMessage, result.Count)
 	err = json.Unmarshal(result.Results, &elems)
 	if err != nil {
-		gslbutils.Logf("error unmarshalling hm data, err : %v", err)
+		gslbutils.Errf("error unmarshalling hm data, err : %v", err)
 		return ""
 	}
 	hmDescription := ""
@@ -769,9 +753,22 @@ func GetHmDescriptionFromName(hmName string) string {
 	return hmDescription
 }
 
-func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []HealthMonitorDetails, error) {
+func GetGSFromHmName(hmName string) (string, error) {
+	// for path based hms
+	hmDesc := GetHmDescriptionFromName(hmName)
+	hmDescriptionSplit := strings.Split(hmDesc, ": ")
+	if len(hmDescriptionSplit) != 5 {
+		return "", fmt.Errorf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDesc)
+	}
+	gsNameField := strings.Split(hmDescriptionSplit[2], ",")
+	gsName := strings.Trim(gsNameField[0], " ")
+	return gsName, nil
+
+}
+
+func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []string, error) {
 	var serverList, domainList, memberObjs []string
-	var hms []HealthMonitorDetails
+	var hms []string
 	var gsMembers []GSMember
 	var ttl *int
 
@@ -801,11 +798,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 				errStr := fmt.Sprintf("health monitor name is absent in health monitor ref: %v", hmRefSplit[0])
 				return 0, nil, memberObjs, hms, errors.New(errStr)
 			}
-			hmDescription := GetHmDescriptionFromName(hmRefSplit[1])
-			hm := HealthMonitorDetails{
-				HealthMonitorNames:       hmRefSplit[1],
-				HealthMonitorDescription: hmDescription,
-			}
+			hm := hmRefSplit[1]
 			hms = append(hms, hm)
 		}
 	} else {
@@ -913,7 +906,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
 	// calculate the checksum
-	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, GetHmNameList(hms),
+	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
 		persistenceProfileRefPtr, ttl, poolAlgorithmSettings)
 	return checksum, gsMembers, memberObjs, hms, nil
 }

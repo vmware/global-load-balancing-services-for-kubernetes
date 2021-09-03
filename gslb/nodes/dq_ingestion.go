@@ -146,9 +146,9 @@ func PublishAllGraphKeys() {
 func GetHmChecksum(objType string, gsGraph *AviGSObjectGraph) uint32 {
 	var checksum uint32
 	if objType == gslbutils.SvcType {
-		checksum = gsGraph.GetHmChecksum([]string{gsGraph.Hm.Description})
+		checksum = gsGraph.GetHmChecksum(gsGraph.Hm.GetHMDescription(gsGraph.Name))
 	} else {
-		description := GetDescriptionListForPathHms(gsGraph.Hm.PathNames)
+		description := gsGraph.Hm.GetHMDescription(gsGraph.Name)
 		checksum = gsGraph.GetHmChecksum(description)
 	}
 	return checksum
