@@ -52,7 +52,8 @@ globalDeploymentPolicy:
   # appSelector takes the form of:
   # appSelector:
   #   label:
-  #     app: gslb   <example label key-value for an ingress/service type LB>
+  #     # example label key-value for an ingress/service type LB
+  #     app: gslb
   # Uncomment below and add the required ingress/route/service label
   # appSelector:
 
