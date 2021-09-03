@@ -852,7 +852,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 }
 
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
-	weight int32) nodes.AviGSK8sObj {
+	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", ingObj.Annotations, err)
