@@ -359,7 +359,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 		cksum += utils.Hash(c) + utils.Hash(utils.Stringify(s.SyncVipsOnly))
 	}
 	for _, ts := range gf.TrafficSplit {
-		cksum += utils.Hash(ts.ClusterName + strconv.Itoa(int(ts.Weight)))
+		cksum += utils.Hash(ts.ClusterName + strconv.Itoa(int(ts.Weight)) + strconv.Itoa(int(ts.Priority)))
 	}
 	if gf.SitePersistenceRef != nil {
 		cksum += utils.Hash(*gf.SitePersistenceRef)
