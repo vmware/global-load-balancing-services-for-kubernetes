@@ -285,3 +285,66 @@ func TestPriorityOneClusterUpdate(t *testing.T) {
 		return verifyGSMembers(t, updatedGSMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
+
+func TestMultiplePriorityUpdate(t *testing.T) {
+	// Add a GDP object with both clusters having different priorities
+	// Add an ingress object and a route object
+	// Verify that the gs graph contains both members with different priorities
+	// Update the priority of the oshift cluster and verify the updated priorities for
+	// the GSs.
+	var k8sPriority uint32 = 12
+	var oshiftPriority uint32 = 15
+	var k8sWeight uint32 = 5
+	var oshiftWeight uint32 = 5
+	var UpdatedPriorityOshift uint32 = 30
+
+	trafficSplit := BuildTestTrafficSplit(k8sWeight, k8sPriority, oshiftWeight, oshiftPriority)
+	gdpObj := CreateTestGDPObjectWithPriority(t, trafficSplit)
+
+	testPrefix := "tmpv-"
+	ingName := testPrefix + "def-ing"
+	routeName := testPrefix + "def-route"
+	ns := "default"
+	host := testPrefix + ingestion_test.TestDomain1
+	ingIPAddr := "1.1.1.1"
+	routeIPAddr := "2.2.2.2"
+	ingCluster := "k8s"
+	routeCluster := "oshift"
+	ingHostIPMap := map[string]string{host: ingIPAddr}
+
+	t.Cleanup(func() {
+		k8sDeleteIngress(t, clusterClients[K8s], ingName, ns)
+		oshiftDeleteRoute(t, clusterClients[Oshift], routeName, ns)
+	})
+
+	g := gomega.NewGomegaWithT(t)
+	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
+		ingHostIPMap, false)
+	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
+		routeCluster, host, routeIPAddr, false)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster,
+		int32(k8sWeight), int32(k8sPriority)))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster,
+		int32(oshiftWeight), int32(oshiftPriority)))
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	updTrafficSplit := BuildTestTrafficSplit(k8sWeight, k8sPriority, oshiftWeight, UpdatedPriorityOshift)
+	_, err := UpdateAndVerifyTestGDPPrioritySuccess(t, gdpObj.Name, gdpObj.Namespace, updTrafficSplit)
+	if err != nil {
+		t.Fatalf("error while updating and verifying GDP object: %v", err)
+	}
+	t.Logf("will update the priority in GDP for k8s cluster")
+	var updatedGSMembers []nodes.AviGSK8sObj
+	updatedGSMembers = append(updatedGSMembers, getTestGSMemberFromIng(t, ingObj, ingCluster,
+		int32(k8sWeight), int32(k8sPriority)))
+	updatedGSMembers = append(updatedGSMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster,
+		int32(oshiftWeight), int32(UpdatedPriorityOshift)))
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, updatedGSMembers, host, utils.ADMIN_NS, nil, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
