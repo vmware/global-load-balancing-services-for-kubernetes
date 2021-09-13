@@ -403,15 +403,15 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 	} else {
 		// default HM(s)
 		if tls {
-			if gs.Hm.Protocol != gslbutils.SystemGslbHealthMonitorHTTPS {
+			if gs.Hm.HMProtocol != gslbutils.SystemGslbHealthMonitorHTTPS {
 				t.Logf("hm protocol didn't match, expected: %s, got: %s", gslbutils.SystemGslbHealthMonitorHTTPS,
-					gs.Hm.Protocol)
+					gs.Hm.HMProtocol)
 				return false
 			}
 		} else {
-			if gs.Hm.Protocol != gslbutils.SystemGslbHealthMonitorHTTP {
+			if gs.Hm.HMProtocol != gslbutils.SystemGslbHealthMonitorHTTP {
 				t.Logf("hm protocol didn't match, expected: %s, got: %s", gslbutils.SystemGslbHealthMonitorHTTP,
-					gs.Hm.Protocol)
+					gs.Hm.HMProtocol)
 				return false
 			}
 		}

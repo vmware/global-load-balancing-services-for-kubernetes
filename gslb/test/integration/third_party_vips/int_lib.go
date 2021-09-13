@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -58,12 +60,17 @@ const (
 	// AMKO CRD directory
 	AmkoCRDs = "../../../../helm/amko/crds"
 
-	AviSystemNS    = "avi-system"
-	AviSecret      = "avi-secret"
-	GslbConfigName = "test-gc"
-	GDPName        = "test-gdp"
-	K8sContext     = "k8s"
-	OshiftContext  = "oshift"
+	AviSystemNS     = "avi-system"
+	AviSecret       = "avi-secret"
+	GslbConfigName  = "test-gc"
+	GDPName         = "test-gdp"
+	K8sContext      = "k8s"
+	OshiftContext   = "oshift"
+	Hostname        = "hostname"
+	Path            = "path"
+	TlsTrue         = true
+	TlsFalse        = false
+	DefaultPriority = 10
 )
 
 var (
@@ -78,20 +85,79 @@ var (
 	KubeBuilderAssetsVal string
 	routeCRD             apiextensionv1beta1.CustomResourceDefinition
 	hrCRD                apiextensionv1beta1.CustomResourceDefinition
+	defaultPath          = []string{"/"}
 )
 
 var appLabel map[string]string = map[string]string{"key": "value"}
 
-func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool, secretName string) *networkingv1beta1.Ingress {
+func BuildLBServiceObj(t *testing.T, name, ns string, hostIPs map[string]string, port int32) *corev1.Service {
+	svcObj := &corev1.Service{}
+	svcObj.Namespace = ns
+	svcObj.Name = name
+
+	svcObj.Spec.Type = "LoadBalancer"
+	ports := corev1.ServicePort{
+		Protocol: "TCP",
+		Port:     port,
+		TargetPort: intstr.IntOrString{
+			Type:   0,
+			IntVal: port,
+		},
+	}
+	svcObj.Spec.Ports = []corev1.ServicePort{ports}
+	svcObj.Spec.Selector = map[string]string{
+		"app": "lb-app",
+	}
+
+	for ingHost, ingIP := range hostIPs {
+		svcObj.Status.LoadBalancer.Ingress = append(svcObj.Status.LoadBalancer.Ingress,
+			corev1.LoadBalancerIngress{
+				IP:       ingIP,
+				Hostname: ingHost,
+			})
+
+	}
+	labelMap := make(map[string]string)
+	labelMap["key"] = "value"
+	svcObj.Labels = labelMap
+	return svcObj
+}
+
+func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, paths []string, withStatus bool, secretName string) *networkingv1beta1.Ingress {
 	ingObj := &networkingv1beta1.Ingress{}
 	ingObj.Namespace = ns
 	ingObj.Name = name
+
+	if paths == nil {
+		paths = []string{"/"}
+	}
+	var ingPaths []networkingv1beta1.HTTPIngressPath
+	var pathType networkingv1beta1.PathType = "ImplementationSpecific"
+	for _, path := range paths {
+		ingPath := networkingv1beta1.HTTPIngressPath{
+			Path:     path,
+			PathType: &pathType,
+			Backend: networkingv1beta1.IngressBackend{
+				ServiceName: svc,
+				ServicePort: intstr.IntOrString{
+					Type:   0,
+					IntVal: 8080,
+				},
+			},
+		}
+		ingPaths = append(ingPaths, ingPath)
+	}
 
 	var hosts []string
 	for ingHost, ingIP := range hostIPs {
 		hosts = append(hosts, ingHost)
 		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1beta1.IngressRule{
 			Host: ingHost,
+			IngressRuleValue: networkingv1beta1.IngressRuleValue{
+				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+					Paths: ingPaths,
+				},
+			},
 		})
 		if !withStatus {
 			continue
@@ -117,7 +183,10 @@ func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, wit
 	return ingObj
 }
 
-func BuildRouteObj(name, ns, svc, cname, host, ip string, withStatus bool) *routev1.Route {
+func BuildRouteObj(name, ns, svc, cname, host, ip, path string, withStatus bool) *routev1.Route {
+	if path == "" {
+		path = "/"
+	}
 	routeObj := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
@@ -125,6 +194,7 @@ func BuildRouteObj(name, ns, svc, cname, host, ip string, withStatus bool) *rout
 		},
 		Spec: routev1.RouteSpec{
 			Host: host,
+			Path: path,
 			To: routev1.RouteTargetReference{
 				Kind: "Service",
 				Name: svc,
@@ -218,8 +288,29 @@ func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname strin
 	return updatedIng
 }
 
+func k8sAddLBService(t *testing.T, kc *kubernetes.Clientset, name, ns string, hostIPs map[string]string, port int32) *corev1.Service {
+	svcObj := BuildLBServiceObj(t, name, ns, hostIPs, port)
+	hostname := name + "." + ns + "." + ingestion_test.TestDomain1
+	svcObj.Annotations = getAnnotations([]string{hostname})
+
+	svc, err := kc.CoreV1().Services(ns).Create(context.TODO(), svcObj, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create service : %v", err)
+	}
+
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": svcObj.Status,
+	})
+
+	svc, err = kc.CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("error in patching service: %v", err)
+	}
+	return svc
+}
+
 func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname string,
-	hostIPs map[string]string, tls bool) *networkingv1beta1.Ingress {
+	hostIPs map[string]string, paths []string, tls bool) *networkingv1beta1.Ingress {
 
 	secreName := "test-secret"
 	if tls {
@@ -234,9 +325,9 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 	}
 	var ingObj *networkingv1beta1.Ingress
 	if tls {
-		ingObj = BuildIngressObj(name, ns, svc, cname, hostIPs, true, secreName)
+		ingObj = BuildIngressObj(name, ns, svc, cname, hostIPs, paths, true, secreName)
 	} else {
-		ingObj = BuildIngressObj(name, ns, svc, cname, hostIPs, true, "")
+		ingObj = BuildIngressObj(name, ns, svc, cname, hostIPs, paths, true, "")
 	}
 	t.Logf("built an ingress object with name: %s, ns: %s, cname: %s", ns, name, cname)
 	var hostnames []string
@@ -261,8 +352,8 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 }
 
 func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname, host,
-	ip string, tls bool) *routev1.Route {
-	routeObj := BuildRouteObj(name, ns, svc, cname, host, ip, true)
+	ip, path string, tls bool) *routev1.Route {
+	routeObj := BuildRouteObj(name, ns, svc, cname, host, ip, path, true)
 	if tls {
 		routeObj.Spec.TLS = &routev1.TLSConfig{
 			Termination:   routev1.TLSTerminationEdge,
@@ -286,7 +377,7 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 func k8sDeleteIngress(t *testing.T, kc *kubernetes.Clientset, name string, ns string) {
 	err := kc.NetworkingV1beta1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
-		t.Fatalf("error in creating ingress: %v", err)
+		t.Fatalf("error in deleting ingress: %v", err)
 	}
 }
 
@@ -295,6 +386,107 @@ func oshiftDeleteRoute(t *testing.T, kc *kubernetes.Clientset, name string, ns s
 	if err != nil {
 		t.Fatalf("Couldn't delete route obj: %v, err: %v", name, err)
 	}
+}
+
+func k8sDeleteService(t *testing.T, kc *kubernetes.Clientset, name string, ns string) {
+	err := kc.CoreV1().Services(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("error in deleting service: %v", err)
+	}
+}
+
+func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc string, hostIPs map[string]string, paths []string) *networkingv1beta1.Ingress {
+	ingress, err := kc.NetworkingV1beta1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error in getting ingress: %v", err)
+	}
+	var ingPaths []networkingv1beta1.HTTPIngressPath
+	var pathType networkingv1beta1.PathType = "ImplementationSpecific"
+	ingress.Spec.Rules = []networkingv1beta1.IngressRule{}
+	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{}
+	for _, path := range paths {
+		ingPath := networkingv1beta1.HTTPIngressPath{
+			Path:     path,
+			PathType: &pathType,
+			Backend: networkingv1beta1.IngressBackend{
+				ServiceName: svc,
+				ServicePort: intstr.IntOrString{
+					Type:   0,
+					IntVal: 8080,
+				},
+			},
+		}
+		ingPaths = append(ingPaths, ingPath)
+	}
+
+	var hosts []string
+	for ingHost, ingIP := range hostIPs {
+		hosts = append(hosts, ingHost)
+		ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1beta1.IngressRule{
+			Host: ingHost,
+			IngressRuleValue: networkingv1beta1.IngressRuleValue{
+				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+					Paths: ingPaths,
+				},
+			},
+		})
+		ingress.Status.LoadBalancer.Ingress = append(ingress.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+			IP:       ingIP,
+			Hostname: ingHost,
+		})
+	}
+	var hostnames []string
+	for _, r := range ingress.Spec.Rules {
+		hostnames = append(hostnames, r.Host)
+	}
+	ingress.Annotations = getAnnotations(hostnames)
+	if ingress.Spec.TLS != nil && len(ingress.Spec.TLS) > 0 {
+		ingress.Spec.TLS[0].Hosts = hostnames
+	}
+	_, err = kc.NetworkingV1beta1().Ingresses(ns).Update(context.TODO(), ingress, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("error in updating ingress: %v", err)
+	}
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": ingress.Status,
+	})
+	_, err = kc.NetworkingV1beta1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("error in patching ingress: %v", err)
+	}
+	return ingress
+}
+
+func oshiftUpdateRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, host,
+	ip, path string) *routev1.Route {
+	route, err := oshiftClient.RouteV1().Routes(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error in getting route: %v", err)
+	}
+	route.Spec.Host = host
+	route.Spec.Path = path
+
+	route.Status.Ingress[0].Host = host
+	route.Annotations = getAnnotations([]string{host})
+	_, err = oshiftClient.RouteV1().Routes(ns).Update(context.TODO(), route, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("error in updating ingress: %v", err)
+	}
+	return route
+}
+
+func k8sUpdateLBServicePort(t *testing.T, kc *kubernetes.Clientset, name, ns string, port int32) *corev1.Service {
+	svc, err := kc.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting service : %v", err)
+	}
+	svc.Spec.Ports[0].Port = port
+
+	_, err = kc.CoreV1().Services(ns).Update(context.TODO(), svc, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("error updating service : %v", err)
+	}
+	return svc
 }
 
 func BuildAddAndVerifyAppSelectorTestGDP(t *testing.T) (*gdpalphav2.GlobalDeploymentPolicy, error) {
@@ -441,8 +633,82 @@ func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph
 	return gsGraph.GetCopy()
 }
 
-func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings) bool {
+func BuildTestPathHmNames(hostname string, paths []string, tls bool) []string {
+	httpType := "http"
+	if tls {
+		httpType = "https"
+	}
+	hmNames := []string{}
+	for _, p := range paths {
+		hmName := "amko--" + gslbutils.EncodeHMName(httpType+"--"+hostname+"--"+p)
+		hmNames = append(hmNames, hmName)
+	}
+	return hmNames
+}
+
+func BuildTestNonPathHmNames(hostname string) string {
+	return nodes.HmNamePrefix + gslbutils.EncodeHMName(hostname)
+}
+
+func BuildExpectedPathHM(host string, paths []string, tls bool) nodes.HealthMonitor {
+	protocol := "http"
+	if tls {
+		protocol = "https"
+	}
+	pathHMs := []nodes.PathHealthMonitorDetails{}
+	for _, path := range paths {
+		pathHm := nodes.PathHealthMonitorDetails{
+			Name:            nodes.HmNamePrefix + gslbutils.EncodeHMName(protocol+"--"+host+"--"+path),
+			IngressProtocol: protocol,
+			Path:            path,
+		}
+		pathHMs = append(pathHMs, pathHm)
+	}
+	return nodes.HealthMonitor{
+		Name:       "",
+		HMProtocol: "",
+		Port:       0,
+		Type:       nodes.PathHM,
+		PathHM:     pathHMs,
+	}
+}
+
+func BuildExpectedNonPathHmDescription(host string) nodes.HealthMonitor {
+	return nodes.HealthMonitor{
+		Name:       nodes.HmNamePrefix + gslbutils.EncodeHMName(host),
+		HMProtocol: "",
+		Port:       0,
+		Type:       nodes.NonPathHM,
+		PathHM:     nil,
+	}
+}
+
+func BuildExpectedPathHmDescriptionString(host string, path []string, tls bool) []string {
+	hm := BuildExpectedPathHM(host, path, tls)
+	descList := []string{}
+	for _, pathHm := range hm.PathHM {
+		descList = append(descList, pathHm.GetPathHMDescription(host))
+	}
+	return descList
+}
+
+func BuildExpectedNonPathHmDescriptionString(host string) string {
+	hm := BuildExpectedNonPathHmDescription(host)
+	return hm.GetHMDescription(host)[0]
+}
+
+func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
+	for idx, h := range expectedHmRefs {
+		if h != fetchedHmRefs[idx] {
+			t.Logf("hm ref didn't match, expected list: %v, fetched list: %v", expectedHmRefs, fetchedHmRefs)
+			return false
+		}
+	}
+	return true
+}
+
+func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name string, tenant string,
+	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32) bool {
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -455,23 +721,55 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 		return false
 	}
 
-	sort.Strings(hmRefs)
-	fetchedHmRefs := gs.HmRefs
-	sort.Strings(fetchedHmRefs)
-	if len(hmRefs) != len(fetchedHmRefs) {
-		t.Logf("length of hm refs don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
-		return false
-	}
+	if hmRefs != nil && len(hmRefs) != 0 {
+		sort.Strings(hmRefs)
+		if !strings.HasPrefix(hmRefs[0], "amko--") {
+			// hm not created by amko
+			fetchedHmRefs := gs.HmRefs
+			sort.Strings(fetchedHmRefs)
+			if len(hmRefs) != len(fetchedHmRefs) {
+				t.Logf("length of hm refs don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
+				return false
+			}
 
-	if len(hmRefs) != 0 {
-		for idx, h := range hmRefs {
-			if h != fetchedHmRefs[idx] {
-				t.Logf("hm ref didn't match, expected list: %v, fetched list: %v", hmRefs, fetchedHmRefs)
+			if len(hmRefs) != 0 && !compareHmRefs(t, hmRefs, fetchedHmRefs) {
+				return false
+			}
+		} else if paths != nil {
+			// path based HMs
+			fetchedPathHM := gs.Hm.PathHM
+			expectedPathHM := BuildExpectedPathHM(name, paths, tls).PathHM
+			if len(expectedPathHM) != len(fetchedPathHM) {
+				t.Logf("expected path hm lenght doesnt match fetched path hm length, expected path hm: %v, fetched path hm : %v",
+					expectedPathHM, fetchedPathHM)
+				return false
+			}
+			matchedMembersLen := 0
+			for _, fetchedPathHm := range fetchedPathHM {
+				for _, expectedPathHm := range expectedPathHM {
+					if fetchedPathHm.Name == expectedPathHm.Name && fetchedPathHm.Path == expectedPathHm.Path &&
+						fetchedPathHm.IngressProtocol == expectedPathHm.IngressProtocol {
+						matchedMembersLen = matchedMembersLen + 1
+					}
+				}
+			}
+			if matchedMembersLen != len(fetchedPathHM) {
+				t.Logf("expected path hms and fetched path hms donot match, expected path hm : %v, fetched path hm %v",
+					expectedPathHM, fetchedPathHM)
+				return false
+			}
+		} else {
+			// non path based HM
+			if gs.Hm.Name != hmRefs[0] {
+				t.Logf("hm names do not match, expected : %s, got : %s", hmRefs[0], gs.Hm.Name)
+				return false
+			}
+			if port != nil && *port != gs.Hm.Port {
+				t.Logf("hm port do not match, expected : %d, got : %d", *port, gs.Hm.Port)
 				return false
 			}
 		}
 	}
-
 	if sitePersistenceRef != nil {
 		if gs.SitePersistenceRef == nil {
 			t.Logf("Site persistence ref should not be nil, expected value: %s", *sitePersistenceRef)
@@ -600,6 +898,41 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 		true, false, tls, paths, weight, priority)
 }
 
+func getTestGSMemberFromMultiPathRoute(t *testing.T, routeObjList []*routev1.Route, cname string,
+	weight int32, priority int32) []nodes.AviGSK8sObj {
+	var gsMemberList []nodes.AviGSK8sObj
+
+	for _, routeObj := range routeObjList {
+		vsUUIDs := make(map[string]string)
+		if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+			t.Fatalf("error in getting annotations from route object %v: %v", routeObj.Annotations, err)
+		}
+		var tls bool
+		if routeObj.Spec.TLS != nil {
+			tls = true
+		}
+		gsMemberList = append(gsMemberList, getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
+			routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[routeObj.Spec.Host],
+			routeObj.Annotations[k8sobjects.ControllerAnnotation],
+			true, false, tls, []string{routeObj.Spec.Path}, weight, priority))
+	}
+	return gsMemberList
+}
+
+func getTestGSMemberFromSvc(t *testing.T, svcObj *corev1.Service, cname string,
+	weight int32, priority int32) nodes.AviGSK8sObj {
+	vsUUIDs := make(map[string]string)
+	if err := json.Unmarshal([]byte(svcObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+		t.Fatalf("error in getting annotations from ingress object %v: %v", svcObj.Annotations, err)
+	}
+	hostName := svcObj.Status.LoadBalancer.Ingress[0].Hostname
+
+	return getTestGSMember(cname, gslbutils.SvcType, svcObj.Name, svcObj.Namespace,
+		svcObj.Status.LoadBalancer.Ingress[0].IP, vsUUIDs[hostName],
+		svcObj.Annotations[k8sobjects.ControllerAnnotation],
+		true, false, false, []string{}, weight, priority)
+}
+
 func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID string,
 	syncVIPOnly, isPassthrough, tls bool, paths []string, weight int32, priority int32) nodes.AviGSK8sObj {
 	return nodes.AviGSK8sObj{
@@ -708,8 +1041,8 @@ func GetTestGSFromRestCache(t *testing.T, gsName string) *avicache.AviGSCache {
 	return gsObj
 }
 
-func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings) bool {
+func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name string, tenant string,
+	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool) bool {
 
 	gs := GetTestGSFromRestCache(t, name)
 	if gs == nil {
@@ -721,22 +1054,44 @@ func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sOb
 		t.Logf("length of members don't match")
 		return false
 	}
-
-	sort.Strings(hmRefs)
-	fetchedHmNames := gs.HealthMonitorNames
-	sort.Strings(fetchedHmNames)
-	if len(hmRefs) != len(fetchedHmNames) {
-		t.Logf("length of hm names don't match, expected: %v, got: %v", hmRefs, fetchedHmNames)
-		return false
-	}
-
-	if len(hmRefs) != 0 {
-		for idx, h := range hmRefs {
-			if h != fetchedHmNames[idx] {
-				t.Logf("hm ref didn't match, expected list: %v, fetched list: %v", hmRefs, fetchedHmNames)
+	if hmRefs != nil && len(hmRefs) != 0 {
+		sort.Strings(hmRefs)
+		fetchedHmRefs := gs.HealthMonitor
+		sort.Strings(fetchedHmRefs)
+		if len(hmRefs) != len(fetchedHmRefs) {
+			t.Logf("length of hm names don't match, expected: %v, got: %v", hmRefs, fetchedHmRefs)
+			return false
+		}
+		if !compareHmRefs(t, hmRefs, fetchedHmRefs) {
+			return false
+		}
+		fetchedHMObjs := amkorest.GetHMCacheObjFromGSCache(gs)
+		if paths != nil {
+			expectedHmDesc := BuildExpectedPathHmDescriptionString(name, paths, tls)
+			hmDesc := []string{}
+			for _, gsHm := range fetchedHMObjs {
+				hmDesc = append(hmDesc, gsHm.Description)
+			}
+			if len(expectedHmDesc) != len(hmDesc) {
+				t.Logf("length of hm descriptions dont match, expected: %v, got: %v", expectedHmDesc, hmDesc)
 				return false
 			}
+			sort.Strings(expectedHmDesc)
+			sort.Strings(hmDesc)
+			for idx := range hmDesc {
+				if hmDesc[idx] != expectedHmDesc[idx] {
+					t.Logf("hm descriptions dont match, expected: %v, got: %v", expectedHmDesc, hmDesc)
+					return false
+				}
+			}
+		} else {
+			for _, gsHm := range fetchedHMObjs {
+				if gsHm.Description != BuildExpectedNonPathHmDescriptionString(name) {
+					t.Logf("hm descriptions dont match")
+				}
+			}
 		}
+
 	}
 
 	memberProperties := make(map[string]interface{})
@@ -756,4 +1111,35 @@ func verifyGSMembersInRestLayer(t *testing.T, expectedMembers []nodes.AviGSK8sOb
 		}
 	}
 	return true
+}
+
+// Used to get union set of multi paths of ingress/route with the same host
+func GetUniquePaths(paths []string) []string {
+	uniquePathsSet := make(map[string]struct{})
+	for _, path := range paths {
+		uniquePathsSet[path] = struct{}{}
+	}
+	uniquePaths := []string{}
+	for path := range uniquePathsSet {
+		uniquePaths = append(uniquePaths, path)
+	}
+	return uniquePaths
+}
+
+// Can be used to get unqiue members when ingress/route have multi paths
+func GetUniqueMembers(members []nodes.AviGSK8sObj) []nodes.AviGSK8sObj {
+	uniqueMembers := []nodes.AviGSK8sObj{}
+	for _, member := range members {
+		exists := false
+		for _, umem := range uniqueMembers {
+			if member.IPAddr == umem.IPAddr {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			uniqueMembers = append(uniqueMembers, member)
+		}
+	}
+	return uniqueMembers
 }

@@ -184,3 +184,41 @@ func updateThirdPartyMembers(gsGraph *AviGSObjectGraph, thirdPartyMembers []v1al
 	}
 	gslbutils.Logf("gslb members: %v", gsGraph.MemberObjs)
 }
+
+func PresentInHealthMonitorPathList(key PathHealthMonitorDetails, pathHmList []PathHealthMonitorDetails) bool {
+	for _, pathHM := range pathHmList {
+		if pathHM.Path == key.Path && pathHM.IngressProtocol == key.IngressProtocol {
+			return true
+		}
+	}
+	return false
+}
+
+func GetDescriptionForPathHMName(hmName string, gsMeta *AviGSObjectGraph) string {
+	for _, pathnames := range gsMeta.Hm.PathHM {
+		if pathnames.Name == hmName {
+			return pathnames.GetPathHMDescription(gsMeta.Name)
+		}
+	}
+	gslbutils.Warnf("hmName: %s, msg: cannot find description for health monitor", hmName)
+	return ""
+}
+
+func GetPathFromHmDescription(hmName, hmDescription string) string {
+	hmDescriptionSplit := strings.Split(hmDescription, ": ")
+	if len(hmDescriptionSplit) != 5 {
+		gslbutils.Warnf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDescription)
+		return ""
+	}
+	hmPathField := strings.Split(hmDescriptionSplit[3], ",")
+	hmPath := strings.Trim(hmPathField[0], " ")
+	return hmPath
+}
+
+func GetPathHmNameList(hm HealthMonitor) []string {
+	var hmNameList []string
+	for _, path := range hm.PathHM {
+		hmNameList = append(hmNameList, path.Name)
+	}
+	return hmNameList
+}

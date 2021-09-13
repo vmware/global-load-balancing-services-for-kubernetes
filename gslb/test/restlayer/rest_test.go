@@ -89,17 +89,25 @@ func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType stri
 		}
 		memberObjs = append(memberObjs, memberObj)
 	}
-
+	path := "/"
+	protocol := "https"
 	gsGraph := nodes.AviGSObjectGraph{
 		Name:        host,
 		Tenant:      utils.ADMIN_NS,
 		DomainNames: []string{host},
 		MemberObjs:  memberObjs,
 		Hm: nodes.HealthMonitor{
-			Custom:    true,
-			Protocol:  gslbutils.SystemGslbHealthMonitorHTTPS,
-			Port:      443,
-			PathNames: []string{"amko--https--host1.foo.com--/"},
+			Name:       "",
+			HMProtocol: gslbutils.SystemGslbHealthMonitorHTTPS,
+			Port:       443,
+			Type:       nodes.PathHM,
+			PathHM: []nodes.PathHealthMonitorDetails{
+				{
+					Name:            "amko--d32527f936da2c6c888e4c53d19e1eda52735f5c",
+					IngressProtocol: protocol,
+					Path:            path,
+				},
+			},
 		},
 	}
 	gsGraph.GetChecksum()

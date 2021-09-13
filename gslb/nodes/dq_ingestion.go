@@ -143,6 +143,17 @@ func PublishAllGraphKeys() {
 	}
 }
 
+func GetHmChecksum(objType string, gsGraph *AviGSObjectGraph) uint32 {
+	var checksum uint32
+	if objType == gslbutils.SvcType {
+		checksum = gsGraph.GetHmChecksum(gsGraph.Hm.GetHMDescription(gsGraph.Name))
+	} else {
+		description := gsGraph.Hm.GetHMDescription(gsGraph.Name)
+		checksum = gsGraph.GetHmChecksum(description)
+	}
+	return checksum
+}
+
 func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.WorkerQueue, agl *AviGSGraphLister) {
 	modelName := utils.ADMIN_NS + "/" + objName
 	found, aviGS := agl.Get(modelName)
@@ -152,12 +163,12 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 		return
 	}
 	gsGraph := aviGS.(*AviGSObjectGraph)
-	prevHmChecksum := gsGraph.GetHmChecksum()
+	prevHmChecksum := GetHmChecksum(objType, gsGraph)
 	prevChecksum := gsGraph.GetChecksum()
 	// update the GS graph
 	aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false, gsGraph.MemberObjs[0].TLS)
 	newChecksum := gsGraph.GetChecksum()
-	newHmChecksum := gsGraph.GetHmChecksum()
+	newHmChecksum := GetHmChecksum(objType, gsGraph)
 	gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
 		newChecksum, prevHmChecksum, newHmChecksum, key)
 	if (prevChecksum == newChecksum) && (prevHmChecksum == newHmChecksum) {
@@ -254,14 +265,14 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 	} else {
 		gsGraph := aviGS.(*AviGSObjectGraph)
-		prevHmChecksum := gsGraph.GetHmChecksum()
+		prevHmChecksum := GetHmChecksum(objType, gsGraph)
 		// since the object was found, fetch the current checksum
 		prevChecksum = gsGraph.GetChecksum()
 		// Update the member of the GSGraph's GSNode
 		aviGS.(*AviGSObjectGraph).UpdateGSMemberFromMetaObj(metaObj)
 		// Get the new checksum after the updates
 		newChecksum = gsGraph.GetChecksum()
-		newHmChecksum := gsGraph.GetHmChecksum()
+		newHmChecksum := GetHmChecksum(objType, gsGraph)
 
 		gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,
 			newChecksum, prevHmChecksum, newHmChecksum, key)
