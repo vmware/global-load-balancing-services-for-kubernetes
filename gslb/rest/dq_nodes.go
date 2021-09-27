@@ -211,10 +211,6 @@ func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, 
 	existingHMObjs := GetHMCacheObjFromGSCache(gsCacheObj)
 	for _, hmObj := range existingHMObjs {
 		hmName := hmObj.Name
-		path := nodes.GetPathFromHmDescription(hmName, hmObj.Description)
-		if path == "" {
-			continue
-		}
 		if _, exists := newHms[hmName]; !exists {
 			toBeDeleted = append(toBeDeleted, hmName)
 		}
@@ -290,8 +286,9 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 
 func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObjectGraph, gsCacheObj *avicache.AviGSCache,
 	gsKey avicache.TenantName, key string) error {
-	hm := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
-	if hm != nil {
+	hms := GetHMCacheObjFromGSCache(gsCacheObj)
+	if len(hms) != 0 {
+		hm := hms[0]
 		hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hm.Name}
 		hmCksum := aviGSGraph.GetHmChecksum(aviGSGraph.Hm.GetHMDescription(aviGSGraph.Name))
 		gslbutils.Debugf(spew.Sprintf("key: %s, hmKey: %v, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
@@ -310,11 +307,14 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 				gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
-			op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, "")
-			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
-			if op.Err != nil {
-				gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
-				return op.Err
+			hmObj := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
+			if hmObj == nil {
+				op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPost, nil, key, "")
+				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
+				if op.Err != nil {
+					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
+					return op.Err
+				}
 			}
 			op = restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
 			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)

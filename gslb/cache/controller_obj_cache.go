@@ -600,8 +600,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 		return 0, nil, memberObjs, nil, errors.New("groups absent in gslb service")
 	}
 
-	description := *gsObj.Description
-	if description == "" {
+	if gsObj.Description == nil || *gsObj.Description == "" {
 		return 0, nil, memberObjs, nil, errors.New("description absent in gslb service")
 	}
 
@@ -704,7 +703,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 			gsMembers = append(gsMembers, gsMember)
 		}
 	}
-	memberObjs, err := parseDescription(description)
+	memberObjs, err := parseDescription(*gsObj.Description)
 	if err != nil {
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
