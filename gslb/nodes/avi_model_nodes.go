@@ -148,6 +148,9 @@ func (hm HealthMonitor) GetHMDescription(gsName string) []string {
 	descPrefix := CreatedByAMKO + ", gsname: " + gsName
 	desc = append(desc, descPrefix)
 	if hm.Type == NonPathHM {
+		if hm.Name == gslbutils.SystemGslbHealthMonitorPassthrough {
+			return []string{CreatedByAMKO}
+		}
 		return desc
 	} else if hm.Type == PathHM {
 		for _, pathHm := range hm.PathHM {
@@ -334,6 +337,7 @@ func (v *AviGSObjectGraph) buildHmPathList() {
 			v.Hm.PathHM = append(v.Hm.PathHM, pathHM)
 		}
 	}
+	v.Hm.Type = PathHM
 	gslbutils.Debugf("gsName: %s, pathHMList: %v, msg: rebuilt path list for GS", v.Name, v.Hm.PathHM)
 }
 
