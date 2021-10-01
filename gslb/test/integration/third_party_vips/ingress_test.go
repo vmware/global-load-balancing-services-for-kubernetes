@@ -102,6 +102,9 @@ func PostHMHandlerSendOK(data []byte, w http.ResponseWriter) bool {
 		gslbutils.Errf("[custom post handler]")
 	}
 	uuid := GetTestUuid(HmType, *resp.Name)
+	url := fmt.Sprintf("https://localhost/api/healthmonitor/healthmonitor-%s#%s",
+		*resp.Name+uuid, *resp.Name)
+	resp.URL = &url
 	resp.UUID = &uuid
 	finalResponse, _ := json.Marshal(resp)
 	w.WriteHeader(http.StatusOK)

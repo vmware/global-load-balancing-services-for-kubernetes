@@ -111,8 +111,8 @@ func (h *AviHmCache) AviHmCacheGetHmsForGS(tenant, gsName string) []interface{} 
 		if hmKey.Tenant != tenant {
 			continue
 		}
-		searchStr := "--" + gsName
-		if strings.Contains(hmKey.Name, searchStr) {
+		hmObj := v.(*AviHmObj)
+		if strings.Contains(hmObj.Description, gsName) {
 			hmObjs = append(hmObjs, v)
 		}
 	}
@@ -753,13 +753,12 @@ func GetHmDescriptionFromName(hmName string) string {
 }
 
 func GetGSFromHmName(hmName string) (string, error) {
-	// for path based hms
 	hmDesc := GetHmDescriptionFromName(hmName)
-	hmDescriptionSplit := strings.Split(hmDesc, ": ")
-	if len(hmDescriptionSplit) != 5 {
-		return "", fmt.Errorf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDesc)
+	hmDescriptionSplit := strings.Split(hmDesc, "gsname: ")
+	if len(hmDescriptionSplit) != 2 {
+		return "", fmt.Errorf("hmName: %s, msg: hm description - \"%s\" is malformed", hmName, hmDesc)
 	}
-	gsNameField := strings.Split(hmDescriptionSplit[2], ",")
+	gsNameField := strings.Split(hmDescriptionSplit[1], ",")
 	gsName := strings.Trim(gsNameField[0], " ")
 	return gsName, nil
 

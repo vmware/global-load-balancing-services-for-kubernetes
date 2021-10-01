@@ -301,11 +301,13 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 				gslbutils.Errf("key: %s, hmKey: %s, msg: error in rest operation: %v", key, hmKey, op)
 				return op.Err
 			}
-			op = restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
-			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
-			if op.Err != nil {
-				gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
-				return op.Err
+			if gslbutils.HMCreatedByAMKO(hm.Name) {
+				op = restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
+				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
+				if op.Err != nil {
+					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
+					return op.Err
+				}
 			}
 			hmObj := restOp.getGSHmCacheObj(aviGSGraph.Hm.Name, aviGSGraph.Tenant, key)
 			if hmObj == nil {
@@ -423,7 +425,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 				key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 			if hm.CloudConfigCksum != hmCksum {
 				// delete hm, create new hm and update gs
-				hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hm.Name}
+				hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: aviGSGraph.Hm.Name}
 				op := restOp.AviGsHmDel(hm.UUID, utils.ADMIN_NS, key, hm.Name)
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
@@ -759,7 +761,9 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 		}
 
 	} else {
-		description = gsMeta.Hm.GetHMDescription(gsMeta.Name)[0]
+		if len(gsMeta.Hm.GetHMDescription(gsMeta.Name)) > 0 {
+			description = gsMeta.Hm.GetHMDescription(gsMeta.Name)[0]
+		}
 		hmName = gsMeta.Hm.Name
 		monitorPort = gsMeta.Hm.Port
 		switch hmProto {
