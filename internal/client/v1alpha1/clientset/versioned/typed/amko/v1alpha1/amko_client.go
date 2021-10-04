@@ -26,13 +26,19 @@ import (
 
 type AmkoV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	ClusterSetsGetter
 	GSLBConfigsGetter
 	GSLBHostRulesGetter
+	MCIsGetter
 }
 
 // AmkoV1alpha1Client is used to interact with features provided by the amko.vmware.com group.
 type AmkoV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *AmkoV1alpha1Client) ClusterSets(namespace string) ClusterSetInterface {
+	return newClusterSets(c, namespace)
 }
 
 func (c *AmkoV1alpha1Client) GSLBConfigs(namespace string) GSLBConfigInterface {
@@ -41,6 +47,10 @@ func (c *AmkoV1alpha1Client) GSLBConfigs(namespace string) GSLBConfigInterface {
 
 func (c *AmkoV1alpha1Client) GSLBHostRules(namespace string) GSLBHostRuleInterface {
 	return newGSLBHostRules(c, namespace)
+}
+
+func (c *AmkoV1alpha1Client) MCIs(namespace string) MCIInterface {
+	return newMCIs(c, namespace)
 }
 
 // NewForConfig creates a new AmkoV1alpha1Client for the given config.

@@ -52,6 +52,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&GSLBConfigList{},
 		&GSLBHostRule{},
 		&GSLBHostRuleList{},
+		&MCI{},
+		&MCIList{},
+		&ClusterSet{},
+		&ClusterSetList{},
 	)
 
 	scheme.AddKnownTypes(
