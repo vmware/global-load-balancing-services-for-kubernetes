@@ -24,10 +24,14 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// ClusterSets returns a ClusterSetInformer.
+	ClusterSets() ClusterSetInformer
 	// GSLBConfigs returns a GSLBConfigInformer.
 	GSLBConfigs() GSLBConfigInformer
 	// GSLBHostRules returns a GSLBHostRuleInformer.
 	GSLBHostRules() GSLBHostRuleInformer
+	// MCIs returns a MCIInformer.
+	MCIs() MCIInformer
 }
 
 type version struct {
@@ -41,6 +45,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// ClusterSets returns a ClusterSetInformer.
+func (v *version) ClusterSets() ClusterSetInformer {
+	return &clusterSetInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // GSLBConfigs returns a GSLBConfigInformer.
 func (v *version) GSLBConfigs() GSLBConfigInformer {
 	return &gSLBConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -49,4 +58,9 @@ func (v *version) GSLBConfigs() GSLBConfigInformer {
 // GSLBHostRules returns a GSLBHostRuleInformer.
 func (v *version) GSLBHostRules() GSLBHostRuleInformer {
 	return &gSLBHostRuleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// MCIs returns a MCIInformer.
+func (v *version) MCIs() MCIInformer {
+	return &mCIInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
