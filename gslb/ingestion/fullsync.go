@@ -30,19 +30,19 @@ import (
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.NamespaceList) {
-	var ingList []*v1beta1.Ingress
+	var ingList []*networkingv1.Ingress
 
 	acceptedIngStore := store.GetAcceptedIngressStore()
 	rejectedIngStore := store.GetRejectedIngressStore()
 
 	for _, namespace := range nsList.Items {
-		objList, err := c.informers.ClientSet.NetworkingV1beta1().Ingresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+		objList, err := c.informers.ClientSet.NetworkingV1().Ingresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the ingress list, %s",
 				namespace.Name, err.Error())

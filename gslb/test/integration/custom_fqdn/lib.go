@@ -34,7 +34,7 @@ import (
 	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,15 +79,15 @@ var (
 
 var appLabel map[string]string = map[string]string{"key": "value"}
 
-func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool, secretName string) *networkingv1beta1.Ingress {
-	ingObj := &networkingv1beta1.Ingress{}
+func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool, secretName string) *networkingv1.Ingress {
+	ingObj := &networkingv1.Ingress{}
 	ingObj.Namespace = ns
 	ingObj.Name = name
 
 	var hosts []string
 	for ingHost, ingIP := range hostIPs {
 		hosts = append(hosts, ingHost)
-		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1beta1.IngressRule{
+		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1.IngressRule{
 			Host: ingHost,
 		})
 		if !withStatus {
@@ -103,9 +103,9 @@ func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, wit
 	ingObj.Labels = labelMap
 	if secretName != "" {
 		if len(ingObj.Spec.TLS) == 0 {
-			ingObj.Spec.TLS = make([]networkingv1beta1.IngressTLS, 0)
+			ingObj.Spec.TLS = make([]networkingv1.IngressTLS, 0)
 		}
-		ingObj.Spec.TLS = append(ingObj.Spec.TLS, networkingv1beta1.IngressTLS{
+		ingObj.Spec.TLS = append(ingObj.Spec.TLS, networkingv1.IngressTLS{
 			Hosts:      hosts,
 			SecretName: secretName,
 		})
@@ -186,7 +186,7 @@ func deletek8sSecret(t *testing.T, kc *kubernetes.Clientset, ns, name string) {
 }
 
 func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname string,
-	hostIPs map[string]string, tls bool) *networkingv1beta1.Ingress {
+	hostIPs map[string]string, tls bool) *networkingv1.Ingress {
 
 	secreName := "test-secret"
 	if tls {
@@ -199,7 +199,7 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 			deletek8sSecret(t, kc, secretObj.Namespace, secretObj.Name)
 		})
 	}
-	var ingObj *networkingv1beta1.Ingress
+	var ingObj *networkingv1.Ingress
 	if tls {
 		ingObj = BuildIngressObj(name, ns, svc, cname, hostIPs, true, secreName)
 	} else {
@@ -211,7 +211,7 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 		hostnames = append(hostnames, r.Host)
 	}
 	ingObj.Annotations = getAnnotations(hostnames)
-	_, err := kc.NetworkingV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
+	_, err := kc.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -219,7 +219,7 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 		"status": ingObj.Status,
 	})
 
-	_, err = kc.NetworkingV1beta1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	_, err = kc.NetworkingV1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in patching ingress: %v", err)
 	}
@@ -251,7 +251,7 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 }
 
 func k8sDeleteIngress(t *testing.T, kc *kubernetes.Clientset, name string, ns string) {
-	err := kc.NetworkingV1beta1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err := kc.NetworkingV1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -486,7 +486,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 	return true
 }
 
-func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1beta1.Ingress, cname string,
+func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
 	weight int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {

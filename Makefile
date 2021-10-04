@@ -92,13 +92,22 @@ rest_test:
 
 .PHONY: int_test
 int_test:
-		ACK_GINKGO_DEPRECATIONS=1.16.4 $(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v
-		ACK_GINKGO_DEPRECATIONS=1.16.4 $(GOTEST) -v -mod=vendor ./gslb/test/bootuptest -ginkgo.v -ginkgo.seed=1624910766
+		ACK_GINKGO_DEPRECATIONS=1.19.2 $(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v
+		ACK_GINKGO_DEPRECATIONS=1.19.2 $(GOTEST) -v -mod=vendor ./gslb/test/bootuptest -ginkgo.v -ginkgo.seed=1624910766
 		$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
 
+
+K8S_VERSION=1.19.2
+GOOS := $(shell $(GOCMD) env GOOS)
+GOARCH := $(shell $(GOCMD) env GOARCH)
+URL=https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${K8S_VERSION}-$(GOOS)-$(GOARCH).tar.gz
+envtest_setup:
+	curl -sSLo /tmp/envtest-bins.tar.gz ${URL}
+	tar -zvxf /tmp/envtest-bins.tar.gz -C /usr/local/
+
 .PHONY: test
-test: int_test
+test: envtest_setup int_test
 		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
 		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
@@ -107,3 +116,25 @@ test: int_test
 codegen:
 		hack/update-codegen-amkocrd.sh v1alpha1
 		hack/update-codegen-amkocrd.sh v1alpha2
+
+# linting and formatting
+GO_FILES := $(shell find . -type d -path ./vendor -prune -o -type f -name '*.go' -print)
+.PHONY: fmt
+fmt:
+	@echo
+	@echo "Formatting Go files"
+	@gofmt -s -l -w $(GO_FILES)
+
+.golangci-bin:
+	@echo "Installing Golangci-lint"
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $@ v1.32.1
+
+.PHONY: golangci
+golangci: .golangci-bin
+	@echo "Running golangci"
+	@GOOS=linux .golangci-bin/golangci-lint run -c .golangci.yml
+
+.PHONY: golangci-fix
+golangci-fix: .golangci-bin
+	@echo "Running golangci-fix"
+	@GOOS=linux .golangci-bin/golangci-lint run -c .golangci.yml --fix

@@ -38,7 +38,7 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	"k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -190,7 +190,7 @@ type IngressHostIP struct {
 	IPAddr   string
 }
 
-func getHostListFromIngress(ingress *v1beta1.Ingress) []string {
+func getHostListFromIngress(ingress *networkingv1.Ingress) []string {
 	hostList := []string{}
 	for _, rule := range ingress.Spec.Rules {
 		if rule.Host != "" {
@@ -200,7 +200,7 @@ func getHostListFromIngress(ingress *v1beta1.Ingress) []string {
 	return hostList
 }
 
-func IngressGetIPAddrs(ingress *v1beta1.Ingress) []IngressHostIP {
+func IngressGetIPAddrs(ingress *networkingv1.Ingress) []IngressHostIP {
 	ingHostIP := []IngressHostIP{}
 	hostList := getHostListFromIngress(ingress)
 	ingStatus := ingress.Status

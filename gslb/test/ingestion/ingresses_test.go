@@ -24,7 +24,7 @@ import (
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 )
@@ -724,7 +724,7 @@ func TestBasicTLSIngressCUD(t *testing.T) {
 }
 
 func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
-	ingObj *networkingv1beta1.Ingress) {
+	ingObj *networkingv1.Ingress) {
 
 	var newResVer string
 	// increment the resource version of this ingress
@@ -739,7 +739,7 @@ func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
 	newResVer = strconv.Itoa(resVerInt + 1)
 	ingObj.ResourceVersion = newResVer
 
-	_, err = kc.NetworkingV1beta1().Ingresses(ns).Update(context.TODO(), ingObj, metav1.UpdateOptions{})
+	_, err = kc.NetworkingV1().Ingresses(ns).Update(context.TODO(), ingObj, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("failed to update ingress: %v\n", err)
 	}
@@ -747,17 +747,17 @@ func k8sUpdateIngress(t *testing.T, kc *k8sfake.Clientset, ns, cname string,
 
 func k8sDeleteIngress(t *testing.T, kc *k8sfake.Clientset, name, ns string) {
 	t.Logf("Deleting ingress %s in ns: %s", name, ns)
-	err := kc.NetworkingV1beta1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err := kc.NetworkingV1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in deleting ingress: %v", err)
 	}
 }
 
 func k8sAddIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
-	cname string, hostIPs map[string]string) *networkingv1beta1.Ingress {
+	cname string, hostIPs map[string]string) *networkingv1.Ingress {
 
 	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, true)
-	_, err := kc.NetworkingV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
+	_, err := kc.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -776,7 +776,7 @@ func buildk8sSecret(ns string) *corev1.Secret {
 }
 
 func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
-	cname string, hostIPs map[string]string) *networkingv1beta1.Ingress {
+	cname string, hostIPs map[string]string) *networkingv1.Ingress {
 
 	var hosts []string
 	secretObj := buildk8sSecret(ns)
@@ -788,12 +788,12 @@ func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns strin
 	for h := range hostIPs {
 		hosts = append(hosts, h)
 	}
-	ingTLSObj := networkingv1beta1.IngressTLS{
+	ingTLSObj := networkingv1.IngressTLS{
 		Hosts:      hosts,
 		SecretName: secretObj.Name,
 	}
-	ingObj.Spec.TLS = []networkingv1beta1.IngressTLS{ingTLSObj}
-	_, err = kc.NetworkingV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
+	ingObj.Spec.TLS = []networkingv1.IngressTLS{ingTLSObj}
+	_, err = kc.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -802,7 +802,7 @@ func k8sAddTLSIngress(t *testing.T, kc *k8sfake.Clientset, name string, ns strin
 }
 
 func k8sDeleteTLSIngress(t *testing.T, kc *k8sfake.Clientset, ingName, ns string) {
-	err := kc.NetworkingV1beta1().Ingresses(ns).Delete(context.TODO(), ingName, metav1.DeleteOptions{})
+	err := kc.NetworkingV1().Ingresses(ns).Delete(context.TODO(), ingName, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Error in deleting ingress: %v", err)
 	}
@@ -813,10 +813,10 @@ func k8sDeleteTLSIngress(t *testing.T, kc *k8sfake.Clientset, ingName, ns string
 }
 
 func k8sAddIngressWithoutStatus(t *testing.T, kc *k8sfake.Clientset, name string, ns string, svc string,
-	cname string, hostIPs map[string]string) *networkingv1beta1.Ingress {
+	cname string, hostIPs map[string]string) *networkingv1.Ingress {
 
 	ingObj := buildIngressObj(name, ns, svc, cname, hostIPs, false)
-	_, err := kc.NetworkingV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
+	_, err := kc.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -824,14 +824,14 @@ func k8sAddIngressWithoutStatus(t *testing.T, kc *k8sfake.Clientset, name string
 	return ingObj
 }
 
-func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool) *networkingv1beta1.Ingress {
-	ingObj := &networkingv1beta1.Ingress{}
+func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, withStatus bool) *networkingv1.Ingress {
+	ingObj := &networkingv1.Ingress{}
 	ingObj.Namespace = ns
 	ingObj.Name = name
 	ingObj.ResourceVersion = "100"
 
 	for ingHost, ingIP := range hostIPs {
-		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1beta1.IngressRule{
+		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1.IngressRule{
 			Host: ingHost,
 		})
 		if !withStatus {
@@ -867,7 +867,7 @@ func verifyInIngStore(g *gomega.WithT, accepted bool, present bool, ingName, ns,
 	}
 }
 
-func replaceHostInIngress(ingObj *networkingv1beta1.Ingress, oldHost, newHost, ipAddr string) {
+func replaceHostInIngress(ingObj *networkingv1.Ingress, oldHost, newHost, ipAddr string) {
 	idx := 0
 	// replace the hostname host1
 	for i, ingRule := range ingObj.Spec.Rules {
@@ -889,7 +889,7 @@ func replaceHostInIngress(ingObj *networkingv1beta1.Ingress, oldHost, newHost, i
 	ingObj.Status.LoadBalancer.Ingress[idx].IP = ipAddr
 }
 
-func deleteStatusInIngress(host string, ingObj *networkingv1beta1.Ingress) {
+func deleteStatusInIngress(host string, ingObj *networkingv1.Ingress) {
 	oldIngObj := ingObj.DeepCopy()
 	for i, ing := range oldIngObj.Status.LoadBalancer.Ingress {
 		if ing.Hostname == host {

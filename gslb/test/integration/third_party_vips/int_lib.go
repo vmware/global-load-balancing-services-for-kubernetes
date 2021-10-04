@@ -38,7 +38,7 @@ import (
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,25 +123,26 @@ func BuildLBServiceObj(t *testing.T, name, ns string, hostIPs map[string]string,
 	return svcObj
 }
 
-func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, paths []string, withStatus bool, secretName string) *networkingv1beta1.Ingress {
-	ingObj := &networkingv1beta1.Ingress{}
+func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, paths []string, withStatus bool, secretName string) *networkingv1.Ingress {
+	ingObj := &networkingv1.Ingress{}
 	ingObj.Namespace = ns
 	ingObj.Name = name
 
 	if paths == nil {
 		paths = []string{"/"}
 	}
-	var ingPaths []networkingv1beta1.HTTPIngressPath
-	var pathType networkingv1beta1.PathType = "ImplementationSpecific"
+	var ingPaths []networkingv1.HTTPIngressPath
+	var pathType networkingv1.PathType = "ImplementationSpecific"
 	for _, path := range paths {
-		ingPath := networkingv1beta1.HTTPIngressPath{
+		ingPath := networkingv1.HTTPIngressPath{
 			Path:     path,
 			PathType: &pathType,
-			Backend: networkingv1beta1.IngressBackend{
-				ServiceName: svc,
-				ServicePort: intstr.IntOrString{
-					Type:   0,
-					IntVal: 8080,
+			Backend: networkingv1.IngressBackend{
+				Service: &networkingv1.IngressServiceBackend{
+					Name: svc,
+					Port: networkingv1.ServiceBackendPort{
+						Number: 8080,
+					},
 				},
 			},
 		}
@@ -151,10 +152,10 @@ func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, pat
 	var hosts []string
 	for ingHost, ingIP := range hostIPs {
 		hosts = append(hosts, ingHost)
-		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1beta1.IngressRule{
+		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1.IngressRule{
 			Host: ingHost,
-			IngressRuleValue: networkingv1beta1.IngressRuleValue{
-				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
 					Paths: ingPaths,
 				},
 			},
@@ -172,9 +173,9 @@ func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, pat
 	ingObj.Labels = labelMap
 	if secretName != "" {
 		if len(ingObj.Spec.TLS) == 0 {
-			ingObj.Spec.TLS = make([]networkingv1beta1.IngressTLS, 0)
+			ingObj.Spec.TLS = make([]networkingv1.IngressTLS, 0)
 		}
-		ingObj.Spec.TLS = append(ingObj.Spec.TLS, networkingv1beta1.IngressTLS{
+		ingObj.Spec.TLS = append(ingObj.Spec.TLS, networkingv1.IngressTLS{
 			Hosts:      hosts,
 			SecretName: secretName,
 		})
@@ -258,20 +259,20 @@ func deletek8sSecret(t *testing.T, kc *kubernetes.Clientset, ns, name string) {
 	t.Logf("deleted secret object %s/%s", ns, name)
 }
 
-func k8sGetIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, cname string) *networkingv1beta1.Ingress {
+func k8sGetIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, cname string) *networkingv1.Ingress {
 	t.Logf("Fetching ingress %s/%s in cluster: %s", ns, name, cname)
-	obj, err := kc.NetworkingV1beta1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	obj, err := kc.NetworkingV1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error in getting ingress %s/%s in cluster %s: %v", ns, name, cname, err)
 	}
 	return obj
 }
 
-func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname string, ingObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname string, ingObj *networkingv1.Ingress) *networkingv1.Ingress {
 	patchPayload, _ := json.Marshal(map[string]interface{}{
 		"status": nil,
 	})
-	updatedIng, err := kc.NetworkingV1beta1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	updatedIng, err := kc.NetworkingV1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in updating ingress %s/%s in cluster %s: %v", ingObj.Namespace, ingObj.Name, cname, err)
 	}
@@ -281,7 +282,7 @@ func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname strin
 		},
 	}
 	patchPayloadBytes, _ := json.Marshal(patchPayloadJson)
-	updatedIng, err = kc.NetworkingV1beta1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayloadBytes, metav1.PatchOptions{})
+	updatedIng, err = kc.NetworkingV1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayloadBytes, metav1.PatchOptions{})
 	if err != nil {
 		t.Fatalf("error in updating ingress %s/%s in cluster %s: %v", ingObj.Namespace, ingObj.Name, cname, err)
 	}
@@ -310,7 +311,7 @@ func k8sAddLBService(t *testing.T, kc *kubernetes.Clientset, name, ns string, ho
 }
 
 func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname string,
-	hostIPs map[string]string, paths []string, tls bool) *networkingv1beta1.Ingress {
+	hostIPs map[string]string, paths []string, tls bool) *networkingv1.Ingress {
 
 	secreName := "test-secret"
 	if tls {
@@ -323,7 +324,7 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 			deletek8sSecret(t, kc, secretObj.Namespace, secretObj.Name)
 		})
 	}
-	var ingObj *networkingv1beta1.Ingress
+	var ingObj *networkingv1.Ingress
 	if tls {
 		ingObj = BuildIngressObj(name, ns, svc, cname, hostIPs, paths, true, secreName)
 	} else {
@@ -335,7 +336,7 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 		hostnames = append(hostnames, r.Host)
 	}
 	ingObj.Annotations = getAnnotations(hostnames)
-	_, err := kc.NetworkingV1beta1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
+	_, err := kc.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)
 	}
@@ -343,7 +344,7 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 		"status": ingObj.Status,
 	})
 
-	_, err = kc.NetworkingV1beta1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	_, err = kc.NetworkingV1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in patching ingress: %v", err)
 	}
@@ -375,7 +376,7 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 }
 
 func k8sDeleteIngress(t *testing.T, kc *kubernetes.Clientset, name string, ns string) {
-	err := kc.NetworkingV1beta1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err := kc.NetworkingV1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("error in deleting ingress: %v", err)
 	}
@@ -395,24 +396,25 @@ func k8sDeleteService(t *testing.T, kc *kubernetes.Clientset, name string, ns st
 	}
 }
 
-func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc string, hostIPs map[string]string, paths []string) *networkingv1beta1.Ingress {
-	ingress, err := kc.NetworkingV1beta1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
+func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc string, hostIPs map[string]string, paths []string) *networkingv1.Ingress {
+	ingress, err := kc.NetworkingV1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error in getting ingress: %v", err)
 	}
-	var ingPaths []networkingv1beta1.HTTPIngressPath
-	var pathType networkingv1beta1.PathType = "ImplementationSpecific"
-	ingress.Spec.Rules = []networkingv1beta1.IngressRule{}
+	var ingPaths []networkingv1.HTTPIngressPath
+	var pathType networkingv1.PathType = "ImplementationSpecific"
+	ingress.Spec.Rules = []networkingv1.IngressRule{}
 	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{}
 	for _, path := range paths {
-		ingPath := networkingv1beta1.HTTPIngressPath{
+		ingPath := networkingv1.HTTPIngressPath{
 			Path:     path,
 			PathType: &pathType,
-			Backend: networkingv1beta1.IngressBackend{
-				ServiceName: svc,
-				ServicePort: intstr.IntOrString{
-					Type:   0,
-					IntVal: 8080,
+			Backend: networkingv1.IngressBackend{
+				Service: &networkingv1.IngressServiceBackend{
+					Name: svc,
+					Port: networkingv1.ServiceBackendPort{
+						Number: 8080,
+					},
 				},
 			},
 		}
@@ -422,10 +424,10 @@ func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc stri
 	var hosts []string
 	for ingHost, ingIP := range hostIPs {
 		hosts = append(hosts, ingHost)
-		ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1beta1.IngressRule{
+		ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1.IngressRule{
 			Host: ingHost,
-			IngressRuleValue: networkingv1beta1.IngressRuleValue{
-				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
 					Paths: ingPaths,
 				},
 			},
@@ -443,14 +445,14 @@ func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc stri
 	if ingress.Spec.TLS != nil && len(ingress.Spec.TLS) > 0 {
 		ingress.Spec.TLS[0].Hosts = hostnames
 	}
-	_, err = kc.NetworkingV1beta1().Ingresses(ns).Update(context.TODO(), ingress, metav1.UpdateOptions{})
+	_, err = kc.NetworkingV1().Ingresses(ns).Update(context.TODO(), ingress, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("error in updating ingress: %v", err)
 	}
 	patchPayload, _ := json.Marshal(map[string]interface{}{
 		"status": ingress.Status,
 	})
-	_, err = kc.NetworkingV1beta1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	_, err = kc.NetworkingV1().Ingresses(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in patching ingress: %v", err)
 	}
@@ -849,7 +851,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 	return true
 }
 
-func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1beta1.Ingress, cname string,
+func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
 	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
