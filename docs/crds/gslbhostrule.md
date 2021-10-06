@@ -26,7 +26,7 @@ spec:
     weight: 5
   ttl: 30
 ```
-1. `namespace`: namespace of this object must be `avi-system`.
+1. `namespace`: namespace of this object. Can be anything.
 
 2. `fqdn`: FQDN of the GslbService.
 
@@ -39,7 +39,7 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 
 **Note** that the site must be added to the GSLB leader as a 3rd party site before adding the member here.
 
-5. `healthMonitorRefs`: If a GslbService requires some custom health monitoring, the user can create a federated custom health monitor in the Avi Controller and provide the ref(s) here. To add a custom health monitor, follow the steps [here](https://avinetworks.com/docs/16.3/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). If no custom health monitor refs have been added, the custom health monitors from the GDP object will be inherited.
+5. `healthMonitorRefs`: If a GslbService requires some custom health monitoring, the user can create a federated custom health monitor in the Avi Controller and provide the ref(s) here. To add a custom health monitor, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). If no custom health monitor refs have been added, the custom health monitors from the GDP object will be inherited.
 
 6. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.
 
