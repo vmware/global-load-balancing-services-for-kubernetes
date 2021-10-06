@@ -26,7 +26,7 @@ spec:
     weight: 5
   ttl: 30
 ```
-1. `namespace`: namespace of this object must be `avi-system`.
+1. `namespace`: namespace of this object. Can be anything.
 
 2. `fqdn`: FQDN of the GslbService.
 

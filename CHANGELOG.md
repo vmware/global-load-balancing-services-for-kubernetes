@@ -35,3 +35,8 @@ All notable changes to this project will be documented in this file. The format 
 
   ### Bugs fixed:
    - Fixed a status update race between re-sync interval goroutine and modification to `GSLBConfig` object.
+
+  ## AMKO-1.5.2
+
+  ### Updated:
+   - Base image `photon:4.0` updated with fixes for latest vulnerabilities
