@@ -399,14 +399,14 @@ func GenerateModels(gsCache *avicache.AviCache) {
 			continue
 		}
 		tenant, hmName := hmKey.Tenant, hmKey.Name
-		gsName, err := avicache.GetGSFromHmName(hmName)
+		gsName, gen, err := avicache.GetGSFromHmName(hmName)
 		if err != nil {
-			gslbutils.Debugf("key: %v, msg: can't get gs name from hm, err : %v", hmKey, err)
+			gslbutils.Logf("key: %v, msg: can't get gs name from hm, err : %v", hmKey, err)
 			continue
 		}
 		gsKey := tenant + "/" + gsName
 		found, _ := agl.Get(gsKey)
-		if found {
+		if found && gen == 1 {
 			continue
 		}
 		gslbutils.Logf("key: %v, msg: didn't get a GS in the model cache", gsKey)

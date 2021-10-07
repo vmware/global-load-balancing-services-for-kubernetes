@@ -114,6 +114,11 @@ func (h *AviHmCache) AviHmCacheGetHmsForGS(tenant, gsName string) []interface{} 
 		hmObj := v.(*AviHmObj)
 		if strings.Contains(hmObj.Description, gsName) {
 			hmObjs = append(hmObjs, v)
+		} else if strings.Contains(hmKey.Name, gsName) {
+			// if hmname follows the old non encoded naming convention, hmname will contain the gsname
+			gslbutils.Warnf("tenant: %s, gsName: %s, hmName: %s, gsname not present in hm description, will check in hmname",
+				tenant, gsName, hmKey.Name)
+			hmObjs = append(hmObjs, v)
 		}
 	}
 	return hmObjs
@@ -752,16 +757,39 @@ func GetHmDescriptionFromName(hmName string) string {
 	return hmDescription
 }
 
-func GetGSFromHmName(hmName string) (string, error) {
+func GetGSNameFromHmName(hmName string) (string, error) {
+	hmNameSplit := strings.Split(hmName, "--")
+	if len(hmNameSplit) == 4 {
+		return hmNameSplit[2], nil
+	} else if len(hmNameSplit) == 2 {
+		if strings.Contains(hmNameSplit[1], ".") {
+			// this makes sure that the field extracted is actually a gsName
+			// and to discard the encoded hmname being returned as gsName, eg: amko--66f4133eeae3c76cf1c20c8cde0c6fa3c162ab8b
+			return hmNameSplit[1], nil
+		}
+	}
+	return "", errors.New("error in parsing gs name, unexpected format")
+}
+
+// this function returns - gsname, gen, error
+// gen = 1 if the HM name is encoded and the gsname is fetched from its description
+// gen = 2 if the HM name follows the old non encoded naming convention and gsname is fetched from hmname
+// gen = 0 for error
+func GetGSFromHmName(hmName string) (string, int8, error) {
 	hmDesc := GetHmDescriptionFromName(hmName)
 	hmDescriptionSplit := strings.Split(hmDesc, "gsname: ")
-	if len(hmDescriptionSplit) != 2 {
-		return "", fmt.Errorf("hmName: %s, msg: hm description - \"%s\" is malformed", hmName, hmDesc)
+	if len(hmDescriptionSplit) == 2 {
+		gsNameField := strings.Split(hmDescriptionSplit[1], ",")
+		gsName := strings.Trim(gsNameField[0], " ")
+		return gsName, 1, nil
 	}
-	gsNameField := strings.Split(hmDescriptionSplit[1], ",")
-	gsName := strings.Trim(gsNameField[0], " ")
-	return gsName, nil
-
+	gslbutils.Warnf("hmName: %s, msg: %s",
+		hmName, "hm description does not contain gsname, checking if hm name has gsname in it(according to old naming convention)")
+	gsName, err := GetGSNameFromHmName(hmName)
+	if err == nil {
+		return gsName, 2, nil
+	}
+	return "", 0, fmt.Errorf("hmName: %s, hmDescription: %s, msg: hm is malformed, %v", hmName, hmDesc, err)
 }
 
 func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []string, error) {
