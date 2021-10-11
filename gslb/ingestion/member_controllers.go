@@ -47,6 +47,7 @@ type GSLBMemberController struct {
 	hrInformer      *hrinformer.HostRuleInformer
 	hrClientSet     *hrcs.Clientset
 	workqueue       []workqueue.RateLimitingInterface
+	recorder        *gslbutils.EventRecorder
 	syncType        int
 }
 
@@ -58,6 +59,7 @@ func GetGSLBMemberController(clusterName string, informersInstance *containeruti
 		worker_id:  (uint32(1) << containerutils.NumWorkersIngestion) - 1,
 		informers:  informersInstance,
 		hrInformer: hrInformer,
+		recorder:   gslbutils.NewEventRecorder("amko_"+clusterName, informersInstance.ClientSet),
 	}
 }
 

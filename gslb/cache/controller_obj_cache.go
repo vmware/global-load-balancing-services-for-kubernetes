@@ -34,6 +34,7 @@ import (
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	apimodels "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -980,6 +981,7 @@ func VerifyVersion() error {
 	aviRestClientPool := SharedAviClients()
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "No Avi clients initialized.")
 		apiserver.GetAmkoAPIServer().ShutDown()
 		return errors.New("no avi clients initialized")
 	}

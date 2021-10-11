@@ -68,7 +68,7 @@ func (gslbHostRuleController *GSLBHostRuleController) Run(stopCh <-chan struct{}
 func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string) {
 	gslbhr.Status.Error = msg
 	gslbhr.Status.Status = status
-	obj, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbhr.ObjectMeta.Namespace).Update(context.TODO(), gslbhr, metav1.UpdateOptions{})
+	obj, updateErr := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(gslbhr.ObjectMeta.Namespace).Update(context.TODO(), gslbhr, metav1.UpdateOptions{})
 	if updateErr != nil {
 		gslbutils.Errf("Error is updating the GSLBHostRules status object %v : %s", obj, updateErr)
 	}

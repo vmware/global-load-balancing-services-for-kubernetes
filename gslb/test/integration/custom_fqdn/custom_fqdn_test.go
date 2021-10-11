@@ -216,22 +216,25 @@ func SetUpAMKOConfigs() {
 	os.Setenv("MOCK_DATA_DIR", "../../avimockobjects/")
 	os.Setenv("GSLB_CONFIG", "test-data")
 
-	gslbutils.GlobalKubeClient = clusterClients[ConfigCluster]
+	amkoControlConfig := gslbutils.AMKOControlConfig()
+	amkoControlConfig.SetClientset(clusterClients[ConfigCluster])
+
 	gslbClient, err := gslbcs.NewForConfig(cfgs[ConfigCluster])
 	if err != nil {
 		gslbutils.Errf("error occured while creating a clientset for gslb: %v", err)
 		CleanupAndExit()
 	}
-	gslbutils.GlobalGslbClient = gslbClient
+	amkoControlConfig.SetGSLBClientset(gslbClient)
+
 	gdpClient, err := gdpcs.NewForConfig(cfgs[ConfigCluster])
 	if err != nil {
 		gslbutils.Errf("error occured while creating a clientset for gdp: %v", err)
 		CleanupAndExit()
 	}
-	gslbutils.GlobalGdpClient = gdpClient
+	amkoControlConfig.SetGDPClientset(gdpClient)
 
-	gslbutils.PublishGDPStatus = true
-	gslbutils.PublishGSLBStatus = true
+	amkoControlConfig.SetPublishGSLBStatus(true)
+	amkoControlConfig.SetPublishGDPStatus(true)
 	stopCh = utils.SetupSignalHandler()
 
 	SetUpTestWorkerQueues()

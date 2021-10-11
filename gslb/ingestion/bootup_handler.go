@@ -24,6 +24,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -105,6 +106,7 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	amkoCluster := amkoClusterList.Items[0]
 	if currentLeader != amkoCluster.Spec.IsLeader {
 		gslbutils.Warnf("AMKO leader flag changed, API server would be shut down")
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "AMKO leader flag changed.")
 		apiserver.GetAmkoAPIServer().ShutDown()
 		return ctrl.Result{}, nil
 	}
@@ -136,6 +138,8 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		gslbutils.Logf("ns: %s, AMKOCluster: %s, msg: validation error: %v, shutting down AMKO",
 			amkoCluster.Namespace, amkoCluster.Name, err)
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "AMKOCluster %s/%s, Validation error: %s",
+			amkoCluster.Namespace, amkoCluster.Name, err.Error())
 		apiserver.GetAmkoAPIServer().ShutDown()
 		return reconcile.Result{}, fmt.Errorf("error in validating the member clusters: %v", err)
 	}
