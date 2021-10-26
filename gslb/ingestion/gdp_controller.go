@@ -354,10 +354,10 @@ func updateGDPStatus(gdp *gdpalphav2.GlobalDeploymentPolicy, msg string) {
 
 	// Always check this flag before writing the status on the GDP object. The reason is, for unit tests,
 	// the fake client doesn't have CRD capability and hence, can't do a runtime create/update of CRDs.
-	if !gslbutils.PublishGDPStatus {
+	if !gslbutils.AMKOControlConfig().PublishGDPStatus() {
 		return
 	}
-	obj, updateErr := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
+	obj, updateErr := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
 	if updateErr != nil {
 		gslbutils.Errf("Error in updating the GDP status object %v: %s", obj, updateErr)
 	}

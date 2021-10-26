@@ -29,19 +29,15 @@ import (
 	"sync"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/alb-sdk/go/clients"
 	"github.com/vmware/alb-sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-
-	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
-	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
-
-	routev1 "github.com/openshift/api/route/v1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -331,7 +327,7 @@ func SetGSLBConfigObj(gc *gslbalphav1.GSLBConfig) {
 }
 
 func UpdateGSLBConfigStatus(msg string) error {
-	if !PublishGSLBStatus {
+	if !AMKOControlConfig().PublishGSLBStatus() {
 		return nil
 	}
 
@@ -352,7 +348,7 @@ func UpdateGSLBConfigStatus(msg string) error {
 		Errf("Error in marshalling status for GC object: %v", err)
 		return nil
 	}
-	updatedGC, updateErr := GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gcObj.configObj.Namespace).Patch(context.TODO(),
+	updatedGC, updateErr := AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBConfigs(gcObj.configObj.Namespace).Patch(context.TODO(),
 		gcObj.configObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{})
 	if updateErr != nil {
 		Errf("error in updating the GSLBConfig object: %s", updateErr.Error())
@@ -373,12 +369,6 @@ func IsGSLBConfigSet() bool {
 func SetGSLBConfig(value bool) {
 	gslbConfigSet = value
 }
-
-var GlobalKubeClient *kubernetes.Clientset
-var GlobalGslbClient *gslbcs.Clientset
-var GlobalGdpClient *gdpcs.Clientset
-var PublishGDPStatus bool
-var PublishGSLBStatus bool
 
 type AviControllerConfig struct {
 	Username string
@@ -639,6 +629,7 @@ func GetUriFromAvi(uri string, aviClient *clients.AviClient, infiniteRetry bool)
 // This ensures that logs messages are not missing when PVC is used for storing the logs
 func LogAndPanic(panicMsg string) {
 	Errf(panicMsg)
+	AMKOControlConfig().PodEventf(corev1.EventTypeWarning, AMKOShutdown, panicMsg)
 	panic(panicMsg)
 }
 

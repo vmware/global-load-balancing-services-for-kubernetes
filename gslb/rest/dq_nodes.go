@@ -34,6 +34,7 @@ import (
 	"github.com/vmware/alb-sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -688,6 +689,7 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 	case 401:
 		if strings.Contains(*aviError.Message, "Invalid credentials") {
 			gslbutils.Errf("key: %s, msg: credentials were invalid, shutting down API server", key)
+			gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "Invalid Avi credentials")
 			apiserver.GetAmkoAPIServer().ShutDown()
 			return
 		}

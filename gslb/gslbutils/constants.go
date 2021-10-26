@@ -65,6 +65,14 @@ const (
 	// Identify objects created by AMKO
 	AmkoUser = "amko-gslb"
 
+	// AMKO Event related constants
+	AMKOEventComponent      = "avi-multicluster-kubernetes-operator"
+	AMKOShutdown            = "AMKOShutdown"
+	GSLBConfigValidation    = "GSLBConfigValidation"
+	GSLBConfigError         = "GSLBConfigError"
+	MemberClusterValidation = "MemberClusterValidation"
+	AMKOClusterReady        = "AMKOClusterReady"
+
 	// Go routines in the rest layer
 	NumRestWorkers = 8
 

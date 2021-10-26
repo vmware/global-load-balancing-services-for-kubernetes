@@ -29,9 +29,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
-	"github.com/golang/glog"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
-	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -44,14 +42,11 @@ import (
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
 	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
-	gslbscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/scheme"
 	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
 	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/listers/amko/v1alpha1"
 
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
 	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
-	corev1 "k8s.io/api/core/v1"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
@@ -60,6 +55,7 @@ import (
 
 	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	akoinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
@@ -110,7 +106,7 @@ type ClusterCache struct {
 }
 
 type InitializeGSLBMemberClustersFn func(string, []gslbalphav1.MemberCluster) ([]*GSLBMemberController, error)
-type GSLBConfigAddfn func(obj interface{}, f InitializeGSLBMemberClustersFn)
+type GSLBConfigAddfn func(obj interface{}, f InitializeGSLBMemberClustersFn) error
 
 var (
 	masterURL         string
@@ -190,21 +186,12 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 	initializeMemberClusters InitializeGSLBMemberClustersFn) *GSLBConfigController {
 
 	gslbInformer := gslbInformerFactory.Amko().V1alpha1().GSLBConfigs()
-	// Create event broadcaster
-	gslbscheme.AddToScheme(scheme.Scheme)
-	gslbutils.Logf("object: GSLBConfigController, msg: %s", "creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "gslb-controller"})
-
 	gslbController := &GSLBConfigController{
 		kubeclientset: kubeclientset,
 		gslbclientset: gslbclientset,
 		gslbLister:    gslbInformer.Lister(),
 		gslbSynced:    gslbInformer.Informer().HasSynced,
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gslb-configs"),
-		recorder:      recorder,
 	}
 	gslbutils.Logf("object: GSLBConfigController, msg: %s", "setting up event handlers")
 	// Event handler for when GSLB Config change
@@ -248,6 +235,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 
 			if oldGc.Spec.GSLBLeader.ControllerIP != newGc.Spec.GSLBLeader.ControllerIP {
 				gslbutils.Warnf("GSLB Leader IP has changed, will restart")
+				gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "GSLB Leader IP changed")
 				apiserver.GetAmkoAPIServer().ShutDown()
 				return
 			}
@@ -256,6 +244,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 				return
 			}
 			gslbutils.Warnf("an update has been made to the GSLBConfig object, AMKO needs a reboot to register the changes")
+			gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, EditRestartMsg)
 			gslbutils.UpdateGSLBConfigStatus(EditRestartMsg)
 			gslbutils.SetGSLBConfig(true)
 		},
@@ -283,7 +272,10 @@ func CheckAcceptedGSLBConfigAndInitalize(gcList *gslbalphav1.GSLBConfigList) (bo
 	}
 
 	if acceptedGC != nil {
-		AddGSLBConfigObject(acceptedGC, InitializeGSLBMemberClusters)
+		err := AddGSLBConfigObject(acceptedGC, InitializeGSLBMemberClusters)
+		if err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	return false, nil
@@ -292,32 +284,41 @@ func CheckAcceptedGSLBConfigAndInitalize(gcList *gslbalphav1.GSLBConfigList) (bo
 // CheckGSLBConfigsAndInitialize iterates through all the GSLBConfig objects in the system and does:
 // 1. add a GSLBConfig object if only one GSLBConfig object exists with accepted state.
 // 2. add a GSLBConfig object if only one GSLBConfig object (in non-accepted state).
-// 3. returns if there was an error on either of the above two conditions.
-func CheckGSLBConfigsAndInitialize() {
-	gcList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &informerTimeout})
+// 3. returns false if there was an error on either of the above two conditions, else retruns true.
+func CheckGSLBConfigsAndInitialize() bool {
+	gcList, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBConfigs(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	if err != nil {
 		gslbutils.Errf("ns: %s, error in listing the GSLBConfig objects, %s, %s", gslbutils.AVISystem,
 			err.Error(), "can't do a full sync")
-		return
+		return false
 	}
 
 	if len(gcList.Items) == 0 {
 		gslbutils.Logf("ns: %s, no GSLBConfig objects found during bootup, will skip fullsync", gslbutils.AVISystem)
-		return
+		return false
 	}
 
 	added, err := CheckAcceptedGSLBConfigAndInitalize(gcList)
-	if err != nil || added {
-		return
+	if err != nil {
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.GSLBConfigError, err.Error())
+		return false
+	}
+	if added {
+		return true
 	}
 
 	if len(gcList.Items) > 1 {
 		// more than one GC objects exist and none of them were already accepted, we panic
-		panic("more than one GSLBConfig objects in " + gslbutils.AVISystem + " exist, please add only one")
+		gslbutils.LogAndPanic("more than one GSLBConfig objects in " + gslbutils.AVISystem + " exist, please add only one")
 	}
 
 	gslbutils.Logf("ns: %s, msg: found a GSLBConfig object", gslbutils.AVISystem)
-	AddGSLBConfigObject(&gcList.Items[0], InitializeGSLBMemberClusters)
+	if err := AddGSLBConfigObject(&gcList.Items[0], InitializeGSLBMemberClusters); err != nil {
+		gslbutils.Warnf(err.Error())
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.GSLBConfigError, err.Error())
+		return false
+	}
+	return true
 }
 
 // IsGSLBConfigValid returns true if the the GSLB Config object was created
@@ -480,7 +481,7 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 		return errors.New("invalid leader secret")
 	}
 
-	secretObj, err := gslbutils.GlobalKubeClient.CoreV1().Secrets(gslbutils.AVISystem).Get(context.TODO(), leaderSecret, metav1.GetOptions{})
+	secretObj, err := gslbutils.AMKOControlConfig().Clientset().CoreV1().Secrets(gslbutils.AVISystem).Get(context.TODO(), leaderSecret, metav1.GetOptions{})
 	if err != nil || secretObj == nil {
 		gslbutils.Errf("Error in fetching leader controller secret %s in namespace %s, can't initialize controller",
 			leaderSecret, gslbutils.AVISystem)
@@ -496,7 +497,7 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 
 // AddGSLBConfigObject parses the gslb config object and starts informers
 // for the member clusters.
-func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters InitializeGSLBMemberClustersFn) {
+func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters InitializeGSLBMemberClustersFn) error {
 	gslbObj := obj.(*gslbalphav1.GSLBConfig)
 	existingName, existingNS := gslbutils.GetGSLBConfigNameAndNS()
 	if existingName == "" && existingNS == "" {
@@ -507,25 +508,22 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 		// first check, if we have the same GSLB config which is set, if yes, no need to do anything
 		if existingName == gslbObj.GetObjectMeta().GetName() && existingNS == gslbObj.GetObjectMeta().GetNamespace() {
 			gslbutils.Logf("GSLB object set during bootup, ignoring this")
-			return
+			return nil
 		}
 		// else, populate the status field with an error message
-		gslbutils.Errf("GSLB configuration is set already, can't change it. Delete and re-create the GSLB config object.")
 		gslbObj.Status.State = AlreadySetMsg
-		_, updateErr := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBConfigs(gslbObj.Namespace).Update(context.TODO(), gslbObj, metav1.UpdateOptions{})
+		_, updateErr := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBConfigs(gslbObj.Namespace).Update(context.TODO(), gslbObj, metav1.UpdateOptions{})
 		if updateErr != nil {
-			gslbutils.Errf("error in updating the status field of GSLB Config object %s in %s namespace",
+			return fmt.Errorf("error in updating the status field of GSLB Config object %s in %s namespace",
 				gslbObj.GetObjectMeta().GetName(), gslbObj.GetObjectMeta().GetNamespace())
 		}
-		return
+		return fmt.Errorf("GSLB configuration is set already, can't change it. Delete and re-create the GSLB config object.")
 	}
 
 	gc, err := IsGSLBConfigValid(obj)
 	if err != nil {
-		gslbutils.Warnf("ns: %s, gslbConfig: %s, msg: %s, %s", gc.ObjectMeta.Namespace, gc.ObjectMeta.Name,
-			"invalid format", err)
 		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + err.Error())
-		return
+		return err
 	}
 	utils.AviLog.SetLevel(gc.Spec.LogLevel)
 	gslbutils.SetCustomFqdnMode(gc.Spec.UseCustomGlobalFqdn)
@@ -536,13 +534,12 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	// parse and set the controller configuration
 	err = parseControllerDetails(gc)
 	if err != nil {
-		gslbutils.Errf("error while parsing controller details: %s", err.Error())
-		return
+		return fmt.Errorf("error while parsing controller details: %s", err.Error())
 	}
 	err = avicache.VerifyVersion()
 	if err != nil {
 		gslbutils.UpdateGSLBConfigStatus(ControllerAPIErr + ", " + err.Error())
-		return
+		return err
 	}
 
 	// check if the controller details provided are for a leader site
@@ -550,8 +547,7 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	if err != nil {
 		errMsg := fmt.Sprintf("error fetching Gslb leader site details, %s", err.Error())
 		gslbutils.UpdateGSLBConfigStatus(errMsg)
-		gslbutils.Errf(errMsg)
-		panic(errMsg)
+		gslbutils.LogAndPanic(errMsg)
 	}
 	if !isLeader {
 		gslbutils.Errf("Controller details provided are not for a leader, returning")
@@ -570,19 +566,20 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	// GSLB_CONFIG.
 	err = GenerateKubeConfig()
 	if err != nil {
-		utils.AviLog.Fatalf("Error in generating the kubeconfig file: %s", err.Error())
 		gslbutils.UpdateGSLBConfigStatus(KubeConfigErr + " " + err.Error())
-		return
+		gslbutils.LogAndPanic(fmt.Sprintf("Error in generating the kubeconfig file: %s", err.Error()))
 	}
+	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.MemberClusterValidation, "AMKO Cluster kubeconfig generated.")
 
 	aviCtrlList, err := initializeGSLBMemberClusters(gslbutils.GSLBKubePath, gc.Spec.MemberClusters)
 	if err != nil {
 		gslbutils.Errf("couldn't initialize the kubernetes/openshift clusters: %s, returning", err.Error())
 		gslbutils.UpdateGSLBConfigStatus(ClusterHealthCheckErr + err.Error())
 		// shutdown the api server to let k8s/openshift restart the pod back up
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "Couldn't initialize the Clusters: %s", err.Error())
 		apiserver.GetAmkoAPIServer().ShutDown()
-		return
 	}
+	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.MemberClusterValidation, "GSLB Member clusters validated.")
 
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncMsg)
 
@@ -595,7 +592,7 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	newCache := avicache.PopulateGSCache(true)
 
 	bootupSync(aviCtrlList, newCache)
-
+	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "Initial bootup sync completed.")
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
 
 	// Initialize a periodic worker running full sync
@@ -612,20 +609,23 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	gcChan := gslbutils.GetGSLBConfigObjectChan()
 	*gcChan <- true
 
+	// GSLB Configuration successfully done
+	gslbutils.SetGSLBConfig(true)
+	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "GSLB Configuration validated and accepted.")
+	gslbutils.UpdateGSLBConfigStatus(AcceptedMsg)
+
 	// Start the informers for the member controllers
 	for _, aviCtrl := range aviCtrlList {
 		aviCtrl.Start(stopCh)
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.AMKOClusterReady, "Started listening on object updates in cluster %s", aviCtrl.GetName())
 	}
-
-	// GSLB Configuration successfully done
-	gslbutils.SetGSLBConfig(true)
-	gslbutils.UpdateGSLBConfigStatus(AcceptedMsg)
 
 	// Set the workers for the node/graph layer
 	// During test mode, the graph layer workers are already initialized
 	if !gslbutils.InTestMode() {
 		StartGraphLayerWorkers()
 	}
+	return nil
 }
 
 var graphOnce sync.Once
@@ -670,6 +670,19 @@ func Initialize() {
 		gslbutils.LogAndPanic("error building kubernetes clientset: " + err.Error())
 	}
 
+	amkoControlConfig := gslbutils.AMKOControlConfig()
+	amkoControlConfig.SetClientset(kubeClient)
+
+	if insideCluster {
+		// No need to save the Pod metadata, if running AMKO locally.
+		pod, err := kubeClient.CoreV1().Pods(gslbutils.AVISystem).Get(context.TODO(), os.Getenv("POD_NAME"), metav1.GetOptions{})
+		if err != nil {
+			gslbutils.LogAndPanic("Error getting AMKO pod details.")
+		}
+		amkoControlConfig.SaveAMKOPodObjectMeta(pod.DeepCopy())
+	}
+	amkoControlConfig.SetEventRecorder(gslbutils.AMKOEventComponent, kubeClient)
+
 	// handleBootup checks AMKOCluster object, validates and then starts a reconciler to process updates.
 	isLeader, err := HandleBootup(cfg)
 	if err != nil {
@@ -683,23 +696,24 @@ func Initialize() {
 	}
 
 	gslbutils.SetWaitGroupMap()
-	gslbutils.GlobalKubeClient = kubeClient
+
 	gslbClient, err := gslbcs.NewForConfig(cfg)
 	if err != nil {
 		gslbutils.LogAndPanic("error building gslb config clientset: " + err.Error())
 	}
-	gslbutils.GlobalGslbClient = gslbClient
+	amkoControlConfig.SetGSLBClientset(gslbClient)
 
 	gdpClient, err := gdpcs.NewForConfig(cfg)
 	if err != nil {
 		gslbutils.LogAndPanic("error building gdp clientset: " + err.Error())
 	}
-	gslbutils.GlobalGdpClient = gdpClient
+	amkoControlConfig.SetGDPClientset(gdpClient)
+
 	// required to publish the GDP status, the reason we need this is because, during unit tests, we don't
 	// traverse this path and hence we don't initialize GlobalGslbClient, and hence, we can't update the
 	// status of the GDP object. Always check this flag before updating the status.
-	gslbutils.PublishGDPStatus = true
-	gslbutils.PublishGSLBStatus = true
+	amkoControlConfig.SetPublishGSLBStatus(true)
+	amkoControlConfig.SetPublishGDPStatus(true)
 
 	SetInformerListTimeout(120)
 
@@ -732,7 +746,9 @@ func Initialize() {
 	// check whether we already have a GSLBConfig object created which was previously accepted
 	// this is to make sure that after a reboot, we don't pick a different GSLBConfig object which
 	// wasn't accepted.
-	CheckGSLBConfigsAndInitialize()
+	if alreadyConfigured := CheckGSLBConfigsAndInitialize(); alreadyConfigured {
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "GSLB Config already validated and configured.")
+	}
 
 	// Start the informer for the GDP controller
 	gslbInformer := gslbInformerFactory.Amko().V1alpha1().GSLBConfigs()

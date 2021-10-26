@@ -127,7 +127,7 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 
 func checkGslbHostRulesAndInitialize() error {
 	gslbutils.Logf("process: fullsync, msg: will fetch GSLBHostRules")
-	gslbhrList, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	gslbhrList, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		gslbutils.Errf("process: fullsync, msg: error in fetching GSLBHostRule List API: %v", err)
 		return err
@@ -163,7 +163,7 @@ func checkGslbHostRulesAndInitialize() error {
 }
 
 func checkGDPsAndInitialize() error {
-	gdpList, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{})
+	gdpList, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(gslbutils.AVISystem).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil
 	}
