@@ -21,29 +21,29 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 
-// MCI is the top-level type
-type MCI struct {
+// MultiClusterIngress is the top-level type
+type MultiClusterIngress struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// spec for MCI Config
-	Spec MCISpec `json:"spec,omitempty"`
+	// spec for MultiClusterIngress Config
+	Spec MultiClusterIngressSpec `json:"spec,omitempty"`
 	// +optional
-	Status MCIStatus `json:"status,omitempty"`
+	Status MultiClusterIngressStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// MCIList is a list of GSLBConfig resources
-type MCIList struct {
+// MultiClusterIngressList is a list of GSLBConfig resources
+type MultiClusterIngressList struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MCI `json:"items"`
+	Items           []MultiClusterIngress `json:"items"`
 }
 
-// MCISpec is the GSLB configuration
-type MCISpec struct {
+// MultiClusterIngressSpec is the spec for a MultiClusterIngress object
+type MultiClusterIngressSpec struct {
 	Hostname   string          `json:"hostName,omitempty"`
 	SecretName string          `json:"secretName,omitempty"`
 	Config     []BackendConfig `json:"config,omitempty"`
@@ -51,10 +51,10 @@ type MCISpec struct {
 
 // BackendConfig contains the parameters from the tenant clusters
 type BackendConfig struct {
-	Path           string    `json:"path,omitempty"`
-	ClusterContext string    `json:"cluster,omitempty"`
-	Weight         int       `json:"weight,omitempty"`
-	Services       []Service `json:"service,omitempty"`
+	Path           string  `json:"path,omitempty"`
+	ClusterContext string  `json:"cluster,omitempty"`
+	Weight         int     `json:"weight,omitempty"`
+	Service        Service `json:"service,omitempty"`
 }
 
 // Service contains the backend service configuration and endpoints
@@ -64,13 +64,21 @@ type Service struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// MCIStatus represents the current status of the MCI object
-type MCIStatus struct {
-	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
+// MultiClusterIngressStatus represents the current status of the MultiClusterIngress object
+type MultiClusterIngressStatus struct {
+	LoadBalancer LoadBalancer   `json:"loadBalancer,omitempty"`
+	Status       AcceptedStatus `json:status,omitempty`
 }
 
-// LoadBalancer status is updated by AKO in the MCI object. It contains the
-// VIP fetched from the load balancer and the host fqdn this vip is mapped to
+// AcceptedStatus represents whether the MCI object was accepted or rejected. It also
+// includes the reason for rejection.
+type AcceptedStatus struct {
+	Accepted bool   `json:"accepted,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+}
+
+// LoadBalancer status is updated by AKO in the MultiClusterIngress object. It contains the
+// VIP fetched from the load balancer and the host fqdn this vip is mapped to.
 type LoadBalancer struct {
 	Ingress []IngressStatus `json:"ingress,omitempty"`
 }
@@ -91,7 +99,7 @@ type ClusterSet struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// spec for MCI Config
+	// spec for MultiClusterIngress Config
 	Spec ClusterSetSpec `json:"spec,omitempty"`
 	// +optional
 	Status ClusterSetStatus `json:"status,omitempty"`
