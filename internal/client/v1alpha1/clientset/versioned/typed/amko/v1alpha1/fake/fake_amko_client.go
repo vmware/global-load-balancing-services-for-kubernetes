@@ -40,8 +40,8 @@ func (c *FakeAmkoV1alpha1) GSLBHostRules(namespace string) v1alpha1.GSLBHostRule
 	return &FakeGSLBHostRules{c, namespace}
 }
 
-func (c *FakeAmkoV1alpha1) MCIs(namespace string) v1alpha1.MCIInterface {
-	return &FakeMCIs{c, namespace}
+func (c *FakeAmkoV1alpha1) MultiClusterIngresses(namespace string) v1alpha1.MultiClusterIngressInterface {
+	return &FakeMultiClusterIngresses{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
