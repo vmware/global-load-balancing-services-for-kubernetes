@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// MCIInformer provides access to a shared informer and lister for
-// MCIs.
-type MCIInformer interface {
+// MultiClusterIngressInformer provides access to a shared informer and lister for
+// MultiClusterIngresses.
+type MultiClusterIngressInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.MCILister
+	Lister() v1alpha1.MultiClusterIngressLister
 }
 
-type mCIInformer struct {
+type multiClusterIngressInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewMCIInformer constructs a new informer for MCI type.
+// NewMultiClusterIngressInformer constructs a new informer for MultiClusterIngress type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewMCIInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredMCIInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewMultiClusterIngressInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredMultiClusterIngressInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredMCIInformer constructs a new informer for MCI type.
+// NewFilteredMultiClusterIngressInformer constructs a new informer for MultiClusterIngress type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredMCIInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredMultiClusterIngressInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AmkoV1alpha1().MCIs(namespace).List(context.TODO(), options)
+				return client.AmkoV1alpha1().MultiClusterIngresses(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AmkoV1alpha1().MCIs(namespace).Watch(context.TODO(), options)
+				return client.AmkoV1alpha1().MultiClusterIngresses(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&amkov1alpha1.MCI{},
+		&amkov1alpha1.MultiClusterIngress{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *mCIInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredMCIInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *multiClusterIngressInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredMultiClusterIngressInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *mCIInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&amkov1alpha1.MCI{}, f.defaultInformer)
+func (f *multiClusterIngressInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&amkov1alpha1.MultiClusterIngress{}, f.defaultInformer)
 }
 
-func (f *mCIInformer) Lister() v1alpha1.MCILister {
-	return v1alpha1.NewMCILister(f.Informer().GetIndexer())
+func (f *multiClusterIngressInformer) Lister() v1alpha1.MultiClusterIngressLister {
+	return v1alpha1.NewMultiClusterIngressLister(f.Informer().GetIndexer())
 }

@@ -6,8 +6,10 @@ GOMOD=$(GOCMD) mod
 GOTEST=$(GOCMD) test
 AMKO_BIN=amko
 FEDERATOR_BIN=amko-federator
+SERVICE_DISCOVERY_BIN=service-discovery
 AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/gslb
 FEDERATOR_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/federator
+SERVICE_DISCOVERY_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/service_discovery
 
 .PHONY: all
 all: vendor build
@@ -20,8 +22,11 @@ build-amko:
 build-amko-federator:
 	$(GOBUILD) -o bin/$(FEDERATOR_BIN) -mod=vendor $(FEDERATOR_REL_PATH)
 
+.PHONY: build-service-discovery
+	$(GOBUILD) -o bin/$(SERVICE_DISCOVERY_BIN) -mod=vendor $(SERVICE_DISCOVERY_REL_PATH)
+
 .PHONY: build
-build: build-amko build-amko-federator
+build: build-amko build-amko-federator build-service-discovery
 
 .PHONY: clean
 clean:

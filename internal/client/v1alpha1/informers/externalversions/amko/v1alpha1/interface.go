@@ -30,8 +30,8 @@ type Interface interface {
 	GSLBConfigs() GSLBConfigInformer
 	// GSLBHostRules returns a GSLBHostRuleInformer.
 	GSLBHostRules() GSLBHostRuleInformer
-	// MCIs returns a MCIInformer.
-	MCIs() MCIInformer
+	// MultiClusterIngresses returns a MultiClusterIngressInformer.
+	MultiClusterIngresses() MultiClusterIngressInformer
 }
 
 type version struct {
@@ -60,7 +60,7 @@ func (v *version) GSLBHostRules() GSLBHostRuleInformer {
 	return &gSLBHostRuleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// MCIs returns a MCIInformer.
-func (v *version) MCIs() MCIInformer {
-	return &mCIInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// MultiClusterIngresses returns a MultiClusterIngressInformer.
+func (v *version) MultiClusterIngresses() MultiClusterIngressInformer {
+	return &multiClusterIngressInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
