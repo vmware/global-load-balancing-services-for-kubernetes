@@ -73,12 +73,12 @@ func NodeEventHandlers(numWorkers uint32, c *K8sClusterConfig) cache.ResourceEve
 		},
 		DeleteFunc: func(obj interface{}) {
 			node := obj.(*corev1.Node).DeepCopy()
-			gslbutils.Logf("cluster: %s, node: %s, msg: node added, will be published to layer 2",
+			gslbutils.Logf("cluster: %s, node: %s, msg: node deleted, will be published to layer 2",
 				c.Name(), node.GetName())
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldNode := oldObj.(*corev1.Node).DeepCopy()
-			gslbutils.Logf("cluster: %s, node: %s, msg: node added, will be published to layer 2",
+			gslbutils.Logf("cluster: %s, node: %s, msg: node updated, will be published to layer 2",
 				c.Name(), oldNode.GetName())
 		},
 	}
