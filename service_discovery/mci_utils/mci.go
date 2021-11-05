@@ -142,11 +142,11 @@ func GetMCIsDiff(oldMCI, newMCI *mciapi.MultiClusterIngress) ([]*MCIServiceEleme
 	// generate a map of both old and new services
 	oldSvcsMap := make(map[string]interface{})
 	for _, s := range oldSvcs {
-		oldSvcsMap[s.Cluster()+s.Namespace()+s.Name()] = struct{}{}
+		oldSvcsMap[s.Cluster()+"/"+s.Namespace()+"/"+s.Name()] = struct{}{}
 	}
 	newSvcsMap := make(map[string]interface{})
 	for _, s := range newSvcs {
-		newSvcsMap[s.Cluster()+s.Namespace()+s.Name()] = struct{}{}
+		newSvcsMap[s.Cluster()+"/"+s.Namespace()+"/"+s.Name()] = struct{}{}
 	}
 
 	// find out the services that need to be deleted
