@@ -17,6 +17,7 @@ package mciutils
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
@@ -26,7 +27,9 @@ import (
 	mcischeme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/scheme"
 	mciinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
 	mcilisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/listers/amko/v1alpha1"
+	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -57,6 +60,7 @@ func ValidateMCIObj(mciObj *mciapi.MultiClusterIngress, clusterList []string) er
 		if config.ClusterContext == "" {
 			return fmt.Errorf("spec.config.clusterContext can't be empty")
 		}
+		gslbutils.Warnf("clusters: %v", cl)
 		_, clusterContextPresent := cl[config.ClusterContext]
 		if !clusterContextPresent {
 			return fmt.Errorf("cluster context %s is invalid and not part of clusterset", config.ClusterContext)
@@ -77,13 +81,15 @@ type MCIServiceElement struct {
 	cluster   string
 	namespace string
 	name      string
+	port      int32
 }
 
-func InitServiceElement(cname, namespace, name string) *MCIServiceElement {
+func InitServiceElement(cname, namespace, name string, port int32) *MCIServiceElement {
 	return &MCIServiceElement{
 		cluster:   cname,
 		namespace: namespace,
 		name:      name,
+		port:      port,
 	}
 }
 
@@ -99,6 +105,10 @@ func (se *MCIServiceElement) Name() string {
 	return se.name
 }
 
+func (se *MCIServiceElement) Port() int32 {
+	return se.port
+}
+
 func GetServiceList(mciObj *mciapi.MultiClusterIngress) ([]*MCIServiceElement, error) {
 	if mciObj == nil {
 		return nil, fmt.Errorf("error in getting service list as MCI object is nil")
@@ -107,7 +117,7 @@ func GetServiceList(mciObj *mciapi.MultiClusterIngress) ([]*MCIServiceElement, e
 	mciSvcList := []*MCIServiceElement{}
 	for _, c := range mciObj.Spec.Config {
 		mciSvcList = append(mciSvcList, InitServiceElement(c.ClusterContext,
-			c.Service.Namespace, c.Service.Name))
+			c.Service.Namespace, c.Service.Name, int32(c.Service.Port)))
 	}
 	return mciSvcList, nil
 }
@@ -115,7 +125,7 @@ func GetServiceList(mciObj *mciapi.MultiClusterIngress) ([]*MCIServiceElement, e
 func GetServiceListStr(mciObj *mciapi.MultiClusterIngress) []string {
 	svcList := []string{}
 	for _, c := range mciObj.Spec.Config {
-		svcList = append(svcList, c.ClusterContext, c.Service.Namespace, c.Service.Name)
+		svcList = append(svcList, c.ClusterContext+"/"+c.Service.Namespace+"/"+c.Service.Name+"/"+strconv.Itoa(c.Service.Port))
 	}
 	return svcList
 }
@@ -154,27 +164,28 @@ func GetMCIsDiff(oldMCI, newMCI *mciapi.MultiClusterIngress) ([]*MCIServiceEleme
 		_, present := newSvcsMap[c.ClusterContext+c.Service.Namespace+c.Service.Name]
 		if !present {
 			svcToDelete = append(svcToDelete, InitServiceElement(c.ClusterContext,
-				c.Service.Namespace, c.Service.Name))
+				c.Service.Namespace, c.Service.Name, int32(c.Service.Port)))
 		}
 	}
 	for _, c := range newMCI.Spec.Config {
 		_, present := oldSvcsMap[c.ClusterContext+c.Service.Namespace+c.Service.Name]
 		if !present {
 			svcToAdd = append(svcToAdd, InitServiceElement(c.ClusterContext,
-				c.Service.Namespace, c.Service.Name))
+				c.Service.Namespace, c.Service.Name, int32(c.Service.Port)))
 		}
 	}
 
 	return svcToAdd, svcToDelete, nil
 }
 
-func DiffMCIServicesAndUpdateFilter(oldMCI, newMCI *mciapi.MultiClusterIngress) error {
+func DiffMCIServicesAndUpdateFilter(oldMCI, newMCI *mciapi.MultiClusterIngress) ([]*MCIServiceElement, []*MCIServiceElement, error) {
 	svcToAdd, svcToDelete, err := GetMCIsDiff(oldMCI, newMCI)
 	if err != nil {
-		return fmt.Errorf("error in getting diff: %v", err)
+		return svcToAdd, svcToDelete, fmt.Errorf("error in getting diff: %v", err)
 	}
 	for _, s := range svcToDelete {
-		if err := svcutils.DeleteObjFromClustersetServiceFilter(s.Cluster(), s.Namespace(), s.Name()); err != nil {
+		if err := svcutils.DeleteObjFromClustersetServiceFilter(s.Cluster(), s.Namespace(),
+			s.Name(), s.Port()); err != nil {
 			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in deleting service from filter",
 				s.Cluster(), s.Namespace(), s.Name())
 			continue
@@ -182,7 +193,8 @@ func DiffMCIServicesAndUpdateFilter(oldMCI, newMCI *mciapi.MultiClusterIngress) 
 		// TODO: push the service key to layer 2
 	}
 	for _, s := range svcToAdd {
-		if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(), s.Name()); err != nil {
+		if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(),
+			s.Name(), s.Port()); err != nil {
 			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter",
 				s.Cluster(), s.Namespace(), s.Name())
 			continue
@@ -190,7 +202,7 @@ func DiffMCIServicesAndUpdateFilter(oldMCI, newMCI *mciapi.MultiClusterIngress) 
 		// TODO: push the service key to layer 2
 	}
 
-	return nil
+	return svcToAdd, svcToDelete, nil
 }
 
 func AddMCISvcListToFilter(mci *mciapi.MultiClusterIngress) error {
@@ -199,7 +211,8 @@ func AddMCISvcListToFilter(mci *mciapi.MultiClusterIngress) error {
 		return fmt.Errorf("error in getting service list from MCI object: %v", err)
 	}
 	for _, s := range svcList {
-		if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(), s.Name()); err != nil {
+		if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(),
+			s.Name(), s.Port()); err != nil {
 			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter",
 				s.Cluster(), s.Namespace(), s.Name())
 			continue
@@ -215,7 +228,8 @@ func DeleteMCISvcListFromFilter(mci *mciapi.MultiClusterIngress) error {
 		return fmt.Errorf("error in getting service list from MCI object: %v", err)
 	}
 	for _, s := range svcList {
-		if err := svcutils.DeleteObjFromClustersetServiceFilter(s.Cluster(), s.Namespace(), s.Name()); err != nil {
+		if err := svcutils.DeleteObjFromClustersetServiceFilter(s.Cluster(), s.Namespace(),
+			s.Name(), s.Port()); err != nil {
 			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in deleting service from filter",
 				s.Cluster(), s.Namespace(), s.Name())
 			continue
@@ -240,6 +254,20 @@ func MCIEventHandlers(numWorkers uint32, clusterList []string) cache.ResourceEve
 				gslbutils.Errf("ns: %s, name: %s, msg: error in adding service list to filter: %v",
 					mci.GetNamespace(), mci.GetName(), err)
 			}
+			svcList, err := GetServiceList(mci.DeepCopy())
+			if err != nil {
+				gslbutils.Errf("ns: %s, name: %s, msg: couldn't get service list from MCI object: %v",
+					mci.GetNamespace(), mci.GetName(), err)
+				return
+			}
+			for _, s := range svcList {
+				key := utils.GetKey(utils.SvcObjType, s.Cluster(), s.Namespace(), s.Name())
+				wq := k8sutils.GetWorkqueueForCluster(s.Cluster())
+				bkt := containerutils.Bkt(s.Cluster(), numWorkers)
+				wq[bkt].AddRateLimited(key)
+				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: pushed service key to ingestion queue",
+					s.Cluster(), s.Namespace(), s.Name())
+			}
 		},
 
 		DeleteFunc: func(obj interface{}) {
@@ -253,7 +281,20 @@ func MCIEventHandlers(numWorkers uint32, clusterList []string) cache.ResourceEve
 			if err := DeleteMCISvcListFromFilter(mci); err != nil {
 				gslbutils.Logf("ns: %s, name: %s, msg: couldn't delete service list in the MCI object from the filter, err: %v",
 					mci.GetNamespace(), mci.GetName(), err)
+			}
+			svcList, err := GetServiceList(mci)
+			if err != nil {
+				gslbutils.Errf("ns: %s, name: %s, msg: couldn't get service list from MCI object: %v",
+					mci.GetNamespace(), mci.GetName(), err)
 				return
+			}
+			for _, s := range svcList {
+				key := utils.GetKey(utils.SvcObjType, s.Cluster(), s.Namespace(), s.Name())
+				wq := k8sutils.GetWorkqueueForCluster(s.Cluster())
+				bkt := containerutils.Bkt(s.Cluster(), numWorkers)
+				wq[bkt].AddRateLimited(key)
+				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: pushed service key to ingestion queue",
+					s.Cluster(), s.Namespace(), s.Name())
 			}
 		},
 
@@ -268,7 +309,27 @@ func MCIEventHandlers(numWorkers uint32, clusterList []string) cache.ResourceEve
 			}
 			// find out the diff between the services: resultant services should be
 			// added/removed from the filter
-			DiffMCIServicesAndUpdateFilter(oldMCI, newMCI)
+			svcToAdd, svcToDel, err := DiffMCIServicesAndUpdateFilter(oldMCI, newMCI)
+			if err != nil {
+				gslbutils.Errf("ns: %s, name: %s, msg: error in finding diff between old and new MCIs: %v",
+					newMCI.GetNamespace(), newMCI.GetName(), err)
+			}
+			for _, s := range svcToAdd {
+				key := utils.GetKey(utils.SvcObjType, s.Cluster(), s.Namespace(), s.Name())
+				wq := k8sutils.GetWorkqueueForCluster(s.Cluster())
+				bkt := containerutils.Bkt(s.Cluster(), numWorkers)
+				wq[bkt].AddRateLimited(key)
+				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: pushed service key to ingestion queue",
+					s.Cluster(), s.Namespace(), s.Name())
+			}
+			for _, s := range svcToDel {
+				key := utils.GetKey(utils.SvcObjType, s.Cluster(), s.Namespace(), s.Name())
+				wq := k8sutils.GetWorkqueueForCluster(s.Cluster())
+				bkt := containerutils.Bkt(s.Cluster(), numWorkers)
+				wq[bkt].AddRateLimited(key)
+				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: pushed service key to ingestion queue",
+					s.Cluster(), s.Namespace(), s.Name())
+			}
 		},
 	}
 	return mciEventHandler

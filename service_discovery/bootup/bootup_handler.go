@@ -23,13 +23,14 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/clusterset"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	mciutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/mci_utils"
+	serviceimport "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/service_import"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Clientset) error {
-	// fetch all the MCI objects, validate each object and push the keys to layer 2
+	// fetch all the MCI objects, validate each object and add them to filter
 	mciObjs, err := mcics.AmkoV1alpha1().MultiClusterIngresses(utils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("error in fetching MCI list: %v", err)
@@ -64,7 +65,7 @@ func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Client
 
 		for _, s := range svcList {
 			if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(),
-				s.Name()); err != nil {
+				s.Name(), s.Port()); err != nil {
 				gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter: %v")
 				continue
 			}
@@ -73,23 +74,6 @@ func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Client
 
 	// fetch all the services from the member clusters
 	for _, cc := range clusterConfigs {
-		svcs, err := cc.ClientSet().CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
-		if err != nil {
-			gslbutils.Errf("error in fetching services for cluster %s: %v", cc.Name(), err)
-			continue
-		}
-		for _, svc := range svcs.Items {
-			// for each service, see if it is of the accepted type
-			if !svcutils.IsServiceOfAcceptedType(&svc) {
-				continue
-			}
-			if svcutils.IsObjectInClustersetFilter(cc.Name(), svc.GetNamespace(), svc.GetName()) {
-				// service must be accepted, pass it on layer 2
-				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service present in filter, will be pushed to layer 2",
-					cc.Name(), svc.GetNamespace(), svc.GetName())
-			}
-		}
-
 		// fetch all the member cluster nodes, push them to layer 2
 		nodeList, err := cc.GetNodes()
 		if err != nil {
@@ -102,9 +86,31 @@ func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Client
 				gslbutils.Errf("cluster: %s, nodeName: %s, msg: error in fetching node IP", cc.Name(), node.GetName())
 				continue
 			}
-			gslbutils.Logf("cluster: %s, nodeName: %s, msg: fetched node IP %s", cc.Name(),
-				node.GetName(), nodeIP)
-			// TODO: generate a key and push it to layer 2
+			gslbutils.Logf("cluster: %s, nodeName: %s, msg: fetched node", cc.Name(),
+				node.GetName())
+			serviceimport.HandleNodeObject(cc.Name(), node.GetName(), nodeIP)
+			gslbutils.Logf("cluster: %s, nodeName: %s, msg: processed node", cc.Name(), node.GetName())
+		}
+
+		svcs, err := cc.ClientSet().CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("error in fetching services for cluster %s: %v", cc.Name(), err)
+			continue
+		}
+		for _, svc := range svcs.Items {
+			// for each service, see if it is of the accepted type
+			if !svcutils.IsServiceOfAcceptedType(&svc) {
+				continue
+			}
+			if !svcutils.IsObjectInClustersetFilter(cc.Name(), svc.GetNamespace(), svc.GetName()) {
+				continue
+			}
+			// service must be accepted, pass it on layer 2
+			gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service present in filter, will be processed",
+				cc.Name(), svc.GetNamespace(), svc.GetName())
+			serviceimport.HandleServiceObject(cc.Name(), svc.GetNamespace(), svc.GetName(), svc.DeepCopy())
+			gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service processed", cc.Name(),
+				svc.GetNamespace(), svc.GetName())
 		}
 	}
 

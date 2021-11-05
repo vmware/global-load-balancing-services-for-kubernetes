@@ -21,16 +21,61 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 )
+
+const (
+	ServiceImportFullIndexer    = "clusterNameNamespaceIndex"
+	ServiceImportClusterIndexer = "clusterIndex"
+)
+
+type K8sServiceDiscoveryConfig struct {
+	clientset       *kubernetes.Clientset
+	amkov1Clientset *amkov1.Clientset
+	clusters        []*K8sClusterConfig
+}
+
+var k8sCfg *K8sServiceDiscoveryConfig
+
+func InitK8sServiceDiscoveryConfig(cfg *rest.Config) (*K8sServiceDiscoveryConfig, error) {
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("error in initializing k8s service discovery config: %v", err)
+	}
+	amkoClient, err := amkov1.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("error in initializing k8s service discovery config: %v", err)
+	}
+
+	k8sCfg = &K8sServiceDiscoveryConfig{
+		clientset:       kubeClient,
+		amkov1Clientset: amkoClient,
+	}
+	return k8sCfg, nil
+}
+
+func (sdc *K8sServiceDiscoveryConfig) SetClusterConfigs(cc []*K8sClusterConfig) {
+	sdc.clusters = cc
+}
+
+func (sdc *K8sServiceDiscoveryConfig) GetClientset() *kubernetes.Clientset {
+	return sdc.clientset
+}
+
+func (sdc *K8sServiceDiscoveryConfig) GetAmkoV1Clientset() *amkov1.Clientset {
+	return sdc.amkov1Clientset
+}
 
 const (
 	// SDKubePath is to be used for initializing member cluster clients, this constant
@@ -94,6 +139,7 @@ func InitK8sClusterConfig(cname string) (*K8sClusterConfig, error) {
 	return &K8sClusterConfig{
 		name:      cname,
 		informers: informerInstance,
+		workqueue: containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer).Workqueue,
 	}, nil
 }
 
@@ -115,6 +161,84 @@ func (k8sCluster *K8sClusterConfig) GetNodes() (*corev1.NodeList, error) {
 		return nil, err
 	}
 	return nodes, nil
+}
+
+// GetNodeFromInformer returns the IP of the node and the error (if any)
+func (k8sCluster *K8sClusterConfig) GetNodeFromInformer(nodeName string) (string, error) {
+	node, err := k8sCluster.informers.NodeInformer.Lister().Get(nodeName)
+	if err != nil {
+		return "", err
+	}
+	return GetNodeIP(node.Status)
+}
+
+func (k8sCluster *K8sClusterConfig) GetSvcFromInformer(ns, svcName string) (*corev1.Service, error) {
+	svc, err := k8sCluster.informers.ServiceInformer.Lister().Services(ns).Get(svcName)
+	if err != nil {
+		gslbutils.Errf("cluster: %s, ns: %s, svc: %s, err: %v", k8sCluster.Name(),
+			ns, svcName, err)
+		return nil, err
+	}
+	return svc.DeepCopy(), nil
+}
+
+func (k8sCluster *K8sClusterConfig) GetWorkqueue() []workqueue.RateLimitingInterface {
+	return k8sCluster.workqueue
+}
+
+var sharedClusterList map[string]*K8sClusterConfig
+
+func InitSharedClusterList(clusterConfigs []*K8sClusterConfig) {
+	sharedClusterList = make(map[string]*K8sClusterConfig)
+	for _, cc := range clusterConfigs {
+		sharedClusterList[cc.Name()] = cc
+	}
+}
+
+func RunSharedClusterInformers(stopCh <-chan struct{}) {
+	for cname, cc := range sharedClusterList {
+		if cc.informers.ServiceInformer != nil {
+			go cc.informers.ServiceInformer.Informer().Run(stopCh)
+			gslbutils.Logf("cluster: %s, msg: started service informer", cname)
+		}
+		if cc.informers.NodeInformer != nil {
+			go cc.informers.NodeInformer.Informer().Run(stopCh)
+			gslbutils.Logf("cluster: %s, msg: started namespace informer", cname)
+		}
+	}
+}
+
+func AddEventHandlersToClusterInformers(numWorkers uint32) {
+	for cname, cc := range sharedClusterList {
+		if cc.informers.ServiceInformer != nil {
+			cc.informers.ServiceInformer.Informer().AddEventHandler(SvcEventHandlers(numWorkers, cc))
+			gslbutils.Logf("cluster: %s, msg: added service event handler", cname)
+		}
+		if cc.informers.NodeInformer != nil {
+			cc.informers.NodeInformer.Informer().AddEventHandler(NodeEventHandlers(numWorkers, cc))
+			gslbutils.Logf("cluster: %s, msg: added node event handler", cname)
+		}
+	}
+}
+
+func GetNodeInfoFromSharedClusters(cname, nodeName string) (string, error) {
+	return sharedClusterList[cname].GetNodeFromInformer(nodeName)
+}
+
+func GetSvcInfoFromSharedClusters(cname, ns, svc string) (*corev1.Service, error) {
+	return sharedClusterList[cname].GetSvcFromInformer(ns, svc)
+}
+
+func GetWorkqueueForCluster(cname string) []workqueue.RateLimitingInterface {
+	return sharedClusterList[cname].GetWorkqueue()
+}
+
+func GetClusterListFromSharedClusters() []string {
+	result := []string{}
+	for cname, _ := range sharedClusterList {
+		result = append(result, cname)
+	}
+	return result
 }
 
 func GetClusterListStr(clist []*K8sClusterConfig) []string {
@@ -184,4 +308,8 @@ func GetNodeIP(nodeStatus corev1.NodeStatus) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("can't find node address")
+}
+
+func IsErrorTypeNotFound(err error) bool {
+	return k8serrors.IsNotFound(err)
 }

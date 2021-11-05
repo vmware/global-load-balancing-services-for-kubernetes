@@ -32,6 +32,8 @@ type Interface interface {
 	GSLBHostRules() GSLBHostRuleInformer
 	// MultiClusterIngresses returns a MultiClusterIngressInformer.
 	MultiClusterIngresses() MultiClusterIngressInformer
+	// ServiceImports returns a ServiceImportInformer.
+	ServiceImports() ServiceImportInformer
 }
 
 type version struct {
@@ -63,4 +65,9 @@ func (v *version) GSLBHostRules() GSLBHostRuleInformer {
 // MultiClusterIngresses returns a MultiClusterIngressInformer.
 func (v *version) MultiClusterIngresses() MultiClusterIngressInformer {
 	return &multiClusterIngressInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ServiceImports returns a ServiceImportInformer.
+func (v *version) ServiceImports() ServiceImportInformer {
+	return &serviceImportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

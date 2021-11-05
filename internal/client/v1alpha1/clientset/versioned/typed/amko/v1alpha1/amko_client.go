@@ -30,6 +30,7 @@ type AmkoV1alpha1Interface interface {
 	GSLBConfigsGetter
 	GSLBHostRulesGetter
 	MultiClusterIngressesGetter
+	ServiceImportsGetter
 }
 
 // AmkoV1alpha1Client is used to interact with features provided by the amko.vmware.com group.
@@ -51,6 +52,10 @@ func (c *AmkoV1alpha1Client) GSLBHostRules(namespace string) GSLBHostRuleInterfa
 
 func (c *AmkoV1alpha1Client) MultiClusterIngresses(namespace string) MultiClusterIngressInterface {
 	return newMultiClusterIngresses(c, namespace)
+}
+
+func (c *AmkoV1alpha1Client) ServiceImports(namespace string) ServiceImportInterface {
+	return newServiceImports(c, namespace)
 }
 
 // NewForConfig creates a new AmkoV1alpha1Client for the given config.

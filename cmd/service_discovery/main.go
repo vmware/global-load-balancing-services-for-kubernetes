@@ -18,20 +18,20 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	mcics "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
 	mciinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/bootup"
 	clusterset "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/clusterset"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	mciutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/mci_utils"
+	serviceimport "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/service_import"
 	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -41,12 +41,6 @@ var (
 	kubeConfig    string
 	insideCluster bool
 )
-
-type K8sServiceDiscoveryConfig struct {
-	clientset    *kubernetes.Clientset
-	mciClientset *mcics.Clientset
-	clusters     []*k8sutils.K8sClusterConfig
-}
 
 func main() {
 	InitModules()
@@ -67,7 +61,7 @@ func K8sInit() {
 		flag.Lookup("logtostderr").Value.Set("true")
 	}
 
-	stopCh := utils.SetupSignalHandler()
+	stopCh := containerutils.SetupSignalHandler()
 	// Check if we are running inside a kubernetes cluster
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -85,49 +79,88 @@ func K8sInit() {
 		}
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	k8sSDConfig, err := k8sutils.InitK8sServiceDiscoveryConfig(cfg)
 	if err != nil {
-		gslbutils.LogAndPanic("error building kubernetes clientset: " + err.Error())
+		gslbutils.Errf("%v", err)
+		panic(err.Error())
 	}
 
 	gslbutils.SetWaitGroupMap()
-	gslbutils.GlobalKubeClient = kubeClient
 
-	mciClient, err := mcics.NewForConfig(cfg)
-	if err != nil {
-		gslbutils.LogAndPanic("error building mci clientset: " + err.Error())
-	}
-	sdConfig := K8sServiceDiscoveryConfig{
-		clientset:    kubeClient,
-		mciClientset: mciClient,
-	}
+	InitQueues()
 
 	// initialize clusterset
-	clusterConfigs, err := GetClusterInfo(&sdConfig, sdConfig.clientset)
+	clusterConfigs, err := GetClusterInfo(k8sSDConfig)
 	if err != nil {
 		gslbutils.LogAndPanic("error in getting data from clusterset: " + err.Error())
 	}
-	sdConfig.clusters = clusterConfigs
+	k8sSDConfig.SetClusterConfigs(clusterConfigs)
 
-	err = bootup.BootupSync(clusterConfigs, mciClient)
+	k8sutils.InitSharedClusterList(clusterConfigs)
+	k8sutils.RunSharedClusterInformers(stopCh)
+
+	mciInformerFactory := mciinformers.NewSharedInformerFactory(k8sSDConfig.GetAmkoV1Clientset(), time.Second*30)
+	mciCtrl := mciutils.InitializeMCIController(k8sSDConfig.GetClientset(), k8sSDConfig.GetAmkoV1Clientset(),
+		mciInformerFactory, k8sutils.GetClusterListStr(clusterConfigs))
+	mciInformer := mciInformerFactory.Amko().V1alpha1().MultiClusterIngresses()
+
+	siCtrl := serviceimport.InitializeServiceImportController(k8sSDConfig.GetClientset(), k8sSDConfig.GetAmkoV1Clientset(),
+		mciInformerFactory)
+
+	// initialize the handler for layer 2 (service import objects)
+	serviceimport.InitServiceImportHandler(k8sSDConfig.GetAmkoV1Clientset(), clusterset.GetClusterList(clusterConfigs),
+		siCtrl)
+	go siCtrl.Informer.Run(stopCh)
+
+	err = bootup.BootupSync(clusterConfigs, k8sSDConfig.GetAmkoV1Clientset())
 	if err != nil {
 		gslbutils.LogAndPanic("error while bootup sync: " + err.Error())
 	}
 
-	mciInformerFactory := mciinformers.NewSharedInformerFactory(mciClient, time.Second*30)
-	mciCtrl := mciutils.InitializeMCIController(kubeClient, mciClient, mciInformerFactory, k8sutils.GetClusterListStr(clusterConfigs))
-	mciInformer := mciInformerFactory.Amko().V1alpha1().MultiClusterIngresses()
 	go mciInformer.Informer().Run(stopCh)
+	siCtrl.Informer.AddEventHandler(serviceimport.ServiceImportEventHandlers(4))
 
-	if err := mciCtrl.Run(stopCh); err != nil {
-		gslbutils.LogAndPanic("error running MCI Controller: " + err.Error())
-	}
+	go RunControllers(mciCtrl, siCtrl, stopCh)
+	RunQueues(stopCh)
 
+	k8sutils.AddEventHandlersToClusterInformers(sdutils.NumIngestionWorkers)
+
+	<-stopCh
 	gslbutils.Logf("service discovery is exiting")
 }
 
-func GetClusterInfo(sd *K8sServiceDiscoveryConfig, kubeclient *kubernetes.Clientset) ([]*k8sutils.K8sClusterConfig, error) {
-	csList, err := sd.mciClientset.AmkoV1alpha1().ClusterSets(sdutils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
+func InitQueues() {
+	gslbutils.Logf("initializing queues")
+	ingestionQueueParams := containerutils.WorkerQueue{
+		NumWorkers:    sdutils.NumIngestionWorkers,
+		WorkqueueName: containerutils.ObjectIngestionLayer,
+	}
+	wq := containerutils.SharedWorkQueue(&ingestionQueueParams)
+
+	ingestionSharedQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
+	ingestionSharedQueue.SyncFunc = serviceimport.SyncFromIngestionLayer
+	gslbutils.Logf("length of workqueue: %d, numworkers: %d", len(wq.GetQueueByName(containerutils.ObjectIngestionLayer).Workqueue),
+		ingestionSharedQueue.NumWorkers)
+}
+
+func RunQueues(stopCh <-chan struct{}) {
+	ingestionSharedQueue := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
+	ingestionSharedQueue.Run(stopCh, gslbutils.GetWaitGroupFromMap(gslbutils.WGIngestion))
+}
+
+func RunControllers(mciCtrl *mciutils.MCIController, siCtrl *serviceimport.ServiceImportController, stopCh <-chan struct{}) {
+	if err := mciCtrl.Run(stopCh); err != nil {
+		gslbutils.Logf("error running MCI controller: %v", err)
+		log.Panic("error running MCI controller")
+	}
+	if err := siCtrl.Run(stopCh); err != nil {
+		gslbutils.Logf("error running Service Import controller: %v", err)
+		log.Panic("error running Service Import controller")
+	}
+}
+
+func GetClusterInfo(sd *k8sutils.K8sServiceDiscoveryConfig) ([]*k8sutils.K8sClusterConfig, error) {
+	csList, err := sd.GetAmkoV1Clientset().AmkoV1alpha1().ClusterSets(sdutils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching clusterset list: %v", err)
 	}
@@ -135,7 +168,7 @@ func GetClusterInfo(sd *K8sServiceDiscoveryConfig, kubeclient *kubernetes.Client
 		return nil, fmt.Errorf("error in getting clusterset: only one clusterset allowed in this cluster")
 	}
 	cs := csList.Items[0].DeepCopy()
-	clusterConfigs, err := clusterset.ValidateClusterset(cs, kubeclient)
+	clusterConfigs, err := clusterset.ValidateClusterset(cs, sd.GetClientset())
 	if err != nil {
 		return nil, fmt.Errorf("error in validating clusterset: %v", err)
 	}
