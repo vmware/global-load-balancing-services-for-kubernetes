@@ -56,6 +56,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&MultiClusterIngressList{},
 		&ClusterSet{},
 		&ClusterSetList{},
+		&ServiceImport{},
+		&ServiceImportList{},
 	)
 
 	scheme.AddKnownTypes(

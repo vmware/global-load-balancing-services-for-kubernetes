@@ -138,3 +138,41 @@ type ServiceDiscoveryStatus struct {
 	Cluster string `json:"cluster,omitempty"`
 	Status  string `json:"status,omitempty"`
 }
+
+// +genclient
+// +genclient:noStatus
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+
+// ServiceImport is the top-level type
+type ServiceImport struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// spec for MultiClusterIngress Config
+	Spec ServiceImportSpec `json:"spec,omitempty"`
+	// +optional
+	// Status ServiceImportStatus `json:"status,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ServiceImportList is a list of ServiceImport resources
+type ServiceImportList struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ServiceImport `json:"items"`
+}
+
+type ServiceImportSpec struct {
+	Cluster   string   `json:"cluster,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	Service   string   `json:"service,omitempty"`
+	Endpoints []IPPort `json:"endpoints,omitempty"`
+}
+
+type IPPort struct {
+	IP   string `json:"ip,omitempty"`
+	Port int32  `json:"port,omitempty"`
+}

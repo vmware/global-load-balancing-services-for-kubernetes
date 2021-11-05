@@ -61,6 +61,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().GSLBHostRules().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("multiclusteringresses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().MultiClusterIngresses().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("serviceimports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Amko().V1alpha1().ServiceImports().Informer()}, nil
 
 	}
 

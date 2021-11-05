@@ -59,23 +59,23 @@ func InitClustersetServiceFilter(clusters []string) (map[string]*NSServiceFilter
 	return csf, nil
 }
 
-func AddObjToClustersetServiceFilter(cname, ns, obj string) error {
+func AddObjToClustersetServiceFilter(cname, ns, obj string, port int32) error {
 	csf := GetClustersetServiceFilter()
 	nsvcf, clusterPresent := csf[cname]
 	if !clusterPresent {
 		return fmt.Errorf("cluster %s not present in filter", cname)
 	}
-	nsvcf.AddToNSServiceFilter(ns, obj)
+	nsvcf.AddToNSServiceFilter(ns, obj, port)
 	return nil
 }
 
-func DeleteObjFromClustersetServiceFilter(cname, ns, obj string) error {
+func DeleteObjFromClustersetServiceFilter(cname, ns, obj string, port int32) error {
 	csf := GetClustersetServiceFilter()
 	nsvcf, clusterPresent := csf[cname]
 	if !clusterPresent {
 		return fmt.Errorf("cluster %s not present in filter", cname)
 	}
-	nsvcf.DeleteFromNSServiceFilter(ns, obj)
+	nsvcf.DeleteFromNSServiceFilter(ns, obj, port)
 	return nil
 }
 
@@ -87,30 +87,38 @@ func IsObjectInClustersetFilter(cname, ns, obj string) bool {
 	return false
 }
 
+func IsSvcPortInClustersetFilter(cname, ns, obj string, port int32) bool {
+	nsSvcFilter, present := clustersetServiceFilter[cname]
+	if present {
+		return nsSvcFilter.IsSvcPortPresent(ns, obj, port)
+	}
+	return false
+}
+
 type NSServiceFilter struct {
-	nsToObj map[string]*ServiceSet
+	nsToObj map[string]*ServiceCache
 	lock    sync.RWMutex
 }
 
 func InitNSServiceFilter() *NSServiceFilter {
 	return &NSServiceFilter{
-		nsToObj: map[string]*ServiceSet{},
+		nsToObj: map[string]*ServiceCache{},
 	}
 }
 
-func (nsvcf *NSServiceFilter) AddToNSServiceFilter(ns, obj string) {
+func (nsvcf *NSServiceFilter) AddToNSServiceFilter(ns, svc string, port int32) {
 	nsvcf.lock.Lock()
 	defer nsvcf.lock.Unlock()
 
 	svcSet, nsPresent := nsvcf.nsToObj[ns]
 	if nsPresent {
-		svcSet.AddToServiceSet(obj)
+		svcSet.Add(svc, port)
 		return
 	}
-	nsvcf.nsToObj[ns] = InitServiceSet(obj)
+	nsvcf.nsToObj[ns] = InitServiceSet(svc, port)
 }
 
-func (nsvcf *NSServiceFilter) DeleteFromNSServiceFilter(ns, obj string) {
+func (nsvcf *NSServiceFilter) DeleteFromNSServiceFilter(ns, obj string, port int32) {
 	nsvcf.lock.Lock()
 	defer nsvcf.lock.Unlock()
 
@@ -118,7 +126,7 @@ func (nsvcf *NSServiceFilter) DeleteFromNSServiceFilter(ns, obj string) {
 	if !nsPresent {
 		return
 	}
-	objRemaining := svcSet.DeleteFromServiceSet(obj)
+	objRemaining := svcSet.Delete(obj, port)
 	if objRemaining == 0 {
 		// remove the namespace key from the filter as there are no other objects
 		// remaining for that namespace
@@ -137,42 +145,110 @@ func (nsvcf *NSServiceFilter) IsObjectPresent(ns, obj string) bool {
 	return false
 }
 
-type ServiceSet struct {
-	svcSet map[string]interface{}
+func (nsvcf *NSServiceFilter) IsSvcPortPresent(ns, obj string, port int32) bool {
+	nsvcf.lock.RLock()
+	defer nsvcf.lock.RUnlock()
+
+	svcSet, nsPresent := nsvcf.nsToObj[ns]
+	if nsPresent {
+		return svcSet.IsSvcPortPresent(obj, port)
+	}
+	return false
+}
+
+type ServiceCache struct {
+	svcSet map[string]*PortCache
 	lock   sync.RWMutex
 }
 
-func InitServiceSet(svcName string) *ServiceSet {
-	svcSet := make(map[string]interface{})
-	var i interface{}
-	svcSet[svcName] = i
+func InitServiceSet(svcName string, port int32) *ServiceCache {
+	pc := InitPortCache(port)
+	svcSet := make(map[string]*PortCache)
+	svcSet[svcName] = pc
 
-	return &ServiceSet{
+	return &ServiceCache{
 		svcSet: svcSet,
 	}
 }
 
-func (ss *ServiceSet) AddToServiceSet(svc string) {
+func (ss *ServiceCache) Add(svc string, port int32) {
 	ss.lock.Lock()
 	defer ss.lock.Unlock()
 
-	var i interface{}
-	ss.svcSet[svc] = i
+	if pc, svcExists := ss.svcSet[svc]; svcExists {
+		pc.Add(port)
+		return
+	}
+	ss.svcSet[svc] = InitPortCache(port)
 	gslbutils.Logf("svcs: %v", ss.svcSet)
 }
 
-func (ss *ServiceSet) DeleteFromServiceSet(svc string) int {
+func (ss *ServiceCache) Delete(svc string, port int32) int {
 	ss.lock.Lock()
 	defer ss.lock.Unlock()
 
-	delete(ss.svcSet, svc)
+	if pc, svcExists := ss.svcSet[svc]; svcExists {
+		leftPorts := pc.Delete(port)
+		if leftPorts == 0 {
+			// no more ports left, delete the service
+			delete(ss.svcSet, svc)
+		}
+	}
 	return len(ss.svcSet)
 }
 
-func (ss *ServiceSet) IsSvcPresent(svc string) bool {
+func (ss *ServiceCache) IsSvcPresent(svc string) bool {
 	ss.lock.RLock()
 	defer ss.lock.RUnlock()
 
 	_, svcPresent := ss.svcSet[svc]
 	return svcPresent
+}
+
+func (ss *ServiceCache) IsSvcPortPresent(svc string, port int32) bool {
+	ss.lock.RLock()
+	defer ss.lock.RUnlock()
+
+	if pc, svcExists := ss.svcSet[svc]; svcExists {
+		return pc.IsPortPresent(port)
+	}
+	return false
+}
+
+type PortCache struct {
+	portSet map[int32]interface{}
+	lock    sync.RWMutex
+}
+
+func InitPortCache(port int32) *PortCache {
+	portSet := make(map[int32]interface{})
+	portSet[port] = struct{}{}
+
+	return &PortCache{
+		portSet: portSet,
+	}
+}
+
+func (pc *PortCache) Add(port int32) {
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+
+	pc.portSet[port] = struct{}{}
+	gslbutils.Logf("ports: %v", pc.portSet)
+}
+
+func (pc *PortCache) Delete(port int32) int {
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+
+	delete(pc.portSet, port)
+	return len(pc.portSet)
+}
+
+func (pc *PortCache) IsPortPresent(port int32) bool {
+	pc.lock.RLock()
+	defer pc.lock.RUnlock()
+
+	_, portPresent := pc.portSet[port]
+	return portPresent
 }
