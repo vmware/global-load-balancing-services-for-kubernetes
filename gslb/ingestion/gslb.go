@@ -677,7 +677,7 @@ func Initialize() {
 		// No need to save the Pod metadata, if running AMKO locally.
 		pod, err := kubeClient.CoreV1().Pods(gslbutils.AVISystem).Get(context.TODO(), os.Getenv("POD_NAME"), metav1.GetOptions{})
 		if err != nil {
-			gslbutils.LogAndPanic("Error getting AMKO pod details.")
+			gslbutils.LogAndPanic("error getting AMKO pod details: " + err.Error())
 		}
 		amkoControlConfig.SaveAMKOPodObjectMeta(pod.DeepCopy())
 	}
