@@ -24,4 +24,4 @@ type GSLBConfigExpansion interface{}
 
 type GSLBHostRuleExpansion interface{}
 
-type MCIExpansion interface{}
+type MultiClusterIngressExpansion interface{}

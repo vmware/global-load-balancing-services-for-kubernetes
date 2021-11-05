@@ -42,10 +42,10 @@ type GSLBHostRuleListerExpansion interface{}
 // GSLBHostRuleNamespaceLister.
 type GSLBHostRuleNamespaceListerExpansion interface{}
 
-// MCIListerExpansion allows custom methods to be added to
-// MCILister.
-type MCIListerExpansion interface{}
+// MultiClusterIngressListerExpansion allows custom methods to be added to
+// MultiClusterIngressLister.
+type MultiClusterIngressListerExpansion interface{}
 
-// MCINamespaceListerExpansion allows custom methods to be added to
-// MCINamespaceLister.
-type MCINamespaceListerExpansion interface{}
+// MultiClusterIngressNamespaceListerExpansion allows custom methods to be added to
+// MultiClusterIngressNamespaceLister.
+type MultiClusterIngressNamespaceListerExpansion interface{}
