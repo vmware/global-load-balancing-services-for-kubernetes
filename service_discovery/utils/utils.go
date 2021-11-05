@@ -14,6 +14,30 @@
 
 package utils
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	AviSystemNS = "avi-system"
+
+	MCIObjType     = "MCI"     // key length: 3
+	SvcObjType     = "Service" // key length: 4
+	NodeObjType    = "Node"    // key length: 3
+	ClusterObjType = "Cluster" // key length: 2
+
+	NumIngestionWorkers = 4
 )
+
+func ValidateKey(key string) error {
+	keySplit := strings.Split(key, "/")
+	if len(keySplit) < 2 || len(keySplit) > 4 {
+		return fmt.Errorf("validation error for key %s: unexpected length", key)
+	}
+	return nil
+}
+
+func GetKey(args ...string) string {
+	return strings.Join(args, "/")
+}
