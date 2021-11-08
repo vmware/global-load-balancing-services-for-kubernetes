@@ -550,7 +550,7 @@ func GetTestDefaultGDPObject() *gdpalphav2.GlobalDeploymentPolicy {
 }
 
 func AddTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
-	newGdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Create(context.TODO(),
+	newGdpObj, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Create(context.TODO(),
 		gdp, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
@@ -560,7 +560,7 @@ func AddTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalpha
 }
 
 func UpdateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
-	newGdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(),
+	newGdpObj, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(),
 		gdp, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, err
@@ -570,7 +570,7 @@ func UpdateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpal
 }
 
 func GetTestGDP(t *testing.T, name, ns string) (*gdpalphav2.GlobalDeploymentPolicy, error) {
-	gdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(),
+	gdpObj, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(),
 		name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -582,7 +582,7 @@ func GetTestGDP(t *testing.T, name, ns string) (*gdpalphav2.GlobalDeploymentPoli
 func VerifyGDPStatus(t *testing.T, ns, name, status string) {
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() string {
-		gdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		gdpObj, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("failed to fetch GDP object: %v", err)
 			return ""
@@ -971,7 +971,7 @@ func buildGSLBHostRule(name, ns, gsFqdn string, sitePersistence *gslbalphav1.Sit
 }
 
 func deleteGSLBHostRule(t *testing.T, name, ns string) {
-	err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Delete(context.TODO(),
+	err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(ns).Delete(context.TODO(),
 		name, metav1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		t.Fatalf("error in deleting gslb hostrule %s/%s: %v", ns, name, err)
@@ -983,7 +983,7 @@ func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string, hmRefs []string,
 	status, errMsg string) *gslbalphav1.GSLBHostRule {
 
 	gslbHR := buildGSLBHostRule(name, ns, gsFqdn, sitePersistence, hmRefs, ttl)
-	newObj, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Create(context.TODO(),
+	newObj, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(ns).Create(context.TODO(),
 		gslbHR, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating a GSLB Host Rule object %v: %v", gslbHR, err)
@@ -997,7 +997,7 @@ func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string, hmRefs []string,
 }
 
 func updateGSLBHostRule(t *testing.T, gslbHRObj *gslbalphav1.GSLBHostRule, status, errMsg string) *gslbalphav1.GSLBHostRule {
-	newObj, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(gslbHRObj.Namespace).Update(context.TODO(),
+	newObj, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(gslbHRObj.Namespace).Update(context.TODO(),
 		gslbHRObj, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating a GSLB Host Rule object %v: %v", gslbHRObj, err)
@@ -1007,7 +1007,7 @@ func updateGSLBHostRule(t *testing.T, gslbHRObj *gslbalphav1.GSLBHostRule, statu
 }
 
 func getGSLBHostRule(t *testing.T, name, ns string) *gslbalphav1.GSLBHostRule {
-	obj, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Get(context.TODO(),
+	obj, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(ns).Get(context.TODO(),
 		name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error in getting GSLB HostRule %s/%s: %v", ns, name, err)
@@ -1018,7 +1018,7 @@ func getGSLBHostRule(t *testing.T, name, ns string) *gslbalphav1.GSLBHostRule {
 func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
-		gslbHR, err := gslbutils.GlobalGslbClient.AmkoV1alpha1().GSLBHostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		gslbHR, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("failed to fetch GSLBHostRule object %s/%s: %v", ns, name, err)
 		}

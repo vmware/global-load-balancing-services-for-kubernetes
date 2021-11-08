@@ -206,7 +206,7 @@ func WaitAndVerify(t *testing.T, keyList []string, timeoutExpected bool, wqKeyCh
 	return true, ""
 }
 
-func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberClustersFn) {
+func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberClustersFn) error {
 	// Initialize a foo kube client
 	fooKubeClient = k8sfake.NewSimpleClientset()
 	fooOshiftClient = oshiftfake.NewSimpleClientset()
@@ -233,6 +233,7 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance, nil)
 	barCtrl.Start(testStopCh)
 	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{barKubeClient})
+	return nil
 }
 
 func GetIngressKey(op, cname, ns, name, host string) string {

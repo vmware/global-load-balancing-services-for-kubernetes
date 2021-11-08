@@ -17,7 +17,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: [""]
     resources: ["events"]
-    verbs: ["create"]
+    verbs: ["create","patch","update"]
   - apiGroups: ["amko.vmware.com"]
     resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status", "gslbhostrules", "gslbhostrules/status", "amkoclusters", "amkoclusters/status"]
     verbs: ["get","watch","list","patch", "update"]

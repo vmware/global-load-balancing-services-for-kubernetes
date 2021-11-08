@@ -377,7 +377,7 @@ func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
 
 func AddTestGslbConfigObject() {
 	var f forGomega
-	gcClient := gslbutils.GlobalGslbClient
+	gcClient := gslbutils.AMKOControlConfig().GSLBClientset()
 
 	t := types.GomegaTestingT(f)
 	g := gomega.NewGomegaWithT(t)
@@ -400,7 +400,7 @@ func AddTestGslbConfigObject() {
 }
 
 func DeleteTestGDP(t *testing.T, ns, name string) error {
-	err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func TestGDP(t *testing.T) {
 			TTL: &ttl,
 		},
 	}
-	newGdp, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(aviSystemNS).Create(context.TODO(),
+	newGdp, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(aviSystemNS).Create(context.TODO(),
 		&testGDPObj, metav1.CreateOptions{})
 	if err != nil {
 		gslbutils.Errf("error in creating GDP Object: %v", err)
@@ -429,7 +429,7 @@ func TestGDP(t *testing.T) {
 	gslbutils.Logf("new gdp object: %v", newGdp)
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() string {
-		gdpObj, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies("avi-system").Get(context.TODO(), "abc-gdp", metav1.GetOptions{})
+		gdpObj, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies("avi-system").Get(context.TODO(), "abc-gdp", metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("failed to fetch GDP object: %v", err)
 			return ""
