@@ -378,7 +378,7 @@ func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
 
 func AddTestGslbConfigObject() {
 	var f forGomega
-	gcClient := gslbutils.GlobalGslbClient
+	gcClient := gslbutils.AMKOControlConfig().GSLBClientset()
 
 	t := types.GomegaTestingT(f)
 	g := gomega.NewGomegaWithT(t)

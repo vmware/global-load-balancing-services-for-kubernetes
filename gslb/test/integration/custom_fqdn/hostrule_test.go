@@ -37,7 +37,7 @@ var (
 )
 
 func getTestGDP(t *testing.T, name, ns string) *gdpalphav2.GlobalDeploymentPolicy {
-	gdp, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	gdp, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("failed to get GDP object %s: %v", name, err)
 	}
@@ -45,7 +45,7 @@ func getTestGDP(t *testing.T, name, ns string) *gdpalphav2.GlobalDeploymentPolic
 }
 
 func updateTestGDP(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) *gdpalphav2.GlobalDeploymentPolicy {
-	newGdp, err := gslbutils.GlobalGdpClient.AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
+	newGdp, err := gslbutils.AMKOControlConfig().GDPClientset().AmkoV1alpha2().GlobalDeploymentPolicies(gdp.Namespace).Update(context.TODO(), gdp, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("update on GDP %v failed with %v", gdp, err)
 	}
