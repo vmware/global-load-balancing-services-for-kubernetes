@@ -60,7 +60,6 @@ func ValidateMCIObj(mciObj *mciapi.MultiClusterIngress, clusterList []string) er
 		if config.ClusterContext == "" {
 			return fmt.Errorf("spec.config.clusterContext can't be empty")
 		}
-		gslbutils.Warnf("clusters: %v", cl)
 		_, clusterContextPresent := cl[config.ClusterContext]
 		if !clusterContextPresent {
 			return fmt.Errorf("cluster context %s is invalid and not part of clusterset", config.ClusterContext)
@@ -186,20 +185,18 @@ func DiffMCIServicesAndUpdateFilter(oldMCI, newMCI *mciapi.MultiClusterIngress) 
 	for _, s := range svcToDelete {
 		if err := svcutils.DeleteObjFromClustersetServiceFilter(s.Cluster(), s.Namespace(),
 			s.Name(), s.Port()); err != nil {
-			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in deleting service from filter",
-				s.Cluster(), s.Namespace(), s.Name())
+			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in deleting service from filter: %v",
+				s.Cluster(), s.Namespace(), s.Name(), err)
 			continue
 		}
-		// TODO: push the service key to layer 2
 	}
 	for _, s := range svcToAdd {
 		if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(),
 			s.Name(), s.Port()); err != nil {
-			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter",
-				s.Cluster(), s.Namespace(), s.Name())
+			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter: %v",
+				s.Cluster(), s.Namespace(), s.Name(), err)
 			continue
 		}
-		// TODO: push the service key to layer 2
 	}
 
 	return svcToAdd, svcToDelete, nil
@@ -213,8 +210,8 @@ func AddMCISvcListToFilter(mci *mciapi.MultiClusterIngress) error {
 	for _, s := range svcList {
 		if err := svcutils.AddObjToClustersetServiceFilter(s.Cluster(), s.Namespace(),
 			s.Name(), s.Port()); err != nil {
-			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter",
-				s.Cluster(), s.Namespace(), s.Name())
+			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding service to filter: %v",
+				s.Cluster(), s.Namespace(), s.Name(), err)
 			continue
 		}
 		// TODO: push the service key to layer 2

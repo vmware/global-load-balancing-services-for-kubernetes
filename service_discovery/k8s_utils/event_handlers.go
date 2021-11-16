@@ -39,7 +39,6 @@ func SvcEventHandlers(numWorkers uint32, c *K8sClusterConfig) cache.ResourceEven
 					c.Name(), svc.GetNamespace(), svc.GetName())
 				key := utils.GetKey(utils.SvcObjType, c.Name(), svc.GetNamespace(), svc.GetName())
 				bkt := containerutils.Bkt(c.Name(), numWorkers)
-				gslbutils.Logf("cluster: %s, length of queue: %d, bkt: %d", c.Name(), len(c.GetWorkqueue()), bkt)
 				c.workqueue[bkt].AddRateLimited(key)
 				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: pushed service key to ingestion queue",
 					c.Name(), svc.GetNamespace(), svc.GetName())
@@ -66,7 +65,7 @@ func SvcEventHandlers(numWorkers uint32, c *K8sClusterConfig) cache.ResourceEven
 		UpdateFunc: func(old, curr interface{}) {
 			oldSvc := old.(*corev1.Service).DeepCopy()
 			svc := curr.(*corev1.Service).DeepCopy()
-			gslbutils.Logf("cluster: %s, namespace: %s, svc: %s, msg: updated service", c.Name(),
+			gslbutils.Logf("cluster: %s, namespace: %s, svc: %s, msg: service updated", c.Name(),
 				svc.GetNamespace(), svc.GetName())
 
 			if oldSvc.GetResourceVersion() == svc.GetResourceVersion() {
@@ -74,7 +73,8 @@ func SvcEventHandlers(numWorkers uint32, c *K8sClusterConfig) cache.ResourceEven
 			}
 			if svcutils.IsServiceOfAcceptedType(oldSvc) || svcutils.IsServiceOfAcceptedType(svc) {
 				if svcutils.IsObjectInClustersetFilter(c.Name(), oldSvc.GetNamespace(), oldSvc.GetName()) {
-					gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service updated, present in filter, key will be published")
+					gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service updated, present in filter, key will be published",
+						c.Name(), svc.GetNamespace(), svc.GetName())
 					key := utils.GetKey(utils.SvcObjType, c.Name(), svc.GetNamespace(), svc.GetName())
 					bkt := containerutils.Bkt(c.Name(), numWorkers)
 					c.workqueue[bkt].AddRateLimited(key)
