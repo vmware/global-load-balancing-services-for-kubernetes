@@ -42,10 +42,10 @@ func IsServiceOfAcceptedType(svcObj *v1.Service) bool {
 // ClustersetServiceFilter is a global filter for which key is the cluster name and the value
 // is a ClusterServiceFilter. This is initialized during bootup.
 var clustersetServiceFilter map[string]*NSServiceFilter
-var clustersetServiceFilterSync sync.Once
+var clustersetServiceFilterOnce sync.Once
 
 func GetClustersetServiceFilter() map[string]*NSServiceFilter {
-	clustersetServiceFilterSync.Do(func() {
+	clustersetServiceFilterOnce.Do(func() {
 		clustersetServiceFilter = make(map[string]*NSServiceFilter)
 	})
 	return clustersetServiceFilter
@@ -56,11 +56,13 @@ func InitClustersetServiceFilter(clusters []string) (map[string]*NSServiceFilter
 	for _, c := range clusters {
 		csf[c] = InitNSServiceFilter()
 	}
+	gslbutils.Warnf("init clusterset filter: %v", csf)
 	return csf, nil
 }
 
 func AddObjToClustersetServiceFilter(cname, ns, obj string, port int32) error {
 	csf := GetClustersetServiceFilter()
+	gslbutils.Warnf("clusterset filter: %v", csf)
 	nsvcf, clusterPresent := csf[cname]
 	if !clusterPresent {
 		return fmt.Errorf("cluster %s not present in filter", cname)

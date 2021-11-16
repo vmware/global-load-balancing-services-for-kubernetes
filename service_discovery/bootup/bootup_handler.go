@@ -30,6 +30,10 @@ import (
 )
 
 func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Clientset) error {
+	clusterList := clusterset.GetClusterList(clusterConfigs)
+	// initialize the service filter
+	svcutils.InitClustersetServiceFilter(clusterList)
+
 	// fetch all the MCI objects, validate each object and add them to filter
 	mciObjs, err := mcics.AmkoV1alpha1().MultiClusterIngresses(utils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
@@ -40,10 +44,6 @@ func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Client
 		gslbutils.Logf("no MCI objects present in the cluster, returning")
 		return nil
 	}
-
-	clusterList := clusterset.GetClusterList(clusterConfigs)
-	// initialize the service filter
-	svcutils.InitClustersetServiceFilter(clusterList)
 
 	// the following loop should build the clusterset service filter. This filter will then
 	// be used by the services from the member clusters.

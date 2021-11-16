@@ -313,18 +313,6 @@ func TestGCGDPExist(k8sClient client.Client) {
 	Expect(len(gdpList.Items)).Should(Equal(1))
 }
 
-// func VerifyTestAMKOClusterObjectSuccess(k8sClient client.Client, statusType string) {
-// 	Eventually(func() string {
-// 		var obj amkovmwarecomv1alpha1.AMKOCluster
-// 		Expect(k8sClient.Get(context.TODO(),
-// 			types.NamespacedName{
-// 				Name:      TestAMKOClusterName,
-// 				Namespace: AviSystemNS},
-// 			&obj)).Should(Succeed())
-// 		return getTestAMKOClusterStatusReason(obj.Status, statusType)
-// 	}, 5*time.Second, 1*time.Second).Should(Equal("Federation successful"))
-// }
-
 func VerifyTestAMKOClusterStatus(k8sClient client.Client, statusType, statusMsg, failureMsg string) {
 	Eventually(func() map[string]string {
 		var obj amkovmwarecomv1alpha1.AMKOCluster
