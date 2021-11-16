@@ -33,18 +33,27 @@ spec:
               service:
                 description: "name of the service in the backend cluster"
                 type: "string"
-              endpoints:
-                description: "endpoints for this service in the backend cluster"
+              svcPorts:
+                description: "ports specified for this service in the MCI object"
                 type: array
                 items:
                   type: object
                   properties:
-                    ip:
-                      description: "IP address of the backend server"
-                      type: "string"
                     port:
-                      description: "Port number of the backend server"
+                      description: "service port specified for this service in the MCI object"
                       type: integer
+                    endpoints:
+                      description: "endpoints for this service in the backend cluster"
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          ip:
+                            description: "IP address of the backend server"
+                            type: "string"
+                          port:
+                            description: "Port number of the backend server"
+                            type: integer
 
         required:
         - spec

@@ -166,12 +166,16 @@ type ServiceImportList struct {
 }
 
 type ServiceImportSpec struct {
-	Cluster   string   `json:"cluster,omitempty"`
-	Namespace string   `json:"namespace,omitempty"`
-	Service   string   `json:"service,omitempty"`
-	Endpoints []IPPort `json:"endpoints,omitempty"`
+	Cluster   string        `json:"cluster,omitempty"`
+	Namespace string        `json:"namespace,omitempty"`
+	Service   string        `json:"service,omitempty"`
+	SvcPorts  []BackendPort `json:"svcPorts,omitempty"`
 }
 
+type BackendPort struct {
+	Port      int32    `json:"port,omitempty"`
+	Endpoints []IPPort `json:"endpoints,omitempty"`
+}
 type IPPort struct {
 	IP   string `json:"ip,omitempty"`
 	Port int32  `json:"port,omitempty"`
