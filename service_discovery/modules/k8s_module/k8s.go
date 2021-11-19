@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	mciinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
+	mciinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/bootup"
 	clusterset "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/clusterset"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"

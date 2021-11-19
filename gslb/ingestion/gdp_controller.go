@@ -26,11 +26,11 @@ import (
 
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 
-	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
-	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
-	gdpscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned/scheme"
-	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
-	gdplisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/listers/amko/v1alpha2"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
+	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/clientset/versioned"
+	gdpscheme "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/clientset/versioned/scheme"
+	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/informers/externalversions"
+	gdplisters "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/listers/amko/v1alpha2"
 
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"

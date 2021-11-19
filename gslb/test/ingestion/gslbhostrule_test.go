@@ -8,9 +8,9 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/fake"
-	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/fake"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/util/workqueue"
 )

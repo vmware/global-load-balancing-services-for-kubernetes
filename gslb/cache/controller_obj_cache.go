@@ -24,14 +24,14 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
-	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vmware/alb-sdk/go/clients"
 	"github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/alb-sdk/go/session"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	apimodels "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )

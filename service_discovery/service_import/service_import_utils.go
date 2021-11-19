@@ -21,9 +21,9 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	siapi "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
-	amkoInformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions/amko/v1alpha1"
+	siapi "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	amkoInformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/amko/v1alpha1"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"

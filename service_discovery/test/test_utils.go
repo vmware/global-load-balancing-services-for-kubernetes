@@ -26,7 +26,7 @@ import (
 	"encoding/json"
 
 	. "github.com/onsi/gomega"
-	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
+	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
