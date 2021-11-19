@@ -22,10 +22,10 @@ import (
 const (
 	AviSystemNS = "avi-system"
 
-	MCIObjType     = "MCI"     // key length: 3
-	SvcObjType     = "Service" // key length: 4
-	NodeObjType    = "Node"    // key length: 3
-	ClusterObjType = "Cluster" // key length: 2
+	MCIObjType     = "MCI"
+	SvcObjType     = "Service"
+	NodeObjType    = "Node"
+	ClusterObjType = "Cluster"
 
 	NumIngestionWorkers = 4
 )
