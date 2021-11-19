@@ -224,6 +224,14 @@ func (sih *ServiceImportHandler) DeleteService(cname, ns, name string) error {
 	return nil
 }
 
+func (sih *ServiceImportHandler) GetService(cname, ns, name string) (*siapi.ServiceImport, error) {
+	obj, err := sih.serviceImportController.GetServiceImportObjectFromInformerCache(cname, ns, name)
+	if err != nil {
+		return nil, fmt.Errorf("error in getting object from informer cache: %v", err)
+	}
+	return obj, err
+}
+
 func (sih *ServiceImportHandler) GetAllServiceImportsForCluster(cname string) ([]*siapi.ServiceImport, error) {
 	objs, err := sih.serviceImportController.GetServiceImportsFromClusterIndexer(cname)
 	if err != nil {
@@ -237,15 +245,17 @@ func GetServiceImportChecksum(si *siapi.ServiceImport) uint32 {
 		containerutils.Hash(si.Spec.Namespace) +
 		containerutils.Hash(si.Spec.Service)
 	epList := []string{}
-	for _, ep := range si.Spec.Endpoints {
-		epList = append(epList, ep.IP+"-"+strconv.Itoa(int(ep.Port)))
+	for _, sp := range si.Spec.SvcPorts {
+		for _, ep := range sp.Endpoints {
+			epList = append(epList, strconv.Itoa(int(sp.Port))+"-"+ep.IP+"-"+strconv.Itoa(int(ep.Port)))
+		}
 	}
 	sort.Strings(epList)
 	result += containerutils.Hash(containerutils.Stringify(epList))
 	return result
 }
 
-func BuildServiceImportFromService(cname, ns, name string, endpoints []siapi.IPPort) *siapi.ServiceImport {
+func BuildServiceImportFromService(cname, ns, name string, svcPorts []siapi.BackendPort) *siapi.ServiceImport {
 
 	// generate a name, namespace should be avi-system for now
 	si := siapi.ServiceImport{
@@ -257,7 +267,7 @@ func BuildServiceImportFromService(cname, ns, name string, endpoints []siapi.IPP
 			Cluster:   cname,
 			Namespace: ns,
 			Service:   name,
-			Endpoints: endpoints,
+			SvcPorts:  svcPorts,
 		},
 	}
 	return &si
@@ -267,13 +277,18 @@ func GetNameForServiceImport(cname, ns, name string) string {
 	return cname + "--" + ns + "--" + name
 }
 
-func BuildEndpointsForService(cname, ns, svcName string, svc *corev1.Service) ([]siapi.IPPort, error) {
-	var svcPorts []int32
+func BuildPortListForService(cname, ns, svcName string, svc *corev1.Service) ([]siapi.BackendPort, error) {
+	svcPorts := []siapi.BackendPort{}
+	nodePorts := map[int32]int32{}
 	for _, p := range svc.Spec.Ports {
 		if svcutils.IsSvcPortInClustersetFilter(cname, svc.GetNamespace(), svc.GetName(), p.Port) {
-			gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service with port present, will check for service import",
-				cname, svc.GetNamespace(), svc.GetName())
-			svcPorts = append(svcPorts, p.NodePort)
+			gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service with port present", cname,
+				svc.GetNamespace(), svc.GetName())
+			nodePorts[p.Port] = p.NodePort
+			svcPorts = append(svcPorts, siapi.BackendPort{
+				Port:      p.Port,
+				Endpoints: []siapi.IPPort{},
+			})
 		}
 	}
 
@@ -282,16 +297,16 @@ func BuildEndpointsForService(cname, ns, svcName string, svc *corev1.Service) ([
 	if err != nil {
 		return nil, fmt.Errorf("error in getting node list: %v", err)
 	}
-	endpoints := []siapi.IPPort{}
-	for _, node := range nodeIPs {
-		for _, port := range svcPorts {
-			endpoints = append(endpoints, siapi.IPPort{
+
+	for idx, sp := range svcPorts {
+		for _, node := range nodeIPs {
+			svcPorts[idx].Endpoints = append(svcPorts[idx].Endpoints, siapi.IPPort{
 				IP:   node,
-				Port: port,
+				Port: nodePorts[sp.Port],
 			})
 		}
 	}
-	return endpoints, nil
+	return svcPorts, nil
 }
 
 func AddIndexer(siInformer amkoInformers.ServiceImportInformer) {

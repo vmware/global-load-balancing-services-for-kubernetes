@@ -154,7 +154,7 @@ func (siController *ServiceImportController) UpdateServiceImportObj(obj *siapi.S
 	spec["cluster"] = obj.Spec.Cluster
 	spec["namespace"] = obj.Spec.Namespace
 	spec["service"] = obj.Spec.Service
-	spec["endpoints"] = obj.Spec.Endpoints
+	spec["svcPorts"] = obj.Spec.SvcPorts
 
 	patchPayload, err := json.Marshal(map[string]map[string]interface{}{
 		"spec": spec,

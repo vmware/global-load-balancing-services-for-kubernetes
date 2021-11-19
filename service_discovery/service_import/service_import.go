@@ -21,8 +21,10 @@ import (
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
+	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func HandleMCIObject(ns, name string) {
@@ -52,7 +54,6 @@ func HandleServiceObject(cname, ns, name string, args ...*v1.Service) {
 		svc, err = k8sutils.GetSvcInfoFromSharedClusters(cname, ns, name)
 		if err != nil {
 			if k8sutils.IsErrorTypeNotFound(err) {
-				// TODO: this is a service deletion event, delete this service's entry
 				if err := siHandler.DeleteService(cname, ns, name); err != nil {
 					gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: cluster service deleted, but error in deleting service import: %v",
 						cname, ns, name, err)
@@ -69,15 +70,36 @@ func HandleServiceObject(cname, ns, name string, args ...*v1.Service) {
 
 	gslbutils.Logf("cluster: %s, ns: %s, svc: %s, msg: service added, will update endpoint",
 		cname, ns, name)
+	// check if service is of accepted type
+	if !svcutils.IsServiceOfAcceptedType(svc) {
+		_, err := siHandler.GetService(cname, ns, name)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: error in service import lookup: %v",
+					cname, ns, name, err)
+				return
+			} else {
+				gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service import doesn't exist and service is of unaccepted type, nothing to do",
+					cname, ns, name)
+			}
+		}
+		gslbutils.Logf("cluster: %s, ns: %s, name: %s, msg: service import found for unaccepted service type, will be deleted",
+			cname, ns, name, svc.Spec.Type)
+		if err := siHandler.DeleteService(cname, ns, name); err != nil {
+			gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in deleting service import: %v",
+				cname, ns, name, err)
+			return
+		}
+	}
 
 	// svcPorts contains the ports present in the filter for this service
-	endpoints, err := BuildEndpointsForService(cname, ns, name, svc)
+	svcPorts, err := BuildPortListForService(cname, ns, name, svc)
 	if err != nil {
 		gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in building service endpoints: %v", err,
 			cname, ns, name)
 		return
 	}
-	if len(endpoints) == 0 {
+	if len(svcPorts) == 0 {
 		// endpoint list is empty, delete the service import object
 		gslbutils.Errf("cluster: %s. ns: %s, name: %s, msg: endpoint list is empty for this service, service import object will be deleted",
 			cname, ns, name)
@@ -89,7 +111,7 @@ func HandleServiceObject(cname, ns, name string, args ...*v1.Service) {
 			cname, ns, name)
 		return
 	}
-	si := BuildServiceImportFromService(cname, ns, name, endpoints)
+	si := BuildServiceImportFromService(cname, ns, name, svcPorts)
 	err = siHandler.AddUpdateService(si)
 	if err != nil {
 		gslbutils.Errf("cluster: %s, ns: %s, name: %s, msg: error in adding/updating service: %v", cname,
