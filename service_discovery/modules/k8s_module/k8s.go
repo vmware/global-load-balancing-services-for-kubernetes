@@ -79,7 +79,7 @@ func Init() {
 func InitServiceDiscoveryConfigAndInformers(cfg *rest.Config, stopCh <-chan struct{}) {
 	k8sSDConfig, err := k8sutils.InitK8sServiceDiscoveryConfig(cfg)
 	if err != nil {
-		gslbutils.Errf("%v", err)
+		gslbutils.Errf("error in initializing kubernetes service discovery config: %v", err)
 		panic(err.Error())
 	}
 
@@ -146,7 +146,7 @@ func RunQueues(stopCh <-chan struct{}) {
 
 func RunControllers(mciCtrl *mciutils.MCIController, siCtrl *serviceimport.ServiceImportController, stopCh <-chan struct{}) {
 	if err := mciCtrl.Run(stopCh); err != nil {
-		gslbutils.Logf("error running MCI controller: %v", err)
+		gslbutils.Errf("error running MCI controller: %v", err)
 		log.Panic("error running MCI controller")
 	}
 	if err := siCtrl.Run(stopCh); err != nil {

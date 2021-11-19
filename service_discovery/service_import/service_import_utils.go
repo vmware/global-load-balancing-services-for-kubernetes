@@ -297,7 +297,7 @@ func BuildPortListForService(cname, ns, svcName string, svc *corev1.Service) ([]
 	if err != nil {
 		return nil, fmt.Errorf("error in getting node list: %v", err)
 	}
-	// endpoints := []siapi.IPPort{}
+
 	for idx, sp := range svcPorts {
 		for _, node := range nodeIPs {
 			svcPorts[idx].Endpoints = append(svcPorts[idx].Endpoints, siapi.IPPort{
