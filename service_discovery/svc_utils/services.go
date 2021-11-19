@@ -217,7 +217,6 @@ func (ss *ServiceCache) IsSvcPortPresent(svc string, port int32) bool {
 
 type PortCache struct {
 	portSet map[int32]interface{}
-	lock    sync.RWMutex
 }
 
 func InitPortCache(port int32) *PortCache {
@@ -230,25 +229,15 @@ func InitPortCache(port int32) *PortCache {
 }
 
 func (pc *PortCache) Add(port int32) {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
-
 	pc.portSet[port] = struct{}{}
-	gslbutils.Logf("ports: %v", pc.portSet)
 }
 
 func (pc *PortCache) Delete(port int32) int {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
-
 	delete(pc.portSet, port)
 	return len(pc.portSet)
 }
 
 func (pc *PortCache) IsPortPresent(port int32) bool {
-	pc.lock.RLock()
-	defer pc.lock.RUnlock()
-
 	_, portPresent := pc.portSet[port]
 	return portPresent
 }
