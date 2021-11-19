@@ -25,3 +25,5 @@ type GSLBConfigExpansion interface{}
 type GSLBHostRuleExpansion interface{}
 
 type MultiClusterIngressExpansion interface{}
+
+type ServiceImportExpansion interface{}

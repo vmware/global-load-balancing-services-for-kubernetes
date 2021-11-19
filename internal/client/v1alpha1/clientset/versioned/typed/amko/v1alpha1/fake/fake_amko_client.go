@@ -44,6 +44,10 @@ func (c *FakeAmkoV1alpha1) MultiClusterIngresses(namespace string) v1alpha1.Mult
 	return &FakeMultiClusterIngresses{c, namespace}
 }
 
+func (c *FakeAmkoV1alpha1) ServiceImports(namespace string) v1alpha1.ServiceImportInterface {
+	return &FakeServiceImports{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeAmkoV1alpha1) RESTClient() rest.Interface {
