@@ -29,6 +29,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
+	gouuid "github.com/google/uuid"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -197,7 +198,10 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 	// Event handler for when GSLB Config change
 	gslbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			AddGSLBConfigFunc(obj, initializeMemberClusters)
+			err := AddGSLBConfigFunc(obj, initializeMemberClusters)
+			if err != nil {
+				gslbutils.Errf("error in adding GSLBConfig object: %v", err)
+			}
 		},
 		// Update not allowed for the GSLB Cluster Config object
 		DeleteFunc: func(obj interface{}) {
@@ -495,6 +499,30 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 	return nil
 }
 
+func GetUUIDFromGSLBConfig(gcObj *gslbalphav1.GSLBConfig) error {
+	annotation := gcObj.GetAnnotations()
+	// if a valid UUID is present in the GSLBConfig object, we set it for the current AMKO instance
+	if v, ok := annotation[gslbutils.AmkoUuid]; ok {
+		parsedUUID, err := gouuid.Parse(v)
+		if err != nil {
+			return fmt.Errorf("error in parsing annotation for UUID %s: %v", v, err)
+		}
+		gslbutils.AMKOControlConfig().SetCreatedByField("amko-" + parsedUUID.String())
+		return nil
+	}
+	gslbutils.Warnf("no annotation present in GSLBConfig object for %s, will generate a new one", gslbutils.AmkoUuid)
+	uuidVal, err := gouuid.NewUUID()
+	if err != nil {
+		return fmt.Errorf("error in generating new UUID for this AMKO instance: %v", err)
+	}
+	uuidStr := uuidVal.String()
+	gslbutils.AMKOControlConfig().SetCreatedByField("amko-" + uuidStr)
+	if err := gslbutils.UpdateAmkoUuidSLBConfig(gcObj, uuidStr); err != nil {
+		return fmt.Errorf("error in updating GSLBConfig object: %v", err)
+	}
+	return nil
+}
+
 // AddGSLBConfigObject parses the gslb config object and starts informers
 // for the member clusters.
 func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters InitializeGSLBMemberClustersFn) error {
@@ -525,6 +553,11 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 		gslbutils.UpdateGSLBConfigStatus(InvalidConfigMsg + err.Error())
 		return err
 	}
+	// check the AMKO UUID annotation and set it as "created_by" for this instance
+	if err := GetUUIDFromGSLBConfig(gslbObj); err != nil {
+		return fmt.Errorf("error in setting a new UUID for this AMKO instance: %v", err)
+	}
+
 	utils.AviLog.SetLevel(gc.Spec.LogLevel)
 	gslbutils.SetCustomFqdnMode(gc.Spec.UseCustomGlobalFqdn)
 

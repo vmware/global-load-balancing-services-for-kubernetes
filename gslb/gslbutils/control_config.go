@@ -31,8 +31,9 @@ type amkoControlConfig struct {
 
 	amkoEventRecorder *EventRecorder
 
-	publishGDPStatus  bool
-	publishGSLBStatus bool
+	publishGDPStatus   bool
+	publishGSLBStatus  bool
+	amkoCreatedByField string
 }
 
 var amkoControlConfigInstance *amkoControlConfig
@@ -104,4 +105,12 @@ func (c *amkoControlConfig) PodEventf(eventType, reason, message string, formatA
 			c.EventRecorder().Recorder.Event(&v1.Pod{ObjectMeta: *c.amkoPodObjectMeta}, eventType, reason, message)
 		}
 	}
+}
+
+func (c *amkoControlConfig) SetCreatedByField(val string) {
+	c.amkoCreatedByField = val
+}
+
+func (c *amkoControlConfig) CreatedByField() string {
+	return c.amkoCreatedByField
 }

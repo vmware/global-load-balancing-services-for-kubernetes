@@ -241,7 +241,8 @@ var Warnf = utils.AviLog.Warnf
 var Debugf = utils.AviLog.Debugf
 
 func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
-	persistenceProfileRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings) uint32 {
+	persistenceProfileRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings,
+	createdBy string) uint32 {
 
 	sort.Strings(serverList)
 	sort.Strings(domainList)
@@ -252,7 +253,8 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 	cksum := utils.Hash(utils.Stringify(serverList)) +
 		utils.Hash(utils.Stringify(domainList)) +
 		utils.Hash(utils.Stringify(memberObjs)) +
-		utils.Hash(utils.Stringify(hmNames))
+		utils.Hash(utils.Stringify(hmNames)) +
+		utils.Hash(utils.Stringify(createdBy))
 	if ttl != nil {
 		cksum += utils.Hash(utils.Stringify(*ttl))
 	}
@@ -267,13 +269,14 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 
 // description is taken as []string
 // For path based Hms, the checksum is computed for all paths
-func GetGSLBHmChecksum(hmType string, port int32, description []string) uint32 {
+func GetGSLBHmChecksum(hmType string, port int32, description []string, createdBy string) uint32 {
 	portStr := strconv.FormatInt(int64(port), 10)
 	checksum := utils.Hash(hmType) + utils.Hash(portStr)
 	sort.Strings(description)
 	for _, desc := range description {
 		checksum = checksum + utils.Hash(desc)
 	}
+	checksum += utils.Hash(createdBy)
 	return checksum
 }
 
@@ -324,6 +327,29 @@ func SetGSLBConfigObj(gc *gslbalphav1.GSLBConfig) {
 	defer gcObj.configLock.Unlock()
 
 	gcObj.configObj = gc
+}
+
+func UpdateAmkoUuidSLBConfig(gc *gslbalphav1.GSLBConfig, uuid string) error {
+	annotations := gc.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[AmkoUuid] = uuid
+
+	patchPayload := map[string]interface{}{
+		"metadata": map[string]map[string]string{
+			"annotations": annotations,
+		},
+	}
+	payloadBytes, err := json.Marshal(patchPayload)
+	if err != nil {
+		return fmt.Errorf("error in marshalling patchpayload: %v", patchPayload)
+	}
+	if _, err := AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBConfigs(gcObj.configObj.Namespace).Patch(context.TODO(),
+		gcObj.configObj.Name, types.MergePatchType, payloadBytes, metav1.PatchOptions{}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func UpdateGSLBConfigStatus(msg string) error {
