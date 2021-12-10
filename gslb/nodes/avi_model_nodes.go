@@ -172,7 +172,7 @@ func (hm HealthMonitor) GetPathHMDescription(gsName, path string) string {
 }
 
 func (hm HealthMonitor) getChecksum(hmDescription []string) uint32 {
-	return gslbutils.GetGSLBHmChecksum(hm.HMProtocol, hm.Port, hmDescription)
+	return gslbutils.GetGSLBHmChecksum(hm.HMProtocol, hm.Port, hmDescription, gslbutils.AMKOControlConfig().CreatedByField())
 }
 
 func (hm HealthMonitor) getCopy() HealthMonitor {
@@ -278,7 +278,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
-		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm)
+		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm, gslbutils.AMKOControlConfig().CreatedByField())
 }
 
 // GetMemberRouteList returns a list of member objects

@@ -107,4 +107,10 @@ const (
 
 	// Wait time before a new rest call is made for retries
 	RestSleepTime = 5 * time.Second
+
+	// AMKO UUID annotation
+	AmkoUuid = "amko.vmware.com/amko-uuid"
+
+	// AMKO Created by label key for HM labels
+	CreatedByLabelKey = "created-by"
 )

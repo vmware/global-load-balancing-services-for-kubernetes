@@ -4,7 +4,8 @@ go 1.15
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
+	github.com/google/uuid v1.3.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.14.0
 	github.com/openshift/api v3.9.0+incompatible

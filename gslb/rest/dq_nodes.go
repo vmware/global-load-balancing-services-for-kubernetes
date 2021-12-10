@@ -30,6 +30,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vmware/alb-sdk/go/clients"
+	"github.com/vmware/alb-sdk/go/models"
 	avimodels "github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/alb-sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
@@ -706,6 +707,15 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 	}
 }
 
+func GetHmMarkers() []*avimodels.RoleFilterMatchLabel {
+	key := gslbutils.CreatedByLabelKey
+	ml := &models.RoleFilterMatchLabel{
+		Key:    &key,
+		Values: []string{gslbutils.AMKOControlConfig().CreatedByField()},
+	}
+	return []*avimodels.RoleFilterMatchLabel{ml}
+}
+
 func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restMethod utils.RestMethod,
 	hmCacheObj *avicache.AviHmObj, key string, pathHm string) *utils.RestOp {
 	gslbutils.Logf("key: %s, gsName: %s, msg: creating rest operation for health monitor", key, gsMeta.Name)
@@ -723,6 +733,8 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	successfulChecks := int32(3)
 	failedChecks := int32(3)
 
+	hmMarkers := GetHmMarkers()
+
 	aviGsHm := avimodels.HealthMonitor{
 		IsFederated:            &isFederated,
 		Name:                   &hmName,
@@ -734,6 +746,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 		ReceiveTimeout:         &receiveTimeout,
 		SuccessfulChecks:       &successfulChecks,
 		FailedChecks:           &failedChecks,
+		Markers:                hmMarkers,
 	}
 
 	if pathHm != "" {
@@ -912,7 +925,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 
 	// Now, build the GSLB service
 	ctrlHealthStatusEnabled := true
-	createdBy := gslbutils.AmkoUser
+	createdBy := gslbutils.AMKOControlConfig().CreatedByField()
 	gsEnabled := true
 	healthMonitorScope := "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS"
 	isFederated := true
@@ -1190,7 +1203,20 @@ func (restOp *RestOperations) AviGSHmCacheAdd(operation *utils.RestOp, key strin
 			operation.Response, operation.Err)
 		return errors.New("rest operation errored")
 	}
+	hmObj, ok := operation.Obj.(models.HealthMonitor)
+	if !ok {
+		gslbutils.Warnf("key: %s, resp: %s, msg: unable to find health monitor object in response", key,
+			operation.Response)
+		return errors.New("health monitor not found")
+	}
 
+	var createdBy string
+	parsedMarkers := hmObj.Markers
+	if parsedMarkers == nil {
+		gslbutils.Warnf("key: %s, resp: %s, msg: no markers present in the response", key, operation.Response)
+		return errors.New("markers not found")
+	}
+	gslbutils.Warnf("markers from the parsed object: %v", parsedMarkers)
 	respElem, err := RestRespArrToObjByType(operation, "healthmonitor", key)
 	if err != nil || respElem == nil {
 		gslbutils.Warnf("key: %s, resp: %s, msg: unable to find health monitor object in resp", key, operation.Response)
@@ -1223,7 +1249,13 @@ func (restOp *RestOperations) AviGSHmCacheAdd(operation *utils.RestOp, key strin
 		return errors.New("description not present in response")
 	}
 
-	cksum := gslbutils.GetGSLBHmChecksum(hmType, port, []string{description})
+	for _, m := range parsedMarkers {
+		if *m.Key == gslbutils.CreatedByLabelKey {
+			createdBy = m.Values[0]
+		}
+	}
+
+	cksum := gslbutils.GetGSLBHmChecksum(hmType, port, []string{description}, createdBy)
 	k := avicache.TenantName{Tenant: operation.Tenant, Name: name}
 	addNew := false
 	hmCache, ok := restOp.hmCache.AviHmCacheGet(k)
@@ -1291,7 +1323,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 		return errors.New("uuid not present in response")
 	}
 
-	cksum, gsMembers, memberObjs, hms, err := avicache.GetDetailsFromAviGSLB(respElem)
+	cksum, gsMembers, memberObjs, hms, createdBy, err := avicache.GetDetailsFromAviGSLB(respElem)
 	if err != nil {
 		gslbutils.Errf("key: %s, resp: %v, msg: error in getting checksum for gslb svc: %s", key, respElem, err)
 	}
@@ -1306,6 +1338,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			gsCacheObj.Members = gsMembers
 			gsCacheObj.K8sObjects = memberObjs
 			gsCacheObj.HealthMonitor = hms
+			gsCacheObj.CreatedBy = createdBy
 			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: updated GS cache\n", key, k,
 				utils.Stringify(gsCacheObj)))
 		} else {
@@ -1320,6 +1353,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 				K8sObjects:       memberObjs,
 				HealthMonitor:    hms,
 				CloudConfigCksum: cksum,
+				CreatedBy:        createdBy,
 			}
 			restOp.cache.AviCacheAdd(k, &gsCacheObj)
 			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: added GS to the cache", key, k,
@@ -1335,6 +1369,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			K8sObjects:       memberObjs,
 			HealthMonitor:    hms,
 			CloudConfigCksum: cksum,
+			CreatedBy:        createdBy,
 		}
 		restOp.cache.AviCacheAdd(k, &gsCacheObj)
 		gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: added GS to the cache", key, k,

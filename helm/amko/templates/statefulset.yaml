@@ -40,6 +40,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
           env:
+          - name: XDG_CACHE_HOME
+            value: "/tmp"
           - name: GSLB_CONFIG
             valueFrom:
               secretKeyRef:
@@ -80,6 +82,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.federation.image.repository }}:{{ .Chart.AppVersion }}"
           env:
+          - name: XDG_CACHE_HOME
+            value: "/tmp"
           - name: GSLB_CONFIG
             valueFrom:
               secretKeyRef:
