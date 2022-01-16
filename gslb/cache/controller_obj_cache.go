@@ -151,8 +151,8 @@ func (h *AviHmCache) AviHmCachePopulate(client *clients.AviClient,
 func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...string) error {
 	var nextPageURI string
 	uri := "/api/healthmonitor?page_size=100"
-	queryParams := "&label_key=" + gslbutils.CreatedByLabelKey + "&label_value=" + gslbutils.AMKOControlConfig().CreatedByField()
-	v1Param := false
+
+	matchCreatedBy := gslbutils.AMKOControlConfig().CreatedByField()
 
 	// parse all pages with Health monitors till we hit the last page
 	for {
@@ -161,17 +161,18 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
-		result, err := gslbutils.GetUriFromAvi(uri+queryParams, client, false)
+		// first fetch all federated HMs. All federated HMs can be grouped into 3 categories:
+		// 1. HMs created by this AMKO instance
+		// 2. Custom federated HMs created by the user
+		// 3. HMs created by other AMKO instances
+		// Category 1 and 2 HMs are the ones that we need to store in the cache. Category 3 HMs
+		// must be ignored and not stored in the HM cache.
+		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client, false)
 		if err != nil {
 			return errors.New("object: AviCache, msg: HealthMonitor get URI " + uri + " returned error: " + err.Error())
 		}
 
 		gslbutils.Logf("fetched %d Health Monitors", result.Count)
-		if result.Count == 0 && v1Param {
-			queryParams = "&is_federated=true"
-			v1Param = true
-			continue
-		}
 
 		elems := make([]json.RawMessage, result.Count)
 		err = json.Unmarshal(result.Results, &elems)
@@ -204,10 +205,20 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 			}
 
 			var createdBy string
+			var createdByDifferentAMKO bool
 			for _, m := range hm.Markers {
-				if *m.Key == gslbutils.CreatedByLabelKey {
+				if m.Key != nil && *m.Key == gslbutils.CreatedByLabelKey {
+					// add only those health monitors to the cache whose labels match this
+					// AMKO's created by field, ignore all other AMKO's health monitors
+					if createdBy != matchCreatedBy {
+						createdByDifferentAMKO = true
+						break
+					}
 					createdBy = m.Values[0]
 				}
+			}
+			if createdByDifferentAMKO {
+				continue
 			}
 			cksum := gslbutils.GetGSLBHmChecksum(*hm.Type, monitorPort, []string{description}, createdBy)
 			hmCacheObj := AviHmObj{
