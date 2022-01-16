@@ -565,6 +565,7 @@ func (v *AviGSObjectGraph) checkAndUpdateNonPathHealthMonitor(objType string, is
 	v.Hm.Name = hmName
 	v.Hm.Port = newPort
 	v.Hm.HMProtocol = hmProtocol
+	v.Hm.Type = NonPathHM
 }
 
 func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
