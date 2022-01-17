@@ -27,8 +27,10 @@ spec:
   trafficSplit:
     - cluster: cluster1
       weight: 8
+      priority: 2
     - cluster: cluster2
       weight: 2
+      priority: 3
 
   ttl: 10
 
@@ -88,7 +90,7 @@ matchRules:
 
 3. `matchClusters`: List of clusters on which the above `matchRules` will be applied on. The member object of this list are cluster contexts of the individual k8s/openshift clusters.
 
-4. `trafficSplit` is required if we want to route a percentage of traffic to objects in a given cluster. Weights for these clusters range from 1 to 20.
+4. `trafficSplit` is required if we want to route a percentage of traffic to objects in a given cluster. Weights for these clusters range from 1 to 20. `trafficSplit` can also be used to prioritize certain clusters before others. Maximum value for priority is 100 and default is 10. Let's say two clusters are given a priority of 10 and a third cluster is added with a priority of 20. The third cluster won't be routed any traffic unless both cluster1 and cluster2 (with priority 10) are down.
 
 5. `ttl`: Use this flag to set the Time To Live value. The value can range from 1-86400 seconds. This determines the frequency with which clients need to obtain fresh steering information for client requests. If none is specified in the GDP object, the value defaults to the one specified in the DNS application profile.
 
