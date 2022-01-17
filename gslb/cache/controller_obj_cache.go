@@ -208,13 +208,13 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 			var createdByDifferentAMKO bool
 			for _, m := range hm.Markers {
 				if m.Key != nil && *m.Key == gslbutils.CreatedByLabelKey {
+					createdBy = m.Values[0]
 					// add only those health monitors to the cache whose labels match this
 					// AMKO's created by field, ignore all other AMKO's health monitors
 					if createdBy != matchCreatedBy {
 						createdByDifferentAMKO = true
 						break
 					}
-					createdBy = m.Values[0]
 				}
 			}
 			if createdByDifferentAMKO {
