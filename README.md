@@ -21,14 +21,14 @@ For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Kubernetes     | 1.16+       |
-| AKO            | 1.4.3       |
+| AKO            | 1.6.1       |
 | AVI Controller | 20.1.4-2p3+ |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Openshift      | 4.4+        |
-| AKO            | 1.4.3       |
+| AKO            | 1.6.1       |
 | AVI Controller | 20.1.4-2p3+ |
 
 #### Pre-requisites
@@ -78,14 +78,14 @@ Following steps have to be executed on all member clusters:
    $ helm search repo
 
    NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
-   ako/amko	1.4.2	            1.4.2	            A helm chart for Avi Multicluster Kubernetes Operator
+   ako/amko	1.6.1	            1.6.1	            A helm chart for Avi Multicluster Kubernetes Operator
 
    ```
 
 4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values ako/amko --version 1.4.2 > values.yaml
+   helm show values ako/amko --version 1.6.1 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
@@ -97,14 +97,14 @@ Following steps have to be executed on all member clusters:
 
 6. Install AMKO:
    ```
-   $ helm install  ako/amko  --generate-name --version 1.4.2 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install  ako/amko  --generate-name --version 1.6.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
 7. Check the installation:
    ```
    $ helm list -n avi-system
 
    NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
-   amko-1598451370	avi-system	1       	2020-08-26 14:16:21.889538175 +0000 UTC	deployed	amko-1.4.2	            1.4.2
+   amko-1598451370	avi-system	1       	2022-01-24 14:16:21.889538175 +0000 UTC	deployed	amko-1.6.1	            1.6.1
    ```
 
 #### Troubleshooting and Log collection
