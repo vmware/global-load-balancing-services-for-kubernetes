@@ -44,7 +44,7 @@ All notable changes to this project will be documented in this file. The format 
 ## AMKO-1.6.1
 
 ### Added:
-  - AMKO now claims support for Kubernetes 1.22.
+  - AMKO supports Kubernetes 1.22.
   - Support for multiple AMKO installations.
   - Support for GSLB pool property `priority` via `GlobalDeploymentPolicy` and `GSLBHostRule`.
   - Introduced support for broadcasting AMKO pod `Events` in order to enhance the observability and monitoring aspects.
