@@ -49,6 +49,5 @@ All notable changes to this project will be documented in this file. The format 
   - Support for GSLB pool property `priority` via `GlobalDeploymentPolicy` and `GSLBHostRule`.
   - Introduced support for broadcasting AMKO pod `Events` in order to enhance the observability and monitoring aspects.
 
-### Bugs fixed:
-  - Fixed an issue of AMKO failing to remove custom HM and reattach default HM when custom HM references are removed from the GDP object.
-  - Fixed an issue of Health Monitor description coming as empty when shifting from custom HM to default HM for an LB service.
+### Changed:
+ - Encode names of all HM objects except HM created for passthrough ingress/routes.
