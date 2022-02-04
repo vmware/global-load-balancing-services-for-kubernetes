@@ -114,15 +114,19 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		}
 	}
 	weightMap := make(map[string]int32)
+	priorityMap := make(map[string]int32)
 	for _, clusterWeight := range gsRule.TrafficSplit {
 		weightMap[clusterWeight.Cluster] = int32(clusterWeight.Weight)
+		priorityMap[clusterWeight.Cluster] = int32(clusterWeight.Priority)
 	}
 
 	for idx, member := range gsGraph.MemberObjs {
 		if member.ObjType == gslbutils.ThirdPartyMemberType {
 			gsGraph.MemberObjs[idx].Weight = getThirdPartyMemberWeight(weightMap, member.Name)
+			gsGraph.MemberObjs[idx].Priority = getThirdPartyMemberPriority(priorityMap, member.Name)
 		} else {
 			gsGraph.MemberObjs[idx].Weight = getK8sMemberWeight(weightMap, member.Cluster, member.Namespace)
+			gsGraph.MemberObjs[idx].Priority = getK8sMemberPriority(priorityMap, member.Cluster, member.Namespace)
 		}
 	}
 }
@@ -134,11 +138,25 @@ func getThirdPartyMemberWeight(weightMap map[string]int32, site string) int32 {
 	return 1
 }
 
+func getThirdPartyMemberPriority(priorityMap map[string]int32, site string) int32 {
+	if priority, ok := priorityMap[site]; ok {
+		return priority
+	}
+	return 1
+}
+
 func getK8sMemberWeight(ghrWeightMap map[string]int32, cname, ns string) int32 {
 	if weight, ok := ghrWeightMap[cname]; ok {
 		return weight
 	}
 	return GetObjTrafficRatio(ns, cname)
+}
+
+func getK8sMemberPriority(ghrPriorityMap map[string]int32, cname, ns string) int32 {
+	if priority, ok := ghrPriorityMap[cname]; ok {
+		return priority
+	}
+	return GetObjTrafficPriority(ns, cname)
 }
 
 func updateThirdPartyMembers(gsGraph *AviGSObjectGraph, thirdPartyMembers []v1alpha1.ThirdPartyMember) {
