@@ -29,11 +29,11 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/vmware/alb-sdk/go/clients"
 	avimodels "github.com/vmware/alb-sdk/go/models"
-	"github.com/vmware/alb-sdk/go/session"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session"
 )
 
 const (
