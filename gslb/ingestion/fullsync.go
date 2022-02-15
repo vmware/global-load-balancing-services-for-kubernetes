@@ -19,14 +19,14 @@ import (
 	"errors"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
+	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-
-	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -122,6 +122,29 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 			}
 			AddOrUpdateRouteStore(acceptedRouteStore, &route, c.name)
 		}
+	}
+}
+
+func fetchAndApplyAllMultiClusterIngresses(c *GSLBMemberController, nsList *corev1.NamespaceList) {
+	var mciList []*akov1alpha1.MultiClusterIngress
+
+	acceptedStore := store.GetAcceptedMultiClusterIngressStore()
+	rejectedStore := store.GetRejectedMultiClusterIngressStore()
+
+	for _, namespace := range nsList.Items {
+		objList, err := c.hrClientSet.AkoV1alpha1().MultiClusterIngresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the multi-cluster ingress list, %s",
+				namespace.Name, err.Error())
+			continue
+		}
+		for _, obj := range objList.Items {
+			mciList = append(mciList, obj.DeepCopy())
+		}
+	}
+	for _, mci := range mciList {
+		ihms := k8sobjects.GetHostMetaForMultiClusterIngress(mci, c.GetName())
+		filterAndAddMultiClusterIngressMeta(ihms, c, acceptedStore, rejectedStore, 0, true)
 	}
 }
 
@@ -311,6 +334,9 @@ func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 		}
 		if c.informers.RouteInformer != nil {
 			fetchAndApplyAllRoutes(c, selectedNamespaces)
+		}
+		if c.informers.MultiClusterIngressInformer != nil {
+			fetchAndApplyAllMultiClusterIngresses(c, selectedNamespaces)
 		}
 	}
 
