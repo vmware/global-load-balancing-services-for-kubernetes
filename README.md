@@ -177,7 +177,7 @@ helm show values ako/amko --version 1.6.1 > values.yaml
 Upgrade the helm chart
 
 ```
-helm upgrade amko-1598451370 ako/amko -f /path/to/values.yaml --version 1.6.1 --set ControllerSettings.controllerHost=<IP or Hostname> --set avicredentials.password=<username> --set avicredentials.username=<username> --namespace=avi-system
+helm upgrade amko-1598451370 ako/amko -f /path/to/values.yaml --version 1.6.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
 
 ```
 
