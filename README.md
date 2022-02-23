@@ -159,7 +159,7 @@ kubectl apply -f <output_dir>/amko/crds/
 helm list -n avi-system
 
 NAME          	NAMESPACE 	REVISION	UPDATED                             	    STATUS  	CHART    	APP VERSION
-amko-1598451370 avi-system	1       	2022-02-21 10:00:31.609195757 +0000 UTC	    deployed	amko-1.6.1	1.6.1
+amko-1598451370 avi-system	1       	2022-02-21 10:00:31.609195757 +0000 UTC	    deployed	amko-1.5.1	1.5.1
 ```
 
 *Step4*
