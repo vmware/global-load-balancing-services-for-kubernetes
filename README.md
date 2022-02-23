@@ -132,6 +132,14 @@ Follow these steps if you are upgrading from an older AMKO release.
 
 *Step1*
 
+Update the helm repo with the following command:
+
+```
+helm repo update ako
+```
+
+*Step2*
+
 Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
 
 ```
@@ -145,7 +153,7 @@ To install the CRDs:
 kubectl apply -f <output_dir>/amko/crds/
 ```
 
-*Step2*
+*Step3*
 
 ```
 helm list -n avi-system
@@ -154,7 +162,7 @@ NAME          	NAMESPACE 	REVISION	UPDATED                             	    STAT
 amko-1598451370 avi-system	1       	2022-02-21 10:00:31.609195757 +0000 UTC	    deployed	amko-1.6.1	1.6.1
 ```
 
-*Step3*
+*Step4*
 
 Update the helm repo URL
 
@@ -165,7 +173,7 @@ helm repo add --force-update ako https://projects.registry.vmware.com/chartrepo/
 
 ```
 
-*Step4*
+*Step5*
 
 Get the values.yaml for the latest AMKO version
 
