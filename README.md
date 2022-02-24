@@ -126,6 +126,69 @@ Typically, an AKO instance could have been deployed in the `avi-system` namespac
 kubectl delete ns avi-system
 ```
 
+## Upgrade AMKO using *helm*
+
+Follow these steps if you are upgrading from an older AMKO release.
+
+*Step1*
+
+Update the helm repo with the following command:
+
+```
+helm repo update ako
+```
+
+*Step2*
+
+Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
+
+```
+helm template ako/amko --version 1.6.1 --include-crds --output-dir <output_dir>
+```
+
+This will save the helm files to an output directory which will contain the CRDs corresponding to the AMKO version.
+To install the CRDs:
+
+```
+kubectl apply -f <output_dir>/amko/crds/
+```
+
+*Step3*
+
+```
+helm list -n avi-system
+
+NAME          	NAMESPACE 	REVISION	UPDATED                             	    STATUS  	CHART    	APP VERSION
+amko-1598451370 avi-system	1       	2022-02-21 10:00:31.609195757 +0000 UTC	    deployed	amko-1.5.1	1.5.1
+```
+
+*Step4*
+
+Update the helm repo URL
+
+```
+helm repo add --force-update ako https://projects.registry.vmware.com/chartrepo/ako
+
+"ako" has been added to your repositories
+
+```
+
+*Step5*
+
+Get the values.yaml for the latest AMKO version
+
+```
+helm show values ako/amko --version 1.6.1 > values.yaml
+
+```
+
+Upgrade the helm chart
+
+```
+helm upgrade amko-1598451370 ako/amko -f /path/to/values.yaml --version 1.6.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
+
+```
+
 #### parameters
 | **Parameter**                                    | **Description**                                                                                                          | **Default**                           |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
