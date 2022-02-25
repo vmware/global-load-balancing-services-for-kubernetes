@@ -768,7 +768,7 @@ func filterAndUpdateMultiClusterIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8s
 
 			fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
 			// Add a DELETE key for this ingHost
-			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, fetchedIngHost.Cluster,
+			publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, fetchedIngHost.Cluster,
 				fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
 				fetchedIngHost.Hostname, c.workqueue)
 			continue
@@ -813,7 +813,7 @@ func filterAndUpdateMultiClusterIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8s
 			continue
 		}
 		AddOrUpdateMultiClusterIngressStore(acceptedStore, mcihm, c.name)
-		publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+		publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name,
 			mcihm.Namespace, mcihm.ObjName, gslbutils.ObjectAdd, mcihm.Hostname, c.workqueue)
 		continue
 	}
@@ -828,7 +828,7 @@ func deleteMultiClusterIngressMeta(ingressHostMetaObjs []k8sobjects.MultiCluster
 		// Only if the ihm object was part of the accepted list previously, we will send a delete key
 		// otherwise we will assume that the object was already deleted
 		if present {
-			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
+			publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name,
 				mcihm.Namespace, mcihm.ObjName, gslbutils.ObjectDelete, mcihm.Hostname, c.workqueue)
 		}
 	}
