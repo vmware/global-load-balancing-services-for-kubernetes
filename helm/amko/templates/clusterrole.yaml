@@ -5,13 +5,13 @@ metadata:
 rules:
   - apiGroups: ["extensions", "networking.k8s.io"]
     resources: ["ingresses"]
-    verbs: ["get","watch","list"]
+    verbs: ["get", "watch", "list"]
   - apiGroups: ["route.openshift.io"]
     resources: ["routes"]
-    verbs: ["get","watch","list"]
+    verbs: ["get", "watch", "list"]
   - apiGroups: ["route.openshift.io"]
     resources: ["routes"]
-    verbs: ["get","watch","list"]
+    verbs: ["get", "watch", "list"]
   - apiGroups: [""]
     resources: ["services", "secrets", "namespaces", "pods"]
     verbs: ["get", "watch", "list"]
@@ -20,13 +20,13 @@ rules:
     verbs: ["create","patch","update"]
   - apiGroups: ["amko.vmware.com"]
     resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status", "gslbhostrules", "gslbhostrules/status", "amkoclusters", "amkoclusters/status"]
-    verbs: ["get","watch","list","patch", "update"]
+    verbs: ["get", "watch", "list", "patch", "update"]
   - apiGroups: ["ako.vmware.com"]
     resources: ["clustersets", "multiclusteringresses"]
-    verbs: ["get","watch","list","patch", "update"]
+    verbs: ["get", "watch", "list", "patch", "update"]
   - apiGroups: ["ako.vmware.com"]
     resources: ["serviceimports"]
-    verbs: ["create","get","watch","list","patch", "update", "delete"]
+    verbs: ["create", "get", "watch", "list", "patch", "update", "delete"]
 
 {{- if .Values.rbac.pspEnable }}
   - apiGroups:
