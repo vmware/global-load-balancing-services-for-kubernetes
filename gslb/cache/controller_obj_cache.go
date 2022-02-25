@@ -734,8 +734,9 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 				weight = 0
 			}
 			gsMember := GSMember{
-				IPAddr: ipAddr,
-				Weight: weight,
+				IPAddr:   ipAddr,
+				Weight:   weight,
+				Priority: priority,
 			}
 			// Compute which server to add for this member (for checksum calculation)
 			var server string
@@ -973,6 +974,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			gsMember := GSMember{
 				IPAddr:     ipAddr,
 				Weight:     weightI,
+				Priority:   priority,
 				Controller: controllerUUID,
 				VsUUID:     vsUUID,
 			}
