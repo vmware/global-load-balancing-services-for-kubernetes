@@ -93,7 +93,8 @@ func ExtractGSLBHostRuleKey(key string) (string, string, string, error) {
 func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
 	segments := strings.Split(key, "/")
 	var operation, objType, cluster, ns, name, hostname string
-	if segments[1] == IngressType {
+	if segments[1] == IngressType ||
+		segments[1] == MCIType {
 		if len(segments) == IngMultiClusterKeyLen {
 			operation, objType, cluster, ns, name, hostname = segments[0], segments[1], segments[2], segments[3], segments[4], segments[5]
 			name += "/" + hostname

@@ -113,6 +113,27 @@ func DeleteFromIngressStore(clusterIngStore *store.ClusterStore,
 	return present
 }
 
+// AddOrUpdateMultiClusterIngressStore traverses through the cluster store for cluster name cname,
+// and then to ns store for the ingressHost's namespace and then adds/updates the ingressHost
+// obj in the object map store.
+func AddOrUpdateMultiClusterIngressStore(clusterRouteStore *store.ClusterStore,
+	multiClusterIngHost k8sobjects.MultiClusterIngressHostMeta, cname string) {
+	clusterRouteStore.AddOrUpdate(multiClusterIngHost, cname, multiClusterIngHost.Namespace, multiClusterIngHost.ObjName)
+}
+
+// DeleteFromMultiClusterIngressStore traverses through the cluster store for cluster name cname,
+// and then ns store for the ingHost's namespace and then deletes the ingHost key from
+// the object map store.
+func DeleteFromMultiClusterIngressStore(clusterIngStore *store.ClusterStore,
+	multiClusterIngHost k8sobjects.MultiClusterIngressHostMeta, cname string) bool {
+	if clusterIngStore == nil {
+		// Store is empty, so, noop
+		return false
+	}
+	_, present := clusterIngStore.DeleteClusterNSObj(multiClusterIngHost.Cluster, multiClusterIngHost.Namespace, multiClusterIngHost.ObjName)
+	return present
+}
+
 // SetupEventHandlers sets up event handlers for the controllers of the member clusters.
 // They define the ingress/route event handlers and start the informers as well.
 func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
@@ -149,6 +170,12 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 		hrInformer := *c.hrInformer
 		hrEventHandler := AddHostRuleEventHandler(numWorkers, c)
 		hrInformer.Informer().AddEventHandler(hrEventHandler)
+	}
+
+	// Add event handler for mci objects
+	if c.informers.MultiClusterIngressInformer != nil {
+		mciEventHandler := AddMultiClusterIngressEventHandler(numWorkers, c)
+		c.informers.MultiClusterIngressInformer.Informer().AddEventHandler(mciEventHandler)
 	}
 }
 
@@ -264,6 +291,12 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 		hrInformer := *c.hrInformer
 		go hrInformer.Informer().Run(stopCh)
 		cacheSyncParam = append(cacheSyncParam, hrInformer.Informer().HasSynced)
+	}
+
+	if c.informers.MultiClusterIngressInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting multi-cluster ingress informer")
+		go c.informers.MultiClusterIngressInformer.Informer().Run(stopCh)
+		cacheSyncParam = append(cacheSyncParam, c.informers.MultiClusterIngressInformer.Informer().HasSynced)
 	}
 
 	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {

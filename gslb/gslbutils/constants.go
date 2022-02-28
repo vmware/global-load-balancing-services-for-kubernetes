@@ -36,6 +36,7 @@ const (
 	RouteType            = gdpalphav2.RouteObj
 	IngressType          = gdpalphav2.IngressObj
 	SvcType              = gdpalphav2.LBSvcObj
+	MCIType              = "MCI"
 	GSFQDNType           = "GSFqdn"
 	PassthroughRoute     = "passthrough"
 	ThirdPartyMemberType = "ThirdPartyMember"
