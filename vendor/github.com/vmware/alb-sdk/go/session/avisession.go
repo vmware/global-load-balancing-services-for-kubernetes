@@ -268,7 +268,7 @@ type AviSession struct {
 	ctrlStatusCheckRetryInterval int
 
 	// this flag disables the checkcontrollerstatus method, instead client do their own retries
-	ctrlStatusCheckDisabled bool
+	disableControllerStatusCheck bool
 }
 
 const DEFAULT_AVI_VERSION = "17.1.2"
@@ -484,8 +484,14 @@ func SetControllerStatusCheckLimits(numRetries, retryInterval int) func(*AviSess
 	}
 }
 
-func SetNoControllerStatusCheck(avisess *AviSession) error {
-	avisess.ctrlStatusCheckDisabled = true
+func DisableControllerStatusCheckOnFailure(controllerStatusCheck bool) func(*AviSession) error {
+	return func(sess *AviSession) error {
+		return sess.disableControllerStatusCheckOnFailure(controllerStatusCheck)
+	}
+}
+
+func (avisess *AviSession) disableControllerStatusCheckOnFailure(controllerStatusCheck bool) error {
+	avisess.disableControllerStatusCheck = controllerStatusCheck
 	return nil
 }
 
@@ -680,33 +686,35 @@ func (avisess *AviSession) restRequest(verb string, uri string, payload interfac
 		avisess.collectCookiesFromResp(resp)
 
 		if resp.StatusCode == 401 && len(avisess.sessionid) != 0 && uri != "login" {
+			resp.Body.Close()
 			glog.Infof("Retrying url %s; retry %d due to Status Code %d", url, retry, resp.StatusCode)
 			err := avisess.initiateSession()
 			if err != nil {
-				resp.Body.Close()
 				return nil, err
 			}
-			if avisess.ctrlStatusCheckDisabled {
-				return resp, nil
-			}
 			retryReq = true
-			resp.Body.Close()
 		} else if resp.StatusCode == 419 || (resp.StatusCode >= 500 && resp.StatusCode < 599) {
 			resp.Body.Close()
 			retryReq = true
-			glog.Infof("Retrying url%s; retry %d due to Status Code %d", url, retry, resp.StatusCode)
+			glog.Infof("Retrying url: %s; retry: %d due to Status Code %d", url, retry, resp.StatusCode)
 		}
 	}
 	if retryReq {
-		if !avisess.ctrlStatusCheckDisabled {
+		if !avisess.disableControllerStatusCheck {
 			check, httpResp, err := avisess.CheckControllerStatus()
 			if check == false {
-				resp.Body.Close()
-				glog.Errorf("restRequest Error during checking controller state. Error: %s", err.Error())
+				if resp != nil && resp.Body != nil {
+					glog.Infof("Body is not nil, close it.")
+					resp.Body.Close()
+				}
+				glog.Errorf("restRequest Error during checking controller state. Error: %s", err)
 				return httpResp, err
 			}
 			if err := avisess.initiateSession(); err != nil {
-				resp.Body.Close()
+				if resp != nil && resp.Body != nil {
+					glog.Infof("Body is not nil, close it.")
+					resp.Body.Close()
+				}
 				return nil, err
 			}
 			return avisess.restRequest(verb, uri, payload, tenant, errorResult, retry+1)

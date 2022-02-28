@@ -22,14 +22,14 @@ import (
 	"github.com/golang/glog"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	mciapi "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	mcics "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	mcischeme "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/scheme"
-	mciinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
-	mcilisters "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/listers/amko/v1alpha1"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+	mciapi "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	mcics "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	mcischeme "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/scheme"
+	mciinformers "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
+	mcilisters "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/listers/ako/v1alpha1"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -352,7 +352,7 @@ func (mciController *MCIController) Run(stopCh <-chan struct{}) error {
 func InitializeMCIController(kubeClient *kubernetes.Clientset, mciClient *mcics.Clientset, mciInformerFactory mciinformers.SharedInformerFactory,
 	clusterList []string) *MCIController {
 
-	mciInformer := mciInformerFactory.Amko().V1alpha1().MultiClusterIngresses()
+	mciInformer := mciInformerFactory.Ako().V1alpha1().MultiClusterIngresses()
 	// create event broadcaster
 	mcischeme.AddToScheme(mcischeme.Scheme)
 	eventBroadcaster := record.NewBroadcaster()

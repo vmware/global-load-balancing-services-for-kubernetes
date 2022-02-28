@@ -19,13 +19,13 @@ import (
 	"fmt"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	mcics "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/clusterset"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	mciutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/mci_utils"
 	serviceimport "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/service_import"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+	mcics "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,7 +35,7 @@ func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Client
 	svcutils.InitClustersetServiceFilter(clusterList)
 
 	// fetch all the MCI objects, validate each object and add them to filter
-	mciObjs, err := mcics.AmkoV1alpha1().MultiClusterIngresses(utils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
+	mciObjs, err := mcics.AkoV1alpha1().MultiClusterIngresses(utils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("error in fetching MCI list: %v", err)
 	}

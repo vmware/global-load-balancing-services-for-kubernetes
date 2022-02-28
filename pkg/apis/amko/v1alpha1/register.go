@@ -52,12 +52,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&GSLBConfigList{},
 		&GSLBHostRule{},
 		&GSLBHostRuleList{},
-		&MultiClusterIngress{},
-		&MultiClusterIngressList{},
-		&ClusterSet{},
-		&ClusterSetList{},
-		&ServiceImport{},
-		&ServiceImportList{},
 	)
 
 	scheme.AddKnownTypes(

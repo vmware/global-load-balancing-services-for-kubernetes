@@ -31,10 +31,13 @@ import (
 	oshiftclientset "github.com/openshift/client-go/route/clientset/versioned"
 	oshiftinformers "github.com/openshift/client-go/route/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+
+	akocrd "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	akoinformers "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 )
 
 var CtrlVersion string
@@ -43,7 +46,7 @@ var runtimeScheme = k8sruntime.NewScheme()
 func init() {
 	//Setting the package-wide version
 	CtrlVersion = os.Getenv("CTRL_VERSION")
-	networkingv1beta1.AddToScheme(runtimeScheme)
+	networkingv1.AddToScheme(runtimeScheme)
 }
 
 func IsV4(addr string) bool {
@@ -107,7 +110,7 @@ func CrudHashKey(obj_type string, obj interface{}) string {
 		ns = svc.Namespace
 		name = svc.Name
 	case "Ingress":
-		ing := obj.(*networkingv1beta1.Ingress)
+		ing := obj.(*networkingv1.Ingress)
 		ns = ing.Namespace
 		name = ing.Name
 	default:
@@ -147,7 +150,7 @@ func RandomSeq(n int) string {
 var informer sync.Once
 var informerInstance *Informers
 
-func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []string, ocs oshiftclientset.Interface, namespace string, akoNSBoundInformer bool) *Informers {
+func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []string, ocs oshiftclientset.Interface, akoClientSet akocrd.Interface, namespace string, akoNSBoundInformer bool) *Informers {
 	cs := kubeClient.ClientSet
 	var kubeInformerFactory, akoNSInformerFactory kubeinformers.SharedInformerFactory
 	if namespace == "" {
@@ -161,10 +164,11 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 	// We listen to configmaps only in the namespace in which AKO runs.
 	akoNS := GetAKONamespace()
 
-	SetIngressClassEnabled(cs)
-
 	akoNSInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(cs, InformerDefaultResync, kubeinformers.WithNamespace(akoNS))
 	AviLog.Infof("Initializing configmap informer in %v", akoNS)
+
+	// To initialize the MCI and SI informers
+	akoInformerFactory := akoinformers.NewSharedInformerFactoryWithOptions(akoClientSet, time.Second*30)
 
 	informers := &Informers{}
 	informers.KubeClientIntf = kubeClient
@@ -189,17 +193,19 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 		case ConfigMapInformer:
 			informers.ConfigMapInformer = akoNSInformerFactory.Core().V1().ConfigMaps()
 		case IngressInformer:
-			informers.IngressInformer = kubeInformerFactory.Networking().V1beta1().Ingresses()
+			informers.IngressInformer = kubeInformerFactory.Networking().V1().Ingresses()
 		case IngressClassInformer:
-			if GetIngressClassEnabled() {
-				informers.IngressClassInformer = kubeInformerFactory.Networking().V1beta1().IngressClasses()
-			}
+			informers.IngressClassInformer = kubeInformerFactory.Networking().V1().IngressClasses()
 		case RouteInformer:
 			if ocs != nil {
 				oshiftInformerFactory := oshiftinformers.NewSharedInformerFactory(ocs, time.Second*30)
 				informers.RouteInformer = oshiftInformerFactory.Route().V1().Routes()
 				informers.OshiftClient = ocs
 			}
+		case MultiClusterIngressInformer:
+			informers.MultiClusterIngressInformer = akoInformerFactory.Ako().V1alpha1().MultiClusterIngresses()
+		case ServiceImportInformer:
+			informers.ServiceImportInformer = akoInformerFactory.Ako().V1alpha1().ServiceImports()
 		}
 	}
 	return informers
@@ -214,6 +220,7 @@ func instantiateInformers(kubeClient KubeClientIntf, registeredInformers []strin
 
 func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args ...map[string]interface{}) *Informers {
 	var oshiftclient oshiftclientset.Interface
+	var akoClient akocrd.Interface
 	var instantiateOnce, ok, akoNSBoundInformer bool = true, true, false
 	var namespace string
 	if len(args) > 0 {
@@ -239,20 +246,28 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 				if !ok {
 					AviLog.Warnf("arg namespace is not of type string")
 				}
+			case INFORMERS_AKO_CLIENT:
+				akoClient, ok = v.(akocrd.Interface)
+				if !ok {
+					AviLog.Warnf("arg akoClient is not of type akocrd.Interface")
+				}
 			default:
 				AviLog.Warnf("Unknown Key %s in args", k)
 			}
 		}
 	}
 
-	if oshiftclient != nil {
+	// In Openshift cluster use NS bound informer for secret as certificates for routes are specified in the route itself. Also,
+	// there are many secrets installed by default in Openshift cluster which have to be handled if NS bound informer is not used.
+	if HasElem(registeredInformers, RouteInformer) {
 		akoNSBoundInformer = true
 	}
+
 	if !instantiateOnce {
-		return instantiateInformers(kubeClient, registeredInformers, oshiftclient, namespace, akoNSBoundInformer)
+		return instantiateInformers(kubeClient, registeredInformers, oshiftclient, akoClient, namespace, akoNSBoundInformer)
 	}
 	informer.Do(func() {
-		informerInstance = instantiateInformers(kubeClient, registeredInformers, oshiftclient, namespace, akoNSBoundInformer)
+		informerInstance = instantiateInformers(kubeClient, registeredInformers, oshiftclient, akoClient, namespace, akoNSBoundInformer)
 	})
 	return informerInstance
 }
@@ -310,6 +325,15 @@ func Remove(arr []string, item string) []string {
 		}
 	}
 	return arr
+}
+
+func FindAndRemove(arr []string, item string) (bool, []string) {
+	for i, v := range arr {
+		if v == item {
+			return true, append(arr[:i], arr[i+1:]...)
+		}
+	}
+	return false, arr
 }
 
 func RemoveNamespaceName(s []NamespaceName, r NamespaceName) []NamespaceName {
@@ -405,6 +429,14 @@ func IsServiceNSValid(namespace string) bool {
 	return true
 }
 
+func IsVCFCluster() bool {
+	vcfCluster := os.Getenv(VCF_CLUSTER)
+	if val, err := strconv.ParseBool(vcfCluster); err == nil {
+		return val
+	}
+	return false
+}
+
 // This utility returns a true/false depending on whether
 // the user requires advanced L4 functionality
 func GetAdvancedL4() bool {
@@ -486,4 +518,28 @@ func GetAuthtokenFromCache() (string, error) {
 		return "", errors.New("authToken not updated in cache")
 	}
 	return ctrlAuthToken.(string), nil
+}
+
+func ContainsDuplicate(arr interface{}) bool {
+	arrV := reflect.ValueOf(arr)
+
+	if arrV.Kind() == reflect.Slice {
+		eleMap := make(map[interface{}]struct{})
+		for i := 0; i < arrV.Len(); i++ {
+			if _, ok := eleMap[arrV.Index(i).Interface()]; ok {
+				return true
+			}
+			eleMap[arrV.Index(i).Interface()] = struct{}{}
+		}
+	}
+
+	return false
+}
+
+func IsMultiClusterIngressEnabled() bool {
+	if ok, _ := strconv.ParseBool(os.Getenv(MCI_ENABLED)); ok {
+		return true
+	}
+	AviLog.Debugf("Multi-cluster ingress is not enabled")
+	return false
 }
