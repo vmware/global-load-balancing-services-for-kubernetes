@@ -57,6 +57,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          {{ if .Values.multiClusterIngress.enable }}
+          - name: MCI_ENABLED
+            value: "true"
+          {{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
