@@ -18,14 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-// ClusterSetListerExpansion allows custom methods to be added to
-// ClusterSetLister.
-type ClusterSetListerExpansion interface{}
-
-// ClusterSetNamespaceListerExpansion allows custom methods to be added to
-// ClusterSetNamespaceLister.
-type ClusterSetNamespaceListerExpansion interface{}
-
 // GSLBConfigListerExpansion allows custom methods to be added to
 // GSLBConfigLister.
 type GSLBConfigListerExpansion interface{}
@@ -41,19 +33,3 @@ type GSLBHostRuleListerExpansion interface{}
 // GSLBHostRuleNamespaceListerExpansion allows custom methods to be added to
 // GSLBHostRuleNamespaceLister.
 type GSLBHostRuleNamespaceListerExpansion interface{}
-
-// MultiClusterIngressListerExpansion allows custom methods to be added to
-// MultiClusterIngressLister.
-type MultiClusterIngressListerExpansion interface{}
-
-// MultiClusterIngressNamespaceListerExpansion allows custom methods to be added to
-// MultiClusterIngressNamespaceLister.
-type MultiClusterIngressNamespaceListerExpansion interface{}
-
-// ServiceImportListerExpansion allows custom methods to be added to
-// ServiceImportLister.
-type ServiceImportListerExpansion interface{}
-
-// ServiceImportNamespaceListerExpansion allows custom methods to be added to
-// ServiceImportNamespaceLister.
-type ServiceImportNamespaceListerExpansion interface{}
