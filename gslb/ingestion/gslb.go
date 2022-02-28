@@ -55,6 +55,7 @@ import (
 	avirest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
 	aviretry "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/retry"
 
+	crd "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	akoinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
