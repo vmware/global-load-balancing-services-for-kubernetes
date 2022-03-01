@@ -37,15 +37,11 @@ func getMultiClusterIngressHostMap() *ObjHostMap {
 // GetHostMetaForMultiClusterIngress returns a multi-cluster ingress split into its backends
 func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cname string) []MultiClusterIngressHostMeta {
 	metaObjects := []MultiClusterIngressHostMeta{}
-	// hostIPList := gslbutils.IngressGetIPAddrs(ingress)
-	// TODO: move the below logic to utils
-	var hostIPList []gslbutils.IngressHostIP
-	for _, ing := range mci.Status.LoadBalancer.Ingress {
-		ingHostIP := gslbutils.IngressHostIP{
-			Hostname: ing.Hostname,
-			IPAddr:   ing.IP,
-		}
-		hostIPList = append(hostIPList, ingHostIP)
+
+	hip := getHostAndIP(mci)
+	if hip.Hostname == "" || hip.IPAddr == "" {
+		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: hostname or ip address is empty: %v",
+			cname, mci.Namespace, mci.Name)
 	}
 
 	tlsHosts := getMultiClusterIngressTLSHosts(mci)
@@ -75,37 +71,46 @@ func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cna
 		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: skipping ingress because controller UUID absent in annotations",
 			cname, mci.Namespace, mci.Name)
 	}
-	for _, hip := range hostIPList {
-		vsUUID, ok := vsUUIDs[hip.Hostname]
-		if !ok && !syncVIPsOnly {
-			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: hostname %s missing from VS UUID annotations",
-				cname, mci.Namespace, mci.Name, hip.Hostname)
-		}
-		metaObj := MultiClusterIngressHostMeta{
-			IngName:            mci.Name,
-			Namespace:          mci.ObjectMeta.Namespace,
-			Hostname:           hip.Hostname,
-			IPAddr:             hip.IPAddr,
-			Cluster:            cname,
-			ObjName:            mci.Name + "/" + hip.Hostname,
-			TLS:                false,
-			VirtualServiceUUID: vsUUID,
-			ControllerUUID:     controllerUUID,
-		}
-		metaObj.Paths = make([]string, 0)
-		metaObj.Labels = make(map[string]string)
-		for key, value := range mci.GetLabels() {
-			metaObj.Labels[key] = value
-		}
-		metaObj.Paths = getPathListForMultiClusterIngress(mci)
 
-		if gslbutils.PresentInList(hip.Hostname, tlsHosts) {
-			metaObj.TLS = true
-		}
-		metaObjects = append(metaObjects, metaObj)
+	vsUUID, ok := vsUUIDs[hip.Hostname]
+	if !ok && !syncVIPsOnly {
+		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: hostname %s missing from VS UUID annotations",
+			cname, mci.Namespace, mci.Name, hip.Hostname)
 	}
+	metaObj := MultiClusterIngressHostMeta{
+		IngName:            mci.Name,
+		Namespace:          mci.ObjectMeta.Namespace,
+		Hostname:           hip.Hostname,
+		IPAddr:             hip.IPAddr,
+		Cluster:            cname,
+		ObjName:            mci.Name + "/" + hip.Hostname,
+		TLS:                false,
+		VirtualServiceUUID: vsUUID,
+		ControllerUUID:     controllerUUID,
+	}
+	metaObj.Paths = make([]string, 0)
+	metaObj.Labels = make(map[string]string)
+	for key, value := range mci.GetLabels() {
+		metaObj.Labels[key] = value
+	}
+	metaObj.Paths = getPathListForMultiClusterIngress(mci)
+
+	if gslbutils.PresentInList(hip.Hostname, tlsHosts) {
+		metaObj.TLS = true
+	}
+	metaObjects = append(metaObjects, metaObj)
 
 	return metaObjects
+}
+
+func getHostAndIP(mci *akov1alpha1.MultiClusterIngress) *gslbutils.IngressHostIP {
+	var ingHostIP gslbutils.IngressHostIP
+	for _, ingStatus := range mci.Status.LoadBalancer.Ingress {
+		ingHostIP.Hostname = ingStatus.Hostname
+		ingHostIP.IPAddr = ingStatus.IP
+		break
+	}
+	return &ingHostIP
 }
 
 func getMultiClusterIngressTLSHosts(mci *akov1alpha1.MultiClusterIngress) []string {
