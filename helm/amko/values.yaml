@@ -31,6 +31,10 @@ serviceDiscovery:
     repository: projects.registry.vmware.com/ako/amko-service-discovery
     pullPolicy: IfNotPresent
 
+# Configs related to Multi-cluster ingress
+multiClusterIngress:
+  enable: false
+
 configs:
   gslbLeaderController: ""
   controllerVersion: "20.1.4"

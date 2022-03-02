@@ -696,3 +696,186 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 	}
 	return hrEventHandler
 }
+
+func filterAndAddMultiClusterIngressMeta(ingressHostMetaObjs []k8sobjects.MultiClusterIngressHostMeta, c *GSLBMemberController,
+	acceptedIngStore, rejectedIngStore *store.ClusterStore, numWorkers uint32, fullsync bool) {
+	for _, ihm := range ingressHostMetaObjs {
+		if ihm.IPAddr == "" || ihm.Hostname == "" {
+			gslbutils.Debugf("cluster: %s, ns: %s, ingress: %s, msg: %s\n",
+				c.name, ihm.Namespace, ihm.IngName,
+				"rejected ADD ingress because IP address/Hostname not found in status field")
+			continue
+		}
+		if !filter.ApplyFilter(filter.FilterArgs{
+			Obj:     ihm,
+			Cluster: c.name,
+		}) {
+			AddOrUpdateMultiClusterIngressStore(rejectedIngStore, ihm, c.name)
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s, ing: %v\n", c.name, ihm.Namespace,
+				ihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter", ihm)
+			continue
+		}
+		AddOrUpdateMultiClusterIngressStore(acceptedIngStore, ihm, c.name)
+		if !fullsync {
+			publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name,
+				ihm.Namespace, ihm.ObjName, gslbutils.ObjectAdd, ihm.Hostname, c.workqueue)
+		}
+	}
+}
+
+func filterAndUpdateMultiClusterIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.MultiClusterIngressHostMeta, c *GSLBMemberController,
+	acceptedStore, rejectedStore *store.ClusterStore, numWorkers uint32) {
+
+	for _, mcihm := range oldIngMetaObjs {
+		// Check whether this exists in the new ingressHost list, if not, we need
+		// to delete this ingressHost object
+		newMCIhm, found := mcihm.IngressHostInList(newIngMetaObjs)
+		if !found {
+			// ingressHost doesn't exist anymore, delete this ingressHost object
+			_, isAccepted := acceptedStore.GetClusterNSObjectByName(c.name, mcihm.Namespace,
+				mcihm.ObjName)
+			DeleteFromMultiClusterIngressStore(acceptedStore, mcihm, c.name)
+			DeleteFromMultiClusterIngressStore(rejectedStore, mcihm, c.name)
+			// If part of accepted store, only then publish the delete key
+			if isAccepted {
+				publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name,
+					mcihm.Namespace, mcihm.ObjName, gslbutils.ObjectDelete, mcihm.Hostname, c.workqueue)
+			}
+			continue
+		}
+		// ingressHost exists, check if that got updated
+		if mcihm.GetIngressHostCksum() == newMCIhm.GetIngressHostCksum() {
+			// no changes, just continue
+			continue
+		}
+		// there are changes, need to send an update key, but first apply the filter
+		if !filter.ApplyFilter(filter.FilterArgs{
+			Obj:     newMCIhm,
+			Cluster: c.name,
+		}) {
+			// See if the ingressHost was already accepted, if yes, need to delete the key
+			fetchedObj, ok := acceptedStore.GetClusterNSObjectByName(c.name,
+				mcihm.Namespace, mcihm.ObjName)
+			if !ok {
+				// Nothing to be done, just add to the rejected ingress store
+				AddOrUpdateMultiClusterIngressStore(rejectedStore, newMCIhm, c.name)
+				continue
+			}
+			// Else, delete this ingressHost from accepted list and add the newIhm to the
+			// rejected store, and add a delete key for this ingressHost to the queue
+			AddOrUpdateMultiClusterIngressStore(rejectedStore, newMCIhm, c.name)
+			DeleteFromMultiClusterIngressStore(acceptedStore, newMCIhm, c.name)
+
+			fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
+			// Add a DELETE key for this ingHost
+			publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, fetchedIngHost.Cluster,
+				fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
+				fetchedIngHost.Hostname, c.workqueue)
+			continue
+		}
+		// check if the object existed in the acceptedIngStore
+		oper := gslbutils.ObjectAdd
+		if _, ok := acceptedStore.GetClusterNSObjectByName(c.name, newMCIhm.Namespace, newMCIhm.ObjName); ok {
+			oper = gslbutils.ObjectUpdate
+		}
+		// ingHost passed through the filter, need to send an update key
+		// if the ingHost was already part of rejected store, we need to move this ingHost
+		// from the rejected to accepted store
+		AddOrUpdateMultiClusterIngressStore(acceptedStore, newMCIhm, c.name)
+		rejectedStore.DeleteClusterNSObj(c.name, mcihm.Namespace, mcihm.GetIngressHostMetaKey())
+		// Add the key for this ingHost to the queue
+		publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name, newMCIhm.Namespace, newMCIhm.ObjName,
+			oper, newMCIhm.Hostname, c.workqueue)
+		continue
+	}
+	// Check if there are any new ingHost objects, if yes, we have to add those
+	for _, mcihm := range newIngMetaObjs {
+		_, found := mcihm.IngressHostInList(oldIngMetaObjs)
+		if found {
+			continue
+		}
+		// only the new ones will be considered, because the old ones
+		// have been taken care of already
+		// Add this ingressHost object
+		if mcihm.IPAddr == "" || mcihm.Hostname == "" {
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s",
+				c.name, mcihm.Namespace, mcihm.ObjName,
+				"rejected ADD ingress because IP address/Hostname not found in status field")
+			continue
+		}
+		if !filter.ApplyFilter(filter.FilterArgs{
+			Obj:     mcihm,
+			Cluster: c.name,
+		}) {
+			AddOrUpdateMultiClusterIngressStore(rejectedStore, mcihm, c.name)
+			gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: %s\n", c.name, mcihm.Namespace,
+				mcihm.ObjName, "rejected ADD ingress key because it couldn't pass through the filter")
+			continue
+		}
+		AddOrUpdateMultiClusterIngressStore(acceptedStore, mcihm, c.name)
+		publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name,
+			mcihm.Namespace, mcihm.ObjName, gslbutils.ObjectAdd, mcihm.Hostname, c.workqueue)
+		continue
+	}
+}
+
+func deleteMultiClusterIngressMeta(ingressHostMetaObjs []k8sobjects.MultiClusterIngressHostMeta, c *GSLBMemberController, acceptedStore,
+	rejectedStore *store.ClusterStore, numWorkers uint32) {
+	for _, mcihm := range ingressHostMetaObjs {
+		present := DeleteFromMultiClusterIngressStore(acceptedStore, mcihm, c.name)
+		DeleteFromMultiClusterIngressStore(rejectedStore, mcihm, c.name)
+
+		// Only if the ihm object was part of the accepted list previously, we will send a delete key
+		// otherwise we will assume that the object was already deleted
+		if present {
+			publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, c.name,
+				mcihm.Namespace, mcihm.ObjName, gslbutils.ObjectDelete, mcihm.Hostname, c.workqueue)
+		}
+	}
+}
+
+func AddMultiClusterIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
+
+	acceptedStore := store.GetAcceptedMultiClusterIngressStore()
+	rejectedStore := store.GetRejectedMultiClusterIngressStore()
+
+	gslbutils.Logf("Adding Multi-cluster Ingress handler")
+	mciEventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			mciObj, ok := obj.(*akov1alpha1.MultiClusterIngress)
+			if !ok {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to multi-cluster ingress")
+				return
+			}
+			// Don't add this ingr if there's no status field present or no IP is allocated in this
+			// status field
+			ingressHostMetaObjs := k8sobjects.GetHostMetaForMultiClusterIngress(mciObj, c.name)
+			filterAndAddMultiClusterIngressMeta(ingressHostMetaObjs, c, acceptedStore, rejectedStore, numWorkers, false)
+		},
+		DeleteFunc: func(obj interface{}) {
+			mciObj, ok := obj.(*akov1alpha1.MultiClusterIngress)
+			if !ok {
+				containerutils.AviLog.Errorf("Unable to convert obj type interface to multi-cluster ingress")
+				return
+			}
+			// Delete from all ingress stores
+			ingressHostMetaObjs := k8sobjects.GetHostMetaForMultiClusterIngress(mciObj, c.name)
+			deleteMultiClusterIngressMeta(ingressHostMetaObjs, c, acceptedStore, rejectedStore, numWorkers)
+		},
+		UpdateFunc: func(old, curr interface{}) {
+			oldMCIObj, okOld := old.(*akov1alpha1.MultiClusterIngress)
+			mciObj, okNew := curr.(*akov1alpha1.MultiClusterIngress)
+			if !okOld || !okNew {
+				gslbutils.Errf("Unable to convert obj type interface to multi-cluster ingress")
+				return
+			}
+			if oldMCIObj.ResourceVersion != mciObj.ResourceVersion {
+				oldIngMetaObjs := k8sobjects.GetHostMetaForMultiClusterIngress(oldMCIObj, c.name)
+				newIngMetaObjs := k8sobjects.GetHostMetaForMultiClusterIngress(mciObj, c.name)
+				filterAndUpdateMultiClusterIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, acceptedStore, rejectedStore,
+					numWorkers)
+			}
+		},
+	}
+	return mciEventHandler
+}
