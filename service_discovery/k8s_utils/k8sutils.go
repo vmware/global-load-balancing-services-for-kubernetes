@@ -21,8 +21,8 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+	akov1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +42,7 @@ const (
 
 type K8sServiceDiscoveryConfig struct {
 	clientset       *kubernetes.Clientset
-	amkov1Clientset *amkov1.Clientset
+	amkov1Clientset *akov1.Clientset
 	clusters        []*K8sClusterConfig
 }
 
@@ -53,7 +53,7 @@ func InitK8sServiceDiscoveryConfig(cfg *rest.Config) (*K8sServiceDiscoveryConfig
 	if err != nil {
 		return nil, fmt.Errorf("error in initializing k8s service discovery config: %v", err)
 	}
-	amkoClient, err := amkov1.NewForConfig(cfg)
+	amkoClient, err := akov1.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error in initializing k8s service discovery config: %v", err)
 	}
@@ -73,7 +73,7 @@ func (sdc *K8sServiceDiscoveryConfig) GetClientset() *kubernetes.Clientset {
 	return sdc.clientset
 }
 
-func (sdc *K8sServiceDiscoveryConfig) GetAmkoV1Clientset() *amkov1.Clientset {
+func (sdc *K8sServiceDiscoveryConfig) GetAmkoV1Clientset() *akov1.Clientset {
 	return sdc.amkov1Clientset
 }
 
@@ -273,6 +273,7 @@ func GenerateKubeConfig(kubeConfigData string) error {
 	if err != nil {
 		return fmt.Errorf("error in creating file: %v", err)
 	}
+	defer f.Close()
 
 	_, err = f.WriteString(kubeConfigData)
 	if err != nil {

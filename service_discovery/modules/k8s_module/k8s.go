@@ -23,13 +23,13 @@ import (
 	"time"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	mciinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/bootup"
 	clusterset "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/clusterset"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	mciutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/mci_utils"
 	serviceimport "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/service_import"
 	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+	mciinformers "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -101,7 +101,7 @@ func InitServiceDiscoveryConfigAndInformers(cfg *rest.Config, stopCh <-chan stru
 	mciInformerFactory := mciinformers.NewSharedInformerFactory(k8sSDConfig.GetAmkoV1Clientset(), time.Second*30)
 	mciCtrl := mciutils.InitializeMCIController(k8sSDConfig.GetClientset(), k8sSDConfig.GetAmkoV1Clientset(),
 		mciInformerFactory, k8sutils.GetClusterListStr(clusterConfigs))
-	mciInformer := mciInformerFactory.Amko().V1alpha1().MultiClusterIngresses()
+	mciInformer := mciInformerFactory.Ako().V1alpha1().MultiClusterIngresses()
 
 	siCtrl := serviceimport.InitializeServiceImportController(k8sSDConfig.GetClientset(), k8sSDConfig.GetAmkoV1Clientset(),
 		mciInformerFactory)
@@ -156,7 +156,7 @@ func RunControllers(mciCtrl *mciutils.MCIController, siCtrl *serviceimport.Servi
 }
 
 func GetClusterInfo(sd *k8sutils.K8sServiceDiscoveryConfig) ([]*k8sutils.K8sClusterConfig, error) {
-	csList, err := sd.GetAmkoV1Clientset().AmkoV1alpha1().ClusterSets(sdutils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
+	csList, err := sd.GetAmkoV1Clientset().AkoV1alpha1().ClusterSets(sdutils.AviSystemNS).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching clusterset list: %v", err)
 	}

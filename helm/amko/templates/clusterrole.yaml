@@ -13,7 +13,7 @@ rules:
     resources: ["routes"]
     verbs: ["get","watch","list"]
   - apiGroups: [""]
-    resources: ["services", "secrets", "namespaces", "pods"]
+    resources: ["pods", "services", "secrets", "namespaces"]
     verbs: ["get", "watch", "list"]
   - apiGroups: [""]
     resources: ["events"]
@@ -21,6 +21,12 @@ rules:
   - apiGroups: ["amko.vmware.com"]
     resources: ["gslbconfigs", "gslbconfigs/status", "globaldeploymentpolicies", "globaldeploymentpolicies/status", "gslbhostrules", "gslbhostrules/status", "amkoclusters", "amkoclusters/status"]
     verbs: ["get","watch","list","patch", "update"]
+  - apiGroups: ["ako.vmware.com"]
+    resources: ["clustersets", "multiclusteringresses"]
+    verbs: ["get","watch","list","patch", "update"]
+  - apiGroups: ["ako.vmware.com"]
+    resources: ["serviceimports"]
+    verbs: ["create","get","watch","list","patch", "update", "delete"]
 
 {{- if .Values.rbac.pspEnable }}
   - apiGroups:
