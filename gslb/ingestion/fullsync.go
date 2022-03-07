@@ -24,7 +24,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
-	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
