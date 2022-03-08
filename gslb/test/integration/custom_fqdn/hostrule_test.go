@@ -311,7 +311,7 @@ func TestHostRuleInsecureToSecure(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	testCert := akov1alpha1.HostRuleSecret{Name: "test-cert", Type: "test-type"}
+	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "test-type"}
 	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = testCert
 	updateHostRule(t, K8s, newK8sHr)
 
