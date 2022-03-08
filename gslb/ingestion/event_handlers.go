@@ -497,7 +497,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, numWorkers uint32,
 	k8swq []workqueue.RateLimitingInterface) {
 	gfqdn := hr.Spec.VirtualHost.Gslb.Fqdn
-	objs := []string{gdpalphav2.RouteObj, gdpalphav2.IngressObj, gdpalphav2.LBSvcObj}
+	objs := []string{gdpalphav2.RouteObj, gdpalphav2.IngressObj, gdpalphav2.LBSvcObj, gslbutils.MCIType}
 	for _, o := range objs {
 		objKey, acceptedStore, rejectedStore, err := GetObjTypeStores(o)
 		if err != nil {

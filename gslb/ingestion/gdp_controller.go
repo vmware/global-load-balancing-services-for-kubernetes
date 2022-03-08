@@ -112,7 +112,8 @@ func MoveObjs(objList []string, fromStore *store.ClusterStore, toStore *store.Cl
 	var cname, ns, objName string
 	var err error
 	for _, multiClusterObjName := range objList {
-		if objType == gslbutils.IngressType {
+		if objType == gslbutils.IngressType ||
+			objType == gslbutils.MCIType {
 			var hostName string
 			cname, ns, objName, hostName, err = gslbutils.SplitMultiClusterIngHostName(multiClusterObjName)
 			if err != nil {
@@ -142,7 +143,8 @@ func MoveObjs(objList []string, fromStore *store.ClusterStore, toStore *store.Cl
 func splitName(objType, objName string) (string, string, string, error) {
 	var cname, ns, sname, hostname string
 	var err error
-	if objType == gdpalphav2.IngressObj {
+	if objType == gdpalphav2.IngressObj ||
+		objType == gslbutils.MCIType {
 		cname, ns, sname, hostname, err = gslbutils.SplitMultiClusterIngHostName(objName)
 		sname += "/" + hostname
 	} else {
@@ -168,6 +170,10 @@ func GetObjTypeStores(objType string) (string, *store.ClusterStore, *store.Clust
 		acceptedObjStore = store.GetAcceptedIngressStore()
 		rejectedObjStore = store.GetRejectedIngressStore()
 		objKey = gslbutils.IngressType
+	} else if objType == gslbutils.MCIType {
+		acceptedObjStore = store.GetAcceptedMultiClusterIngressStore()
+		rejectedObjStore = store.GetRejectedMultiClusterIngressStore()
+		objKey = gslbutils.MCIType
 	} else {
 		gslbutils.Errf("Unknown Object type: %s", objType)
 		return "", nil, nil, errors.New("unknown object type " + objType)
@@ -271,7 +277,10 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 }
 
 func validObjectType(objType string) bool {
-	if objType == gdpalphav2.IngressObj || objType == gdpalphav2.LBSvcObj || objType == gdpalphav2.RouteObj {
+	if objType == gdpalphav2.IngressObj ||
+		objType == gdpalphav2.LBSvcObj ||
+		objType == gdpalphav2.RouteObj ||
+		objType == gslbutils.MCIType {
 		return true
 	}
 	return false
@@ -435,6 +444,7 @@ func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, 
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+	deleteNamespacedObjsAndWriteToQueue(gslbutils.MCIType, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 }
 
 func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, allGSPropertyChanged bool,
@@ -442,6 +452,7 @@ func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers
 	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
 	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
 	writeChangedObjToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
+	writeChangedObjToQueue(gslbutils.MCIType, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
 }
 
 func applyAndUpdateNamespaces() {
