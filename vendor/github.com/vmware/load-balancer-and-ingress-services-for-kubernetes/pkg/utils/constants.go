@@ -28,6 +28,8 @@ const (
 	NodeInformer                  = "NodeInformer"
 	EndpointInformer              = "EndpointInformer"
 	ConfigMapInformer             = "ConfigMapInformer"
+	MultiClusterIngressInformer   = "MultiClusterIngressInformer"
+	ServiceImportInformer         = "ServiceImportInformer"
 	K8S_TLS_SECRET_CERT           = "tls.cert"
 	K8S_TLS_SECRET_KEY            = "tls.key"
 	IngressInformer               = "IngressInformer"
@@ -66,6 +68,7 @@ const (
 	ADMIN_NS                      = "admin"
 	TLS_PASSTHROUGH               = "TLS_PASSTHROUGH"
 	VS_TYPE_VH_PARENT             = "VS_TYPE_VH_PARENT"
+	VS_TYPE_NORMAL                = "VS_TYPE_NORMAL"
 	VS_TYPE_VH_CHILD              = "VS_TYPE_VH_CHILD"
 	VS_TYPE_VH_ENHANCED           = "VS_TYPE_VH_ENHANCED"
 	NodeObj                       = "Node"
@@ -81,6 +84,8 @@ const (
 	ENV_CTRL_AUTHTOKEN            = "CTRL_AUTHTOKEN"
 	ENV_CTRL_IPADDRESS            = "CTRL_IPADDRESS"
 	POD_NAMESPACE                 = "POD_NAMESPACE"
+	VCF_CLUSTER                   = "VCF_CLUSTER"
+	MCI_ENABLED                   = "MCI_ENABLED"
 
 	RefreshAuthTokenInterval = 12  //hours
 	AuthTokenExpiry          = 240 //hours

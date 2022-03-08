@@ -153,12 +153,12 @@ github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
+# github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618
+github.com/vmware-tanzu/service-apis/apis/v1alpha1pre1
 # github.com/vmware/alb-sdk v0.0.0-20210721142023-8e96475b833b
 ## explicit
-github.com/vmware/alb-sdk/go/clients
 github.com/vmware/alb-sdk/go/models
-github.com/vmware/alb-sdk/go/session
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20210903060129-cabb77c82e7f
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220211084755-6df4b1e258fd
 ## explicit
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
@@ -172,6 +172,8 @@ github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/internalinterfaces
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/listers/ako/v1alpha1
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session
 # go.uber.org/atomic v1.7.0
 go.uber.org/atomic
 # go.uber.org/multierr v1.6.0
@@ -725,6 +727,8 @@ sigs.k8s.io/controller-runtime/pkg/webhook
 sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
+# sigs.k8s.io/service-apis v0.1.0
+sigs.k8s.io/service-apis/apis/v1alpha1
 # sigs.k8s.io/structured-merge-diff/v4 v4.1.2
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/schema
