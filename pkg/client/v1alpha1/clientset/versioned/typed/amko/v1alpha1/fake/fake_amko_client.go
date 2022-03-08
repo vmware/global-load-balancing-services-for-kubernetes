@@ -28,24 +28,12 @@ type FakeAmkoV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeAmkoV1alpha1) ClusterSets(namespace string) v1alpha1.ClusterSetInterface {
-	return &FakeClusterSets{c, namespace}
-}
-
 func (c *FakeAmkoV1alpha1) GSLBConfigs(namespace string) v1alpha1.GSLBConfigInterface {
 	return &FakeGSLBConfigs{c, namespace}
 }
 
 func (c *FakeAmkoV1alpha1) GSLBHostRules(namespace string) v1alpha1.GSLBHostRuleInterface {
 	return &FakeGSLBHostRules{c, namespace}
-}
-
-func (c *FakeAmkoV1alpha1) MultiClusterIngresses(namespace string) v1alpha1.MultiClusterIngressInterface {
-	return &FakeMultiClusterIngresses{c, namespace}
-}
-
-func (c *FakeAmkoV1alpha1) ServiceImports(namespace string) v1alpha1.ServiceImportInterface {
-	return &FakeServiceImports{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

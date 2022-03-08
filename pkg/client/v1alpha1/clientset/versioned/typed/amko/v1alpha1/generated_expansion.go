@@ -18,12 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-type ClusterSetExpansion interface{}
-
 type GSLBConfigExpansion interface{}
 
 type GSLBHostRuleExpansion interface{}
-
-type MultiClusterIngressExpansion interface{}
-
-type ServiceImportExpansion interface{}
