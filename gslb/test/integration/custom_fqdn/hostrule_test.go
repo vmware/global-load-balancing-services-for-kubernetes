@@ -351,7 +351,7 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 	var expectedMembers []nodes.AviGSK8sObj
 	g := gomega.NewGomegaWithT(t)
 
-	testCert := akov1alpha1.HostRuleSecret{Name: "test-cert", Type: "test-type"}
+	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "test-type"}
 
 	k8sHr := getDefaultHostRule(hrNameK8s, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn,
 		gslbutils.HostRuleAccepted)
@@ -377,11 +377,11 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 
 	// remove the TLS fields from the hostrules
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSecret{}
+	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSSLKeyCertificate{}
 	updateHostRule(t, K8s, newK8sHr)
 
 	newOcHr := getTestHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
-	newOcHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSecret{}
+	newOcHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSSLKeyCertificate{}
 	updateHostRule(t, Oshift, newOcHr)
 
 	// members will become non-TLS type once the host rules are updated above
