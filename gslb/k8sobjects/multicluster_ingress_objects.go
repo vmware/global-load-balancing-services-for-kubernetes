@@ -40,8 +40,9 @@ func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cna
 
 	hip := getHostAndIP(mci)
 	if hip.Hostname == "" || hip.IPAddr == "" {
-		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: hostname or ip address is empty: %v",
+		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: hostname or ip address is empty",
 			cname, mci.Namespace, mci.Name)
+		return metaObjects
 	}
 
 	tlsHosts := getMultiClusterIngressTLSHosts(mci)

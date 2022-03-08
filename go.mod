@@ -11,7 +11,7 @@ require (
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 	github.com/vmware/alb-sdk v0.0.0-20210721142023-8e96475b833b
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220211084755-6df4b1e258fd
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220307152358-0921c8939768
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.21.3

@@ -878,7 +878,7 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	}
 	crdClient, err := crd.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't initialize clientset for HostRule: %v", err)
+		return nil, fmt.Errorf("couldn't initialize ako clientset: %v", err)
 	}
 
 	informersArg[utils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
@@ -904,7 +904,6 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 		hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
 
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
-		aviCtrl.hrClientSet = crdClient
 		_, err = crdClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("HostRule API not available for cluster: %v", err)
@@ -912,7 +911,7 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	} else {
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, nil)
 	}
-
+	aviCtrl.hrClientSet = crdClient
 	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 	return &aviCtrl, nil
 }

@@ -566,6 +566,8 @@ github.com/vmware/alb-sdk v0.0.0-20210721142023-8e96475b833b h1:xSos8K/8ONRdH1ta
 github.com/vmware/alb-sdk v0.0.0-20210721142023-8e96475b833b/go.mod h1:GuFjFl3UCYMUyEnbwPjpu+9wlkGs/10xuJuqE/1rqKI=
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220211084755-6df4b1e258fd h1:agGNNBnq1msLqDaJ7Nj5hAQDAtQVcTze/yzCUucpIVQ=
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220211084755-6df4b1e258fd/go.mod h1:wvfGhxK0vJjFDyEkfywktCCBj5ZOuvVNhY97YoFpYEE=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220307152358-0921c8939768 h1:tgDMJGSxnag1dqI9FTsB5RPiNHuW9VEn8VcZxTRK3Gs=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220307152358-0921c8939768/go.mod h1:qrFNRlvsmCZcF03IoPa+0kGF+2qAaXNJSiAJO6UxUIk=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=

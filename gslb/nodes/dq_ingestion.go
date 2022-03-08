@@ -312,6 +312,8 @@ func GetNewObj(objType string) (k8sobjects.MetaObject, error) {
 		return k8sobjects.IngressHostMeta{}, nil
 	case gslbutils.SvcType:
 		return k8sobjects.SvcMeta{}, nil
+	case gslbutils.MCIType:
+		return k8sobjects.MultiClusterIngressHostMeta{}, nil
 	default:
 		return nil, errors.New("unrecognised object: " + objType)
 	}
