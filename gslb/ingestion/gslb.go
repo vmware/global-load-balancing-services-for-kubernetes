@@ -41,22 +41,22 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned"
-	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
-	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/listers/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	gslbcs "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
+	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/listers/amko/v1alpha1"
 
-	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/clientset/versioned"
-	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha2/informers/externalversions"
+	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/clientset/versioned"
+	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/informers/externalversions"
+	corev1 "k8s.io/api/core/v1"
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
 	avirest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
 	aviretry "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/retry"
 
-	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	crd "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	akoinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
@@ -854,6 +854,10 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 		allInformers = append(allInformers, utils.IngressInformer)
 	}
 
+	if utils.IsMultiClusterIngressEnabled() {
+		allInformers = append(allInformers, utils.MultiClusterIngressInformer)
+	}
+
 	allInformers = append(allInformers, utils.ServiceInformer)
 	allInformers = append(allInformers, utils.NSInformer)
 	return allInformers, nil
@@ -872,8 +876,14 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	if err != nil {
 		return nil, fmt.Errorf("error in creating openshift clientset: %v", err)
 	}
+	crdClient, err := crd.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't initialize ako clientset: %v", err)
+	}
+
 	informersArg[utils.INFORMERS_OPENSHIFT_CLIENT] = oshiftClient
 	informersArg[utils.INFORMERS_INSTANTIATE_ONCE] = false
+	informersArg[utils.INFORMERS_AKO_CLIENT] = crdClient
 	registeredInformers, err := InformersToRegister(oshiftClient, kubeClient, cluster.clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("error in initializing informers: %v", err)
@@ -890,24 +900,18 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 
 	var aviCtrl GSLBMemberController
 	if gslbutils.GetCustomFqdnMode() {
-		hrClient, err := hrcs.NewForConfig(cfg)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't initialize clientset for HostRule: %v", err)
-		}
-
-		akoInformerFactory := akoinformer.NewSharedInformerFactory(hrClient, time.Second*30)
+		akoInformerFactory := akoinformer.NewSharedInformerFactory(crdClient, time.Second*30)
 		hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
 
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
-		aviCtrl.hrClientSet = hrClient
-		_, err = hrClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
+		_, err = crdClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("HostRule API not available for cluster: %v", err)
 		}
 	} else {
 		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, nil)
 	}
-
+	aviCtrl.hrClientSet = crdClient
 	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 	return &aviCtrl, nil
 }

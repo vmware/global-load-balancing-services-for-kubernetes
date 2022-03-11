@@ -6,8 +6,10 @@ GOMOD=$(GOCMD) mod
 GOTEST=$(GOCMD) test
 AMKO_BIN=amko
 FEDERATOR_BIN=amko-federator
+SERVICE_DISCOVERY_BIN=amko-service-discovery
 AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/gslb
 FEDERATOR_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/federator
+SERVICE_DISCOVERY_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/service_discovery
 
 .PHONY: all
 all: vendor build
@@ -20,14 +22,19 @@ build-amko:
 build-amko-federator:
 	$(GOBUILD) -o bin/$(FEDERATOR_BIN) -mod=vendor $(FEDERATOR_REL_PATH)
 
+.PHONY: build-amko-service-discovery
+build-amko-service-discovery:
+	$(GOBUILD) -o bin/$(SERVICE_DISCOVERY_BIN) -mod=vendor $(SERVICE_DISCOVERY_REL_PATH)
+
 .PHONY: build
-build: build-amko build-amko-federator
+build: build-amko build-amko-federator build-amko-service-discovery
 
 .PHONY: clean
 clean:
 		$(GOCLEAN) -mod=vendor $(AMKO_REL_PATH)
 		rm -f bin/$(AMKO_BIN)
 		rm -f bin/$(FEDERATOR_BIN)
+		rm -rf bin/$(SERVICE_DISCOVERY_BIN)
 
 .PHONY: vendor
 vendor:
@@ -74,9 +81,28 @@ else
 endif
 	sudo docker build -t $(FEDERATOR_BIN):latest --label "BUILD_TAG=$(BUILD_TAG)" --label "BUILD_TIME=$(BUILD_TIME)" $(BUILD_ARG_GOLANG) $(BUILD_ARG_PHOTON) -f Dockerfile.amko-federator .
 
+.PHONY: amko-service-discovery-docker
+amko-service-discovery-docker:
+ifndef BUILD_TAG
+		$(eval BUILD_TIME=$(shell date +%Y-%m-%d_%H:%M:%S_%Z))
+endif
+ifndef BUILD_TAG
+		$(eval BUILD_TAG=$(shell ./hack/jenkins/get_build_version.sh "dummy" 0))
+endif
+ifdef GOLANG_SRC_REPO
+	$(eval BUILD_ARG_GOLANG=--build-arg golang_src_repo=$(GOLANG_SRC_REPO))
+else
+	$(eval BUILD_ARG_GOLANG=)
+endif
+ifdef PHOTON_SRC_REPO
+	$(eval BUILD_ARG_PHOTON=--build-arg photon_src_repo=$(PHOTON_SRC_REPO))
+else
+	$(eval BUILD_ARG_PHOTON=)
+endif
+	sudo docker build -t $(SERVICE_DISCOVERY_BIN):latest --label "BUILD_TAG=$(BUILD_TAG)" --label "BUILD_TIME=$(BUILD_TIME)" $(BUILD_ARG_GOLANG) $(BUILD_ARG_PHOTON) -f Dockerfile.amko-service-discovery .
 
 .PHONY: docker
-docker: amko-docker amko-federator-docker
+docker: amko-docker amko-federator-docker amko-service-discovery-docker
 
 .PHONY: ingestion_test
 ingestion_test:

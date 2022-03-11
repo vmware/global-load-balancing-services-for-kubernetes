@@ -24,7 +24,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
-	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -311,7 +311,7 @@ func TestHostRuleInsecureToSecure(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	testCert := akov1alpha1.HostRuleSecret{Name: "test-cert", Type: "test-type"}
+	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "test-type"}
 	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = testCert
 	updateHostRule(t, K8s, newK8sHr)
 
@@ -351,7 +351,7 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 	var expectedMembers []nodes.AviGSK8sObj
 	g := gomega.NewGomegaWithT(t)
 
-	testCert := akov1alpha1.HostRuleSecret{Name: "test-cert", Type: "test-type"}
+	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "test-type"}
 
 	k8sHr := getDefaultHostRule(hrNameK8s, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn,
 		gslbutils.HostRuleAccepted)
@@ -377,11 +377,11 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 
 	// remove the TLS fields from the hostrules
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSecret{}
+	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSSLKeyCertificate{}
 	updateHostRule(t, K8s, newK8sHr)
 
 	newOcHr := getTestHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
-	newOcHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSecret{}
+	newOcHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSSLKeyCertificate{}
 	updateHostRule(t, Oshift, newOcHr)
 
 	// members will become non-TLS type once the host rules are updated above

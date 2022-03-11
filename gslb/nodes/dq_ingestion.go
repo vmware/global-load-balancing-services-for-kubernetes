@@ -98,7 +98,7 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 			gslbutils.Errf("key: %s, msg: %s", key, "accepted route store is empty, can't add route")
 			return nil
 		}
-		break
+
 	case gslbutils.IngressType:
 		if storeType == gslbutils.AcceptedStore {
 			cstore = store.GetAcceptedIngressStore()
@@ -109,7 +109,6 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 			gslbutils.Errf("key: %s, msg: %s", key, "accepted ingress store is empty, can't add ingress")
 			return nil
 		}
-		break
 
 	case gslbutils.SvcType:
 		if storeType == gslbutils.AcceptedStore {
@@ -121,7 +120,16 @@ func getObjFromStore(objType, cname, ns, objName, key, storeType string) interfa
 			gslbutils.Errf("key: %s, msg: %s", key, "accepted svc store is empty, can't add svc")
 			return nil
 		}
-		break
+	case gslbutils.MCIType:
+		if storeType == gslbutils.AcceptedStore {
+			cstore = store.GetAcceptedMultiClusterIngressStore()
+		} else {
+			cstore = store.GetRejectedMultiClusterIngressStore()
+		}
+		if cstore == nil {
+			gslbutils.Errf("key: %s, msg: %s", key, "accepted/rejected multi-cluster ingress store is empty, can't add/delete multi-cluster ingress")
+			return nil
+		}
 	}
 	obj, ok := cstore.GetClusterNSObjectByName(cname, ns, objName)
 	if !ok {
@@ -304,6 +312,8 @@ func GetNewObj(objType string) (k8sobjects.MetaObject, error) {
 		return k8sobjects.IngressHostMeta{}, nil
 	case gslbutils.SvcType:
 		return k8sobjects.SvcMeta{}, nil
+	case gslbutils.MCIType:
+		return k8sobjects.MultiClusterIngressHostMeta{}, nil
 	default:
 		return nil, errors.New("unrecognised object: " + objType)
 	}
@@ -512,7 +522,7 @@ func DequeueIngestion(key string) {
 		return
 	}
 	switch objType {
-	case gslbutils.RouteType, gslbutils.IngressType, gslbutils.SvcType:
+	case gslbutils.RouteType, gslbutils.IngressType, gslbutils.SvcType, gslbutils.MCIType:
 		OperateOnK8sObject(key)
 	case gslbutils.GSFQDNType:
 		OperateOnGSLBHostRule(key)

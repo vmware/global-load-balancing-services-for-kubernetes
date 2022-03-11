@@ -27,15 +27,17 @@ import (
 
 // Cluster Routes store for all the route objects.
 var (
-	AcceptedRouteStore   *ClusterStore
-	RejectedRouteStore   *ClusterStore
-	AcceptedLBSvcStore   *ClusterStore
-	RejectedLBSvcStore   *ClusterStore
-	AcceptedIngressStore *ClusterStore
-	RejectedIngressStore *ClusterStore
-	AcceptedNSStore      *ObjectStore
-	RejectedNSStore      *ObjectStore
-	HostRuleStore        *ClusterStore
+	AcceptedRouteStore               *ClusterStore
+	RejectedRouteStore               *ClusterStore
+	AcceptedLBSvcStore               *ClusterStore
+	RejectedLBSvcStore               *ClusterStore
+	AcceptedIngressStore             *ClusterStore
+	RejectedIngressStore             *ClusterStore
+	AcceptedNSStore                  *ObjectStore
+	RejectedNSStore                  *ObjectStore
+	HostRuleStore                    *ClusterStore
+	AcceptedMultiClusterIngressStore *ClusterStore
+	RejectedMultiClusterIngressStore *ClusterStore
 )
 
 type ClusterStore struct {
@@ -104,6 +106,26 @@ func GetRejectedIngressStore() *ClusterStore {
 		RejectedIngressStore = NewClusterStore()
 	})
 	return RejectedIngressStore
+}
+
+var acceptedMultiClusterIngressOnce sync.Once
+
+// GetAcceptedIngressStore initializes and returns a new accepted multi-cluster ingress store.
+func GetAcceptedMultiClusterIngressStore() *ClusterStore {
+	acceptedMultiClusterIngressOnce.Do(func() {
+		AcceptedMultiClusterIngressStore = NewClusterStore()
+	})
+	return AcceptedMultiClusterIngressStore
+}
+
+var rejectedMultiClusterIngressOnce sync.Once
+
+// GetRejectedMultiClusterIngressStore initializes and returns a new rejected multi-cluster ingress store.
+func GetRejectedMultiClusterIngressStore() *ClusterStore {
+	rejectedMultiClusterIngressOnce.Do(func() {
+		RejectedMultiClusterIngressStore = NewClusterStore()
+	})
+	return RejectedMultiClusterIngressStore
 }
 
 var acceptedNSOnce sync.Once

@@ -23,9 +23,9 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
-	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/clientset/versioned/fake"
+	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/fake"
 
-	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/client/v1alpha1/informers/externalversions"
+	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 )

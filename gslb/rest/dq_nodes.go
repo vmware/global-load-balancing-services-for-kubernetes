@@ -29,12 +29,11 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/vmware/alb-sdk/go/clients"
-	"github.com/vmware/alb-sdk/go/models"
 	avimodels "github.com/vmware/alb-sdk/go/models"
-	"github.com/vmware/alb-sdk/go/session"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -709,7 +708,7 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 
 func GetHmMarkers() []*avimodels.RoleFilterMatchLabel {
 	key := gslbutils.CreatedByLabelKey
-	ml := &models.RoleFilterMatchLabel{
+	ml := &avimodels.RoleFilterMatchLabel{
 		Key:    &key,
 		Values: []string{gslbutils.AMKOControlConfig().CreatedByField()},
 	}
@@ -1203,7 +1202,7 @@ func (restOp *RestOperations) AviGSHmCacheAdd(operation *utils.RestOp, key strin
 			operation.Response, operation.Err)
 		return errors.New("rest operation errored")
 	}
-	hmObj, ok := operation.Obj.(models.HealthMonitor)
+	hmObj, ok := operation.Obj.(avimodels.HealthMonitor)
 	if !ok {
 		gslbutils.Warnf("key: %s, resp: %s, msg: unable to find health monitor object in response", key,
 			operation.Response)

@@ -26,8 +26,8 @@ import (
 
 	. "github.com/onsi/gomega"
 	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha1"
-	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/internal/apis/amko/v1alpha2"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -312,18 +312,6 @@ func TestGCGDPExist(k8sClient client.Client) {
 	Expect(k8sClient.List(ctx, &gdpList)).Should(Succeed())
 	Expect(len(gdpList.Items)).Should(Equal(1))
 }
-
-// func VerifyTestAMKOClusterObjectSuccess(k8sClient client.Client, statusType string) {
-// 	Eventually(func() string {
-// 		var obj amkovmwarecomv1alpha1.AMKOCluster
-// 		Expect(k8sClient.Get(context.TODO(),
-// 			types.NamespacedName{
-// 				Name:      TestAMKOClusterName,
-// 				Namespace: AviSystemNS},
-// 			&obj)).Should(Succeed())
-// 		return getTestAMKOClusterStatusReason(obj.Status, statusType)
-// 	}, 5*time.Second, 1*time.Second).Should(Equal("Federation successful"))
-// }
 
 func VerifyTestAMKOClusterStatus(k8sClient client.Client, statusType, statusMsg, failureMsg string) {
 	Eventually(func() map[string]string {

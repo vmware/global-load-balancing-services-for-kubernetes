@@ -59,6 +59,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          {{ if .Values.multiClusterIngress.enable }}
+          - name: MCI_ENABLED
+            value: "true"
+          {{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
@@ -104,7 +108,18 @@ spec:
           imagePullPolicy: {{ .Values.federation.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-
+        - name: amko-service-discovery
+          {{ if .Values.persistentVolumeClaim }}
+          volumeMounts:
+          - mountPath: {{ .Values.mountPath }}
+            name: amko-pv-storage
+          {{ end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.serviceDiscovery.image.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.serviceDiscovery.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
