@@ -766,7 +766,7 @@ func filterAndUpdateMultiClusterIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8s
 			AddOrUpdateMultiClusterIngressStore(rejectedStore, newMCIhm, c.name)
 			DeleteFromMultiClusterIngressStore(acceptedStore, newMCIhm, c.name)
 
-			fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
+			fetchedIngHost := fetchedObj.(k8sobjects.MultiClusterIngressHostMeta)
 			// Add a DELETE key for this ingHost
 			publishKeyToGraphLayer(numWorkers, gslbutils.MCIType, fetchedIngHost.Cluster,
 				fetchedIngHost.Namespace, fetchedIngHost.ObjName, gslbutils.ObjectDelete,
