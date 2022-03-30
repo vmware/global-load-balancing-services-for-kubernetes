@@ -100,6 +100,7 @@ type AviGSK8sObj struct {
 	VirtualServiceUUID string
 	ControllerUUID     string
 	SyncVIPOnly        bool
+	DomainNames        []string
 }
 
 func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
@@ -121,6 +122,7 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 		ControllerUUID:     gsk8sObj.ControllerUUID,
 		SyncVIPOnly:        gsk8sObj.SyncVIPOnly,
 		IsPassthrough:      gsk8sObj.IsPassthrough,
+		DomainNames:        gsk8sObj.DomainNames,
 	}
 	return obj
 }
@@ -463,12 +465,12 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 }
 
-func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool, tls bool) {
+func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool, tls bool, domainNames []string) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
 	// update the GSLB HostRule or GDP properties for the GS
-	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
+	setGSLBPropertiesForGS(gsFqdn, v, false, tls, domainNames)
 	if !newObj {
 		v.RetryCount = gslbutils.DefaultRetryCount
 		v.CalculateChecksum()
@@ -498,12 +500,11 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 	// The GSLB service will be put into the admin tenant
 	v.Name = gsFqdn
 	v.Tenant = utils.ADMIN_NS
-	v.DomainNames = []string{gsFqdn}
 	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 
 	// set the GS properties according to the GSLBHostRule or GDP
-	setGSLBPropertiesForGS(gsFqdn, v, true, memberObjs[0].TLS)
+	setGSLBPropertiesForGS(gsFqdn, v, true, memberObjs[0].TLS, memberObjs[0].DomainNames)
 
 	if v.HmRefs == nil || len(v.HmRefs) == 0 {
 		// Build the list of health monitors
@@ -518,8 +519,8 @@ func (v *AviGSObjectGraph) ConstructAviGSGraphFromObjects(gsFqdn string, members
 	v.ConstructAviGSGraph(gsFqdn, key, members)
 }
 
-func (v *AviGSObjectGraph) ConstructAviGSGraphFromMeta(gsName, key string, metaObj k8sobjects.MetaObject) {
-	menberObj, err := BuildGSMemberObjFromMeta(metaObj, gsName)
+func (v *AviGSObjectGraph) ConstructAviGSGraphFromMeta(gsName, key string, metaObj k8sobjects.MetaObject, gsDomainNames []string) {
+	menberObj, err := BuildGSMemberObjFromMeta(metaObj, gsName, gsDomainNames)
 	if err != nil {
 		gslbutils.Errf("key: %s, gsName: %s, msg: error in building member object from meta object: %v",
 			key, gsName, err)
@@ -592,18 +593,17 @@ func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
 	}
 }
 
-func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool) {
+func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool, domainNames []string) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
-	v.DomainNames = []string{v.Name}
-	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
+	setGSLBPropertiesForGS(gsFqdn, v, false, tls, domainNames)
 }
 
 // AddUpdateGSMember adds/updates a GS member according to the properties in newMember. Returns
 // true if an existing member needs to be removed.
 func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
-	v.SetPropertiesForGS(v.Name, newMember.TLS)
+	v.SetPropertiesForGS(v.Name, newMember.TLS, newMember.DomainNames)
 
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
@@ -663,11 +663,11 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 	return false
 }
 
-func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject) {
+func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject, gsDomainNames []string) {
 	tls, _ := getTLSFromObj(metaObj)
-	v.SetPropertiesForGS(v.Name, tls)
+	v.SetPropertiesForGS(v.Name, tls, gsDomainNames)
 
-	member, err := BuildGSMemberObjFromMeta(metaObj, v.Name)
+	member, err := BuildGSMemberObjFromMeta(metaObj, v.Name, v.DomainNames)
 	if err != nil {
 		gslbutils.Errf("gsName: %s, msg: error in building gs member from meta: %v", err)
 		return
@@ -699,6 +699,9 @@ func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
 	if len(v.MemberObjs) == 0 {
 		return
 	}
+
+	// If HostRule object is deleted -> need to update domain names (in case the deleted hostrule had an aliases)
+	v.DomainNames = DeriveGSLBServiceDomainNames(v.Name)
 
 	// check if the health monitor needs to be updated
 	for _, member := range v.MemberObjs {
@@ -827,7 +830,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	return &gsObjCopy
 }
 
-func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (AviGSK8sObj, error) {
+func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDomainNames []string) (AviGSK8sObj, error) {
 	// Update the GS fields
 	var ghRules gslbutils.GSHostRules
 	var svcPort int32
@@ -895,6 +898,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string) (Avi
 		SyncVIPOnly:        syncVIPOnly,
 		IsPassthrough:      metaObj.IsPassthrough(),
 		TLS:                tls,
+		DomainNames:        gsDomainNames,
 	}, nil
 }
 

@@ -209,8 +209,7 @@ func DeleteFromLBSvcStore(clusterSvcStore *store.ClusterStore,
 }
 
 func isHostRuleAcceptable(hr *akov1alpha1.HostRule) bool {
-	if hr.Spec.VirtualHost.Gslb.Fqdn == "" || hr.Status.Status != gslbutils.HostRuleAccepted ||
-		hr.Spec.VirtualHost.Fqdn == "" {
+	if hr.Status.Status != gslbutils.HostRuleAccepted || hr.Spec.VirtualHost.Fqdn == "" {
 		return false
 	}
 	return true
@@ -224,6 +223,12 @@ func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule)
 		return true
 	}
 	if oldHr.Spec.VirtualHost.TLS != newHr.Spec.VirtualHost.TLS {
+		return true
+	}
+	if len(gslbutils.SliceDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
+		return true
+	}
+	if oldHr.Spec.VirtualHost.Gslb.IncludeAliases != newHr.Spec.VirtualHost.Gslb.IncludeAliases {
 		return true
 	}
 	return false
@@ -241,7 +246,7 @@ func AddOrUpdateHostRuleStore(clusterHRStore *store.ClusterStore,
 	if hr.Spec.VirtualHost.TLS.SSLKeyCertificate.Name != "" {
 		tls = true
 	}
-	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn, tls)
+	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn, tls, hr.Spec.VirtualHost.Aliases)
 	gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, updating hostrule store: %s", cname,
 		hr.Namespace, hr.Name, hr.Spec.VirtualHost.Fqdn)
 	clusterHRStore.AddOrUpdate(hrMeta, cname, hr.Namespace, hr.Spec.VirtualHost.Fqdn)

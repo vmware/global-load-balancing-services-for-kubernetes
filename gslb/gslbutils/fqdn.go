@@ -150,3 +150,111 @@ func (lgFqdn *LocalToGlobalFqdn) GetGlobalFqdnFor(cname string, lFqdn string) (s
 	}
 	return gFqdn, nil
 }
+
+type GSDomainName struct {
+	Cluster    string
+	DomainName string
+}
+
+type gsToDomainName struct {
+	gsToDomainNameMap map[string][]GSDomainName
+
+	lock sync.RWMutex
+}
+
+var gsToDomainNameOnce sync.Once
+var gsToDomainNameList *gsToDomainName
+
+func GetDomainNameMap() *gsToDomainName {
+	gsToDomainNameOnce.Do(func() {
+		gsToDomainNameList = &gsToDomainName{
+			gsToDomainNameMap: make(map[string][]GSDomainName),
+		}
+	})
+	return gsToDomainNameList
+}
+
+func (gsDN *gsToDomainName) gsNameToAliasMapExistsInCluster(objList []GSDomainName, cname, alias string) int {
+	for idx, gsdn := range objList {
+		if gsdn.Cluster == cname && gsdn.DomainName == alias {
+			return idx
+		}
+	}
+	return -1
+}
+
+func (gsDN *gsToDomainName) aliasExists(alias string) (string, string) {
+	for gsName, domainNames := range gsDN.gsToDomainNameMap {
+		for _, dn := range domainNames {
+			if dn.DomainName == alias {
+				return gsName, dn.Cluster
+			}
+		}
+	}
+	return "", ""
+}
+
+func (gsDN *gsToDomainName) AddUpdateGSToDomainNameMapping(gsName, cname string, aliases []string) {
+	gsDN.lock.Lock()
+	defer gsDN.lock.Unlock()
+
+	for _, alias := range aliases {
+		if gsN, cluster := gsDN.aliasExists(alias); gsN == "" && cluster == "" {
+			gs := GSDomainName{
+				Cluster:    cname,
+				DomainName: alias,
+			}
+			gsDN.gsToDomainNameMap[gsName] = append(gsDN.gsToDomainNameMap[gsName], gs)
+		} else {
+			Errf("gsName: %s, alias: %s, Hostrule alias is already present in cluster %s under %s gslbservice, ignoring this alias", gsName, alias, cluster, gsN)
+		}
+	}
+}
+
+func (gsDN *gsToDomainName) DeleteGSToDomainNameMapping(gsName, cname string, aliases []string) {
+	gsDN.lock.Lock()
+	defer gsDN.lock.Unlock()
+	for _, alias := range aliases {
+		// If this alias exists, then delete the entry for that particular alias
+		if idx := gsDN.gsNameToAliasMapExistsInCluster(gsDN.gsToDomainNameMap[gsName], cname, alias); idx != -1 {
+			gsDN.gsToDomainNameMap[gsName] = append(gsDN.gsToDomainNameMap[gsName][:idx],
+				gsDN.gsToDomainNameMap[gsName][idx+1:]...)
+		}
+	}
+}
+
+func (gsDN *gsToDomainName) DeleteGSToDomainName(gsName, cname string) {
+	gsDN.lock.Lock()
+	defer gsDN.lock.Unlock()
+	delete(gsDN.gsToDomainNameMap, gsName)
+}
+
+func (gsDN *gsToDomainName) GetDomainNamesForGSMemberCluster(gsName, cname string) ([]string, error) {
+	gsDN.lock.Lock()
+	defer gsDN.lock.Unlock()
+	GSDomainName := []string{}
+	if domainNames, ok := gsDN.gsToDomainNameMap[gsName]; ok {
+		for _, dn := range domainNames {
+			if dn.Cluster == cname {
+				GSDomainName = append(GSDomainName, dn.DomainName)
+			}
+		}
+	} else {
+		return GSDomainName, fmt.Errorf("no domain names found")
+	}
+	return GSDomainName, nil
+}
+
+func (gsDN *gsToDomainName) GetDomainNamesForGS(gsName string) ([]string, error) {
+	gsDN.lock.Lock()
+	defer gsDN.lock.Unlock()
+	GSDomainName := []string{}
+	if domainNames, ok := gsDN.gsToDomainNameMap[gsName]; ok {
+		for _, dn := range domainNames {
+			GSDomainName = append(GSDomainName, dn.DomainName)
+		}
+	} else {
+		return GSDomainName, fmt.Errorf("no domain names found")
+	}
+	return GSDomainName, nil
+}

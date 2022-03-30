@@ -899,18 +899,15 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	clients[cluster.clusterName] = kubeClient
 
 	var aviCtrl GSLBMemberController
-	if gslbutils.GetCustomFqdnMode() {
-		akoInformerFactory := akoinformer.NewSharedInformerFactory(crdClient, time.Second*30)
-		hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
+	akoInformerFactory := akoinformer.NewSharedInformerFactory(crdClient, time.Second*30)
+	hostRuleInformer := akoInformerFactory.Ako().V1alpha1().HostRules()
 
-		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
-		_, err = crdClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("HostRule API not available for cluster: %v", err)
-		}
-	} else {
-		aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, nil)
+	aviCtrl = GetGSLBMemberController(cluster.clusterName, informerInstance, &hostRuleInformer)
+	_, err = crdClient.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("HostRule API not available for cluster: %v", err)
 	}
+
 	aviCtrl.hrClientSet = crdClient
 	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
 	return &aviCtrl, nil

@@ -70,8 +70,8 @@ func GSLBHostRuleKey(operation, objType, objName string) string {
 	return MultiClusterKeyWithObjName(operation, objType, objName)
 }
 
-func MultiClusterKeyForHostRule(operation, objType, clusterName, ns, lfqdn, gfqdn string) string {
-	return MultiClusterKeyWithObjName(operation, objType, clusterName+"/"+ns+"/"+lfqdn+"/"+gfqdn)
+func MultiClusterKeyForHostRule(operation, objType, clusterName, ns, objName, lfqdn, gfqdn string) string {
+	return MultiClusterKeyWithObjName(operation, objType, clusterName+"/"+ns+"/"+objName+"/"+lfqdn+"/"+gfqdn)
 }
 
 func ExtractMultiClusterHostRuleKey(key string) (string, string, string, string, string, string, error) {
@@ -98,11 +98,15 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 		if len(segments) == IngMultiClusterKeyLen {
 			operation, objType, cluster, ns, name, hostname = segments[0], segments[1], segments[2], segments[3], segments[4], segments[5]
 			name += "/" + hostname
+		} else if len(segments) == HostRuleKeyLen {
+			operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]+"/"+segments[5]
 		}
 	} else if len(segments) == MultiClusterKeyLen {
 		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
 	} else if len(segments) == GSFQDNKeyLen {
 		operation, objType, name = segments[0], segments[1], segments[2]
+	} else if len(segments) == HostRuleKeyLen {
+		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
 	}
 	return operation, objType, cluster, ns, name
 }
@@ -586,12 +590,13 @@ func HMCreatedByAMKO(hmName string) bool {
 // HostRuleMeta stores a partial set of information stripped from the HostRule object,
 // information only required for AMKO.
 type HostRuleMeta struct {
-	GSFqdn string
-	TLS    bool
+	GSFqdn  string
+	TLS     bool
+	Aliases []string
 }
 
-func GetHostRuleMeta(gsFqdn string, tls bool) HostRuleMeta {
-	return HostRuleMeta{GSFqdn: gsFqdn, TLS: tls}
+func GetHostRuleMeta(gsFqdn string, tls bool, aliases []string) HostRuleMeta {
+	return HostRuleMeta{GSFqdn: gsFqdn, TLS: tls, Aliases: aliases}
 }
 
 var customFqdnMode bool
@@ -672,4 +677,19 @@ func SetGslbConfigObjUpdated(value bool) {
 
 func GetGslbConfigObjUpdated() bool {
 	return gslbConfigObjUpdated
+}
+
+// Difference compares two slices a & b, returns the elements in `a` that aren't in `b`.
+func SliceDifference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
