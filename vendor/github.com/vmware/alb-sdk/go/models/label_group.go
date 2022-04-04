@@ -12,6 +12,9 @@ type LabelGroup struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// List of allowed or suggested labels for the label group. Field introduced in 20.1.5.
 	Labels []*RoleMatchOperationMatchLabel `json:"labels,omitempty"`
 

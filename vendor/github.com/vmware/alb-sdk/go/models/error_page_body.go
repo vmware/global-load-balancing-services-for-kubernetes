@@ -12,8 +12,12 @@ type ErrorPageBody struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Error page body sent to client when match. Field introduced in 17.2.4.
-	ErrorPageBody *string `json:"error_page_body,omitempty"`
+	// Required: true
+	ErrorPageBody *string `json:"error_page_body"`
 
 	// Format of an error page body HTML or JSON. Enum options - ERROR_PAGE_FORMAT_HTML, ERROR_PAGE_FORMAT_JSON. Field introduced in 18.2.3.
 	Format *string `json:"format,omitempty"`

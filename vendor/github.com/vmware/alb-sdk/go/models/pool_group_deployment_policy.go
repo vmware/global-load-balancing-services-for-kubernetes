@@ -15,6 +15,9 @@ type PoolGroupDeploymentPolicy struct {
 	// It will automatically disable old production pools once there is a new production candidate.
 	AutoDisableOldProdPools *bool `json:"auto_disable_old_prod_pools,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
 

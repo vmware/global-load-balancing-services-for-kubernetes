@@ -15,6 +15,9 @@ type Webhook struct {
 	// Callback URL for the Webhook. Field introduced in 17.1.1.
 	CallbackURL *string `json:"callback_url,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	//  Field introduced in 17.1.1.
 	Description *string `json:"description,omitempty"`
 

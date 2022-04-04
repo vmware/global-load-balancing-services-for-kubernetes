@@ -15,11 +15,17 @@ type HTTPPolicySet struct {
 	// Checksum of cloud configuration for Pool. Internally set by cloud connector.
 	CloudConfigCksum *string `json:"cloud_config_cksum,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Creator name.
 	CreatedBy *string `json:"created_by,omitempty"`
 
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
+
+	// Geo database. It is a reference to an object of type GeoDB. Field introduced in 21.1.1.
+	GeoDbRef *string `json:"geo_db_ref,omitempty"`
 
 	// HTTP request policy for the virtual service.
 	HTTPRequestPolicy *HTTPRequestPolicy `json:"http_request_policy,omitempty"`

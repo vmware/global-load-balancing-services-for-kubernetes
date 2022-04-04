@@ -12,6 +12,9 @@ type VSDataScriptSet struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Creator name. Field introduced in 17.1.11,17.2.4.
 	CreatedBy *string `json:"created_by,omitempty"`
 
@@ -20,6 +23,9 @@ type VSDataScriptSet struct {
 
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
+
+	// Geo Location Mapping Database used by this DataScriptSet. It is a reference to an object of type GeoDB. Field introduced in 21.1.1.
+	GeoDbRef *string `json:"geo_db_ref,omitempty"`
 
 	// IP reputation database that can be used by DataScript functions. It is a reference to an object of type IPReputationDB. Field introduced in 20.1.3.
 	IPReputationDbRef *string `json:"ip_reputation_db_ref,omitempty"`
@@ -37,6 +43,9 @@ type VSDataScriptSet struct {
 	// Required: true
 	Name *string `json:"name"`
 
+	// UUIDs of PKIProfile objects that could be referred by VSDataScriptSet objects. It is a reference to an object of type PKIProfile. Field introduced in 21.1.1.
+	PkiProfileRefs []string `json:"pki_profile_refs,omitempty"`
+
 	// UUID of pool groups that could be referred by VSDataScriptSet objects. It is a reference to an object of type PoolGroup.
 	PoolGroupRefs []string `json:"pool_group_refs,omitempty"`
 
@@ -48,6 +57,12 @@ type VSDataScriptSet struct {
 
 	// The Rate Limit definitions needed for this DataScript. The name is composed of the Virtual Service name and the DataScript name. Field introduced in 18.2.9. Allowed in Basic edition, Essentials edition, Enterprise edition.
 	RateLimiters []*RateLimiter `json:"rate_limiters,omitempty"`
+
+	// UUIDs of SSLKeyAndCertificate objects that could be referred by VSDataScriptSet objects. It is a reference to an object of type SSLKeyAndCertificate. Field introduced in 21.1.1.
+	SslKeyCertificateRefs []string `json:"ssl_key_certificate_refs,omitempty"`
+
+	// UUIDs of SSLProfile objects that could be referred by VSDataScriptSet objects. It is a reference to an object of type SSLProfile. Field introduced in 21.1.1.
+	SslProfileRefs []string `json:"ssl_profile_refs,omitempty"`
 
 	// UUID of String Groups that could be referred by VSDataScriptSet objects. It is a reference to an object of type StringGroup.
 	StringGroupRefs []string `json:"string_group_refs,omitempty"`

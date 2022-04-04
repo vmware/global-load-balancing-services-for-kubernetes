@@ -20,7 +20,7 @@ type DebugFilterUnion struct {
 	// Placeholder for description of property hs_debug_filter of obj type DebugFilterUnion field type str  type object
 	HsDebugFilter *HSMgrDebugFilter `json:"hs_debug_filter,omitempty"`
 
-	// Add filter to Log Manager Debug. Field introduced in 20.1.7.
+	// Add filter to Log Manager Debug. Field introduced in 21.1.1.
 	LogmanagerDebugFilter *LogManagerDebugFilter `json:"logmanager_debug_filter,omitempty"`
 
 	// Placeholder for description of property mesos_metrics_debug_filter of obj type DebugFilterUnion field type str  type object

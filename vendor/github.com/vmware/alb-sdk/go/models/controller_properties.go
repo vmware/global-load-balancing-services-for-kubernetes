@@ -33,7 +33,7 @@ type ControllerProperties struct {
 	// Export configuration in appviewx compatibility mode. Field introduced in 17.1.1. Allowed in Basic(Allowed values- false) edition, Essentials(Allowed values- false) edition, Enterprise edition.
 	AppviewxCompatMode *bool `json:"appviewx_compat_mode,omitempty"`
 
-	// Period for which asynchronous patch requests are queued. Allowed values are 30-120. Special values are 0 - 'Deactivated'. Field introduced in 18.2.11, 20.1.3. Unit is SEC.
+	// Period for which asynchronous patch requests are queued. Allowed values are 30-120. Special values are 0 - Deactivated. Field introduced in 18.2.11, 20.1.3. Unit is SEC.
 	AsyncPatchMergePeriod *int32 `json:"async_patch_merge_period,omitempty"`
 
 	// Duration for which asynchronous patch requests should be kept, after being marked as SUCCESS or FAIL. Allowed values are 5-120. Field introduced in 18.2.11, 20.1.3. Unit is MIN.
@@ -63,6 +63,9 @@ type ControllerProperties struct {
 	// Period for cluster ip gratuitous arp job. Unit is MIN.
 	ClusterIPGratuitousArpPeriod *int32 `json:"cluster_ip_gratuitous_arp_period,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Period for consistency check job. Field introduced in 18.1.1. Unit is MIN.
 	ConsistencyCheckTimeoutPeriod *int32 `json:"consistency_check_timeout_period,omitempty"`
 
@@ -81,6 +84,15 @@ type ControllerProperties struct {
 	// The amount of time the controller will wait before deleting an offline SE after it has been rebooted. For unresponsive SEs, the total time will be  unresponsive_se_reboot + del_offline_se_after_reboot_delay. For crashed SEs, the total time will be crashed_se_reboot + del_offline_se_after_reboot_delay. Field introduced in 20.1.5. Unit is SEC.
 	DelOfflineSeAfterRebootDelay *int32 `json:"del_offline_se_after_reboot_delay,omitempty"`
 
+	// Amount of time to wait after last Detach IP failure before attempting next Detach IP retry. Field introduced in 21.1.3. Unit is SEC.
+	DetachIPRetryInterval *int32 `json:"detach_ip_retry_interval,omitempty"`
+
+	// Maximum number of Detach IP retries. Field introduced in 21.1.3.
+	DetachIPRetryLimit *int32 `json:"detach_ip_retry_limit,omitempty"`
+
+	// Time to wait before marking Detach IP as failed. Field introduced in 21.1.3. Unit is SEC.
+	DetachIPTimeout *int32 `json:"detach_ip_timeout,omitempty"`
+
 	// Period for refresh pool and gslb DNS job. Unit is MIN. Allowed in Basic(Allowed values- 60) edition, Essentials(Allowed values- 60) edition, Enterprise edition.
 	DNSRefreshPeriod *int32 `json:"dns_refresh_period,omitempty"`
 
@@ -95,6 +107,9 @@ type ControllerProperties struct {
 
 	// Enable/Disable Memory Balancer. Field introduced in 17.2.8.
 	EnableMemoryBalancer *bool `json:"enable_memory_balancer,omitempty"`
+
+	// Enable stopping of individual processes if process cross the given threshold limit, even when the total controller memory usage is belowits threshold limit. Field introduced in 21.1.1.
+	EnablePerProcessStop *bool `json:"enable_per_process_stop,omitempty"`
 
 	// Enable printing of cached logs inside Resource Manager. Used for debugging purposes only. Field introduced in 20.1.6.
 	EnableResmgrLogCachePrint *bool `json:"enable_resmgr_log_cache_print,omitempty"`
@@ -129,7 +144,7 @@ type ControllerProperties struct {
 	// Network and VrfContext objects from the admin tenant will not be shared to non-admin tenants unless admin permissions are granted. Field introduced in 18.2.7, 20.1.1.
 	PermissionScopedSharedAdminNetworks *bool `json:"permission_scoped_shared_admin_networks,omitempty"`
 
-	// Period for rotate app persistence keys job. Allowed values are 1-1051200. Special values are 0 - 'Disabled'. Unit is MIN. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition.
+	// Period for rotate app persistence keys job. Allowed values are 1-1051200. Special values are 0 - Disabled. Unit is MIN. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition.
 	PersistenceKeyRotatePeriod *int32 `json:"persistence_key_rotate_period,omitempty"`
 
 	// Burst limit on number of incoming requests. 0 to disable. Field introduced in 20.1.1.
@@ -153,6 +168,9 @@ type ControllerProperties struct {
 	// Period for each cycle of log caching in Resource Manager. At the end of each cycle, the in memory cached log history will be cleared. Field introduced in 20.1.5. Unit is SEC.
 	ResmgrLogCachingPeriod *int32 `json:"resmgr_log_caching_period,omitempty"`
 
+	// Restrict read access to cloud. Field introduced in 22.1.1.
+	RestrictCloudReadAccess *bool `json:"restrict_cloud_read_access,omitempty"`
+
 	// Version of the safenet package installed on the controller. Field introduced in 16.5.2,17.2.3.
 	SafenetHsmVersion *string `json:"safenet_hsm_version,omitempty"`
 
@@ -162,7 +180,7 @@ type ControllerProperties struct {
 	// Interval between attempting failovers to an SE. Unit is SEC.
 	SeFailoverAttemptInterval *int32 `json:"se_failover_attempt_interval,omitempty"`
 
-	// This setting decides whether SE is to be deployed from the cloud marketplace or to be created by the controller. The setting is applicable only when BYOL license is selected. Enum options - MARKETPLACE, IMAGE. Field introduced in 18.1.4, 18.2.1.
+	// This setting decides whether SE is to be deployed from the cloud marketplace or to be created by the controller. The setting is applicable only when BYOL license is selected. Enum options - MARKETPLACE, IMAGE_SE. Field introduced in 18.1.4, 18.2.1.
 	SeFromMarketplace *string `json:"se_from_marketplace,omitempty"`
 
 	//  Unit is SEC.
@@ -220,19 +238,22 @@ type ControllerProperties struct {
 	// Read Only: true
 	URL *string `json:"url,omitempty"`
 
+	// Configuration for User-Agent Cache used in Bot Management. Field introduced in 21.1.1.
+	UserAgentCacheConfig *UserAgentCacheConfig `json:"user_agent_cache_config,omitempty"`
+
 	// Unique object identifier of the object.
 	UUID *string `json:"uuid,omitempty"`
 
 	//  Unit is SEC.
 	VnicOpFailTime *int32 `json:"vnic_op_fail_time,omitempty"`
 
-	// Time to wait for the scaled out SE to become ready before marking the scaleout done, applies to APIC configuration only. Unit is SEC.
+	// Time to wait for the scaled out SE to become ready before marking the scaleout done, applies to APIC configuration only. Field deprecated in 21.1.1. Unit is SEC.
 	VsApicScaleoutTimeout *int32 `json:"vs_apic_scaleout_timeout,omitempty"`
 
 	//  Unit is SEC.
 	VsAwaitingSeTimeout *int32 `json:"vs_awaiting_se_timeout,omitempty"`
 
-	// Period for rotate VS keys job. Allowed values are 1-1051200. Special values are 0 - 'Disabled'. Unit is MIN.
+	// Period for rotate VS keys job. Allowed values are 1-1051200. Special values are 0 - Disabled. Unit is MIN.
 	VsKeyRotatePeriod *int32 `json:"vs_key_rotate_period,omitempty"`
 
 	// Interval for checking scaleout_ready status while controller is waiting for ScaleOutReady RPC from the Service Engine. Field introduced in 18.2.2. Unit is SEC.
@@ -255,6 +276,15 @@ type ControllerProperties struct {
 
 	//  Unit is SEC.
 	VsSeVnicIPFail *int32 `json:"vs_se_vnic_ip_fail,omitempty"`
+
+	// vSphere HA monitor detection timeout. If vsphere_ha_enabled is true and the controller is not able to reach the SE, placement will wait for this duration for vsphere_ha_inprogress to be marked true before taking corrective action. Field introduced in 20.1.7, 21.1.3. Unit is SEC.
+	VsphereHaDetectionTimeout *int32 `json:"vsphere_ha_detection_timeout,omitempty"`
+
+	// vSphere HA monitor recovery timeout. Once vsphere_ha_inprogress is set to true (meaning host failure detected and vSphere HA will recover the Service Engine), placement will wait for at least this duration for the SE to reconnect to the controller before taking corrective action. Field introduced in 20.1.7, 21.1.3. Unit is SEC.
+	VsphereHaRecoveryTimeout *int32 `json:"vsphere_ha_recovery_timeout,omitempty"`
+
+	// vSphere HA monitor timer interval for sending cc_check_se_status to Cloud Connector. Field introduced in 20.1.7, 21.1.3. Unit is SEC.
+	VsphereHaTimerInterval *int32 `json:"vsphere_ha_timer_interval,omitempty"`
 
 	//  Unit is SEC.
 	WarmstartSeReconnectWaitTime *int32 `json:"warmstart_se_reconnect_wait_time,omitempty"`

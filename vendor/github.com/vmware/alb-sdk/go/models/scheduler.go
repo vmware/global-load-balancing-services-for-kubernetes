@@ -15,6 +15,9 @@ type Scheduler struct {
 	// Backup Configuration to be executed by this scheduler. It is a reference to an object of type BackupConfiguration.
 	BackupConfigRef *string `json:"backup_config_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Placeholder for description of property enabled of obj type Scheduler field type str  type boolean
 	Enabled *bool `json:"enabled,omitempty"`
 

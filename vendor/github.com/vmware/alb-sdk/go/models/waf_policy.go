@@ -21,8 +21,14 @@ type WafPolicy struct {
 	// Application Specific Signatures. Field introduced in 20.1.1.
 	ApplicationSignatures *WafApplicationSignatures `json:"application_signatures,omitempty"`
 
+	// Enable the functionality to bypass WAF for static file extensions. Field introduced in 22.1.1.
+	BypassStaticExtensions *bool `json:"bypass_static_extensions,omitempty"`
+
 	// Configure thresholds for confidence labels. Field introduced in 20.1.1.
 	ConfidenceOverride *AppLearningConfidenceOverride `json:"confidence_override,omitempty"`
+
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
 
 	// Creator name. Field introduced in 17.2.4.
 	CreatedBy *string `json:"created_by,omitempty"`
@@ -47,6 +53,9 @@ type WafPolicy struct {
 
 	// WAF Policy failure mode. This can be 'Open' or 'Closed'. Enum options - WAF_FAILURE_MODE_OPEN, WAF_FAILURE_MODE_CLOSED. Field introduced in 18.1.2.
 	FailureMode *string `json:"failure_mode,omitempty"`
+
+	// Geo Location Mapping Database used by this WafPolicy. It is a reference to an object of type GeoDB. Field introduced in 21.1.1.
+	GeoDbRef *string `json:"geo_db_ref,omitempty"`
 
 	// Key value pairs for granular object access control. Also allows for classification and tagging of similar objects. Field deprecated in 20.1.5. Field introduced in 20.1.2. Maximum of 4 items allowed.
 	Labels []*KeyValue `json:"labels,omitempty"`
@@ -83,7 +92,7 @@ type WafPolicy struct {
 	// WAF Rules are categorized in to groups based on their characterization. These groups are created by the user and will be  enforced before the CRS groups. Field introduced in 17.2.1.
 	PreCrsGroups []*WafRuleGroup `json:"pre_crs_groups,omitempty"`
 
-	// A resolved version of waf_crs_ref with waf_crs_overrides applied. Field introduced in 20.1.6.
+	// A resolved version of waf_crs_ref with waf_crs_overrides applied. Field deprecated in 21.1.3. Field introduced in 20.1.6.
 	ResolvedCrsGroups []*WafRuleGroup `json:"resolved_crs_groups,omitempty"`
 
 	//  It is a reference to an object of type Tenant. Field introduced in 17.2.1.

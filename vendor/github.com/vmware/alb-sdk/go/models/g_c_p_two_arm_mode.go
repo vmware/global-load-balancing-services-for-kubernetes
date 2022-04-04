@@ -12,7 +12,7 @@ type GCPTwoArmMode struct {
 	// Required: true
 	BackendDataVpcNetworkName *string `json:"backend_data_vpc_network_name"`
 
-	// Project ID of the Service Engine Backend Data Network. By default, Service Engine Project ID will be used. Field introduced in 20.1.6.
+	// Project ID of the Service Engine Backend Data Network. By default, Service Engine Project ID will be used. Field introduced in 21.1.1.
 	BackendDataVpcProjectID *string `json:"backend_data_vpc_project_id,omitempty"`
 
 	// Service Engine Backend Data Network Subnet Name. Field introduced in 18.2.1.
@@ -34,7 +34,7 @@ type GCPTwoArmMode struct {
 	// Required: true
 	ManagementVpcNetworkName *string `json:"management_vpc_network_name"`
 
-	// Project ID of the Service Engine Management Network. By default, Service Engine Project ID will be used. Field introduced in 20.1.6.
+	// Project ID of the Service Engine Management Network. By default, Service Engine Project ID will be used. Field introduced in 21.1.1.
 	ManagementVpcProjectID *string `json:"management_vpc_project_id,omitempty"`
 
 	// Service Engine Management Network Subnet Name. Field introduced in 18.2.1.

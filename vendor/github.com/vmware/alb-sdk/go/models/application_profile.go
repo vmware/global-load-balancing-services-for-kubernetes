@@ -12,8 +12,14 @@ type ApplicationProfile struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Specifies app service type for an application. Enum options - APP_SERVICE_TYPE_L7_HORIZON, APP_SERVICE_TYPE_L4_BLAST, APP_SERVICE_TYPE_L4_PCOIP. Field introduced in 21.1.3.
+	AppServiceType *string `json:"app_service_type,omitempty"`
+
 	// Checksum of application profiles. Internally set by cloud connector. Field introduced in 17.2.14, 18.1.5, 18.2.1.
 	CloudConfigCksum *string `json:"cloud_config_cksum,omitempty"`
+
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
 
 	// Name of the application profile creator. Field introduced in 17.2.14, 18.1.5, 18.2.1.
 	CreatedBy *string `json:"created_by,omitempty"`

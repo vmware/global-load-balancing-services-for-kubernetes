@@ -12,6 +12,9 @@ type SeProperties struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Placeholder for description of property se_agent_properties of obj type SeProperties field type str  type object
 	SeAgentProperties *SeAgentProperties `json:"se_agent_properties,omitempty"`
 

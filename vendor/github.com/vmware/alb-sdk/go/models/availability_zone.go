@@ -15,6 +15,9 @@ type AvailabilityZone struct {
 	// Availability zone belongs to cloud. It is a reference to an object of type Cloud. Field introduced in 20.1.1.
 	CloudRef *string `json:"cloud_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Availabilty zone where VCenter list belongs to. Field introduced in 20.1.1.
 	// Required: true
 	Name *string `json:"name"`

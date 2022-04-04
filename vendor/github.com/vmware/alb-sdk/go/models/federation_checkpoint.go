@@ -12,6 +12,9 @@ type FederationCheckpoint struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Date when the checkpoint was created. Field introduced in 20.1.1.
 	Date *string `json:"date,omitempty"`
 

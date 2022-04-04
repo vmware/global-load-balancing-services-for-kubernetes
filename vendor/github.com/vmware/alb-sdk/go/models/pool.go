@@ -27,8 +27,11 @@ type Pool struct {
 	// Specifies settings related to analytics. It is a reference to an object of type AnalyticsProfile. Field introduced in 18.1.4,18.2.1.
 	AnalyticsProfileRef *string `json:"analytics_profile_ref,omitempty"`
 
-	// Synchronize Cisco APIC EPG members with pool servers.
+	// Synchronize Cisco APIC EPG members with pool servers. Field deprecated in 21.1.1.
 	ApicEpgName *string `json:"apic_epg_name,omitempty"`
+
+	// Allows the option to append port to hostname in the host header while sending a request to the server. By default, port is appended for non-default ports. This setting will apply for Pool's 'Rewrite Host Header to Server Name', 'Rewrite Host Header to SNI' features and Server's 'Rewrite Host Header' settings as well as HTTP healthmonitors attached to pools. Enum options - NON_DEFAULT_80_443, NEVER, ALWAYS. Field introduced in 21.1.1. Allowed in Basic(Allowed values- NEVER) edition, Essentials(Allowed values- NEVER) edition, Enterprise edition. Special default for Basic edition is NEVER, Essentials edition is NEVER, Enterprise is NON_DEFAULT_80_443.
+	AppendPort *string `json:"append_port,omitempty"`
 
 	// Persistence will ensure the same user sticks to the same server for a desired duration of time. It is a reference to an object of type ApplicationPersistenceProfile.
 	ApplicationPersistenceProfileRef *string `json:"application_persistence_profile_ref,omitempty"`
@@ -45,7 +48,7 @@ type Pool struct {
 	// Inline estimation of capacity of servers. Allowed in Basic(Allowed values- false) edition, Essentials(Allowed values- false) edition, Enterprise edition.
 	CapacityEstimation *bool `json:"capacity_estimation,omitempty"`
 
-	// The maximum time-to-first-byte of a server. Allowed values are 1-5000. Special values are 0 - 'Automatic'. Unit is MILLISECONDS. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition.
+	// The maximum time-to-first-byte of a server. Allowed values are 1-5000. Special values are 0 - Automatic. Unit is MILLISECONDS. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition.
 	CapacityEstimationTtfbThresh *int32 `json:"capacity_estimation_ttfb_thresh,omitempty"`
 
 	// Checksum of cloud configuration for Pool. Internally set by cloud connector.
@@ -54,10 +57,13 @@ type Pool struct {
 	//  It is a reference to an object of type Cloud.
 	CloudRef *string `json:"cloud_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Connnection pool properties. Field introduced in 18.2.1.
 	ConnPoolProperties *ConnPoolProperties `json:"conn_pool_properties,omitempty"`
 
-	// Duration for which new connections will be gradually ramped up to a server recently brought online.  Useful for LB algorithms that are least connection based. Allowed values are 1-300. Special values are 0 - 'Immediate'. Unit is MIN. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition. Special default for Basic edition is 0, Essentials edition is 0, Enterprise is 10.
+	// Duration for which new connections will be gradually ramped up to a server recently brought online.  Useful for LB algorithms that are least connection based. Allowed values are 1-300. Special values are 0 - Immediate. Unit is MIN. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition. Special default for Basic edition is 0, Essentials edition is 0, Enterprise is 10.
 	ConnectionRampDuration *int32 `json:"connection_ramp_duration,omitempty"`
 
 	// Creator name.
@@ -93,7 +99,7 @@ type Pool struct {
 	// Periodicity of feedback for fewest tasks server selection algorithm. Allowed values are 1-300. Unit is SEC.
 	FewestTasksFeedbackDelay *int32 `json:"fewest_tasks_feedback_delay,omitempty"`
 
-	// Used to gracefully disable a server. Virtual service waits for the specified time before terminating the existing connections  to the servers that are disabled. Allowed values are 1-7200. Special values are 0 - 'Immediate', -1 - 'Infinite'. Unit is MIN.
+	// Used to gracefully disable a server. Virtual service waits for the specified time before terminating the existing connections  to the servers that are disabled. Allowed values are 1-7200. Special values are 0 - Immediate, -1 - Infinite. Unit is MIN.
 	GracefulDisableTimeout *int32 `json:"graceful_disable_timeout,omitempty"`
 
 	// Indicates if the pool is a site-persistence pool. . Field introduced in 17.2.1. Allowed in Basic edition, Essentials edition, Enterprise edition.
@@ -103,8 +109,14 @@ type Pool struct {
 	// Verify server health by applying one or more health monitors.  Active monitors generate synthetic traffic from each Service Engine and mark a server up or down based on the response. The Passive monitor listens only to client to server communication. It raises or lowers the ratio of traffic destined to a server based on successful responses. It is a reference to an object of type HealthMonitor. Maximum of 50 items allowed.
 	HealthMonitorRefs []string `json:"health_monitor_refs,omitempty"`
 
+	// Horizon UAG configuration. Field introduced in 21.1.3.
+	HorizonProfile *HorizonProfile `json:"horizon_profile,omitempty"`
+
 	// Enable common name check for server certificate. If enabled and no explicit domain name is specified, Avi will use the incoming host header to do the match.
 	HostCheckEnabled *bool `json:"host_check_enabled,omitempty"`
+
+	// HTTP2 pool properties. Field introduced in 21.1.1. Allowed in Basic edition, Essentials edition, Enterprise edition.
+	Http2Properties *Http2PoolProperties `json:"http2_properties,omitempty"`
 
 	// Ignore the server port in building the load balancing state.Applicable only for consistent hash load balancing algorithm or Disable Port translation (use_service_port) use cases. Field introduced in 20.1.1.
 	IgnoreServerPort *bool `json:"ignore_server_port,omitempty"`
@@ -191,6 +203,9 @@ type Pool struct {
 	//  Field deprecated in 18.2.1.
 	ServerCount *int32 `json:"server_count,omitempty"`
 
+	// Server graceful disable timeout behaviour. Enum options - DISALLOW_NEW_CONNECTION, ALLOW_NEW_CONNECTION_IF_PERSISTENCE_PRESENT. Field introduced in 21.1.1.
+	ServerDisableType *string `json:"server_disable_type,omitempty"`
+
 	// Fully qualified DNS hostname which will be used in the TLS SNI extension in server connections if SNI is enabled. If no value is specified, Avi will use the incoming host header instead.
 	ServerName *string `json:"server_name,omitempty"`
 
@@ -225,8 +240,11 @@ type Pool struct {
 	// Read Only: true
 	URL *string `json:"url,omitempty"`
 
-	// Do not translate the client's destination port when sending the connection to the server.  The pool or servers specified service port will still be used for health monitoring. Allowed in Basic(Allowed values- false) edition, Essentials(Allowed values- false) edition, Enterprise edition.
+	// Do not translate the client's destination port when sending the connection to the server. Monitor port needs to be specified for health monitors. Allowed in Essentials(Allowed values- false) edition, Enterprise edition.
 	UseServicePort *bool `json:"use_service_port,omitempty"`
+
+	// This applies only when use_service_port is set to true. If enabled, SSL mode of the connection to the server is decided by the SSL mode on the Virtualservice service port, on which the request was received. Field introduced in 21.1.1.
+	UseServiceSslMode *bool `json:"use_service_ssl_mode,omitempty"`
 
 	// UUID of the pool.
 	UUID *string `json:"uuid,omitempty"`

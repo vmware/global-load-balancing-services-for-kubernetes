@@ -24,6 +24,9 @@ type IcapProfile struct {
 	// The cloud where this object belongs to. This must match the cloud referenced in the pool group below. It is a reference to an object of type Cloud. Field introduced in 20.1.1.
 	CloudRef *string `json:"cloud_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// A description for this ICAP profile. Field introduced in 20.1.1.
 	Description *string `json:"description,omitempty"`
 
@@ -37,11 +40,14 @@ type IcapProfile struct {
 	// Required: true
 	Name *string `json:"name"`
 
+	// NSXDefender specific ICAP configurations. Field introduced in 21.1.1.
+	NsxDefenderConfig *IcapNsxDefenderConfig `json:"nsx_defender_config,omitempty"`
+
 	// The pool group which is used to connect to ICAP servers. It is a reference to an object of type PoolGroup. Field introduced in 20.1.1.
 	// Required: true
 	PoolGroupRef *string `json:"pool_group_ref"`
 
-	// The ICAP preview size as described in RFC 3507 section 4.5. This should not exceed the size supported by the ICAP server. If this is set to 0, only the HTTP header will be sent to the ICAP server as a preview. To disable preview completely, set the enable-preview option to false. Allowed values are 0-5000. Field introduced in 20.1.1. Unit is BYTES.
+	// The ICAP preview size as described in RFC 3507 section 4.5. This should not exceed the size supported by the ICAP server. If this is set to 0, only the HTTP header will be sent to the ICAP server as a preview. To disable preview completely, set the enable-preview option to false.If vendor is LASTLINE, recommended preview size is 1000 bytes,minimum preview size is 10 bytes. Allowed values are 0-5000. Field introduced in 20.1.1. Unit is BYTES.
 	PreviewSize *int32 `json:"preview_size,omitempty"`
 
 	// Maximum time, client's request will be paused for ICAP processing. If this timeout is exceeded, the request to the ICAP server will be aborted and the configured fail action is executed. Allowed values are 50-3600000. Field introduced in 20.1.1. Unit is MILLISECONDS.
@@ -64,6 +70,6 @@ type IcapProfile struct {
 	// UUID of the ICAP profile. Field introduced in 20.1.1.
 	UUID *string `json:"uuid,omitempty"`
 
-	// The vendor of the ICAP server. Enum options - ICAP_VENDOR_GENERIC, ICAP_VENDOR_OPSWAT. Field introduced in 20.1.1.
+	// The vendor of the ICAP server. Enum options - ICAP_VENDOR_GENERIC, ICAP_VENDOR_OPSWAT, ICAP_VENDOR_LASTLINE. Field introduced in 20.1.1.
 	Vendor *string `json:"vendor,omitempty"`
 }

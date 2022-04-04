@@ -18,6 +18,9 @@ type ErrorPageProfile struct {
 	// Name of the company to show in error page. Field deprecated in 18.1.1. Field introduced in 17.2.4.
 	CompanyName *string `json:"company_name,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Defined Error Pages for HTTP status codes. Field introduced in 17.2.4.
 	ErrorPages []*ErrorPage `json:"error_pages,omitempty"`
 

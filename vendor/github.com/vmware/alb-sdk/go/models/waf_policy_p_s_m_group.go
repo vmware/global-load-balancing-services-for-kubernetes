@@ -12,6 +12,9 @@ type WafPolicyPSMGroup struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Free-text comment about this group. Field introduced in 18.2.3.
 	Description *string `json:"description,omitempty"`
 
@@ -27,7 +30,7 @@ type WafPolicyPSMGroup struct {
 	// Key value pairs for granular object access control. Also allows for classification and tagging of similar objects. Field deprecated in 20.1.5. Field introduced in 20.1.2. Maximum of 4 items allowed.
 	Labels []*KeyValue `json:"labels,omitempty"`
 
-	// Positive Security Model locations. These are used to partition the application name space. Field introduced in 18.2.3. Maximum of 16384 items allowed.
+	// Positive Security Model locations. These are used to partition the application name space. Field introduced in 18.2.3.
 	Locations []*WafPSMLocation `json:"locations,omitempty"`
 
 	// List of labels to be used for granular RBAC. Field introduced in 20.1.5. Allowed in Basic edition, Essentials edition, Enterprise edition.

@@ -16,6 +16,9 @@ type ControllerSite struct {
 	// Required: true
 	Address *string `json:"address"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Name for the Site Controller Cluster. Field introduced in 18.2.5.
 	// Required: true
 	Name *string `json:"name"`

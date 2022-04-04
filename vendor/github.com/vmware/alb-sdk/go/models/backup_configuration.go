@@ -27,6 +27,9 @@ type BackupConfiguration struct {
 	// Default passphrase for configuration export and periodic backup.
 	BackupPassphrase *string `json:"backup_passphrase,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Rotate the backup files based on this count. Allowed values are 1-20.
 	MaximumBackupsStored *int32 `json:"maximum_backups_stored,omitempty"`
 
@@ -36,6 +39,9 @@ type BackupConfiguration struct {
 
 	// Directory at remote destination with write permission for ssh user.
 	RemoteDirectory *string `json:"remote_directory,omitempty"`
+
+	// Remote file transfer protocol type. Enum options - SCP, SFTP. Field introduced in 22.1.1. Allowed in Basic(Allowed values- SCP,SFTP) edition, Enterprise edition.
+	RemoteFileTransferProtocol *string `json:"remote_file_transfer_protocol,omitempty"`
 
 	// Remote Destination.
 	RemoteHostname *string `json:"remote_hostname,omitempty"`

@@ -15,6 +15,9 @@ type AlertEmailConfig struct {
 	// Alerts are copied to the comma separated list of  email recipients.
 	CcEmails *string `json:"cc_emails,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
 

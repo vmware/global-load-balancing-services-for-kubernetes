@@ -12,6 +12,9 @@ type ProtocolParser struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Description of the protocol parser. Field introduced in 18.2.3.
 	Description *string `json:"description,omitempty"`
 

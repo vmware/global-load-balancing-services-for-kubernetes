@@ -21,8 +21,20 @@ type ApplicationLog struct {
 	//  Unit is MILLISECONDS.
 	AppResponseTime *int64 `json:"app_response_time,omitempty"`
 
+	// Set the Session Authentication Status. Enum options - AUTH_STATUS_NO_AUTHENTICATION, AUTH_STATUS_AUTHENTICATION_SUCCESS, AUTH_STATUS_AUTHENTICATION_FAILURE, AUTH_STATUS_UNAUTHORIZED, AUTH_STATUS_AUTHENTICATED_REQUEST, AUTH_STATUS_AUTHZ_FAILED. Field introduced in 21.1.3.
+	AuthStatus *string `json:"auth_status,omitempty"`
+
+	// Average packet processing latency for the backend flow. Field introduced in 21.1.1.
+	AvgIngressLatencyBe *int32 `json:"avg_ingress_latency_be,omitempty"`
+
+	// Average packet processing latency for the frontend flow. Field introduced in 21.1.1.
+	AvgIngressLatencyFe *int32 `json:"avg_ingress_latency_fe,omitempty"`
+
 	//  Enum options - NOT_UPDATED, BY_CONTENT_REWRITE_PROFILE, BY_DATA_SCRIPT. Field introduced in 17.1.1.
 	BodyUpdated *string `json:"body_updated,omitempty"`
+
+	// Logs related to Bot detection. Field introduced in 21.1.1.
+	BotManagementLog *BotManagementLog `json:"bot_management_log,omitempty"`
 
 	// Cache fetch and store is disabled by the Datascript policies. Field introduced in 20.1.1.
 	CacheDisabledByDs *bool `json:"cache_disabled_by_ds,omitempty"`
@@ -49,10 +61,13 @@ type ApplicationLog struct {
 	// client_device of ApplicationLog.
 	ClientDevice *string `json:"client_device,omitempty"`
 
+	// The fingerprints for this client. Field introduced in 22.1.1.
+	ClientFingerPrints *ClientFingerPrints `json:"client_finger_prints,omitempty"`
+
 	//  Enum options - INSIGHTS_DISABLED, NO_INSIGHTS_NOT_SAMPLED_COUNT, NO_INSIGHTS_NOT_SAMPLED_TYPE, NO_INSIGHTS_NOT_SAMPLED_SKIP_URI, NO_INSIGHTS_NOT_SAMPLED_URI_NOT_IN_LIST, NO_INSIGHTS_NOT_SAMPLED_CLIENT_IP_NOT_IN_RANGE, NO_INSIGHTS_NOT_SAMPLED_OTHER, ACTIVE_INSIGHTS_FAILED, ACTIVE_INSIGHTS_ENABLED, PASSIVE_INSIGHTS_ENABLED.
 	ClientInsights *string `json:"client_insights,omitempty"`
 
-	// Number of client_ip.
+	// IPv4 address of the client. When true client IP feature is enabled, this will be derived from the header configured in the true client IP feature, if present in the request.
 	// Required: true
 	ClientIP *int32 `json:"client_ip"`
 
@@ -82,6 +97,12 @@ type ApplicationLog struct {
 	// Number of compression_percentage.
 	CompressionPercentage *int32 `json:"compression_percentage,omitempty"`
 
+	// TCP connection establishment time for the backend flow. Field introduced in 21.1.1.
+	ConnEstTimeBe *int32 `json:"conn_est_time_be,omitempty"`
+
+	// TCP connection establishment time for the frontend flow. Field introduced in 21.1.1.
+	ConnEstTimeFe *int32 `json:"conn_est_time_fe,omitempty"`
+
 	// Placeholder for description of property connection_error_info of obj type ApplicationLog field type str  type object
 	ConnectionErrorInfo *ConnErrorInfo `json:"connection_error_info,omitempty"`
 
@@ -106,7 +127,7 @@ type ApplicationLog struct {
 	// The service called by the gRPC request. Field introduced in 20.1.1.
 	GrpcServiceName *string `json:"grpc_service_name,omitempty"`
 
-	// GRPC response status sent in the GRPC trailer. Special values are -1- 'No GRPC status recevied even though client sent content-type as application/grpc.'. Field introduced in 20.1.1.
+	// GRPC response status sent in the GRPC trailer. Special values are -1- No GRPC status recevied even though client sent content-type as application/grpc.. Field introduced in 20.1.1.
 	GrpcStatus *int32 `json:"grpc_status,omitempty"`
 
 	// The reason phrase corresponding to the gRPC status code. Enum options - GRPC_STATUS_CODE_OK, GRPC_STATUS_CODE_CANCELLED, GRPC_STATUS_CODE_UNKNOWN, GRPC_STATUS_CODE_INVALID_ARGUMENT, GRPC_STATUS_CODE_DEADLINE_EXCEEDED, GRPC_STATUS_CODE_NOT_FOUND, GRPC_STATUS_CODE_ALREADY_EXISTS, GRPC_STATUS_CODE_PERMISSION_DENIED, GRPC_STATUS_CODE_RESOURCE_EXHAUSTED, GRPC_STATUS_CODE_FAILED_PRECONDITION, GRPC_STATUS_CODE_STOPPED, GRPC_STATUS_CODE_OUT_OF_RANGE, GRPC_STATUS_CODE_UNIMPLEMENTED, GRPC_STATUS_CODE_INTERNAL, GRPC_STATUS_CODE_UNAVAILABLE, GRPC_STATUS_CODE_DATA_LOSS, GRPC_STATUS_CODE_UNAUTHENTICATED. Field introduced in 20.1.1.
@@ -146,6 +167,12 @@ type ApplicationLog struct {
 	// Required: true
 	LogID *int32 `json:"log_id"`
 
+	// Maximum packet processing latency for the backend flow. Field introduced in 21.1.1.
+	MaxIngressLatencyBe *int32 `json:"max_ingress_latency_be,omitempty"`
+
+	// Maximum packet processing latency for the frontend flow. Field introduced in 21.1.1.
+	MaxIngressLatencyFe *int32 `json:"max_ingress_latency_fe,omitempty"`
+
 	// method of ApplicationLog.
 	Method *string `json:"method,omitempty"`
 
@@ -160,6 +187,9 @@ type ApplicationLog struct {
 
 	// NTLM auto-detection logs. Field introduced in 20.1.3.
 	NtlmLog *NtlmLog `json:"ntlm_log,omitempty"`
+
+	// Logs related to OAuth requests. Field introduced in 21.1.3.
+	OauthLog *OauthLog `json:"oauth_log,omitempty"`
 
 	// OCSP Certificate Status response sent in the SSL/TLS connection handshake. Field introduced in 20.1.1.
 	OcspStatusRespSent *bool `json:"ocsp_status_resp_sent,omitempty"`
@@ -307,6 +337,9 @@ type ApplicationLog struct {
 	// Required: true
 	ServiceEngine *string `json:"service_engine"`
 
+	// Field set by datascript using avi.vs.set_session_id(). Field introduced in 21.1.1.
+	SessionID *string `json:"session_id,omitempty"`
+
 	// significance of ApplicationLog.
 	Significance *string `json:"significance,omitempty"`
 
@@ -319,6 +352,12 @@ type ApplicationLog struct {
 
 	//  Field introduced in 17.2.5.
 	SniHostname *string `json:"sni_hostname,omitempty"`
+
+	// Source IP of the client connection to the VS. This can be different from client IP when true client IP feature is enabled. Field introduced in 21.1.3.
+	SourceIP *int32 `json:"source_ip,omitempty"`
+
+	// IPv6 address of the source of the client connection to the VS. This can be different from client IPv6 address when true client IP feature is enabled. Field introduced in 21.1.3.
+	SourceIp6 *string `json:"source_ip6,omitempty"`
 
 	// spdy_version of ApplicationLog.
 	SpdyVersion *string `json:"spdy_version,omitempty"`

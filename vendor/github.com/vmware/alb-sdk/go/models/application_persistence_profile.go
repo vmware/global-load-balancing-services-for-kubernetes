@@ -15,6 +15,9 @@ type ApplicationPersistenceProfile struct {
 	// Specifies the Application Cookie Persistence profile parameters.
 	AppCookiePersistenceProfile *AppCookiePersistenceProfile `json:"app_cookie_persistence_profile,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
 

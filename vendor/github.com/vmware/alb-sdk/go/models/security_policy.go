@@ -12,8 +12,14 @@ type SecurityPolicy struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Security policy is used to specify various configuration information used to perform Distributed Denial of Service (DDoS) attacks detection and mitigation. Field introduced in 18.2.1.
 	Description *string `json:"description,omitempty"`
+
+	// Source ports and port ranges to deny in DNS Amplification attacks. Field introduced in 21.1.1.
+	DNSAmplificationDenyports *PortMatchGeneric `json:"dns_amplification_denyports,omitempty"`
 
 	// Attacks utilizing the DNS protocol operations. Field introduced in 18.2.1.
 	DNSAttacks *DNSAttacks `json:"dns_attacks,omitempty"`

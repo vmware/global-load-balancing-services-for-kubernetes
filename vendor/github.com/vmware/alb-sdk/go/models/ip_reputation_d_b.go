@@ -15,6 +15,9 @@ type IPReputationDB struct {
 	// IP reputation DB base file. It is a reference to an object of type FileObject. Field introduced in 20.1.1. Maximum of 1 items allowed.
 	BaseFileRefs []string `json:"base_file_refs,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Description. Field introduced in 20.1.1.
 	Description *string `json:"description,omitempty"`
 
