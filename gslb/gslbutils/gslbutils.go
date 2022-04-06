@@ -590,13 +590,14 @@ func HMCreatedByAMKO(hmName string) bool {
 // HostRuleMeta stores a partial set of information stripped from the HostRule object,
 // information only required for AMKO.
 type HostRuleMeta struct {
+	LFqdn   string
 	GSFqdn  string
 	TLS     bool
 	Aliases []string
 }
 
-func GetHostRuleMeta(gsFqdn string, tls bool, aliases []string) HostRuleMeta {
-	return HostRuleMeta{GSFqdn: gsFqdn, TLS: tls, Aliases: aliases}
+func GetHostRuleMeta(lFqdn, gsFqdn string, tls bool, aliases []string) HostRuleMeta {
+	return HostRuleMeta{LFqdn: lFqdn, GSFqdn: gsFqdn, TLS: tls, Aliases: aliases}
 }
 
 var customFqdnMode bool

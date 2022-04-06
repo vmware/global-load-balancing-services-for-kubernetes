@@ -246,7 +246,7 @@ func AddOrUpdateHostRuleStore(clusterHRStore *store.ClusterStore,
 	if hr.Spec.VirtualHost.TLS.SSLKeyCertificate.Name != "" {
 		tls = true
 	}
-	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Gslb.Fqdn, tls, hr.Spec.VirtualHost.Aliases)
+	hrMeta := gslbutils.GetHostRuleMeta(hr.Spec.VirtualHost.Fqdn, hr.Spec.VirtualHost.Gslb.Fqdn, tls, hr.Spec.VirtualHost.Aliases)
 	gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, updating hostrule store: %s", cname,
 		hr.Namespace, hr.Name, hr.Spec.VirtualHost.Fqdn)
 	clusterHRStore.AddOrUpdate(hrMeta, cname, hr.Namespace, hr.Spec.VirtualHost.Fqdn)

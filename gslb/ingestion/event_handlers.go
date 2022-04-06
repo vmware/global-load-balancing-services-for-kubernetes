@@ -740,11 +740,11 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 					// no updates to the hostrule, so return
 					return
 				}
+				aliasesChanged := false
+				if len(gslbutils.SliceDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
+					aliasesChanged = true
+				}
 				if gslbutils.GetCustomFqdnMode() {
-					aliasesChanged := false
-					if len(gslbutils.SliceDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
-						aliasesChanged = true
-					}
 					gFqdnChanged := false
 					if oldGFqdn != newGFqdn {
 						gFqdnChanged = true
@@ -758,8 +758,6 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 						// case 2: Only the gFqdn has changed
 						// and
 						// case 3: Both aliases and gFqdn have changed
-						DeleteFromHostRuleStore(hrStore, oldHr, c.name)
-						AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
 						fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
 						fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
 						gsDomainNameMap.DeleteGSToDomainNameMapping(oldGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
@@ -774,11 +772,19 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 							gsDomainNameMap.DeleteGSToDomainNameMapping(newGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
 						}
 					}
+					DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+					AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+
 					ReApplyObjectsOnHostRule(oldHr, false, c.name, oldLFqdn, oldGFqdn, numWorkers, c.workqueue)
 					ReApplyObjectsOnHostRule(newHr, true, c.name, newLFqdn, newGFqdn, numWorkers, c.workqueue)
 				} else {
-					// Aliases have changed
-					HandleHostRuleAliasChange(newLFqdn, c.name, oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)
+					// Aliases have changed or tls fields have changed
+					if aliasesChanged {
+						HandleHostRuleAliasChange(newLFqdn, c.name, oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)
+					}
+
+					DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+					AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
 
 					ReApplyObjectsOnHostRule(oldHr, false, c.name, oldLFqdn, oldLFqdn, numWorkers, c.workqueue)
 					ReApplyObjectsOnHostRule(newHr, true, c.name, newLFqdn, newLFqdn, numWorkers, c.workqueue)
