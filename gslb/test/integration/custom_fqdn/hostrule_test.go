@@ -95,7 +95,7 @@ func addInsecureIngressAndRouteObjects(t *testing.T, testPrefix string) (*networ
 	return ingObj, routeObj
 }
 
-func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersistence *string) *gdpalphav2.GlobalDeploymentPolicy {
+func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersistence *string, hmTemplate *string) *gdpalphav2.GlobalDeploymentPolicy {
 	gdpObj := GetTestDefaultGDPObject()
 	gdpObj.Spec.MatchRules.AppSelector = gdpalphav2.AppSelector{
 		Label: appLabel,
@@ -106,6 +106,7 @@ func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersi
 	gdpObj.Spec.HealthMonitorRefs = hmRefs
 	gdpObj.Spec.TTL = ttl
 	gdpObj.Spec.SitePersistenceRef = sitePersistence
+	gdpObj.Spec.HealthMonitorTemplate = hmTemplate
 
 	newGDP, err := AddAndVerifyTestGDPSuccess(t, gdpObj)
 	if err != nil {
@@ -127,7 +128,7 @@ func TestHostRuleCreate(t *testing.T) {
 	hrNameOC := testPrefix + "hr"
 	gfqdn := "test-gs.avi.com"
 
-	addTestGDPWithProperties(t, hmRefs, nil, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, nil, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
@@ -140,7 +141,7 @@ func TestHostRuleCreate(t *testing.T) {
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -149,7 +150,41 @@ func TestHostRuleCreate(t *testing.T) {
 	createHostRule(t, Oshift, ocHr)
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, create a GDP object with Hm template, create host rules and verify
+func TestHostRuleCreateWithHmTemplateInGDP(t *testing.T) {
+	testPrefix := "hr-hm-"
+	hmTemplate := "System-GSLB-HTTPS"
+	hrNameK8s := testPrefix + "hr"
+	hrNameOC := testPrefix + "hr"
+	gfqdn := "test-gs.avi.com"
+
+	addTestGDPWithProperties(t, nil, nil, nil, &hmTemplate)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	g := gomega.NewGomegaWithT(t)
+
+	// create a host rule for the ingress object's hostname, verify GS member
+	k8sHr := getDefaultHostRule(hrNameK8s, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn,
+		gslbutils.HostRuleAccepted)
+	createHostRule(t, K8s, k8sHr)
+
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, &hmTemplate, nil, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// create a host rule for the route object's hostname, verify GS members
+	ocHr := getDefaultHostRule(hrNameOC, routeObj.Namespace, routeObj.Spec.Host, gfqdn,
+		gslbutils.HostRuleAccepted)
+	createHostRule(t, Oshift, ocHr)
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, &hmTemplate, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -162,7 +197,7 @@ func TestHostRuleInvalidToValid(t *testing.T) {
 	hrNameOC := testPrefix + "hr"
 	gfqdn := "test-gs.avi.com"
 
-	addTestGDPWithProperties(t, hmRefs, nil, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, nil, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
@@ -179,7 +214,7 @@ func TestHostRuleInvalidToValid(t *testing.T) {
 	createHostRule(t, Oshift, ocHr)
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update the hostrule to a valid one for the ingress object
@@ -188,7 +223,7 @@ func TestHostRuleInvalidToValid(t *testing.T) {
 	updateHostRule(t, K8s, newK8sHr)
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -201,7 +236,7 @@ func TestHostRuleValidToInvalid(t *testing.T) {
 	hrNameOC := testPrefix + "hr"
 	gfqdn := "test-gs.avi.com"
 
-	addTestGDPWithProperties(t, hmRefs, nil, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, nil, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
@@ -214,7 +249,7 @@ func TestHostRuleValidToInvalid(t *testing.T) {
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -223,7 +258,7 @@ func TestHostRuleValidToInvalid(t *testing.T) {
 	createHostRule(t, Oshift, ocHr)
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// change the ingress's host rule to invalid
@@ -234,7 +269,7 @@ func TestHostRuleValidToInvalid(t *testing.T) {
 	// GS graph should now have only one member
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -248,7 +283,7 @@ func TestHostRuleMultiple(t *testing.T) {
 	gfqdn1 := "test-gs.avi.com"
 	gfqdn2 := "test-gs2.avi.com"
 
-	addTestGDPWithProperties(t, hmRefs, nil, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, nil, nil)
 	ingObj, _ := addIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
@@ -261,7 +296,7 @@ func TestHostRuleMultiple(t *testing.T) {
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn1, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn1, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getDefaultHostRule(hrNameK8s2, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn2,
@@ -270,7 +305,7 @@ func TestHostRuleMultiple(t *testing.T) {
 
 	// there shouldn't be any change in the GS graph
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn1, utils.ADMIN_NS, hmRefs, nil, nil)
+		return verifyGSMembers(t, expectedMembers, gfqdn1, utils.ADMIN_NS, hmRefs, nil, nil, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -288,7 +323,7 @@ func TestHostRuleInsecureToSecure(t *testing.T) {
 	hrNameOC := testPrefix + "hr"
 	gfqdn := "test-gs.avi.com"
 
-	addTestGDPWithProperties(t, nil, nil, nil)
+	addTestGDPWithProperties(t, nil, nil, nil, nil)
 	ingObj, routeObj := addInsecureIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
@@ -307,7 +342,7 @@ func TestHostRuleInsecureToSecure(t *testing.T) {
 	g.Eventually(func() bool {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `false` indicating HTTP type.
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, false)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, nil, false)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
@@ -327,7 +362,7 @@ func TestHostRuleInsecureToSecure(t *testing.T) {
 	g.Eventually(func() bool {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `true` indicating HTTPS type.
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, true)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, nil, true)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -345,7 +380,7 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 	hrNameOC := testPrefix + "hr"
 	gfqdn := "test-gs.avi.com"
 
-	addTestGDPWithProperties(t, nil, nil, nil)
+	addTestGDPWithProperties(t, nil, nil, nil, nil)
 	ingObj, routeObj := addInsecureIngressAndRouteObjects(t, testPrefix)
 
 	var expectedMembers []nodes.AviGSK8sObj
@@ -372,7 +407,7 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 	g.Eventually(func() bool {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `true` indicating HTTPS type.
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, true)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, nil, true)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// remove the TLS fields from the hostrules
@@ -392,6 +427,6 @@ func TestHostRuleSecureToInsecure(t *testing.T) {
 	g.Eventually(func() bool {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `false` indicating HTTP type.
-		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, false)
+		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, nil, nil, nil, nil, false)
 	}, 10*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

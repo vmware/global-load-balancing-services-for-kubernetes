@@ -71,6 +71,8 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		gsGraph.TTL = gf.GetTTL()
 	}
 
+	gsGraph.HmTemplate = nil
+	gsGraph.HmRefs = nil
 	if gsRuleExists && gsRule.HmRefs != nil && len(gsRule.HmRefs) != 0 {
 		gsGraph.HmRefs = make([]string, len(gsRule.HmRefs))
 		copy(gsGraph.HmRefs, gsRule.HmRefs)
@@ -78,16 +80,11 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		gsGraph.Hm = HealthMonitor{}
 	} else if gsRuleExists && gsRule.HmTemplate != nil {
 		gsGraph.HmTemplate = proto.String(*gsRule.HmTemplate)
-		gsGraph.Hm = HealthMonitor{}
 	} else if gfHmRefs := gf.GetAviHmRefs(); len(gfHmRefs) != 0 {
 		gsGraph.HmRefs = gfHmRefs
 		gsGraph.Hm = HealthMonitor{}
 	} else if hmTemplate := gf.GetAviHmTemplate(); hmTemplate != nil {
 		gsGraph.HmTemplate = proto.String(*hmTemplate)
-		gsGraph.Hm = HealthMonitor{}
-	} else {
-		gsGraph.HmRefs = nil
-		gsGraph.HmTemplate = nil
 	}
 
 	if tls {

@@ -16,6 +16,7 @@ package third_party_vips
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ var (
 	ingCluster   = "k8s"
 )
 
-func addTestGDPWithPropertiesWithStatus(t *testing.T, hmRefs []string, ttl *int,
+func addTestGDPWithPropertiesWithStatus(t *testing.T, hmRefs []string, hmTemplate *string, ttl *int,
 	sitePersistence *string,
 	pa *gslbalphav1.PoolAlgorithmSettings, status string) *gdpalphav2.GlobalDeploymentPolicy {
 
@@ -49,6 +50,7 @@ func addTestGDPWithPropertiesWithStatus(t *testing.T, hmRefs []string, ttl *int,
 		{Cluster: K8sContext}, {Cluster: OshiftContext},
 	}
 	gdpObj.Spec.HealthMonitorRefs = hmRefs
+	gdpObj.Spec.HealthMonitorTemplate = hmTemplate
 	gdpObj.Spec.TTL = ttl
 	gdpObj.Spec.SitePersistenceRef = sitePersistence
 	gdpObj.Spec.PoolAlgorithmSettings = pa
@@ -65,9 +67,9 @@ func addTestGDPWithPropertiesWithStatus(t *testing.T, hmRefs []string, ttl *int,
 	return newGDP
 }
 
-func addTestGDPWithProperties(t *testing.T, hmRefs []string, ttl *int, sitePersistence *string,
+func addTestGDPWithProperties(t *testing.T, hmRefs []string, hmTemplate *string, ttl *int, sitePersistence *string,
 	pa *gslbalphav1.PoolAlgorithmSettings) *gdpalphav2.GlobalDeploymentPolicy {
-	return addTestGDPWithPropertiesWithStatus(t, hmRefs, ttl, sitePersistence, pa, "success")
+	return addTestGDPWithPropertiesWithStatus(t, hmRefs, hmTemplate, ttl, sitePersistence, pa, "success")
 }
 
 func getTestGDP(t *testing.T, name, ns string) *gdpalphav2.GlobalDeploymentPolicy {
@@ -132,7 +134,7 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	testPrefix := "gdp-hm-"
 	hmRefs := []string{"my-hm1"}
 
-	oldGDP := addTestGDPWithProperties(t, hmRefs, nil, nil, nil)
+	oldGDP := addTestGDPWithProperties(t, hmRefs, nil, nil, nil, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -142,7 +144,7 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil,
 			defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -151,7 +153,7 @@ func TestGDPPropertiesForHealthMonitor(t *testing.T) {
 	newGDP.Spec.HealthMonitorRefs = []string{"my-hm2"}
 	updateTestGDP(t, newGDP)
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil,
 			defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -182,7 +184,7 @@ func TestGDPPropertiesForPersistenceProfile(t *testing.T) {
 	testPrefix := "gdp-sp-"
 	sitePersistence := "gap-1"
 
-	addTestGDPWithProperties(t, nil, nil, &sitePersistence, nil)
+	addTestGDPWithProperties(t, nil, nil, nil, &sitePersistence, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -192,7 +194,7 @@ func TestGDPPropertiesForPersistenceProfile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &sitePersistence,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, &sitePersistence,
 			nil, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -202,7 +204,7 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 	testPrefix := "gdp-ttl-"
 	ttl := 10
 
-	oldGDP := addTestGDPWithProperties(t, nil, &ttl, nil, nil)
+	oldGDP := addTestGDPWithProperties(t, nil, nil, &ttl, nil, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -212,7 +214,7 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil,
 			&ttl, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -223,7 +225,7 @@ func TestGDPPropertiesForTTL(t *testing.T) {
 	updateTestGDP(t, gdpObj)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil,
 			&ttl, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -236,7 +238,7 @@ func TestGDPPropertiesForPoolAlgorithm(t *testing.T) {
 		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
 	}
 
-	oldGDP := addTestGDPWithProperties(t, nil, &ttl, nil, &pa)
+	oldGDP := addTestGDPWithProperties(t, nil, nil, &ttl, nil, &pa)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -246,7 +248,7 @@ func TestGDPPropertiesForPoolAlgorithm(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil,
 			&ttl, &pa, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -260,7 +262,7 @@ func TestGDPPropertiesForPoolAlgorithm(t *testing.T) {
 	updateTestGDP(t, gdpObj)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil,
 			&ttl, &pa, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -289,12 +291,12 @@ func TestGDPPropertiesForPoolAlgorithmCombinations(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		g.Eventually(func() bool {
-			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil,
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, nil, nil,
 				&ttl, &pa, defaultPath, TlsTrue, nil)
 		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 	}
 
-	oldGDP := addTestGDPWithPropertiesWithStatus(t, nil, &ttl, nil, &pa,
+	oldGDP := addTestGDPWithPropertiesWithStatus(t, nil, nil, &ttl, nil, &pa,
 		"invalid pool algorithm: geoFallback not allowed for GSLB_ALGORITHM_ROUND_ROBIN")
 
 	t.Logf("updating the algorithm")
@@ -354,7 +356,7 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
@@ -362,18 +364,18 @@ func TestGSLBHostRuleCreate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, &sp,
 			&ttl, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm2"}
 	gslbHRTTL := 20
-	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, nil, &gslbHRTTL,
 		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
 		// Site persistence remains unchanged, as it inherits from the GDP object
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs, nil,
 			&sp, &gslbHRTTL, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -387,7 +389,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
@@ -397,11 +399,11 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm2"}
 	gslbHRTTL := 20
-	oldGSHR := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+	oldGSHR := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, nil, &gslbHRTTL,
 		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
 		// Site persistence remains unchanged, as it inherits from the GDP object
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs, nil,
 			&sp, &gslbHRTTL, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -415,7 +417,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	// verify whether site persistence got updated
 	g.Eventually(func() bool {
 		// Site persistence changed and set to nil now
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs, nil,
 			nil, &gslbHRTTL, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -427,7 +429,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	// verify whether site persistence got updated
 	g.Eventually(func() bool {
 		// Health monitor refs are deleted, should be inherited from the GDP object
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil,
 			nil, &gslbHRTTL, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -441,7 +443,7 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
@@ -451,10 +453,10 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm2"}
 	gslbHRTTL := 20
-	gsHRObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+	gsHRObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, nil, &gslbHRTTL,
 		ingestion.GslbHostRuleAccepted, "")
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, gslbHRHmRefs, nil,
 			&sp, &gslbHRTTL, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -462,7 +464,7 @@ func TestGSLBHostRuleDelete(t *testing.T) {
 	deleteGSLBHostRule(t, gsHRObj.Name, gsHRObj.Namespace)
 	g.Eventually(func() bool {
 		// TTL and HM refs will fall back to the GDP object
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil,
 			&sp, &ttl, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -475,7 +477,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 	sp := "gap-1"
 	ttl := 10
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, nil)
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, nil)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	var expectedMembers []nodes.AviGSK8sObj
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
@@ -483,18 +485,18 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, &sp,
 			&ttl, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hostName := routeObj.Spec.Host
 	gslbHRHmRefs := []string{"my-hm3"}
 	gslbHRTTL := 20
-	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, &gslbHRTTL,
+	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, gslbHRHmRefs, nil, nil, &gslbHRTTL,
 		ingestion.GslbHostRuleRejected, "Health Monitor Ref my-hm3 error for test-gslb-hr GSLBHostRule")
 	g.Eventually(func() bool {
 		// All fields remain unchanged because of the invalid GSLBHostRule
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil,
 			&sp, &ttl, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -503,7 +505,7 @@ func TestGSLBHostRuleCreateInvalidHM(t *testing.T) {
 func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	testPrefix := "gdp-hmu-"
 
-	oldGDP := addTestGDPWithProperties(t, nil, nil, nil, nil)
+	oldGDP := addTestGDPWithProperties(t, nil, nil, nil, nil, nil)
 
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 
@@ -514,7 +516,7 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS,
-			nil, nil, nil, nil, defaultPath, TlsTrue, nil)
+			nil, nil, nil, nil, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update GDP with valid and invalid hm refs
@@ -524,7 +526,7 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	g.Eventually(func() bool {
 		// member properties should remain unchanged
 		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS,
-			nil, nil, nil, nil, defaultPath, TlsTrue, nil)
+			nil, nil, nil, nil, nil, defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// fix the hm refs
@@ -534,8 +536,123 @@ func TestGDPPropertiesForInvalidHealthMonitorUpdate(t *testing.T) {
 	updateTestGDP(t, gdp3)
 	g.Eventually(func() bool {
 		// member properties should now have the new health monitor refs
-		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, validRefs,
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, validRefs, nil,
 			nil, nil, nil, defaultPath, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, set the health monitor template and verify
+func TestGDPPropertiesWithHealthMonitorTemplate(t *testing.T) {
+	testPrefix := "gdp-hm-"
+	hmTemplate := "System-GSLB-HTTP"
+
+	oldGDP := addTestGDPWithProperties(t, nil, &hmTemplate, nil, nil, nil)
+
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &hmTemplate, nil, nil, nil,
+			defaultPath, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// Update the GDP object with a new health monitor template
+	newGDP := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	newHmTemplate := "System-GSLB-HTTPS"
+	newGDP.Spec.HealthMonitorTemplate = &newHmTemplate
+	updateTestGDP(t, newGDP)
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &newHmTemplate, nil, nil, nil,
+			defaultPath, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, set an invalid health monitor ref (where the federated value is false)
+func TestGDPPropertiesWithInvalidHealthMonitorTemplate(t *testing.T) {
+	hmTemplate := "my-hm-template"
+
+	gdpObj := GetTestDefaultGDPObject()
+	gdpObj.Spec.MatchRules.AppSelector = gdpalphav2.AppSelector{
+		Label: appLabel,
+	}
+	gdpObj.Spec.MatchClusters = []gdpalphav2.ClusterProperty{
+		{Cluster: K8sContext}, {Cluster: OshiftContext},
+	}
+	gdpObj.Spec.HealthMonitorTemplate = &hmTemplate
+	_, err := AddAndVerifyTestGDPStatus(t, gdpObj, fmt.Sprintf("health monitor template %s not found", hmTemplate))
+	t.Cleanup(func() {
+		DeleteTestGDP(t, gdpObj.Namespace, gdpObj.Name)
+	})
+
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(err).Should(gomega.BeNil(), "error should be nil while creating the GDP object")
+}
+
+// Add ingress and route objects, set the health monitor template in GDP object and
+// then change the health monitor template to hmref
+func TestGDPPropertiesHealthMonitorTemplateToHmRefs(t *testing.T) {
+	testPrefix := "gdp-hm-"
+	hmTemplate := "System-GSLB-HTTPS"
+
+	oldGDP := addTestGDPWithProperties(t, nil, &hmTemplate, nil, nil, nil)
+
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &hmTemplate, nil, nil, nil,
+			defaultPath, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// Update the GDP object with a new health monitor template
+	newGDP := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	hmRefs := []string{"my-hm1"}
+	newGDP.Spec.HealthMonitorTemplate = nil
+	newGDP.Spec.HealthMonitorRefs = hmRefs
+	updateTestGDP(t, newGDP)
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil,
+			defaultPath, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add ingress and route objects, set the health monitor template in GDP object and
+// then change the health monitor template to hmref
+func TestGDPPropertiesHmRefsToHealthMonitorTemplate(t *testing.T) {
+	testPrefix := "gdp-hm-"
+	hmRefs := []string{"my-hm1"}
+
+	oldGDP := addTestGDPWithProperties(t, hmRefs, nil, nil, nil, nil)
+
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil,
+			defaultPath, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// Update the GDP object with a new health monitor template
+	newGDP := getTestGDP(t, oldGDP.Name, oldGDP.Namespace)
+	hmTemplate := "System-GSLB-HTTPS"
+	newGDP.Spec.HealthMonitorTemplate = &hmTemplate
+	newGDP.Spec.HealthMonitorRefs = nil
+	updateTestGDP(t, newGDP)
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &hmTemplate, nil, nil, nil,
+			defaultPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -557,7 +674,7 @@ func TestGSLBHostRuleAlgorithmCombinations(t *testing.T) {
 		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
 	}
 
-	addTestGDPWithProperties(t, hmRefs, &ttl, &sp, &gdpPa)
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, &gdpPa)
 	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
 	verifyMembers := func(pa gslbalphav1.PoolAlgorithmSettings) {
 		var expectedMembers []nodes.AviGSK8sObj
@@ -566,7 +683,7 @@ func TestGSLBHostRuleAlgorithmCombinations(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		g.Eventually(func() bool {
-			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, &sp,
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, &sp,
 				&ttl, &pa, defaultPath, TlsTrue, nil)
 		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 	}
@@ -576,7 +693,7 @@ func TestGSLBHostRuleAlgorithmCombinations(t *testing.T) {
 	gslbHRPa := gslbalphav1.PoolAlgorithmSettings{
 		LBAlgorithm: "GSLB_ALGORITHM_TOPOLOGY",
 	}
-	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, &ttl,
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, nil, &ttl,
 		ingestion.GslbHostRuleAccepted, "")
 	// the GS should now take up the new algorithm, instead of from the GDP object
 	verifyMembers(gslbHRPa)
@@ -604,4 +721,156 @@ func TestGSLBHostRuleAlgorithmCombinations(t *testing.T) {
 
 	// the algorithm switches to the GDP's Algorithm settings
 	verifyMembers(newGslbHRPa)
+}
+
+// Checks whether the health monitor template from a GSLBHostRule object is preferred over the
+// the health monitor template from the GDP object.
+func TestGSLBHostRuleWithHealthMonitorTemplate(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	gdpHmTemplate := "System-GSLB-HTTP"
+	gslbHrHmTemplate := "System-GSLB-HTTPS"
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+
+	addTestGDPWithProperties(t, nil, &gdpHmTemplate, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(template string) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &template, &sp,
+				&ttl, &gdpPa, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	verifyMembers(gdpHmTemplate)
+
+	hostName := routeObj.Spec.Host
+	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, nil, &gslbHrHmTemplate, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+	// the GS should now take up the new hm template specified in the gslb hostrule, instead of from the GDP object
+	verifyMembers(gslbHrHmTemplate)
+}
+
+// Checks whether the health monitor template from a GDP object is preferred over the
+// an invalid health monitor template from the GSLBHostrule object.
+func TestGSLBHostRuleWithInvalidHealthMonitorTemplate(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	gdpHmTemplate := "System-GSLB-HTTP"
+	gslbHrHmTemplate := "Invalid-hm-template"
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+
+	addTestGDPWithProperties(t, nil, &gdpHmTemplate, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(template string) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, nil, &template, &sp,
+				&ttl, &gdpPa, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	verifyMembers(gdpHmTemplate)
+
+	hostName := routeObj.Spec.Host
+	addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, nil, &gslbHrHmTemplate, nil, &ttl,
+		ingestion.GslbHostRuleRejected, fmt.Sprintf("health monitor template %s not found", gslbHrHmTemplate))
+	// the GS should not change the hm template in the graph object.
+	verifyMembers(gdpHmTemplate)
+}
+
+// Checks the health monitor template to hm ref transition.
+func TestGSLBHostRuleHealthMonitorTemplateToHmRef(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	gslbHrHmTemplate := "System-GSLB-HTTP"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+
+	addTestGDPWithProperties(t, nil, nil, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(hmRefs []string, template *string) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, template, &sp,
+				&ttl, &gdpPa, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	hostName := routeObj.Spec.Host
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, nil, &gslbHrHmTemplate, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+
+	// the GS should contain the hm template from the GSLB hostrule.
+	verifyMembers(nil, &gslbHrHmTemplate)
+
+	newObj := getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.HealthMonitorTemplate = nil
+	newObj.Spec.HealthMonitorRefs = hmRefs
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+
+	// the GS should contain the hm refs from the GSLB hostrule.
+	verifyMembers(hmRefs, nil)
+}
+
+// Checks the hm ref to health monitor template transition.
+func TestGSLBHostRuleHmRefToHealthMonitorTemplate(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	gslbHrHmTemplate := "System-GSLB-HTTP"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+
+	addTestGDPWithProperties(t, nil, nil, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(hmRefs []string, template *string) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, template, &sp,
+				&ttl, &gdpPa, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	hostName := routeObj.Spec.Host
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+
+	// the GS should contain the hm refs from the GSLB hostrule.
+	verifyMembers(hmRefs, nil)
+
+	newObj := getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.HealthMonitorTemplate = &gslbHrHmTemplate
+	newObj.Spec.HealthMonitorRefs = nil
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+
+	// the GS should contain the hm template from the GSLB hostrule.
+	verifyMembers(nil, &gslbHrHmTemplate)
 }

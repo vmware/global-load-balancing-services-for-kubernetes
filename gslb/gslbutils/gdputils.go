@@ -314,6 +314,9 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		gf.TrafficSplit = append(gf.TrafficSplit, ct)
 	}
 
+	// set the previous health monitor refs or template to empty
+	gf.HealthMonitorRefs = nil
+	gf.HealthMonitorTemplate = nil
 	if gdp.Spec.HealthMonitorTemplate != nil {
 		gf.HealthMonitorTemplate = proto.String(*gdp.Spec.HealthMonitorTemplate)
 	} else if len(gdp.Spec.HealthMonitorRefs) > 0 {
