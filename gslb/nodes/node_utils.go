@@ -242,7 +242,7 @@ func GetPathFromHmDescription(hmName, hmDescription string) string {
 func GetTemplateFromHmDescription(hmName, hmDescription string) *string {
 	hmDescriptionSplit := strings.Split(hmDescription, ": ")
 	if len(hmDescriptionSplit) != 6 {
-		gslbutils.Debugf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDescription)
+		gslbutils.Debugf("hmName: %s, msg: hm description - \"%s\" is malformed, hm is not created from template", hmName, hmDescription)
 		return nil
 	}
 	hmTemplateField := strings.Split(hmDescriptionSplit[5], ": ")

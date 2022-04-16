@@ -130,15 +130,14 @@ type PathHealthMonitorDetails struct {
 	Name            string
 	IngressProtocol string
 	Path            string
-	RequestHeader   string
-	ResponeCodes    []string
 }
 
 func (pathHm PathHealthMonitorDetails) GetPathHMDescription(gsName string, template *string) string {
+	hmDescription := CreatedByAMKO + ", gsname: " + gsName + ", path: " + pathHm.Path + ", protocol: " + pathHm.IngressProtocol
 	if template != nil {
-		return CreatedByAMKO + ", gsname: " + gsName + ", path: " + pathHm.Path + ", protocol: " + pathHm.IngressProtocol + ", " + gslbutils.CreatedFrom + *template
+		hmDescription += ", " + gslbutils.CreatedFrom + *template
 	}
-	return CreatedByAMKO + ", gsname: " + gsName + ", path: " + pathHm.Path + ", protocol: " + pathHm.IngressProtocol
+	return hmDescription
 }
 
 type HealthMonitor struct {
@@ -474,7 +473,7 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 }
 
-func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool, tls bool) {
+func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj bool, tls bool) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -482,6 +481,13 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool
 	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
 	if !newObj {
 		v.RetryCount = gslbutils.DefaultRetryCount
+		// Attach the hms created by amko in case of a GSLB hostrule update and
+		// health monitor is not previously created by amko.
+		if (v.HmTemplate == nil || len(v.HmRefs) == 0) && v.Hm.Name == "" {
+			// Build the list of health monitors
+			v.buildHmPathList()
+			v.buildAndAttachHealthMonitorsFromObj(v.MemberObjs[0], key)
+		}
 		v.CalculateChecksum()
 		return
 	}
