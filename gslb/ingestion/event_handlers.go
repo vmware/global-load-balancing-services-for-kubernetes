@@ -16,7 +16,6 @@ package ingestion
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -526,8 +525,7 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname, lfqdn, 
 					bkt := utils.Bkt(ns, numWorkers)
 
 					if o == gdpalphav2.IngressObj {
-						// sname for ingress is ingName/hostname, we need to extract the ingName
-						ingName := strings.Split(sname, "/")[0]
+						ingName := gslbutils.GetIngressNameFromSname(sname)
 						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectAdd, objKey, cname, ns, ingName, lfqdn, gfqdn)
 					} else {
 						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectAdd, objKey, cname, ns, sname, lfqdn, gfqdn)
@@ -558,8 +556,7 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname, lfqdn, 
 
 					bkt := utils.Bkt(ns, numWorkers)
 					if o == gdpalphav2.IngressObj {
-						// sname for ingress is ingName/hostname, we need to extract the ingName
-						ingName := strings.Split(sname, "/")[0]
+						ingName := gslbutils.GetIngressNameFromSname(sname)
 						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectDelete, objKey, cname, ns, ingName, lfqdn, gfqdn)
 					} else {
 						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectDelete, objKey, cname, ns, sname, lfqdn, gfqdn)
@@ -590,8 +587,7 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname, lfqdn, 
 
 					bkt := utils.Bkt(ns, numWorkers)
 					if o == gdpalphav2.IngressObj {
-						// sname for ingress is ingName/hostname, we need to extract the ingName
-						ingName := strings.Split(sname, "/")[0]
+						ingName := gslbutils.GetIngressNameFromSname(sname)
 						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectUpdate, objKey, cname, ns, ingName, lfqdn, gfqdn)
 					} else {
 						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectUpdate, objKey, cname, ns, sname, lfqdn, gfqdn)
@@ -630,11 +626,11 @@ func HandleHostRuleAliasChange(fqdn, cname string, oldAliasList, newAliasList []
 	gsDomainNameMap := gslbutils.GetDomainNameMap()
 	// The aliases that are removed need to be deleted from domain names
 	gsDomainNameMap.DeleteGSToDomainNameMapping(fqdn, cname,
-		gslbutils.SliceDifference(oldAliasList, newAliasList))
+		gslbutils.SetDifference(oldAliasList, newAliasList))
 
 	// The aliases that are added need to be added to the domain names
 	gsDomainNameMap.AddUpdateGSToDomainNameMapping(fqdn, cname,
-		gslbutils.SliceDifference(newAliasList, oldAliasList))
+		gslbutils.SetDifference(newAliasList, oldAliasList))
 }
 
 func AddHostRule(numWorkers uint32, hrStore *store.ClusterStore, hr *akov1alpha1.HostRule, c *GSLBMemberController) {
@@ -741,7 +737,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 					return
 				}
 				aliasesChanged := false
-				if len(gslbutils.SliceDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
+				if len(gslbutils.SetDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
 					aliasesChanged = true
 				}
 				if gslbutils.GetCustomFqdnMode() {

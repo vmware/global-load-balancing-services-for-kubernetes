@@ -100,7 +100,6 @@ type AviGSK8sObj struct {
 	VirtualServiceUUID string
 	ControllerUUID     string
 	SyncVIPOnly        bool
-	DomainNames        []string
 }
 
 func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
@@ -122,7 +121,6 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 		ControllerUUID:     gsk8sObj.ControllerUUID,
 		SyncVIPOnly:        gsk8sObj.SyncVIPOnly,
 		IsPassthrough:      gsk8sObj.IsPassthrough,
-		DomainNames:        gsk8sObj.DomainNames,
 	}
 	return obj
 }
@@ -465,12 +463,12 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 }
 
-func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool, tls bool, domainNames []string) {
+func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(gsFqdn string, newObj bool, tls bool) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
 	// update the GSLB HostRule or GDP properties for the GS
-	setGSLBPropertiesForGS(gsFqdn, v, false, tls, domainNames)
+	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
 	if !newObj {
 		v.RetryCount = gslbutils.DefaultRetryCount
 		v.CalculateChecksum()
@@ -504,7 +502,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 	v.RetryCount = gslbutils.DefaultRetryCount
 
 	// set the GS properties according to the GSLBHostRule or GDP
-	setGSLBPropertiesForGS(gsFqdn, v, true, memberObjs[0].TLS, memberObjs[0].DomainNames)
+	setGSLBPropertiesForGS(gsFqdn, v, true, memberObjs[0].TLS)
 
 	if v.HmRefs == nil || len(v.HmRefs) == 0 {
 		// Build the list of health monitors
@@ -593,17 +591,17 @@ func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
 	}
 }
 
-func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool, domainNames []string) {
+func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
-	setGSLBPropertiesForGS(gsFqdn, v, false, tls, domainNames)
+	setGSLBPropertiesForGS(gsFqdn, v, false, tls)
 }
 
 // AddUpdateGSMember adds/updates a GS member according to the properties in newMember. Returns
 // true if an existing member needs to be removed.
 func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
-	v.SetPropertiesForGS(v.Name, newMember.TLS, newMember.DomainNames)
+	v.SetPropertiesForGS(v.Name, newMember.TLS)
 
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
@@ -665,7 +663,7 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 
 func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObject, gsDomainNames []string) {
 	tls, _ := getTLSFromObj(metaObj)
-	v.SetPropertiesForGS(v.Name, tls, gsDomainNames)
+	v.SetPropertiesForGS(v.Name, tls)
 
 	member, err := BuildGSMemberObjFromMeta(metaObj, v.Name, v.DomainNames)
 	if err != nil {
@@ -898,7 +896,6 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 		SyncVIPOnly:        syncVIPOnly,
 		IsPassthrough:      metaObj.IsPassthrough(),
 		TLS:                tls,
-		DomainNames:        gsDomainNames,
 	}, nil
 }
 

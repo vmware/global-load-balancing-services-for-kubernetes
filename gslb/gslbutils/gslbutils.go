@@ -39,6 +39,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // InformersPerCluster is the number of informers per cluster
@@ -109,6 +110,11 @@ func ExtractMultiClusterKey(key string) (string, string, string, string, string)
 		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
 	}
 	return operation, objType, cluster, ns, name
+}
+
+// sname for ingress is ingName/hostname
+func GetIngressNameFromSname(sname string) string {
+	return strings.Split(sname, "/")[0]
 }
 
 func GetObjectTypeFromKey(key string) (string, error) {
@@ -681,16 +687,14 @@ func GetGslbConfigObjUpdated() bool {
 }
 
 // Difference compares two slices a & b, returns the elements in `a` that aren't in `b`.
-func SliceDifference(a, b []string) []string {
-	mb := make(map[string]struct{}, len(b))
-	for _, x := range b {
-		mb[x] = struct{}{}
+func SetDifference(a, b []string) []string {
+	setA := sets.NewString()
+	for _, s := range a {
+		setA.Insert(s)
 	}
-	var diff []string
-	for _, x := range a {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
+	setB := sets.NewString()
+	for _, s := range b {
+		setB.Insert(s)
 	}
-	return diff
+	return setA.Difference(setB).List()
 }

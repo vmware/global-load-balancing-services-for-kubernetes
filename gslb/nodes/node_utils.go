@@ -51,14 +51,14 @@ func getGslbPoolAlgorithm(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *
 	return gf.GetGslbPoolAlgorithm()
 }
 
-func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj bool, tls bool, domainNames []string) {
+func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj bool, tls bool) {
 	gf := gslbutils.GetGlobalFilter()
 	// check if a GSLB Host Rule has been defined for this fqdn (gsName)
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	var gsRule gslbutils.GSHostRules
 	var gsRuleExists bool
 
-	gsGraph.DomainNames = domainNames
+	gsGraph.DomainNames = DeriveGSLBServiceDomainNames(gsFqdn)
 	if ghRulesForFqdn := gsHostRuleList.GetGSHostRulesForFQDN(gsFqdn); ghRulesForFqdn != nil {
 		ghRulesForFqdn.DeepCopyInto(&gsRule)
 		gsRuleExists = true
