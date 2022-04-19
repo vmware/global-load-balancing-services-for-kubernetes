@@ -164,8 +164,35 @@ func AddIngressMeta(t *testing.T, name, ns, host, svc, ip, cname string, create 
 	return ingExample
 }
 
+func AddMultiClusterIngressMeta(t *testing.T, name, ns, host, svc, ip, cname string, create bool) k8sobjects.MultiClusterIngressHostMeta {
+	acceptedIngStore := store.GetAcceptedMultiClusterIngressStore()
+	objName := name + "/" + host
+	op := gslbutils.ObjectAdd
+	if !create {
+		op = gslbutils.ObjectUpdate
+	}
+	key := ingestion.GetMultiClusterIngressKey(op, cname, ns, name, host)
+	ingExample := k8sobjects.MultiClusterIngressHostMeta{
+		IngName:   name,
+		Namespace: ns,
+		Hostname:  host,
+		IPAddr:    ip,
+		Cluster:   cname,
+		ObjName:   objName,
+		Paths:     []string{"/"},
+		TLS:       false,
+	}
+	acceptedIngStore.AddOrUpdate(ingExample, cname, ns, objName)
+	addKeyToIngestionQueue(ns, key)
+	return ingExample
+}
+
 func GetIhmKey(op string, ihm k8sobjects.IngressHostMeta) string {
 	return ingestion.GetIngressKey(op, ihm.Cluster, ihm.Namespace, ihm.IngName, ihm.Hostname)
+}
+
+func GetMCIhmKey(op string, ihm k8sobjects.MultiClusterIngressHostMeta) string {
+	return ingestion.GetMultiClusterIngressKey(op, ihm.Cluster, ihm.Namespace, ihm.IngName, ihm.Hostname)
 }
 
 func GetSvcKey(op string, svc k8sobjects.SvcMeta) string {
@@ -532,4 +559,73 @@ func TestGSGraphsForMultiSvcUpdate(t *testing.T) {
 	addKeyToIngestionQueue(DefNS, key2)
 	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
 	verifyGsGraph(t, updatedSvc2, false, 0, false)
+}
+
+func TestGSGraphsForSingleMCIhms(t *testing.T) {
+	prefix := "si-"
+	acceptedIngStore := store.GetAcceptedMultiClusterIngressStore()
+	hostname1 := prefix + "host1.avi.com"
+	hostname2 := prefix + "host2.avi.com"
+	fooIng1 := prefix + "foo-ing1"
+	barIng1 := prefix + "bar-ing1"
+	ihm1 := AddMultiClusterIngressMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.10", FooCluster, true)
+	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	if !ok {
+		t.Fatalf("%s", msg)
+	}
+	ihm2 := AddMultiClusterIngressMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.20", BarCluster, true)
+	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	if !ok {
+		t.Fatalf("%s", msg)
+	}
+	// check the GS graph's fields
+	verifyGsGraph(t, ihm1, true, 1, true)
+	verifyGsGraph(t, ihm2, true, 1, true)
+
+	// delete the Ihms
+	key1 := GetMCIhmKey(gslbutils.ObjectDelete, ihm1)
+	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
+	addKeyToIngestionQueue(DefNS, key1)
+	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	verifyGsGraph(t, ihm1, false, 0, false)
+
+	key2 := GetMCIhmKey(gslbutils.ObjectDelete, ihm2)
+	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
+	addKeyToIngestionQueue(DefNS, key2)
+	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	verifyGsGraph(t, ihm2, false, 0, false)
+}
+
+func TestGSGraphsForMultiMCIhms(t *testing.T) {
+	prefix := "mi-"
+	fooIng1 := prefix + "foo-ing1"
+	barIng1 := prefix + "bar-ing1"
+	hostname := prefix + "host1.avi.com"
+	acceptedIngStore := store.GetAcceptedMultiClusterIngressStore()
+	ihm1 := AddMultiClusterIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.10", FooCluster, true)
+	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	if !ok {
+		t.Fatalf("%s", msg)
+	}
+	ihm2 := AddMultiClusterIngressMeta(t, barIng1, DefNS, hostname, BarCluster+"-"+DefSvc, "10.10.10.20", BarCluster, true)
+	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	if !ok {
+		t.Fatalf("%s", msg)
+	}
+	// check the GS graph's fields for both the members
+	verifyGsGraph(t, ihm1, true, 2, true)
+	verifyGsGraph(t, ihm2, true, 2, true)
+
+	// delete the Ihms
+	key1 := GetMCIhmKey(gslbutils.ObjectDelete, ihm1)
+	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
+	addKeyToIngestionQueue(DefNS, key1)
+	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	verifyGsGraph(t, ihm1, true, 1, false)
+
+	key2 := GetMCIhmKey(gslbutils.ObjectDelete, ihm2)
+	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
+	addKeyToIngestionQueue(DefNS, key2)
+	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	verifyGsGraph(t, ihm2, false, 0, false)
 }

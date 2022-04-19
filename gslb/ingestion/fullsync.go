@@ -368,6 +368,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 	acceptedIngStore := store.GetAcceptedIngressStore()
 	acceptedLBSvcStore := store.GetAcceptedLBSvcStore()
 	acceptedRouteStore := store.GetAcceptedRouteStore()
+	acceptedMultiClusterIngStore := store.GetAcceptedMultiClusterIngressStore()
 
 	ingList := acceptedIngStore.GetAllClusterNSObjects()
 	for _, ingName := range ingList {
@@ -385,6 +386,12 @@ func GenerateModels(gsCache *avicache.AviCache) {
 	for _, routeName := range routeList {
 		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
 			gslbutils.RouteType, routeName))
+	}
+
+	multiClusterIngList := acceptedMultiClusterIngStore.GetAllClusterNSObjects()
+	for _, ingName := range multiClusterIngList {
+		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
+			gslbutils.MCIType, ingName))
 	}
 
 	gslbutils.Logf("keys for GS graphs published to layer 3")

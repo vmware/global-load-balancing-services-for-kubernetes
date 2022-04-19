@@ -33,18 +33,22 @@ import (
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	crdfake "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/fake"
 )
 
 var (
-	kubeClient      *k8sfake.Clientset
-	keyChan         chan string
-	oshiftClient    *oshiftfake.Clientset
-	fooOshiftClient *oshiftfake.Clientset
-	barOshiftClient *oshiftfake.Clientset
-	testStopCh      <-chan struct{}
-	gslbClient      *gslbfake.Clientset
-	fooKubeClient   *k8sfake.Clientset
-	barKubeClient   *k8sfake.Clientset
+	kubeClient       *k8sfake.Clientset
+	keyChan          chan string
+	oshiftClient     *oshiftfake.Clientset
+	fooOshiftClient  *oshiftfake.Clientset
+	barOshiftClient  *oshiftfake.Clientset
+	testStopCh       <-chan struct{}
+	gslbClient       *gslbfake.Clientset
+	fooKubeClient    *k8sfake.Clientset
+	barKubeClient    *k8sfake.Clientset
+	fooCRDKubeClient *crdfake.Clientset
+	barCRDKubeClient *crdfake.Clientset
 )
 
 const (
@@ -210,12 +214,14 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	// Initialize a foo kube client
 	fooKubeClient = k8sfake.NewSimpleClientset()
 	fooOshiftClient = oshiftfake.NewSimpleClientset()
+	fooCRDKubeClient = crdfake.NewSimpleClientset()
 
 	fooInformersArg := make(map[string]interface{})
 	fooInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = fooOshiftClient
+	fooInformersArg[containerutils.INFORMERS_AKO_CLIENT] = fooCRDKubeClient
 	fooInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer}
+	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer}
 	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{fooKubeClient}, fooRegisteredInformers, fooInformersArg)
 	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance, nil)
 	fooCtrl.Start(testStopCh)
@@ -224,11 +230,13 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	// Initialize a bar kube client
 	barKubeClient = k8sfake.NewSimpleClientset()
 	barOshiftClient = oshiftfake.NewSimpleClientset()
+	barCRDKubeClient = crdfake.NewSimpleClientset()
 	barInformersArg := make(map[string]interface{})
 	barInformersArg[containerutils.INFORMERS_OPENSHIFT_CLIENT] = barOshiftClient
+	barInformersArg[containerutils.INFORMERS_AKO_CLIENT] = barCRDKubeClient
 	barInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer}
+	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer}
 	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{barKubeClient}, barRegisteredInformers, barInformersArg)
 	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance, nil)
 	barCtrl.Start(testStopCh)
@@ -240,8 +248,20 @@ func GetIngressKey(op, cname, ns, name, host string) string {
 	return op + "/" + gslbutils.IngressType + "/" + cname + "/" + ns + "/" + name + "/" + host
 }
 
+func GetMultiClusterIngressKey(op, cname, ns, name, host string) string {
+	return op + "/" + gslbutils.MCIType + "/" + cname + "/" + ns + "/" + name + "/" + host
+}
+
 func buildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
 	actualKey := GetIngressKey(op, cname, ns, name, hostname)
+	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
+	if !passed {
+		t.Fatal(errStr)
+	}
+}
+
+func buildMultiClusterIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
+	actualKey := GetMultiClusterIngressKey(op, cname, ns, name, hostname)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)
