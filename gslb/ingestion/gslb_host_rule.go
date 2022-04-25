@@ -186,6 +186,35 @@ func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings)
 	}
 }
 
+func getHMFromName(name string, gdp bool) (*models.HealthMonitor, error) {
+	aviClient := avictrl.SharedAviClients().AviClient[0]
+	uri := "api/healthmonitor?name=" + name
+
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
+	if err != nil {
+		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
+		return nil, err
+	}
+	if result.Count == 0 {
+		gslbutils.Errf("Health Monitor %s does not exist", name)
+		return nil, fmt.Errorf("health Monitor %s does not exist", name)
+	}
+	gslbutils.Logf("health monitor %s fetched from controller", name)
+	elems := make([]json.RawMessage, result.Count)
+	err = json.Unmarshal(result.Results, &elems)
+	if err != nil {
+		gslbutils.Errf("failed to unmarshal health monitor data for ref %s: %v", name, err)
+		return nil, err
+	}
+	hm := models.HealthMonitor{}
+	err = json.Unmarshal(elems[0], &hm)
+	if err != nil {
+		gslbutils.Errf("failed to unmarshal the first health monitor element: %v", err)
+		return nil, err
+	}
+	return &hm, nil
+}
+
 func isHealthMonitorRefPresentInCache(hmName string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
@@ -203,36 +232,14 @@ func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
 		gslbutils.Debugf("health monitor %s present in hm cache", refName)
 		return true
 	}
-	aviClient := avictrl.SharedAviClients().AviClient[0]
-	uri := "api/healthmonitor?name=" + refName
-
-	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
+	hm, err := getHMFromName(refName, gdp)
 	if err != nil {
-		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
-		return false
-	}
-	if result.Count == 0 {
-		gslbutils.Errf("Health Monitor %s does not exist", refName)
-		return false
-	}
-	gslbutils.Logf("health monitor %s fetched from controller", refName)
-	elems := make([]json.RawMessage, result.Count)
-	err = json.Unmarshal(result.Results, &elems)
-	if err != nil {
-		gslbutils.Errf("failed to unmarshal health monitor data for ref %s: %v", refName, err)
-		return false
-	}
-	hm := models.HealthMonitor{}
-	err = json.Unmarshal(elems[0], &hm)
-	if err != nil {
-		gslbutils.Errf("failed to unmarshal the first health monitor element: %v", err)
 		return false
 	}
 	if hm.IsFederated != nil && *hm.IsFederated {
 		return true
-	} else {
-		gslbutils.Errf("health monitor ref %s is not federated, can't add", refName)
 	}
+	gslbutils.Errf("health monitor ref %s is not federated, can't add", refName)
 	return false
 }
 
@@ -310,11 +317,23 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 		}
 	}
 
-	healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
-	for _, ref := range healthMonitorRefs {
-		if !isHealthMonitorRefValid(ref, false, fullSync) {
-			errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+	// HM template and reference cannot be specified together
+	if gslbhrSpec.HealthMonitorTemplate != nil &&
+		len(gslbhrSpec.HealthMonitorRefs) != 0 {
+		return fmt.Errorf("health monitor reference and template cannot be specified together for %s GSLBHostRule", gslbhrName)
+	}
+
+	if gslbhrSpec.HealthMonitorTemplate != nil {
+		if err := validateAndAddHmTemplateToCache(*gslbhrSpec.HealthMonitorTemplate, false, fullSync); err != nil {
+			return err
+		}
+	} else {
+		healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
+		for _, ref := range healthMonitorRefs {
+			if !isHealthMonitorRefValid(ref, false, fullSync) {
+				errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
+				return fmt.Errorf(errmsg)
+			}
 		}
 	}
 	return nil

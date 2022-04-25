@@ -689,14 +689,14 @@ func BuildExpectedPathHmDescriptionString(host string, path []string, tls bool) 
 	hm := BuildExpectedPathHM(host, path, tls)
 	descList := []string{}
 	for _, pathHm := range hm.PathHM {
-		descList = append(descList, pathHm.GetPathHMDescription(host))
+		descList = append(descList, pathHm.GetPathHMDescription(host, nil))
 	}
 	return descList
 }
 
 func BuildExpectedNonPathHmDescriptionString(host string) string {
 	hm := BuildExpectedNonPathHmDescription(host)
-	return hm.GetHMDescription(host)[0]
+	return hm.GetHMDescription(host, nil)[0]
 }
 
 func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
@@ -710,7 +710,7 @@ func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
 }
 
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name string, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32) bool {
+	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32) bool {
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -723,7 +723,16 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 		return false
 	}
 
-	if hmRefs != nil && len(hmRefs) != 0 {
+	if hmTemplate != nil {
+		if gs.HmTemplate == nil {
+			t.Logf("Health monitor template not yet assigned to graph layer object %s", name)
+			return false
+		}
+		if *gs.HmTemplate != *hmTemplate {
+			t.Logf("Health monitor template don't match. Expected: %v, got: %v", *hmTemplate, *gs.HmTemplate)
+			return false
+		}
+	} else if hmRefs != nil && len(hmRefs) != 0 {
 		sort.Strings(hmRefs)
 		if !strings.HasPrefix(hmRefs[0], "amko--") {
 			// hm not created by amko
@@ -742,7 +751,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 			fetchedPathHM := gs.Hm.PathHM
 			expectedPathHM := BuildExpectedPathHM(name, paths, tls).PathHM
 			if len(expectedPathHM) != len(fetchedPathHM) {
-				t.Logf("expected path hm lenght doesnt match fetched path hm length, expected path hm: %v, fetched path hm : %v",
+				t.Logf("expected path hm length doesnt match fetched path hm length, expected path hm: %v, fetched path hm : %v",
 					expectedPathHM, fetchedPathHM)
 				return false
 			}
@@ -756,7 +765,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 				}
 			}
 			if matchedMembersLen != len(fetchedPathHM) {
-				t.Logf("expected path hms and fetched path hms donot match, expected path hm : %v, fetched path hm %v",
+				t.Logf("expected path hms and fetched path hms don't match, expected path hm : %v, fetched path hm %v",
 					expectedPathHM, fetchedPathHM)
 				return false
 			}
@@ -955,17 +964,18 @@ func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID st
 }
 
 func buildGSLBHostRule(name, ns, gsFqdn string, sitePersistence *gslbalphav1.SitePersistence,
-	hmRefs []string, ttl *int) *gslbalphav1.GSLBHostRule {
+	hmRefs []string, hmTemplate *string, ttl *int) *gslbalphav1.GSLBHostRule {
 	return &gslbalphav1.GSLBHostRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
 		},
 		Spec: gslbalphav1.GSLBHostRuleSpec{
-			SitePersistence:   sitePersistence,
-			HealthMonitorRefs: hmRefs,
-			Fqdn:              gsFqdn,
-			TTL:               ttl,
+			SitePersistence:       sitePersistence,
+			HealthMonitorRefs:     hmRefs,
+			Fqdn:                  gsFqdn,
+			TTL:                   ttl,
+			HealthMonitorTemplate: hmTemplate,
 		},
 	}
 }
@@ -978,11 +988,11 @@ func deleteGSLBHostRule(t *testing.T, name, ns string) {
 	}
 }
 
-func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string, hmRefs []string,
+func addGSLBHostRule(t *testing.T, name, ns, gsFqdn string, hmRefs []string, hmTemplate *string,
 	sitePersistence *gslbalphav1.SitePersistence, ttl *int,
 	status, errMsg string) *gslbalphav1.GSLBHostRule {
 
-	gslbHR := buildGSLBHostRule(name, ns, gsFqdn, sitePersistence, hmRefs, ttl)
+	gslbHR := buildGSLBHostRule(name, ns, gsFqdn, sitePersistence, hmRefs, hmTemplate, ttl)
 	newObj, err := gslbutils.AMKOControlConfig().GSLBClientset().AmkoV1alpha1().GSLBHostRules(ns).Create(context.TODO(),
 		gslbHR, metav1.CreateOptions{})
 	if err != nil {

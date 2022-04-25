@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gslbhralphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
@@ -27,6 +28,7 @@ import (
 type GSHostRules struct {
 	GSFqdn            string
 	HmRefs            []string
+	HmTemplate        *string
 	SitePersistence   *gslbhralphav1.SitePersistence
 	TTL               *int
 	TrafficSplit      []gslbhralphav1.TrafficSplitElem
@@ -66,6 +68,11 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 		*out = make([]gslbhralphav1.TrafficSplitElem, len((*in)))
 		copy(*out, *in)
 	}
+	if in.HmTemplate != nil {
+		in, out := &in.HmTemplate, &out.HmTemplate
+		*out = new(string)
+		**out = **in
+	}
 	out.GslbPoolAlgorithm = in.GslbPoolAlgorithm.DeepCopy()
 }
 
@@ -95,6 +102,10 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 		thirdPartyMembers = append(thirdPartyMembers, tp.Site+tp.VIP)
 	}
 	sort.Strings(thirdPartyMembers)
+
+	if ghr.HmTemplate != nil {
+		cksum += utils.Hash(*ghr.HmTemplate)
+	}
 
 	cksum += utils.Hash(utils.Stringify(ghr.HmRefs)) +
 		utils.Hash(sitePersistence) +
@@ -136,6 +147,9 @@ func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 	gsHostRules.HmRefs = make([]string, len(gslbhrSpec.HealthMonitorRefs))
 	copy(gsHostRules.HmRefs, gslbhrSpec.HealthMonitorRefs)
 	gsHostRules.GslbPoolAlgorithm = gslbhrSpec.PoolAlgorithmSettings.DeepCopy()
+	if gslbhrSpec.HealthMonitorTemplate != nil {
+		gsHostRules.HmTemplate = proto.String(*gslbhrSpec.HealthMonitorTemplate)
+	}
 
 	gsHostRules.CalculateAndSetChecksum()
 	return &gsHostRules

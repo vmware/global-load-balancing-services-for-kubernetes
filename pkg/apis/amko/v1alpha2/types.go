@@ -53,6 +53,7 @@ type GDPSpec struct {
 	MatchClusters         []ClusterProperty                  `json:"matchClusters,omitempty"`
 	TrafficSplit          []TrafficSplitElem                 `json:"trafficSplit,omitempty"`
 	HealthMonitorRefs     []string                           `json:"healthMonitorRefs,omitempty"`
+	HealthMonitorTemplate *string                            `json:"healthMonitorTemplate,omitempty"`
 	TTL                   *int                               `json:"ttl,omitempty"`
 	SitePersistenceRef    *string                            `json:"sitePersistenceRef,omitempty"`
 	PoolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings `json:"poolAlgorithmSettings,omitempty"`

@@ -167,9 +167,9 @@ func PublishAllGraphKeys() {
 func GetHmChecksum(objType string, gsGraph *AviGSObjectGraph) uint32 {
 	var checksum uint32
 	if objType == gslbutils.SvcType {
-		checksum = gsGraph.GetHmChecksum(gsGraph.Hm.GetHMDescription(gsGraph.Name))
+		checksum = gsGraph.GetHmChecksum(gsGraph.Hm.GetHMDescription(gsGraph.Name, gsGraph.HmTemplate))
 	} else {
-		description := gsGraph.Hm.GetHMDescription(gsGraph.Name)
+		description := gsGraph.Hm.GetHMDescription(gsGraph.Name, gsGraph.HmTemplate)
 		checksum = gsGraph.GetHmChecksum(description)
 	}
 	return checksum
@@ -187,7 +187,7 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 	prevHmChecksum := GetHmChecksum(objType, gsGraph)
 	prevChecksum := gsGraph.GetChecksum()
 	// update the GS graph
-	aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(objName, false, gsGraph.MemberObjs[0].TLS)
+	aviGS.(*AviGSObjectGraph).UpdateAviGSGraphWithGSFqdn(key, objName, false, gsGraph.MemberObjs[0].TLS)
 	newChecksum := gsGraph.GetChecksum()
 	newHmChecksum := GetHmChecksum(objType, gsGraph)
 	gslbutils.Debugf("prevChecksum: %d, newChecksum: %d, prevHmChecksum: %d, newHmChecksum: %d, key: %s", prevChecksum,

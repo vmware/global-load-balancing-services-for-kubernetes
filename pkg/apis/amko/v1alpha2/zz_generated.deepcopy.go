@@ -83,6 +83,11 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.HealthMonitorTemplate != nil {
+		in, out := &in.HealthMonitorTemplate, &out.HealthMonitorTemplate
+		*out = new(string)
+		**out = **in
+	}
 	if in.TTL != nil {
 		in, out := &in.TTL, &out.TTL
 		*out = new(int)

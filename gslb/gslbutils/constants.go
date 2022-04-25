@@ -115,4 +115,10 @@ const (
 
 	// AMKO Created by label key for HM labels
 	CreatedByLabelKey = "created-by"
+
+	// HM template constants
+	CreatedByUser                = "created by: user"
+	RequestHeaderStringSeparator = " "
+	NoOfRequestHeaderParams      = 3
+	CreatedFrom                  = "created from: "
 )

@@ -23,6 +23,7 @@ import (
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -84,6 +85,8 @@ type GlobalFilter struct {
 	ApplicableClusters map[string]ClusterProperties
 	// List of health monitors to be attached to all the GSs
 	HealthMonitorRefs []string
+	// Health monitor template created by the user
+	HealthMonitorTemplate *string
 	// Site Persistence properties to be applied to all the GSs
 	SitePersistenceRef *string
 	// Time To Live value for each fqdn
@@ -158,6 +161,13 @@ func (gf *GlobalFilter) GetAviHmRefs() []string {
 	return aviHmRefs
 }
 
+func (gf *GlobalFilter) GetAviHmTemplate() *string {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.HealthMonitorTemplate
+}
+
 func (gf *GlobalFilter) GetSitePersistence() *string {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
@@ -184,15 +194,16 @@ func (gf *GlobalFilter) GetCopy() *GlobalFilter {
 	defer gf.GlobalLock.RUnlock()
 
 	newFilter := GlobalFilter{
-		AppFilter:          gf.AppFilter,
-		NSFilter:           gf.NSFilter,
-		TrafficSplit:       gf.TrafficSplit,
-		ApplicableClusters: gf.ApplicableClusters,
-		HealthMonitorRefs:  gf.HealthMonitorRefs,
-		SitePersistenceRef: gf.SitePersistenceRef,
-		TTL:                gf.TTL,
-		GslbPoolAlgorithm:  gf.GslbPoolAlgorithm,
-		Checksum:           gf.Checksum,
+		AppFilter:             gf.AppFilter,
+		NSFilter:              gf.NSFilter,
+		TrafficSplit:          gf.TrafficSplit,
+		ApplicableClusters:    gf.ApplicableClusters,
+		HealthMonitorRefs:     gf.HealthMonitorRefs,
+		HealthMonitorTemplate: gf.HealthMonitorTemplate,
+		SitePersistenceRef:    gf.SitePersistenceRef,
+		TTL:                   gf.TTL,
+		GslbPoolAlgorithm:     gf.GslbPoolAlgorithm,
+		Checksum:              gf.Checksum,
 	}
 	return &newFilter
 }
@@ -303,7 +314,12 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		gf.TrafficSplit = append(gf.TrafficSplit, ct)
 	}
 
-	if len(gdp.Spec.HealthMonitorRefs) > 0 {
+	// set the previous health monitor refs or template to empty
+	gf.HealthMonitorRefs = nil
+	gf.HealthMonitorTemplate = nil
+	if gdp.Spec.HealthMonitorTemplate != nil {
+		gf.HealthMonitorTemplate = proto.String(*gdp.Spec.HealthMonitorTemplate)
+	} else if len(gdp.Spec.HealthMonitorRefs) > 0 {
 		gf.HealthMonitorRefs = make([]string, len(gdp.Spec.HealthMonitorRefs))
 		copy(gf.HealthMonitorRefs, gdp.Spec.HealthMonitorRefs)
 	}
@@ -368,7 +384,9 @@ func (gf *GlobalFilter) ComputeChecksum() {
 		cksum += utils.Hash(utils.Stringify(*gf.TTL))
 	}
 	cksum += getChecksumForPoolAlgorithm(gf.GslbPoolAlgorithm)
-	if len(gf.HealthMonitorRefs) > 0 {
+	if gf.HealthMonitorTemplate != nil {
+		cksum += utils.Hash(*gf.HealthMonitorTemplate)
+	} else if len(gf.HealthMonitorRefs) > 0 {
 		hmRefs = make([]string, len(gf.HealthMonitorRefs))
 		copy(hmRefs, gf.HealthMonitorRefs)
 		sort.Strings(hmRefs)
@@ -531,10 +549,24 @@ func isGslbPoolAlgorithmChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bo
 	return oldCksum != newCksum
 }
 
+func IsHmTemplateChanged(old, new *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	newHmTemplate := new.Spec.HealthMonitorTemplate
+	oldHmTemplate := old.Spec.HealthMonitorTemplate
+	if newHmTemplate == nil && oldHmTemplate != nil {
+		return true
+	} else if newHmTemplate != nil && oldHmTemplate == nil {
+		return true
+	} else if newHmTemplate != nil && oldHmTemplate != nil &&
+		*newHmTemplate != *oldHmTemplate {
+		return true
+	}
+	return false
+}
+
 func isAllGSPropertyChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return isHmRefsChanged(old, new) || isSitePersistenceChanged(old, new) ||
 		isTTLChanged(old, new) || isGslbPoolAlgorithmChanged(old, new) ||
-		isTrafficWeightChanged(new, old)
+		isTrafficWeightChanged(new, old) || IsHmTemplateChanged(old, new)
 }
 
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
@@ -565,7 +597,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.SitePersistenceRef = nf.SitePersistenceRef
 	gf.HealthMonitorRefs = nf.HealthMonitorRefs
 	gf.GslbPoolAlgorithm = nf.GslbPoolAlgorithm
-
+	gf.HealthMonitorTemplate = nf.HealthMonitorTemplate
 	gf.Checksum = nf.Checksum
 
 	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)

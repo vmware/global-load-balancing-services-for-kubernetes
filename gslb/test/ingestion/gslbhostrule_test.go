@@ -125,3 +125,42 @@ func TestGSLBHostRuleInvalidHealthMonitors(t *testing.T) {
 	g.Expect(err).NotTo(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
 }
+
+func TestGSLBHostRuleValidHealthMonitorTemplate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.HealthMonitorRefs = nil
+	gslbhrHealthMonitorTemplate := "System-GSLB-HTTPS"
+	gslbhrObj.Spec.HealthMonitorTemplate = &gslbhrHealthMonitorTemplate
+	t.Logf("Adding GSLBHostRule with valid Health Monitor Template")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}
+
+func TestGSLBHostRuleInvalidHealthMonitorTemplate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.HealthMonitorRefs = nil
+	gslbhrHealthMonitorTemplate := "test-hm-" + mockaviserver.InvalidObjectNameSuffix
+	gslbhrObj.Spec.HealthMonitorTemplate = &gslbhrHealthMonitorTemplate
+	t.Logf("Adding GSLBHostRule with invalid Health Monitor Template")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}
+
+func TestGSLBHostRuleBothHmRefAndHmTemplate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.HealthMonitorRefs = []string{"test-health-monitor"}
+	gslbhrHealthMonitorTemplate := "System-GSLB-HTTPS"
+	gslbhrObj.Spec.HealthMonitorTemplate = &gslbhrHealthMonitorTemplate
+	t.Logf("Adding GSLBHostRule with both Health Monitor Reference and Health Monitor Template")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}

@@ -364,7 +364,7 @@ func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph
 // 1. tls
 // the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int, extraArgs ...interface{}) bool {
+	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, extraArgs ...interface{}) bool {
 
 	var tls bool
 	if len(extraArgs) > 1 {
@@ -385,15 +385,19 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 		return false
 	}
 
-	sort.Strings(hmRefs)
-	fetchedHmRefs := gs.HmRefs
-	sort.Strings(fetchedHmRefs)
-	if len(hmRefs) != len(fetchedHmRefs) {
-		t.Logf("length of hm refs don't match")
-		return false
-	}
-
-	if len(hmRefs) != 0 {
+	if hmTemplate != nil {
+		if *gs.HmTemplate != *hmTemplate {
+			t.Logf("hm template didn't match, expected: %s, fetched: %s", *hmTemplate, *gs.HmTemplate)
+			return false
+		}
+	} else if len(hmRefs) != 0 {
+		sort.Strings(hmRefs)
+		fetchedHmRefs := gs.HmRefs
+		sort.Strings(fetchedHmRefs)
+		if len(hmRefs) != len(fetchedHmRefs) {
+			t.Logf("length of hm refs don't match")
+			return false
+		}
 		for idx, h := range hmRefs {
 			if h != fetchedHmRefs[idx] {
 				t.Logf("hm ref didn't match, expected list: %v, fetched list: %v", hmRefs, fetchedHmRefs)

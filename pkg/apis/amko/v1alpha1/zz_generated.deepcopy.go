@@ -250,6 +250,11 @@ func (in *GSLBHostRuleSpec) DeepCopyInto(out *GSLBHostRuleSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.HealthMonitorTemplate != nil {
+		in, out := &in.HealthMonitorTemplate, &out.HealthMonitorTemplate
+		*out = new(string)
+		**out = **in
+	}
 	if in.TrafficSplit != nil {
 		in, out := &in.TrafficSplit, &out.TrafficSplit
 		*out = make([]TrafficSplitElem, len(*in))
