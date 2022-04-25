@@ -410,14 +410,6 @@ func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, 
 		cname, namespace, objType, op, name, key)
 }
 
-func publishKeyToGraphLayerForHostRule(numWorkers uint32, objType, cname, namespace, op, lfqdn, gfqdn string, wq []workqueue.RateLimitingInterface) {
-	key := gslbutils.MultiClusterKeyForHostRule(op, objType, cname, namespace, lfqdn, gfqdn)
-	bkt := containerutils.Bkt(lfqdn, numWorkers)
-	wq[bkt].AddRateLimited(key)
-	gslbutils.Logf("cluster: %s, ns: %s, objType: %s, op: %s, lfqdn: %s, gfqdn: %s, msg: added %s key ",
-		cname, namespace, objType, op, lfqdn, gfqdn, op)
-}
-
 func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	acceptedNSStore := store.GetAcceptedNSStore()
 	rejectedNSStore := store.GetRejectedNSStore()
@@ -494,9 +486,15 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 	return ingressEventHandler
 }
 
-func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, numWorkers uint32,
+func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname, lfqdn, gfqdn string, numWorkers uint32,
 	k8swq []workqueue.RateLimitingInterface) {
-	gfqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+
+	// primaryFqdn -> this is the fqdn choosen as the GSName
+	primaryFqdn := lfqdn
+	if gslbutils.GetCustomFqdnMode() {
+		primaryFqdn = gfqdn
+	}
+	var key string
 	objs := []string{gdpalphav2.RouteObj, gdpalphav2.IngressObj, gdpalphav2.LBSvcObj, gslbutils.MCIType}
 	for _, o := range objs {
 		objKey, acceptedStore, rejectedStore, err := GetObjTypeStores(o)
@@ -504,11 +502,20 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 			gslbutils.Errf("objtype error: %s", err.Error())
 			continue
 		}
-		if add && rejectedStore != nil {
-			acceptedList, _ := rejectedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, gfqdn)
+		if add {
+			var acceptedList []string
+			if gslbutils.GetCustomFqdnMode() && rejectedStore != nil {
+				// If customFQDN is true - all are objects are in rejectedStore as all are
+				//     rejected if no Hostrule for them is found (i.e., no global to local mapping)
+				acceptedList, _ = rejectedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn)
+				MoveObjs(acceptedList, rejectedStore, acceptedStore, objKey)
+			} else if !gslbutils.GetCustomFqdnMode() && acceptedStore != nil {
+				// is customFQDN is false - objects are accepted and in accepted store,
+				//     rejected store has objects rejected based on filter
+				acceptedList, _ = acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn)
+			}
 			if len(acceptedList) != 0 {
 				gslbutils.Logf("ObjList: %v, msg: %s", acceptedList, "object list will be added")
-				MoveObjs(acceptedList, rejectedStore, acceptedStore, objKey)
 				for _, objName := range acceptedList {
 					cname, ns, sname, err := splitName(o, objName)
 					if err != nil {
@@ -516,15 +523,21 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 						continue
 					}
 					bkt := utils.Bkt(ns, numWorkers)
-					key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, sname)
+
+					if o == gdpalphav2.IngressObj {
+						ingName := gslbutils.GetIngressNameFromSname(sname)
+						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectAdd, objKey, cname, ns, ingName, lfqdn, gfqdn)
+					} else {
+						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectAdd, objKey, cname, ns, sname, lfqdn, gfqdn)
+					}
 					k8swq[bkt].AddRateLimited(key)
 					gslbutils.Logf("cluster: %s, ns: %s, objtype:%s, name: %s, key: %s, msg: added ADD obj key",
 						cname, ns, o, sname, key)
 				}
 			}
 		}
-		if !add && acceptedStore != nil {
-			acceptedList, rejectedList := acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, gfqdn)
+		if !add && acceptedStore.ClusterObjectMap != nil {
+			acceptedList, rejectedList := acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn)
 			if len(rejectedList) != 0 {
 				filteredRejectedList, err := filterObjListBasedOnFqdn(acceptedStore, rejectedList, hr.Spec.VirtualHost.Fqdn, o)
 				if err != nil {
@@ -542,7 +555,12 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 					}
 
 					bkt := utils.Bkt(ns, numWorkers)
-					key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname)
+					if o == gdpalphav2.IngressObj {
+						ingName := gslbutils.GetIngressNameFromSname(sname)
+						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectDelete, objKey, cname, ns, ingName, lfqdn, gfqdn)
+					} else {
+						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectDelete, objKey, cname, ns, sname, lfqdn, gfqdn)
+					}
 					k8swq[bkt].AddRateLimited(key)
 					gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added DELETE obj key",
 						cname, ns, o, sname, key)
@@ -568,7 +586,12 @@ func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname string, 
 					}
 
 					bkt := utils.Bkt(ns, numWorkers)
-					key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
+					if o == gdpalphav2.IngressObj {
+						ingName := gslbutils.GetIngressNameFromSname(sname)
+						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectUpdate, objKey, cname, ns, ingName, lfqdn, gfqdn)
+					} else {
+						key = gslbutils.MultiClusterKeyForHostRule(gslbutils.ObjectUpdate, objKey, cname, ns, sname, lfqdn, gfqdn)
+					}
 					k8swq[bkt].AddRateLimited(key)
 					gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added UPDATE obj key",
 						cname, ns, o, sname, key)
@@ -599,6 +622,43 @@ func filterObjListBasedOnFqdn(cstore *store.ClusterStore, objList []string, fqdn
 	return result, nil
 }
 
+func HandleHostRuleAliasChange(fqdn, cname string, oldAliasList, newAliasList []string) {
+	gsDomainNameMap := gslbutils.GetDomainNameMap()
+	// The aliases that are removed need to be deleted from domain names
+	gsDomainNameMap.DeleteGSToDomainNameMapping(fqdn, cname,
+		gslbutils.SetDifference(oldAliasList, newAliasList))
+
+	// The aliases that are added need to be added to the domain names
+	gsDomainNameMap.AddUpdateGSToDomainNameMapping(fqdn, cname,
+		gslbutils.SetDifference(newAliasList, oldAliasList))
+}
+
+func AddHostRule(numWorkers uint32, hrStore *store.ClusterStore, hr *akov1alpha1.HostRule, c *GSLBMemberController) {
+	gsDomainNameMap := gslbutils.GetDomainNameMap()
+	lFqdn := hr.Spec.VirtualHost.Fqdn
+	AddOrUpdateHostRuleStore(hrStore, hr, c.name)
+
+	if gslbutils.GetCustomFqdnMode() {
+		gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+		fqdnMap := gslbutils.GetFqdnMap()
+		fqdnMap.AddUpdateToFqdnMapping(gFqdn, lFqdn, c.name)
+		if hr.Spec.VirtualHost.Gslb.IncludeAliases {
+			// when includeAliases flag in HostRule is set to true
+			// We create a GSLB Service with name equal to global fqdn
+			// This GSLB Service will have domain names as a list of -
+			// all the fqdns mentioned in the Aliases part of the HostRule CRD
+			gsDomainNameMap.AddUpdateGSToDomainNameMapping(gFqdn, c.name, hr.Spec.VirtualHost.Aliases)
+		}
+		ReApplyObjectsOnHostRule(hr, true, c.name, lFqdn, gFqdn, numWorkers, c.workqueue)
+	} else {
+		// customFqdnMode is false
+		// we use the local Fqdn for the gsName
+		// domain names - all the fqdns mentioned in the Aliases part of the HostRule CRD
+		gsDomainNameMap.AddUpdateGSToDomainNameMapping(lFqdn, c.name, hr.Spec.VirtualHost.Aliases)
+		ReApplyObjectsOnHostRule(hr, true, c.name, lFqdn, lFqdn, numWorkers, c.workqueue)
+	}
+}
+
 func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	hrStore := store.GetHostRuleStore()
 
@@ -615,14 +675,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 					c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
 				return
 			}
-			gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
-			lFqdn := hr.Spec.VirtualHost.Fqdn
-			fqdnMap := gslbutils.GetFqdnMap()
-			fqdnMap.AddUpdateToFqdnMapping(gFqdn, lFqdn, c.name)
-			AddOrUpdateHostRuleStore(hrStore, hr, c.name)
-			ReApplyObjectsOnHostRule(hr, true, c.name, numWorkers, c.workqueue)
-			// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, hr.Namespace, gslbutils.ObjectAdd,
-			// 	lFqdn, gFqdn, c.workqueue)
+			AddHostRule(numWorkers, hrStore, hr, c)
 		},
 		DeleteFunc: func(obj interface{}) {
 			hr, ok := obj.(*akov1alpha1.HostRule)
@@ -636,14 +689,22 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 				return
 			}
 			// write a delete event to graph layer
-			gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+			gsDomainNameMap := gslbutils.GetDomainNameMap()
 			lFqdn := hr.Spec.VirtualHost.Fqdn
 			DeleteFromHostRuleStore(hrStore, hr, c.name)
-			fqdnMap := gslbutils.GetFqdnMap()
-			fqdnMap.DeleteFromFqdnMapping(gFqdn, lFqdn, c.name)
-			ReApplyObjectsOnHostRule(hr, false, c.name, numWorkers, c.workqueue)
-			// publishKeyToGraphLayerForHostRule(numWorkers, gslbutils.HostRuleType, c.name, hr.Namespace, gslbutils.ObjectDelete,
-			// 	lFqdn, gFqdn, c.workqueue)
+
+			if gslbutils.GetCustomFqdnMode() {
+				gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+				fqdnMap := gslbutils.GetFqdnMap()
+
+				fqdnMap.DeleteFromFqdnMapping(gFqdn, lFqdn, c.name)
+				gsDomainNameMap.DeleteGSToDomainNameMapping(gFqdn, c.name, hr.Spec.VirtualHost.Aliases)
+				ReApplyObjectsOnHostRule(hr, false, c.name, lFqdn, gFqdn, numWorkers, c.workqueue)
+			} else {
+				gsDomainNameMap.DeleteGSToDomainNameMapping(lFqdn, c.name, hr.Spec.VirtualHost.Aliases)
+				ReApplyObjectsOnHostRule(hr, false, c.name, lFqdn, lFqdn, numWorkers, c.workqueue)
+
+			}
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldHr, ok := old.(*akov1alpha1.HostRule)
@@ -667,30 +728,78 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 			newGFqdn := newHr.Spec.VirtualHost.Gslb.Fqdn
 			newLFqdn := newHr.Spec.VirtualHost.Fqdn
 			fqdnMap := gslbutils.GetFqdnMap()
+			gsDomainNameMap := gslbutils.GetDomainNameMap()
+
 			if (oldHrAccepted == newHrAccepted) && newHrAccepted {
 				// check if an update is required?
 				if !isHostRuleUpdated(oldHr, newHr) {
-					// no updates to the gs fqdn, so return
+					// no updates to the hostrule, so return
 					return
 				}
-				// gs fqdn is updated, write an UPDATE event for the previous fqdn and an ADD event
-				// for the new fqdn
-				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
-				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
-				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
-				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
-				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
-				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
+				aliasesChanged := false
+				if len(gslbutils.SetDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
+					aliasesChanged = true
+				}
+				if gslbutils.GetCustomFqdnMode() {
+					gFqdnChanged := false
+					if oldGFqdn != newGFqdn {
+						gFqdnChanged = true
+					}
+					// the update can be of 3 types
+					if aliasesChanged && !gFqdnChanged {
+						// case 1: Only the aliases have changed
+						HandleHostRuleAliasChange(newGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)
+					} else if gFqdnChanged && !aliasesChanged || aliasesChanged && gFqdnChanged {
+						// This handles 2 cases
+						// case 2: Only the gFqdn has changed
+						// and
+						// case 3: Both aliases and gFqdn have changed
+						fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
+						fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
+						gsDomainNameMap.DeleteGSToDomainNameMapping(oldGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
+						if newHr.Spec.VirtualHost.Gslb.IncludeAliases {
+							gsDomainNameMap.AddUpdateGSToDomainNameMapping(newGFqdn, c.name, newHr.Spec.VirtualHost.Aliases)
+						}
+					} else if oldHr.Spec.VirtualHost.Gslb.IncludeAliases != newHr.Spec.VirtualHost.Gslb.IncludeAliases {
+						// The includeAliases flag has been flipped
+						if newHr.Spec.VirtualHost.Gslb.IncludeAliases {
+							gsDomainNameMap.AddUpdateGSToDomainNameMapping(newGFqdn, c.name, newHr.Spec.VirtualHost.Aliases)
+						} else {
+							gsDomainNameMap.DeleteGSToDomainNameMapping(newGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
+						}
+					}
+					DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+					AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+
+					ReApplyObjectsOnHostRule(oldHr, false, c.name, oldLFqdn, oldGFqdn, numWorkers, c.workqueue)
+					ReApplyObjectsOnHostRule(newHr, true, c.name, newLFqdn, newGFqdn, numWorkers, c.workqueue)
+				} else {
+					// Aliases have changed or tls fields have changed
+					if aliasesChanged {
+						HandleHostRuleAliasChange(newLFqdn, c.name, oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)
+					}
+
+					DeleteFromHostRuleStore(hrStore, oldHr, c.name)
+					AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
+
+					ReApplyObjectsOnHostRule(oldHr, false, c.name, oldLFqdn, oldLFqdn, numWorkers, c.workqueue)
+					ReApplyObjectsOnHostRule(newHr, true, c.name, newLFqdn, newLFqdn, numWorkers, c.workqueue)
+				}
 			} else if oldHrAccepted && !newHrAccepted {
 				// delete the old gs fqdn
 				DeleteFromHostRuleStore(hrStore, oldHr, c.name)
 				fqdnMap.DeleteFromFqdnMapping(oldGFqdn, oldLFqdn, c.name)
-				ReApplyObjectsOnHostRule(oldHr, false, c.name, numWorkers, c.workqueue)
+				if gslbutils.GetCustomFqdnMode() {
+					gsDomainNameMap.DeleteGSToDomainNameMapping(oldGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
+					ReApplyObjectsOnHostRule(oldHr, false, c.name, oldLFqdn, oldGFqdn, numWorkers, c.workqueue)
+
+				} else {
+					gsDomainNameMap.DeleteGSToDomainNameMapping(oldLFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
+					ReApplyObjectsOnHostRule(oldHr, false, c.name, oldLFqdn, oldLFqdn, numWorkers, c.workqueue)
+				}
 			} else if !oldHrAccepted && newHrAccepted {
 				// add the new gs fqdn
-				AddOrUpdateHostRuleStore(hrStore, newHr, c.name)
-				fqdnMap.AddUpdateToFqdnMapping(newGFqdn, newLFqdn, c.name)
-				ReApplyObjectsOnHostRule(newHr, true, c.name, numWorkers, c.workqueue)
+				AddHostRule(numWorkers, hrStore, newHr, c)
 			}
 		},
 	}

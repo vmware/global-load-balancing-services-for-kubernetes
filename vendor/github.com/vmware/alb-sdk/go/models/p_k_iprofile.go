@@ -15,6 +15,9 @@ type PKIprofile struct {
 	// List of Certificate Authorities (Root and Intermediate) trusted that is used for certificate validation.
 	CaCerts []*SSLCertificate `json:"ca_certs,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Creator name.
 	CreatedBy *string `json:"created_by,omitempty"`
 

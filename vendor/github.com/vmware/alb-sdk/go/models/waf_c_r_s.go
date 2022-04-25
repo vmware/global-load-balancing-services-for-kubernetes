@@ -12,6 +12,9 @@ type WafCRS struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// A short description of this ruleset. Field introduced in 18.1.1.
 	// Required: true
 	Description *string `json:"description"`

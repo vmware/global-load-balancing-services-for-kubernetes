@@ -25,6 +25,9 @@ type SSLKeyAndCertificate struct {
 	//  It is a reference to an object of type CertificateManagementProfile.
 	CertificateManagementProfileRef *string `json:"certificate_management_profile_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Creator name.
 	CreatedBy *string `json:"created_by,omitempty"`
 

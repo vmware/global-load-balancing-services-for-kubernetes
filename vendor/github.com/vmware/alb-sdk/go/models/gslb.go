@@ -21,6 +21,9 @@ type Gslb struct {
 	// Group to specify if the client ip addresses are public or private. Field introduced in 17.1.2.
 	ClientIPAddrGroup *GslbClientIPAddrGroup `json:"client_ip_addr_group,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
 
@@ -30,7 +33,7 @@ type Gslb struct {
 	// Allows enable/disable of GslbService pool groups and pool members from the gslb follower members. Field introduced in 20.1.5.
 	EnableConfigByMembers *bool `json:"enable_config_by_members,omitempty"`
 
-	// Frequency with which errored messages are resynced to follower sites. Value of 0 disables resync behavior. Allowed values are 60-3600. Special values are 0 - 'Disable'. Field introduced in 18.2.3. Unit is SEC.
+	// Frequency with which errored messages are resynced to follower sites. Value of 0 disables resync behavior. Allowed values are 60-3600. Special values are 0 - Disable. Field introduced in 18.2.3. Unit is SEC.
 	ErrorResyncInterval *int32 `json:"error_resync_interval,omitempty"`
 
 	// This field indicates that this object is replicated across GSLB federation. Field introduced in 17.1.3.
@@ -62,7 +65,7 @@ type Gslb struct {
 	//  It is a reference to an object of type Tenant.
 	TenantRef *string `json:"tenant_ref,omitempty"`
 
-	// This field indicates tenant visibility for GS pool member selection across the Gslb federated objects. Field introduced in 20.1.4.
+	// This field indicates tenant visibility for GS pool member selection across the Gslb federated objects. Field introduced in 18.2.12,20.1.4.
 	TenantScoped *bool `json:"tenant_scoped,omitempty"`
 
 	// Third party site member belonging to this Gslb. Field introduced in 17.1.1.

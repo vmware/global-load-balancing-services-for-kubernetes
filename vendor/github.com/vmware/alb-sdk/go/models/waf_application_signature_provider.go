@@ -16,6 +16,9 @@ type WafApplicationSignatureProvider struct {
 	// Read Only: true
 	AvailableApplications []*WafApplicationSignatureAppVersion `json:"available_applications,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// The error message indicating why the last update check failed. Field deprecated in 20.1.3. Field introduced in 20.1.1.
 	// Read Only: true
 	LastCheckForUpdatesError *string `json:"last_check_for_updates_error,omitempty"`

@@ -15,8 +15,11 @@ type IPAddrGroup struct {
 	// Configure IP address(es).
 	Addrs []*IPAddr `json:"addrs,omitempty"`
 
-	// Populate IP addresses from members of this Cisco APIC EPG.
+	// Populate IP addresses from members of this Cisco APIC EPG. Field deprecated in 21.1.1.
 	ApicEpgName *string `json:"apic_epg_name,omitempty"`
+
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
 
 	// Populate the IP address ranges from the geo database for this country.
 	CountryCodes []string `json:"country_codes,omitempty"`

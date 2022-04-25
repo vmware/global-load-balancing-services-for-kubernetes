@@ -26,6 +26,9 @@ type AlertConfig struct {
 	// Required: true
 	Category *string `json:"category"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// A custom description field.
 	Description *string `json:"description,omitempty"`
 

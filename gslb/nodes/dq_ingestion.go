@@ -40,6 +40,19 @@ func DeriveGSLBServiceName(hostname, cname string) string {
 	return gsFqdn
 }
 
+func DeriveGSLBServiceDomainNames(gsName string) []string {
+	gsDn := []string{gsName}
+	gsDomainNameMap := gslbutils.GetDomainNameMap()
+	gsDomainNames, err := gsDomainNameMap.GetDomainNamesForGS(gsName)
+	if err != nil {
+		gslbutils.Debugf("gsName: %s, msg: %v", gsName, err)
+		// return the gsName as the domain names in case of an error
+		return gsDn
+	}
+	gsDn = append(gsDn, gsDomainNames...)
+	return gsDn
+}
+
 func PublishKeyToRestLayer(tenant, gsName, key string, sharedQueue *utils.WorkerQueue, extraArgs ...string) {
 	// First see if there's another instance of the same model in the store
 	modelName := tenant + "/" + gsName
@@ -259,6 +272,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		return
 	}
 	gsName := DeriveGSLBServiceName(metaObj.GetHostname(), metaObj.GetCluster())
+	gsDomainNames := DeriveGSLBServiceDomainNames(gsName)
 	UpdateMemberFqdnMapping(metaObj, metaObj.GetHostname(), gsName)
 	modelName := utils.ADMIN_NS + "/" + gsName
 	found, aviGS := agl.Get(modelName)
@@ -267,7 +281,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		aviGS = NewAviGSObjectGraph()
 		// Note: For now, the hostname is used as a way to create the GSLB services. This is on the
 		// assumption that the hostnames are same for a route across all clusters.
-		aviGS.(*AviGSObjectGraph).ConstructAviGSGraphFromMeta(gsName, key, metaObj)
+		aviGS.(*AviGSObjectGraph).ConstructAviGSGraphFromMeta(gsName, key, metaObj, gsDomainNames)
 		gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
 			*(aviGS.(*AviGSObjectGraph))))
 		agl.Save(modelName, aviGS.(*AviGSObjectGraph))
@@ -276,8 +290,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		prevHmChecksum := GetHmChecksum(objType, gsGraph)
 		// since the object was found, fetch the current checksum
 		prevChecksum = gsGraph.GetChecksum()
-		// Update the member of the GSGraph's GSNode
-		aviGS.(*AviGSObjectGraph).UpdateGSMemberFromMetaObj(metaObj)
+		aviGS.(*AviGSObjectGraph).UpdateGSMemberFromMetaObj(metaObj, gsDomainNames)
 		// Get the new checksum after the updates
 		newChecksum = gsGraph.GetChecksum()
 		newHmChecksum := GetHmChecksum(objType, gsGraph)
@@ -481,6 +494,7 @@ func OperateOnHostRule(key string) {
 
 	switch op {
 	case gslbutils.ObjectAdd:
+		// TODO: Might be unneccessary code
 		fqdnMap := gslbutils.GetFqdnMap()
 		fqdnMap.AddUpdateToFqdnMapping(gfqdn, lfqdn, cname)
 		DeleteAndAddGSGraphForFqdn(agl, lfqdn, gfqdn, key, cname)

@@ -36,7 +36,7 @@ type UpgradeStatusInfo struct {
 	// Enqueue time of Upgrade operation. Field introduced in 18.2.6.
 	EnqueueTime *string `json:"enqueue_time,omitempty"`
 
-	// Fips-mode for the entire system. Field introduced in 20.1.5.
+	// Fips mode for the entire system. Field introduced in 20.1.5.
 	FipsMode *bool `json:"fips_mode,omitempty"`
 
 	// Record of past operations on this node. Field introduced in 20.1.4.
@@ -66,7 +66,7 @@ type UpgradeStatusInfo struct {
 	// Image uuid for identifying the current patch.Example  Base-image is 18.2.6 and a patch 6p1 is applied, then this field will indicate the 6p1 value. . It is a reference to an object of type Image. Field introduced in 18.2.6.
 	PatchImageRef *string `json:"patch_image_ref,omitempty"`
 
-	// List of patches applied to this node. Example  Base-image is 18.2.6 and a patch 6p1 is applied, then a patch 6p5 applied, this field will indicate the [{'6p1', '6p1_image_uuid'}, {'6p5', '6p5_image_uuid'}] value. Field introduced in 18.2.8, 20.1.1.
+	// List of patches applied to this node. Example  Base-image is 18.2.6 and a patch 6p1 is applied, then a patch 6p5 applied. This field will indicate the [{'6p1', '6p1_image_uuid'}, {'6p5', '6p5_image_uuid'}] value. Field introduced in 18.2.8, 20.1.1.
 	PatchList []*PatchData `json:"patch_list,omitempty"`
 
 	// Flag for patch op with reboot. Field introduced in 18.2.10, 20.1.1.
@@ -119,6 +119,9 @@ type UpgradeStatusInfo struct {
 
 	// Current status of the Upgrade operation. Field introduced in 18.2.6.
 	State *UpgradeOpsState `json:"state,omitempty"`
+
+	// Record of Pre/Post snapshot captured for current upgrade operation. It is a reference to an object of type StatediffOperation. Field introduced in 21.1.3.
+	StatediffRef *string `json:"statediff_ref,omitempty"`
 
 	// Flag is set only in the cluster if the upgrade is initiated as a system-upgrade. . Field introduced in 18.2.6.
 	System *bool `json:"system,omitempty"`

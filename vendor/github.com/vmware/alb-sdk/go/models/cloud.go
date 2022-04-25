@@ -12,10 +12,10 @@ type Cloud struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
-	// Placeholder for description of property apic_configuration of obj type Cloud field type str  type object
+	//  Field deprecated in 21.1.1.
 	ApicConfiguration *APICConfiguration `json:"apic_configuration,omitempty"`
 
-	//  Allowed in Basic(Allowed values- false) edition, Essentials(Allowed values- false) edition, Enterprise edition.
+	//  Field deprecated in 21.1.1. Allowed in Basic(Allowed values- false) edition, Essentials(Allowed values- false) edition, Enterprise edition.
 	ApicMode *bool `json:"apic_mode,omitempty"`
 
 	// CloudConnector polling interval in seconds for external autoscale groups, minimum 60 seconds. Allowed values are 60-3600. Field introduced in 18.2.2. Unit is SECONDS. Allowed in Basic(Allowed values- 60) edition, Essentials(Allowed values- 60) edition, Enterprise edition.
@@ -29,6 +29,9 @@ type Cloud struct {
 
 	// Placeholder for description of property cloudstack_configuration of obj type Cloud field type str  type object
 	CloudstackConfiguration *CloudStackConfiguration `json:"cloudstack_configuration,omitempty"`
+
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
 
 	// Custom tags for all Avi created resources in the cloud infrastructure. Field introduced in 17.1.5.
 	CustomTags []*CustomTag `json:"custom_tags,omitempty"`
@@ -69,7 +72,7 @@ type Cloud struct {
 	// Ipam Profile for the cloud. It is a reference to an object of type IpamDnsProviderProfile.
 	IPAMProviderRef *string `json:"ipam_provider_ref,omitempty"`
 
-	// Specifies the default license tier which would be used by new SE Groups. This field by default inherits the value from system configuration. Enum options - ENTERPRISE_16, ENTERPRISE, ENTERPRISE_18, BASIC, ESSENTIALS. Field introduced in 17.2.5.
+	// Specifies the default license tier which would be used by new SE Groups. This field by default inherits the value from system configuration. Enum options - ENTERPRISE_16, ENTERPRISE, ENTERPRISE_18, BASIC, ESSENTIALS, ENTERPRISE_WITH_CLOUD_SERVICES. Field introduced in 17.2.5.
 	LicenseTier *string `json:"license_tier,omitempty"`
 
 	// If no license type is specified then default license enforcement for the cloud type is chosen. The default mappings are Container Cloud is Max Ses, OpenStack and VMware is cores and linux it is Sockets. Enum options - LIC_BACKEND_SERVERS, LIC_SOCKETS, LIC_CORES, LIC_HOSTS, LIC_SE_BANDWIDTH, LIC_METERED_SE_BANDWIDTH.
@@ -77,6 +80,12 @@ type Cloud struct {
 
 	// Placeholder for description of property linuxserver_configuration of obj type Cloud field type str  type object
 	LinuxserverConfiguration *LinuxServerConfiguration `json:"linuxserver_configuration,omitempty"`
+
+	// Cloud is in maintenance mode. Field introduced in 20.1.7,21.1.3.
+	MaintenanceMode *bool `json:"maintenance_mode,omitempty"`
+
+	// List of labels to be used for granular RBAC. Field introduced in 22.1.1. Allowed in Basic edition, Essentials edition, Enterprise edition.
+	Markers []*RoleFilterMatchLabel `json:"markers,omitempty"`
 
 	//  Field deprecated in 18.2.2.
 	MesosConfiguration *MesosConfiguration `json:"mesos_configuration,omitempty"`
@@ -88,7 +97,7 @@ type Cloud struct {
 	// Required: true
 	Name *string `json:"name"`
 
-	// Configuration parameters for NSX Manager. Field introduced in 17.1.1.
+	// Configuration parameters for NSX Manager. Field deprecated in 21.1.1. Field introduced in 17.1.1.
 	NsxConfiguration *NsxConfiguration `json:"nsx_configuration,omitempty"`
 
 	// NSX-T Cloud Platform Configuration. Field introduced in 20.1.1. Allowed in Essentials edition, Enterprise edition.
@@ -134,7 +143,7 @@ type Cloud struct {
 	// Placeholder for description of property vcenter_configuration of obj type Cloud field type str  type object
 	VcenterConfiguration *VCenterConfiguration `json:"vcenter_configuration,omitempty"`
 
-	// This deployment is VMware on AWS cloud. Field introduced in 20.1.5.
+	// This deployment is VMware on AWS cloud. Field introduced in 20.1.5, 21.1.1.
 	VmcDeployment *bool `json:"vmc_deployment,omitempty"`
 
 	// Cloud type. Enum options - CLOUD_NONE, CLOUD_VCENTER, CLOUD_OPENSTACK, CLOUD_AWS, CLOUD_VCA, CLOUD_APIC, CLOUD_MESOS, CLOUD_LINUXSERVER, CLOUD_DOCKER_UCP, CLOUD_RANCHER, CLOUD_OSHIFT_K8S, CLOUD_AZURE, CLOUD_GCP, CLOUD_NSXT. Allowed in Basic(Allowed values- CLOUD_NONE,CLOUD_NSXT) edition, Essentials(Allowed values- CLOUD_NONE,CLOUD_VCENTER) edition, Enterprise edition.

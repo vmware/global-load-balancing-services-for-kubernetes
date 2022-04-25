@@ -15,6 +15,9 @@ type AlertScriptConfig struct {
 	// User Defined Alert Action Script. Please refer to kb.avinetworks.com for more information.
 	ActionScript *string `json:"action_script,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// A user-friendly name of the Script.
 	// Required: true
 	Name *string `json:"name"`

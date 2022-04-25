@@ -55,7 +55,6 @@ func ApplyFqdnMapFilter(fargs FilterArgs) bool {
 	ok := ApplyFilter(fargs)
 	if ok {
 		// the object passed through the global filter, check if it passes the fqdn (hostrule) filter
-		fqdnMap := gslbutils.GetFqdnMap()
 		metaObj, ok := fargs.Obj.(k8sobjects.MetaObject)
 		if !ok {
 			gslbutils.Warnf("cname: %s, msg: not a k8s meta object, returning", fargs.Cluster)
@@ -63,14 +62,23 @@ func ApplyFqdnMapFilter(fargs FilterArgs) bool {
 		}
 		cname := metaObj.GetCluster()
 		lfqdn := metaObj.GetHostname()
-		lfqdnList, err := fqdnMap.GetLocalFqdnsForGlobalFqdn(fargs.GFqdn)
-		if err != nil {
-			gslbutils.Warnf("cname: %s, msg: error in getting local fqdn list from map for global fqdn %s",
-				fargs.Cluster, fargs.GFqdn)
-			return false
-		}
-		for _, f := range lfqdnList {
-			if f.Cluster == cname && f.Fqdn == lfqdn {
+
+		if gslbutils.GetCustomFqdnMode() {
+			fqdnMap := gslbutils.GetFqdnMap()
+
+			lfqdnList, err := fqdnMap.GetLocalFqdnsForGlobalFqdn(fargs.GFqdn)
+			if err != nil {
+				gslbutils.Warnf("cname: %s, msg: error in getting local fqdn list from map for global fqdn %s",
+					fargs.Cluster, fargs.GFqdn)
+				return false
+			}
+			for _, f := range lfqdnList {
+				if f.Cluster == cname && f.Fqdn == lfqdn {
+					return true
+				}
+			}
+		} else {
+			if fargs.GFqdn == lfqdn {
 				return true
 			}
 		}

@@ -48,6 +48,9 @@ type AnalyticsProfile struct {
 	// Configure to stream logs to an external server. Field introduced in 17.1.1. Allowed in Basic edition, Essentials edition, Enterprise edition.
 	ClientLogStreamingConfig *ClientLogStreamingConfig `json:"client_log_streaming_config,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// A connection between client and Avi is considered lossy when more than this percentage of out of order packets are received. Allowed values are 1-100. Unit is PERCENT. Allowed in Basic(Allowed values- 50) edition, Essentials(Allowed values- 50) edition, Enterprise edition.
 	ConnLossyOooThreshold *int32 `json:"conn_lossy_ooo_threshold,omitempty"`
 
@@ -162,7 +165,7 @@ type AnalyticsProfile struct {
 	// Exclude unsupported dns queries from the list of errors. Allowed in Basic(Allowed values- false) edition, Essentials(Allowed values- false) edition, Enterprise edition.
 	ExcludeUnsupportedDNSQueryAsError *bool `json:"exclude_unsupported_dns_query_as_error,omitempty"`
 
-	// Skips health score computation of pool servers when number of servers in a pool is more than this setting. Allowed values are 0-5000. Special values are 0- 'server health score is deactivated'. Field introduced in 17.2.13, 18.1.4. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition. Special default for Basic edition is 0, Essentials edition is 0, Enterprise is 20.
+	// Skips health score computation of pool servers when number of servers in a pool is more than this setting. Allowed values are 0-5000. Special values are 0- server health score is deactivated. Field introduced in 17.2.13, 18.1.4. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition. Special default for Basic edition is 0, Essentials edition is 0, Enterprise is 20.
 	HealthscoreMaxServerLimit *int32 `json:"healthscore_max_server_limit,omitempty"`
 
 	// Time window (in secs) within which only unique health change events should occur. Allowed in Basic(Allowed values- 1209600) edition, Essentials(Allowed values- 1209600) edition, Enterprise edition.
@@ -252,6 +255,9 @@ type AnalyticsProfile struct {
 
 	// Key value pairs for granular object access control. Also allows for classification and tagging of similar objects. Field deprecated in 20.1.5. Field introduced in 20.1.2. Maximum of 4 items allowed.
 	Labels []*KeyValue `json:"labels,omitempty"`
+
+	// Influence the audit of ingress latency and connection establishement time. Field introduced in 21.1.1.
+	LatencyAuditProps *LatencyAuditProperties `json:"latency_audit_props,omitempty"`
 
 	// List of labels to be used for granular RBAC. Field introduced in 20.1.5. Allowed in Basic edition, Essentials edition, Enterprise edition.
 	Markers []*RoleFilterMatchLabel `json:"markers,omitempty"`

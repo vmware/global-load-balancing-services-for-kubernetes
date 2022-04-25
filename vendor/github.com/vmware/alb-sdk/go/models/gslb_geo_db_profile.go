@@ -12,6 +12,9 @@ type GslbGeoDbProfile struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	//  Field introduced in 17.1.1.
 	Description *string `json:"description,omitempty"`
 

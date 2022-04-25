@@ -24,13 +24,16 @@ type VrfContext struct {
 	//  It is a reference to an object of type Cloud.
 	CloudRef *string `json:"cloud_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Configure debug flags for VRF. Field introduced in 17.1.1.
 	Debugvrfcontext *DebugVrfContext `json:"debugvrfcontext,omitempty"`
 
 	// User defined description for the object.
 	Description *string `json:"description,omitempty"`
 
-	// Configure ping based heartbeat check for gateway in service engines of vrf. Maximum of 32 items allowed.
+	// Configure ping based heartbeat check for gateway in service engines of vrf.
 	GatewayMon []*GatewayMonitor `json:"gateway_mon,omitempty"`
 
 	// Configure ping based heartbeat check for all default gateways in service engines of vrf. Field introduced in 17.1.1.

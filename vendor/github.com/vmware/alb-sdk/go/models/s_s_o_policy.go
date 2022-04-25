@@ -13,11 +13,13 @@ type SSOPolicy struct {
 	LastModified *string `json:"_last_modified,omitempty"`
 
 	// Authentication Policy Settings. Field introduced in 18.2.1.
-	// Required: true
-	AuthenticationPolicy *AuthenticationPolicy `json:"authentication_policy"`
+	AuthenticationPolicy *AuthenticationPolicy `json:"authentication_policy,omitempty"`
 
 	// Authorization Policy Settings. Field introduced in 18.2.5.
 	AuthorizationPolicy *AuthorizationPolicy `json:"authorization_policy,omitempty"`
+
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
 
 	// Key value pairs for granular object access control. Also allows for classification and tagging of similar objects. Field deprecated in 20.1.5. Field introduced in 20.1.2. Maximum of 4 items allowed.
 	Labels []*KeyValue `json:"labels,omitempty"`
@@ -32,7 +34,7 @@ type SSOPolicy struct {
 	// UUID of the Tenant. It is a reference to an object of type Tenant. Field introduced in 18.2.3.
 	TenantRef *string `json:"tenant_ref,omitempty"`
 
-	// SSO Policy Type. Enum options - SSO_TYPE_SAML, SSO_TYPE_PINGACCESS, SSO_TYPE_JWT. Field introduced in 18.2.5.
+	// SSO Policy Type. Enum options - SSO_TYPE_SAML, SSO_TYPE_PINGACCESS, SSO_TYPE_JWT, SSO_TYPE_LDAP, SSO_TYPE_OAUTH. Field introduced in 18.2.5.
 	// Required: true
 	Type *string `json:"type"`
 

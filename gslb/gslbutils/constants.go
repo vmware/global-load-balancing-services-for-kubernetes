@@ -56,6 +56,7 @@ const (
 	IngMultiClusterKeyLen = 6
 	MultiClusterKeyLen    = 5
 	GSFQDNKeyLen          = 3
+	HostRuleKeyLen        = 7
 
 	// Default values for Retry Operations
 	SlowSyncTime      = 120

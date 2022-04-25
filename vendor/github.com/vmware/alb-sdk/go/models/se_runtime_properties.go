@@ -14,7 +14,7 @@ type SeRuntimeProperties struct {
 	// Placeholder for description of property app_headers of obj type SeRuntimeProperties field type str  type object
 	AppHeaders []*AppHdr `json:"app_headers,omitempty"`
 
-	// Control if dispatcher core also handles TCP flows in baremetal SE.
+	// Deprecated in 21.1.3. Use config in ServiceEngineGroup instead.
 	BaremetalDispatcherHandlesFlows *bool `json:"baremetal_dispatcher_handles_flows,omitempty"`
 
 	// Rate limit on maximum adf lossy log to pushper second. Allowed in Basic(Allowed values- 1000) edition, Essentials(Allowed values- 1000) edition, Enterprise edition.
@@ -92,85 +92,85 @@ type SeRuntimeProperties struct {
 	// Maximum retries per request in the request queue.
 	LbactionRqPerRequestMaxRetries *int32 `json:"lbaction_rq_per_request_max_retries,omitempty"`
 
-	// Flag to indicate if log files are compressed upon full on the Service Engine.
+	// Deprecated in 21.1.1. Flag to indicate if log files are compressed upon full on the Service Engine.
 	LogAgentCompressLogs *bool `json:"log_agent_compress_logs,omitempty"`
 
-	// Log-agent test property used to simulate slow TCP connections. Unit is BYTES.
+	// [DEPRECATED]Log-agent test property used to simulate slow TCP connections. Field deprecated in 21.1.1.
 	LogAgentConnSendBufferSize *int32 `json:"log_agent_conn_send_buffer_size,omitempty"`
 
-	// Maximum size of data sent by log-agent to Controller over the TCP connection. Unit is BYTES.
+	// [DEPRECATED]Maximum size of data sent by log-agent to Controller over the TCP connection. Field deprecated in 21.1.1.
 	LogAgentExportMsgBufferSize *int32 `json:"log_agent_export_msg_buffer_size,omitempty"`
 
-	// Time log-agent waits before sending data to the Controller. Unit is MILLISECONDS.
+	// [DEPRECATED]Time log-agent waits before sending data to the Controller. Field deprecated in 21.1.1.
 	LogAgentExportWaitTime *int32 `json:"log_agent_export_wait_time,omitempty"`
 
-	// Maximum application log file size before rollover.
+	// Deprecated in 21.1.1. Maximum application log file size before rollover.
 	LogAgentFileSzAppl *int32 `json:"log_agent_file_sz_appl,omitempty"`
 
-	// Maximum connection log file size before rollover.
+	// Deprecated in 21.1.1. Maximum connection log file size before rollover.
 	LogAgentFileSzConn *int32 `json:"log_agent_file_sz_conn,omitempty"`
 
-	// Maximum debug log file size before rollover.
+	// Deprecated in 21.1.1. Maximum debug log file size before rollover.
 	LogAgentFileSzDebug *int32 `json:"log_agent_file_sz_debug,omitempty"`
 
-	// Maximum event log file size before rollover.
+	// Deprecated in 21.1.1. Maximum event log file size before rollover.
 	LogAgentFileSzEvent *int32 `json:"log_agent_file_sz_event,omitempty"`
 
-	// Minimum storage allocated for logs irrespective of memory and cores. Unit is MB.
+	//  Deprecated in 21.1.1. Minimum storage allocated for logs irrespective of memory and cores. Unit is MB.
 	LogAgentLogStorageMinSz *int32 `json:"log_agent_log_storage_min_sz,omitempty"`
 
-	// Maximum number of Virtual Service log files maintained for significant logs on the Service Engine.
+	// [DEPRECATED] Maximum number of Virtual Service log files maintained for significant logs on the Service Engine. Field deprecated in 21.1.1.
 	LogAgentMaxActiveAdfFilesPerVs *int32 `json:"log_agent_max_active_adf_files_per_vs,omitempty"`
 
-	// Maximum concurrent rsync requests initiated from log-agent to the Controller.
+	// Deprecated in 21.1.1. Maximum concurrent rsync requests initiated from log-agent to the Controller.
 	LogAgentMaxConcurrentRsync *int32 `json:"log_agent_max_concurrent_rsync,omitempty"`
 
-	// Maximum size of serialized log message on the Service Engine.
+	// [DEPRECATED] Maximum size of serialized log message on the Service Engine. Field deprecated in 21.1.1.
 	LogAgentMaxLogmessageProtoSz *int32 `json:"log_agent_max_logmessage_proto_sz,omitempty"`
 
-	// Excess percentage threshold of disk size to trigger cleanup of logs on the Service Engine.
+	// Deprecated in 21.1.1. Excess percentage threshold of disk size to trigger cleanup of logs on the Service Engine.
 	LogAgentMaxStorageExcessPercent *int32 `json:"log_agent_max_storage_excess_percent,omitempty"`
 
-	// Maximum storage on the disk not allocated for logs on the Service Engine.
+	// Deprecated in 21.1.1. Maximum storage on the disk not allocated for logs on the Service Engine.
 	LogAgentMaxStorageIgnorePercent *float32 `json:"log_agent_max_storage_ignore_percent,omitempty"`
 
-	// Minimum storage allocated to any given VirtualService on the Service Engine.
+	// Deprecated in 21.1.1. Minimum storage allocated to any given VirtualService on the Service Engine.
 	LogAgentMinStoragePerVs *int32 `json:"log_agent_min_storage_per_vs,omitempty"`
 
-	// Time interval log-agent pauses between logs obtained from the dataplane. Unit is MILLISECONDS.
+	// [DEPRECATED]Time interval log-agent pauses between logs obtained from the dataplane. Field deprecated in 21.1.1.
 	LogAgentPauseInterval *int32 `json:"log_agent_pause_interval,omitempty"`
 
-	// Internal timer to stall log-agent and prevent it from hogging CPU cycles on the Service Engine. Unit is MILLISECONDS.
+	// Deprecated in 21.1.1. Internal timer to stall log-agent and prevent it from hogging CPU cycles on the Service Engine. Unit is MILLISECONDS.
 	LogAgentSleepInterval *int32 `json:"log_agent_sleep_interval,omitempty"`
 
-	// Timeout to purge unknown Virtual Service logs from the Service Engine. Unit is SEC.
+	// Deprecated in 21.1.1. Timeout to purge unknown Virtual Service logs from the Service Engine. Unit is SEC.
 	LogAgentUnknownVsTimer *int32 `json:"log_agent_unknown_vs_timer,omitempty"`
 
-	// Maximum number of file names in a log message.
+	// Deprecated in 21.1.1. Maximum number of file names in a log message.
 	LogMessageMaxFileListSize *int32 `json:"log_message_max_file_list_size,omitempty"`
 
 	// Deprecated. Field deprecated in 17.1.1. Unit is MBPS.
 	MaxThroughput *int32 `json:"max_throughput,omitempty"`
 
-	// enables mcache - controls fetch/store/store_out.
+	// Deprecated in 21.1.1. Use enabled under caching in application profile. Field deprecated in 21.1.1.
 	McacheEnabled *bool `json:"mcache_enabled,omitempty"`
 
-	// enables mcache_fetch.
+	// enables mcache_fetch. Field deprecated in 21.1.1.
 	McacheFetchEnabled *bool `json:"mcache_fetch_enabled,omitempty"`
 
 	// Use SE Group's app_cache_percent to set cache memory usage limit on SE. Field deprecated in 18.2.3.
 	McacheMaxCacheSize *int64 `json:"mcache_max_cache_size,omitempty"`
 
-	// enables mcache_store.
+	// enables mcache_store. Field deprecated in 21.1.1.
 	McacheStoreInEnabled *bool `json:"mcache_store_in_enabled,omitempty"`
 
-	// max object size.
+	// Deprecated in 21.1.1. Use max_object_size under caching in application profile. Field deprecated in 21.1.1.
 	McacheStoreInMaxSize *int32 `json:"mcache_store_in_max_size,omitempty"`
 
-	// min object size.
+	// Deprecated in 21.1.1. Use min_object_size under caching in application profile. Field deprecated in 21.1.1.
 	McacheStoreInMinSize *int32 `json:"mcache_store_in_min_size,omitempty"`
 
-	// enables mcache_store_out.
+	// enables mcache_store_out. Field deprecated in 21.1.1.
 	McacheStoreOutEnabled *bool `json:"mcache_store_out_enabled,omitempty"`
 
 	// Use SE Group's app_cache_percent to set cache memory usage limit on SE. Field deprecated in 18.2.3.
@@ -215,13 +215,13 @@ type SeRuntimeProperties struct {
 	// Deprecated - This field has been moved to se_group properties 20.1.3 onwards. Internal only. Used to simulate SE - SE HB failure.
 	SeDpHmDrops *int32 `json:"se_dp_hm_drops,omitempty"`
 
-	// Number of jiffies between polling interface state.
+	// Deprecated in 21.1.3. Use config in ServiceEngineGroup instead.
 	SeDpIfStatePollInterval *int32 `json:"se_dp_if_state_poll_interval,omitempty"`
 
-	// Internal buffer full indicator on the Service Engine beyond which the unfiltered logs are abandoned.
+	// Deprecated in 21.1.1. Internal buffer full indicator on the Service Engine beyond which the unfiltered logs are abandoned.
 	SeDpLogNfEnqueuePercent *int32 `json:"se_dp_log_nf_enqueue_percent,omitempty"`
 
-	// Internal buffer full indicator on the Service Engine beyond which the user filtered logs are abandoned.
+	// Deprecated in 21.1.1. Internal buffer full indicator on the Service Engine beyond which the user filtered logs are abandoned.
 	SeDpLogUdfEnqueuePercent *int32 `json:"se_dp_log_udf_enqueue_percent,omitempty"`
 
 	// Deprecated. Field deprecated in 18.2.5. Field introduced in 17.1.1.
@@ -239,7 +239,7 @@ type SeRuntimeProperties struct {
 	// Deprecated. Field deprecated in 18.2.5. Field introduced in 17.1.14, 17.2.5, 18.1.1.
 	SeDpVnicStallSeRestartWindow *int32 `json:"se_dp_vnic_stall_se_restart_window,omitempty"`
 
-	// Enable core dump on assert. Field introduced in 18.1.3, 18.2.1.
+	// Deprecated in 21.1.3. Use config in ServiceEngineGroup instead. Field introduced in 18.1.3, 18.2.1.
 	SeDumpCoreOnAssert *bool `json:"se_dump_core_on_assert,omitempty"`
 
 	// Accept/ignore interface routes (i.e, no next hop IP address).
@@ -266,7 +266,7 @@ type SeRuntimeProperties struct {
 	// Internal use only. Frequency (ms) of realtime metrics updates from SE to controller. Unit is MILLISECONDS.
 	SeMetricsRtInterval *int32 `json:"se_metrics_rt_interval,omitempty"`
 
-	// Internal use only. Used to artificially reduce the available number of packet buffers.
+	// Deprecated in 21.1.3. Use config in ServiceEngineGroup instead.
 	SePacketBufferMax *int32 `json:"se_packet_buffer_max,omitempty"`
 
 	// Internal use only. If enabled, randomly packets are dropped.
@@ -284,7 +284,7 @@ type SeRuntimeProperties struct {
 	// Make service ports accessible on all Host interfaces in addition to East-West VIP and/or bridge IP.
 	ServicesAccessibleAllInterfaces *bool `json:"services_accessible_all_interfaces,omitempty"`
 
-	// Placeholder for description of property spdy_fwd_proxy_parse_enable of obj type SeRuntimeProperties field type str  type boolean
+	//  Field deprecated in 21.1.1.
 	SpdyFwdProxyParseEnable *bool `json:"spdy_fwd_proxy_parse_enable,omitempty"`
 
 	// Maximum size of the SYN cache table. After this limit is reached, SYN cookies are used. This is per core of the serviceengine. Field deprecated in 17.2.5.
@@ -320,7 +320,7 @@ type SeRuntimeProperties struct {
 	// Deprecated. Field deprecated in 18.2.1.
 	UpstreamConnpoolServerMaxCache *int32 `json:"upstream_connpool_server_max_cache,omitempty"`
 
-	// Number of upstream_connpool_strategy.
+	// Deprecated in 21.1.1, set in application profile. Field deprecated in 21.1.1.
 	UpstreamConnpoolStrategy *int32 `json:"upstream_connpool_strategy,omitempty"`
 
 	// Placeholder for description of property upstream_keepalive of obj type SeRuntimeProperties field type str  type boolean

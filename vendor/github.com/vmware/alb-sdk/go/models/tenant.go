@@ -15,6 +15,9 @@ type Tenant struct {
 	// Placeholder for description of property config_settings of obj type Tenant field type str  type object
 	ConfigSettings *TenantConfiguration `json:"config_settings,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Creator of this tenant.
 	CreatedBy *string `json:"created_by,omitempty"`
 

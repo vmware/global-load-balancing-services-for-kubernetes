@@ -11,7 +11,7 @@ type GCPSeGroupConfig struct {
 	// Service Engine Backend Data Network Name, used only for GCP cloud.Overrides the cloud level setting for Backend Data Network in GCP Two Arm Mode. Field introduced in 20.1.3.
 	BackendDataVpcNetworkName *string `json:"backend_data_vpc_network_name,omitempty"`
 
-	// Project ID of the Service Engine Backend Data Network. By default, Service Engine Project ID will be used. Field introduced in 20.1.6.
+	// Project ID of the Service Engine Backend Data Network. By default, Service Engine Project ID will be used. Field introduced in 21.1.1.
 	BackendDataVpcProjectID *string `json:"backend_data_vpc_project_id,omitempty"`
 
 	// Service Engine Backend Data Subnet Name, used only for GCP cloud.Overrides the cloud level setting for Backend Data Subnet in GCP Two Arm Mode. Field introduced in 20.1.3.

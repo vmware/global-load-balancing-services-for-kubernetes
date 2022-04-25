@@ -18,8 +18,14 @@ type PoolGroup struct {
 	//  It is a reference to an object of type Cloud.
 	CloudRef *string `json:"cloud_ref,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Name of the user who created the object.
 	CreatedBy *string `json:"created_by,omitempty"`
+
+	// Deactivate primary pool for selection when down until it is activated by user via clear poolgroup command. Field introduced in 20.1.7, 21.1.2, 21.1.3.
+	DeactivatePrimaryPoolOnDown *bool `json:"deactivate_primary_pool_on_down,omitempty"`
 
 	// When setup autoscale manager will automatically promote new pools into production when deployment goals are met. It is a reference to an object of type PoolGroupDeploymentPolicy.
 	DeploymentPolicyRef *string `json:"deployment_policy_ref,omitempty"`
@@ -45,7 +51,7 @@ type PoolGroup struct {
 	// List of pool group members object of type PoolGroupMember.
 	Members []*PoolGroupMember `json:"members,omitempty"`
 
-	// The minimum number of servers to distribute traffic to. Allowed values are 1-65535. Special values are 0 - 'Disable'. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition.
+	// The minimum number of servers to distribute traffic to. Allowed values are 1-65535. Special values are 0 - Disable. Allowed in Basic(Allowed values- 0) edition, Essentials(Allowed values- 0) edition, Enterprise edition.
 	MinServers *int32 `json:"min_servers,omitempty"`
 
 	// The name of the pool group.

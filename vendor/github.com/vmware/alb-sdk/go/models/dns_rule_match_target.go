@@ -14,6 +14,9 @@ type DNSRuleMatchTarget struct {
 	// IP addresses to match against client IP or the EDNS client subnet IP. Field introduced in 17.1.6,17.2.2.
 	ClientIPAddress *DNSClientIPMatch `json:"client_ip_address,omitempty"`
 
+	// Port number to match against client port number. Field introduced in 21.1.1.
+	ClientPortNumbers *DNSClientPortMatch `json:"client_port_numbers,omitempty"`
+
 	// Geographical location attribute to match against that of the client IP. Field introduced in 17.1.5.
 	GeoLocation *DNSGeoLocationMatch `json:"geo_location,omitempty"`
 

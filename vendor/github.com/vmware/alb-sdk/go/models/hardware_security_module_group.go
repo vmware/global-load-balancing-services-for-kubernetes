@@ -12,6 +12,9 @@ type HardwareSecurityModuleGroup struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Hardware Security Module configuration.
 	// Required: true
 	Hsm *HardwareSecurityModule `json:"hsm"`

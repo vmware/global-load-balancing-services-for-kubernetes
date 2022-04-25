@@ -12,6 +12,9 @@ type L4PolicySet struct {
 	// Read Only: true
 	LastModified *string `json:"_last_modified,omitempty"`
 
+	// Protobuf versioning for config pbs. Field introduced in 21.1.1.
+	ConfigpbAttributes *ConfigPbAttributes `json:"configpb_attributes,omitempty"`
+
 	// Creator name. Field introduced in 17.2.7.
 	CreatedBy *string `json:"created_by,omitempty"`
 
