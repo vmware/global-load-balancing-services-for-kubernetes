@@ -60,6 +60,9 @@ spec:
                 type: array
                 items:
                   type: string
+              healthMonitorTemplate:
+                description: "Custom Health Monitor template based on which the health monitors will be created."
+                type: string
               poolAlgorithmSettings:
                 description: "Algorithm settings to be specified for Gslb Service pool"
                 type: object

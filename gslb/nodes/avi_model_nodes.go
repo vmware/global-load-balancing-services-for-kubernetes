@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -129,9 +130,14 @@ type PathHealthMonitorDetails struct {
 	Name            string
 	IngressProtocol string
 	Path            string
+	RequestHeader   string
+	ResponeCodes    []string
 }
 
-func (pathHm PathHealthMonitorDetails) GetPathHMDescription(gsName string) string {
+func (pathHm PathHealthMonitorDetails) GetPathHMDescription(gsName string, template *string) string {
+	if template != nil {
+		return CreatedByAMKO + ", gsname: " + gsName + ", path: " + pathHm.Path + ", protocol: " + pathHm.IngressProtocol + ", " + gslbutils.CreatedFrom + *template
+	}
 	return CreatedByAMKO + ", gsname: " + gsName + ", path: " + pathHm.Path + ", protocol: " + pathHm.IngressProtocol
 }
 
@@ -143,7 +149,7 @@ type HealthMonitor struct {
 	PathHM     []PathHealthMonitorDetails // used for path based HMs
 }
 
-func (hm HealthMonitor) GetHMDescription(gsName string) []string {
+func (hm HealthMonitor) GetHMDescription(gsName string, template *string) []string {
 	desc := []string{}
 	descPrefix := CreatedByAMKO + ", gsname: " + gsName
 	desc = append(desc, descPrefix)
@@ -154,7 +160,11 @@ func (hm HealthMonitor) GetHMDescription(gsName string) []string {
 		return desc
 	} else if hm.Type == PathHM {
 		for _, pathHm := range hm.PathHM {
-			desc = append(desc, descPrefix+", path: "+pathHm.Path+", protocol: "+pathHm.IngressProtocol)
+			description := descPrefix + ", path: " + pathHm.Path + ", protocol: " + pathHm.IngressProtocol
+			if template != nil {
+				description += ", " + gslbutils.CreatedFrom + *template
+			}
+			desc = append(desc, description)
 		}
 		return desc
 	}
@@ -165,7 +175,7 @@ func (hm HealthMonitor) GetHMDescription(gsName string) []string {
 func (hm HealthMonitor) GetPathHMDescription(gsName, path string) string {
 	for _, pathHm := range hm.PathHM {
 		if pathHm.Path == path {
-			return pathHm.GetPathHMDescription(gsName)
+			return pathHm.GetPathHMDescription(gsName, nil)
 		}
 	}
 	return ""
@@ -205,6 +215,7 @@ type AviGSObjectGraph struct {
 	RetryCount         int
 	Hm                 HealthMonitor
 	HmRefs             []string
+	HmTemplate         *string
 	SitePersistenceRef *string
 	TTL                *int
 	GslbPoolAlgorithm  *gslbalphav1.PoolAlgorithmSettings
@@ -818,6 +829,9 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	}
 	gsObjCopy.HmRefs = make([]string, len(v.HmRefs))
 	copy(gsObjCopy.HmRefs, v.HmRefs)
+	if v.HmTemplate != nil {
+		gsObjCopy.HmTemplate = proto.String(*v.HmTemplate)
+	}
 	gsObjCopy.SitePersistenceRef = v.SitePersistenceRef
 	gsObjCopy.GslbPoolAlgorithm = v.GslbPoolAlgorithm.DeepCopy()
 

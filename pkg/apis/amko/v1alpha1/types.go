@@ -133,9 +133,12 @@ type GSLBHostRuleSpec struct {
 
 	// ThirdPartyMembers is a list of third party members site
 	ThirdPartyMembers []ThirdPartyMember `json:"thirdPartyMembers,omitempty"`
-	// HealthMonitoreRefs is a list of custom health monitors which will monitor the
+	// HealthMonitorRefs is a list of custom health monitors which will monitor the
 	// GSLB Service's pool members.
 	HealthMonitorRefs []string `json:"healthMonitorRefs,omitempty"`
+	// HealthMonitorTemplate is a custom Health Monitor template based on which the
+	// health monitors will be created.
+	HealthMonitorTemplate *string `json:"healthMonitorTemplate,omitempty"`
 	// TrafficSplit defines the weightage of traffic that can be routed to each cluster.
 	TrafficSplit []TrafficSplitElem `json:"trafficSplit,omitempty"`
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	"google.golang.org/protobuf/proto"
 )
 
 // getSitePersistence returns the applicable site persistence for a GS object. Three conditions:
@@ -75,11 +76,18 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		copy(gsGraph.HmRefs, gsRule.HmRefs)
 		// set the previous path based health monitor(s) to empty
 		gsGraph.Hm = HealthMonitor{}
+	} else if gsRuleExists && gsRule.HmTemplate != nil {
+		gsGraph.HmTemplate = proto.String(*gsRule.HmTemplate)
+		gsGraph.Hm = HealthMonitor{}
 	} else if gfHmRefs := gf.GetAviHmRefs(); len(gfHmRefs) != 0 {
 		gsGraph.HmRefs = gfHmRefs
 		gsGraph.Hm = HealthMonitor{}
+	} else if hmTemplate := gf.GetAviHmTemplate(); hmTemplate != nil {
+		gsGraph.HmTemplate = proto.String(*hmTemplate)
+		gsGraph.Hm = HealthMonitor{}
 	} else {
 		gsGraph.HmRefs = nil
+		gsGraph.HmTemplate = nil
 	}
 
 	if tls {
@@ -215,7 +223,7 @@ func PresentInHealthMonitorPathList(key PathHealthMonitorDetails, pathHmList []P
 func GetDescriptionForPathHMName(hmName string, gsMeta *AviGSObjectGraph) string {
 	for _, pathnames := range gsMeta.Hm.PathHM {
 		if pathnames.Name == hmName {
-			return pathnames.GetPathHMDescription(gsMeta.Name)
+			return pathnames.GetPathHMDescription(gsMeta.Name, gsMeta.HmTemplate)
 		}
 	}
 	gslbutils.Warnf("hmName: %s, msg: cannot find description for health monitor", hmName)
@@ -224,13 +232,25 @@ func GetDescriptionForPathHMName(hmName string, gsMeta *AviGSObjectGraph) string
 
 func GetPathFromHmDescription(hmName, hmDescription string) string {
 	hmDescriptionSplit := strings.Split(hmDescription, ": ")
-	if len(hmDescriptionSplit) != 5 {
+	if len(hmDescriptionSplit) != 5 &&
+		len(hmDescriptionSplit) != 6 {
 		gslbutils.Warnf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDescription)
 		return ""
 	}
 	hmPathField := strings.Split(hmDescriptionSplit[3], ",")
 	hmPath := strings.Trim(hmPathField[0], " ")
 	return hmPath
+}
+
+func GetTemplateFromHmDescription(hmName, hmDescription string) *string {
+	hmDescriptionSplit := strings.Split(hmDescription, ": ")
+	if len(hmDescriptionSplit) != 6 {
+		gslbutils.Debugf("hmName: %s, msg: hm description - \"%s\" is malformed, expected a path based hm", hmName, hmDescription)
+		return nil
+	}
+	hmTemplateField := strings.Split(hmDescriptionSplit[5], ": ")
+	hmTemplate := strings.Trim(hmTemplateField[0], " ")
+	return &hmTemplate
 }
 
 func GetPathHmNameList(hm HealthMonitor) []string {

@@ -689,14 +689,14 @@ func BuildExpectedPathHmDescriptionString(host string, path []string, tls bool) 
 	hm := BuildExpectedPathHM(host, path, tls)
 	descList := []string{}
 	for _, pathHm := range hm.PathHM {
-		descList = append(descList, pathHm.GetPathHMDescription(host))
+		descList = append(descList, pathHm.GetPathHMDescription(host, nil))
 	}
 	return descList
 }
 
 func BuildExpectedNonPathHmDescriptionString(host string) string {
 	hm := BuildExpectedNonPathHmDescription(host)
-	return hm.GetHMDescription(host)[0]
+	return hm.GetHMDescription(host, nil)[0]
 }
 
 func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {

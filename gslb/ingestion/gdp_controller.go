@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 
+	avictrl "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -333,8 +334,18 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 		}
 	}
 
-	// Health monotor validity
-	if len(gdp.Spec.HealthMonitorRefs) != 0 {
+	// HM template and reference cannot be specified together
+	if gdp.Spec.HealthMonitorTemplate != nil &&
+		len(gdp.Spec.HealthMonitorRefs) != 0 {
+		return fmt.Errorf("health monitor reference and template cannot be specified together")
+	}
+
+	// Health monitor validity
+	if gdp.Spec.HealthMonitorTemplate != nil {
+		if err := validateAndAddHmTemplateToCache(*gdp.Spec.HealthMonitorTemplate, true, fullSync); err != nil {
+			return err
+		}
+	} else if len(gdp.Spec.HealthMonitorRefs) != 0 {
 		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
 			if !isHealthMonitorRefValid(hmRef, true, fullSync) {
 				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
@@ -592,6 +603,11 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 		}
 	}
 
+	// Remove the template saved in the cache if required
+	if deleteHmTemplateFromCacheIfRequired(oldGdp, newGdp) {
+		gslbutils.Logf("hmKey: %v, msg: hm template deleted from gs hm cache", *oldGdp.Spec.HealthMonitorTemplate)
+	}
+
 	err := GDPSanityChecks(newGdp, false)
 	if err != nil {
 		gslbutils.Errf("Error in accepting the new GDP object: %s", err.Error())
@@ -675,4 +691,19 @@ func InitializeGDPController(kubeclientset kubernetes.Interface,
 	})
 
 	return gdpController
+}
+
+// Removes the template saved in the cache if there is a change in the template specified in the gdp object.
+func deleteHmTemplateFromCacheIfRequired(oldGdp, newGdp *gdpalphav2.GlobalDeploymentPolicy) bool {
+	if oldGdp.Spec.HealthMonitorTemplate == nil {
+		return false
+	}
+	if !gslbutils.IsHmTemplateChanged(oldGdp, newGdp) {
+		return false
+	}
+	hmKey := avictrl.TenantName{Tenant: utils.ADMIN_NS, Name: *oldGdp.Spec.HealthMonitorTemplate}
+	gslbutils.Debugf("hmKey: %v, msg: deleting the hm template from gs hm cache", hmKey)
+	aviHmCache := avictrl.GetAviHmCache()
+	aviHmCache.AviHmCacheDelete(hmKey)
+	return true
 }

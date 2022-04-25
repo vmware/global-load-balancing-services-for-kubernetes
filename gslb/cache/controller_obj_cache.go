@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 
 	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 
@@ -46,6 +47,11 @@ var (
 	spObjCacheOnce sync.Once
 )
 
+type CustomHmSettings struct {
+	RequestHeader string
+	ResponseCode  []string
+}
+
 type AviHmObj struct {
 	Tenant           string
 	Name             string
@@ -53,6 +59,8 @@ type AviHmObj struct {
 	UUID             string
 	Type             string
 	CloudConfigCksum uint32
+	Template         *string
+	CustomHmSettings *CustomHmSettings
 	Description      string
 	CreatedBy        string
 }
@@ -227,6 +235,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 				UUID:             *hm.UUID,
 				Port:             monitorPort,
 				CloudConfigCksum: cksum,
+				Template:         nodes.GetTemplateFromHmDescription(*hm.Name, description),
 				Description:      description,
 				CreatedBy:        createdBy,
 			}
