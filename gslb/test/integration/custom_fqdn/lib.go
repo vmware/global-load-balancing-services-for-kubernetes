@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -362,16 +363,21 @@ func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph
 
 // extraArgs can have the following additional parameters:
 // 1. tls
+// 2. hmTemplate
 // the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, extraArgs ...interface{}) bool {
+	hmRefs []string, sitePersistenceRef *string, ttl *int, expectedDomainNames []string, extraArgs ...interface{}) bool {
 
 	var tls bool
-	if len(extraArgs) > 1 {
+	if len(extraArgs) > 2 {
 		t.Fatalf("extraArgs for verifyGSMembers given unsupported number of parameters")
 	}
 	if len(extraArgs) == 1 {
 		tls = extraArgs[0].(bool)
+	}
+	var hmTemplate *string = nil
+	if len(extraArgs) == 2 {
+		hmTemplate = extraArgs[1].(*string)
 	}
 
 	gs := GetTestGSGraphFromName(t, name)
@@ -381,7 +387,12 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 	}
 	members := gs.MemberObjs
 	if len(members) != len(expectedMembers) {
-		t.Logf("length of members don't match")
+		t.Logf("length of members don't match, expectedMembers: %v, members: %v", expectedMembers, members)
+		return false
+	}
+
+	if !gslbutils.SetEqual(expectedDomainNames, gs.DomainNames) {
+		t.Logf("GS Domain names didn't match, expected: %v, got: %v", expectedDomainNames, gs.DomainNames)
 		return false
 	}
 
@@ -488,6 +499,11 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 		}
 	}
 	return true
+}
+
+func verifyGSDoesNotExist(t *testing.T, name string) bool {
+	gs := GetTestGSGraphFromName(t, name)
+	return gs == nil
 }
 
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
@@ -634,7 +650,7 @@ func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true), "GSLB Host Rule status should match")
 }
 
-func getDefaultHostRule(name, ns, lfqdn, gfqdn, status string) *akov1alpha1.HostRule {
+func getDefaultHostRule(name, ns, lfqdn, status string) *akov1alpha1.HostRule {
 	return &akov1alpha1.HostRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -643,9 +659,6 @@ func getDefaultHostRule(name, ns, lfqdn, gfqdn, status string) *akov1alpha1.Host
 		Spec: akov1alpha1.HostRuleSpec{
 			VirtualHost: akov1alpha1.HostRuleVirtualHost{
 				Fqdn: lfqdn,
-				Gslb: akov1alpha1.HostRuleGSLB{
-					Fqdn: gfqdn,
-				},
 			},
 		},
 		Status: akov1alpha1.HostRuleStatus{
@@ -654,7 +667,51 @@ func getDefaultHostRule(name, ns, lfqdn, gfqdn, status string) *akov1alpha1.Host
 	}
 }
 
-func deleteHostRule(t *testing.T, cluster int, ns, name string) {
+func getHostRuleForCustomFqdn(name, ns, lfqdn, gfqdn, status string) *akov1alpha1.HostRule {
+	hr := getDefaultHostRule(name, ns, lfqdn, status)
+	hr.Spec.VirtualHost.Gslb = akov1alpha1.HostRuleGSLB{
+		Fqdn: gfqdn,
+	}
+	return hr
+}
+
+func getDefaultAliases(objType string) []string {
+	return []string{
+		objType + "_alias1" + ".avi.com",
+		objType + "_alias2" + ".avi.com",
+		objType + "_alias3" + ".avi.com",
+	}
+}
+
+func getHostRuleWithAliases(name, objType, ns, lfqdn, status string, aliases []string) *akov1alpha1.HostRule {
+	if aliases == nil {
+		aliases = getDefaultAliases(objType)
+	}
+	hr := getDefaultHostRule(name, ns, lfqdn, status)
+	hr.Spec.VirtualHost.Aliases = aliases
+	return hr
+}
+
+func getHostRuleWithAliasesForCustomFqdn(name, objType, ns, lfqdn, gfqdn, status string, aliases []string, includeAliases bool) *akov1alpha1.HostRule {
+	if aliases == nil {
+		aliases = getDefaultAliases(objType)
+	}
+	hr := getHostRuleForCustomFqdn(name, ns, lfqdn, gfqdn, status)
+	hr.Spec.VirtualHost.Gslb.IncludeAliases = includeAliases
+	hr.Spec.VirtualHost.Aliases = aliases
+	return hr
+}
+
+func getDefaultExpectedDomainNames(gsName string, hrObjList []*akov1alpha1.HostRule) []string {
+	aliasList := []string{}
+	for _, hr := range hrObjList {
+		aliasList = append(aliasList, hr.Spec.VirtualHost.Aliases...)
+	}
+	aliasSet := sets.NewString(aliasList...)
+	return aliasSet.Insert(gsName).List()
+}
+
+func deleteHostRule(t *testing.T, cluster int, name, ns string) {
 	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
 	if err != nil {
 		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
@@ -677,7 +734,7 @@ func createHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1a
 		t.Fatalf("error in creating hostrule for cluster %d: %v", cluster, err)
 	}
 	t.Cleanup(func() {
-		deleteHostRule(t, cluster, newHr.Namespace, newHr.Name)
+		deleteHostRule(t, cluster, newHr.Name, newHr.Namespace)
 	})
 	return newHr
 }
