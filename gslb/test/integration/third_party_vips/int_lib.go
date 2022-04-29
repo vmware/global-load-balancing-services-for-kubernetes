@@ -709,8 +709,11 @@ func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
 	return true
 }
 
+// extraArgs can have the following additional parameters:
+// 1. hostrule aliases
+// the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name string, tenant string,
-	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32) bool {
+	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32, extraArgs ...interface{}) bool {
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -720,6 +723,19 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 	members := gs.MemberObjs
 	if len(members) != len(expectedMembers) {
 		t.Logf("length of members don't match")
+		return false
+	}
+
+	if len(extraArgs) > 1 {
+		t.Fatalf("extraArgs for verifyGSMembers given unsupported number of parameters")
+	}
+	expectedDomainNames := []string{name}
+	if len(extraArgs) == 1 {
+		expectedDomainNames = extraArgs[0].([]string)
+	}
+
+	if !gslbutils.SetEqual(expectedDomainNames, gs.DomainNames) {
+		t.Logf("GS Domain names didn't match, expected: %v, got: %v", expectedDomainNames, gs.DomainNames)
 		return false
 	}
 
