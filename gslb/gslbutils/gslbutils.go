@@ -688,13 +688,13 @@ func GetGslbConfigObjUpdated() bool {
 
 // Difference compares two slices a & b, returns the elements in `a` that aren't in `b`.
 func SetDifference(a, b []string) []string {
-	setA := sets.NewString()
-	for _, s := range a {
-		setA.Insert(s)
-	}
-	setB := sets.NewString()
-	for _, s := range b {
-		setB.Insert(s)
-	}
+	setA := sets.NewString(a...)
+	setB := sets.NewString(b...)
 	return setA.Difference(setB).List()
+}
+
+func SetEqual(a, b []string) bool {
+	setA := sets.NewString(a...)
+	setB := sets.NewString(b...)
+	return setA.Equal(setB)
 }

@@ -737,7 +737,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 					return
 				}
 				aliasesChanged := false
-				if len(gslbutils.SetDifference(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)) != 0 {
+				if !gslbutils.SetEqual(oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases) {
 					aliasesChanged = true
 				}
 				if gslbutils.GetCustomFqdnMode() {
@@ -746,8 +746,8 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 						gFqdnChanged = true
 					}
 					// the update can be of 3 types
-					if aliasesChanged && !gFqdnChanged {
-						// case 1: Only the aliases have changed
+					if aliasesChanged && !gFqdnChanged && newHr.Spec.VirtualHost.Gslb.IncludeAliases {
+						// case 1: Only the aliases have changed and includeAliases = true
 						HandleHostRuleAliasChange(newGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases, newHr.Spec.VirtualHost.Aliases)
 					} else if gFqdnChanged && !aliasesChanged || aliasesChanged && gFqdnChanged {
 						// This handles 2 cases
@@ -765,7 +765,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 						if newHr.Spec.VirtualHost.Gslb.IncludeAliases {
 							gsDomainNameMap.AddUpdateGSToDomainNameMapping(newGFqdn, c.name, newHr.Spec.VirtualHost.Aliases)
 						} else {
-							gsDomainNameMap.DeleteGSToDomainNameMapping(newGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
+							gsDomainNameMap.DeleteGSToDomainNameMapping(oldGFqdn, c.name, oldHr.Spec.VirtualHost.Aliases)
 						}
 					}
 					DeleteFromHostRuleStore(hrStore, oldHr, c.name)
