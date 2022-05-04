@@ -91,7 +91,9 @@ func InitServiceDiscoveryConfigAndInformers(cfg *rest.Config, stopCh <-chan stru
 	clusterConfigs, err := GetClusterInfo(k8sSDConfig)
 	if err != nil {
 		gslbutils.Errf("error in getting data from clusterset: %v", err)
-		log.Panic(err.Error())
+		// If the clusterset is not provided then don't progress and wait forever
+		<-stopCh
+		return
 	}
 	k8sSDConfig.SetClusterConfigs(clusterConfigs)
 
