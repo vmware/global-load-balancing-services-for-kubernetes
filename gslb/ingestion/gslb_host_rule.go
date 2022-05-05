@@ -186,35 +186,6 @@ func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings)
 	}
 }
 
-func getHMFromName(name string, gdp bool) (*models.HealthMonitor, error) {
-	aviClient := avictrl.SharedAviClients().AviClient[0]
-	uri := "api/healthmonitor?name=" + name
-
-	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
-	if err != nil {
-		gslbutils.Errf("Error in getting uri %s from Avi: %v", uri, err)
-		return nil, err
-	}
-	if result.Count == 0 {
-		gslbutils.Errf("Health Monitor %s does not exist", name)
-		return nil, fmt.Errorf("health Monitor %s does not exist", name)
-	}
-	gslbutils.Logf("health monitor %s fetched from controller", name)
-	elems := make([]json.RawMessage, result.Count)
-	err = json.Unmarshal(result.Results, &elems)
-	if err != nil {
-		gslbutils.Errf("failed to unmarshal health monitor data for ref %s: %v", name, err)
-		return nil, err
-	}
-	hm := models.HealthMonitor{}
-	err = json.Unmarshal(elems[0], &hm)
-	if err != nil {
-		gslbutils.Errf("failed to unmarshal the first health monitor element: %v", err)
-		return nil, err
-	}
-	return &hm, nil
-}
-
 func isHealthMonitorRefPresentInCache(hmName string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
@@ -232,7 +203,7 @@ func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
 		gslbutils.Debugf("health monitor %s present in hm cache", refName)
 		return true
 	}
-	hm, err := getHMFromName(refName, gdp)
+	hm, err := avictrl.GetHMFromName(refName, gdp)
 	if err != nil {
 		return false
 	}

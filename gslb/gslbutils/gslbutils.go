@@ -341,7 +341,7 @@ func SetGSLBConfigObj(gc *gslbalphav1.GSLBConfig) {
 	gcObj.configObj = gc
 }
 
-func UpdateAmkoUuidSLBConfig(gc *gslbalphav1.GSLBConfig, uuid string) error {
+func UpdateAmkoUuidGSLBConfig(gc *gslbalphav1.GSLBConfig, uuid string) error {
 	annotations := gc.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)

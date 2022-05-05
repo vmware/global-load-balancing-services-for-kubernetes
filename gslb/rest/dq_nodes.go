@@ -16,6 +16,7 @@ package rest
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -260,8 +261,37 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 				hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName}
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
-					gslbutils.Errf("key: %s, hmKey: %v, msg: error while performing rest operation", key, hmKey)
-					return op.Err
+					if !strings.Contains(op.Err.Error(), "Health monitor with this Name and Tenant ref already exists") {
+						gslbutils.Errf("key: %s, hmKey: %v, msg: error while performing rest operation", key, hmKey)
+						return op.Err
+					}
+					// AMKO's UUID has changed, in that case do a GET and PUT operation on health monitor
+					// to update the health monitor with new UUID.
+					hm, err := avicache.GetHMFromName(hmName, false)
+					if err != nil {
+						gslbutils.Errf("Health Monitor %s not found", hmName)
+						return fmt.Errorf("health monitor %s not found", hmName)
+					}
+					// logging a warning if the HM is created by the same AMKO.
+					for _, m := range hm.Markers {
+						if m.Key != nil &&
+							*m.Key == gslbutils.CreatedByLabelKey &&
+							m.Values[0] == gslbutils.AMKOControlConfig().CreatedByField() {
+							gslbutils.Warnf("key: %s, hmKey: %v: msg: HM created by the same AMKO with UUID %s", key, hmKey, gslbutils.AMKOControlConfig().CreatedByField())
+							break
+						}
+					}
+					op = restOp.AviGsHmBuild(aviGSGraph, utils.RestPut, &avicache.AviHmObj{UUID: *hm.UUID}, key, hmName)
+					if op == nil {
+						gslbutils.Errf("key: %s, msg: couldn't build a rest operation for health monitor, returning", key)
+						return errors.New("couldn't build a rest operation")
+					}
+					hmKey := avicache.TenantName{Tenant: utils.ADMIN_NS, Name: hmName}
+					restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
+					if op.Err != nil {
+						gslbutils.Errf("key: %s, hmKey: %v, msg: error while performing rest operation", key, hmKey)
+						return op.Err
+					}
 				}
 			}
 		}
@@ -506,6 +536,13 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 			if err.Error() == "rest timeout occured" {
 				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
 				restOp.PublishKeyToRetryLayer(gsKey, hmKey, err, key)
+				return
+			}
+			// Retry is not required when the controller returns an error "Health monitor with
+			// this Name and Tenant ref already exists" for health monitor creation.
+			if operation.Model == "HealthMonitor" &&
+				operation.Err != nil &&
+				strings.Contains(operation.Err.Error(), "Health monitor with this Name and Tenant ref already exists") {
 				return
 			}
 			webSyncErr, ok := err.(*utils.WebSyncError)
