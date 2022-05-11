@@ -520,7 +520,7 @@ func GetUUIDFromGSLBConfig(gcObj *gslbalphav1.GSLBConfig) error {
 	}
 	uuidStr := uuidVal.String()
 	gslbutils.AMKOControlConfig().SetCreatedByField("amko-" + uuidStr)
-	if err := gslbutils.UpdateAmkoUuidSLBConfig(gcObj, uuidStr); err != nil {
+	if err := gslbutils.UpdateAmkoUuidGSLBConfig(gcObj, uuidStr); err != nil {
 		return fmt.Errorf("error in updating GSLBConfig object: %v", err)
 	}
 	return nil
@@ -976,7 +976,7 @@ func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool)
 		gslbutils.Debugf("health monitor template %s present in hm cache", hmTemplate)
 		return nil
 	}
-	hm, err := getHMFromName(hmTemplate, gdp)
+	hm, err := avictrl.GetHMFromName(hmTemplate, gdp)
 	if err != nil {
 		gslbutils.Errf("Health Monitor Template %s not found", hmTemplate)
 		return fmt.Errorf("health monitor template %s not found", hmTemplate)
