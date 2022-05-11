@@ -696,6 +696,15 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 			gslbutils.Logf("key: %s, msg: Published key to slow path retry queue", key)
 			return
 		}
+		if strings.Contains(*aviError.Message, "domain name conflicting with existing domain name") {
+			// Might be a case where the gfqdn of a hostrule has changed in customFqdnMode
+			// This case calls for a delete of the prev GS and creation of a new GS
+			// Sometimes, it might happen that new GS creation starts before prev is deleted
+			gslbutils.Warnf("%s, msg: Published key to slow path retry queue", *aviError.Message)
+			slowRetryQueue := utils.SharedWorkQueue().GetQueueByName(gslbutils.SlowRetryQueue)
+			slowRetryQueue.Workqueue[bkt].AddRateLimited(key)
+			return
+		}
 		gslbutils.Errf("can't handle error code 400: %s, won't retry", *aviError.Message)
 
 	case 404, 409:
