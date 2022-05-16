@@ -39,13 +39,17 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 
 **Note** that the site must be added to the GSLB leader as a 3rd party site before adding the member here.
 
-5. `healthMonitorRefs`: If a GslbService requires some custom health monitoring, the user can create a federated custom health monitor in the Avi Controller and provide the ref(s) here. To add a custom health monitor, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). If no custom health monitor refs have been added, the custom health monitors from the GDP object will be inherited.
+5. `healthMonitorRefs`: If a GslbService requires some custom health monitoring, the user can create a federated custom health monitor in the Avi Controller and provide the ref(s) here. To add a custom health monitor, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). If no custom health monitor refs have been added, the `healthMonitorTemplate` from the `GDP`/`GSLBHostRule` object will be inherited or `healthMonitorRefs` from the GDP object will be inherited.
 
-6. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.
+6. `healthMonitorTemplate`: If a GslbService requires customization of the health monitor settings, the user can create a federated custom health monitor template in the Avi Controller and provide the name of it here. To add a health monitor template, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). Currently, the `Client Request Header` and `Response Code` of the health monitor template are inherited. If no custom health monitor template has been added, the `healthMonitorRefs` from the `GDP`/`GSLBHostRule` object will be inherited or `healthMonitorTemplate` from the GDP object will be inherited.
 
-7. `ttl`: Override the default `ttl` value specified on the GDP object using this field.
+**Note** User can provide either `healthMonitorRefs` or `healthMonitorTemplate` in the `GSLBHostRule` objects. The health monitor template added in the controller must be of type HTTP/HTTPS.
 
-8. `poolAlgorithmSettings`: Override the default GslbService algorithm provided in the GDP object. Refer to [pool algorithm settings](#pool-algorithm-settings) for details. If this field is absent, GDP's pool algorithm's settings apply on this GslbService.
+7. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.
+
+8. `ttl`: Override the default `ttl` value specified on the GDP object using this field.
+
+9. `poolAlgorithmSettings`: Override the default GslbService algorithm provided in the GDP object. Refer to [pool algorithm settings](#pool-algorithm-settings) for details. If this field is absent, GDP's pool algorithm's settings apply on this GslbService.
 
 ## Pool Algorithm Settings
 The pool algorithm settings for GslbService(s) can be specified via the `GDP` or a `GSLBHostRule` objects. The GslbService uses the algorithm settings to distribute the traffic accordingly. To set the required settings, following fields must be used:
