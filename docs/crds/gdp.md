@@ -94,11 +94,15 @@ matchRules:
 
 5. `ttl`: Use this flag to set the Time To Live value. The value can range from 1-86400 seconds. This determines the frequency with which clients need to obtain fresh steering information for client requests. If none is specified in the GDP object, the value defaults to the one specified in the DNS application profile.
 
-6. `healthMonitorRefs`: Provide federated custom health monitors. If this option is used and refs are specified, the default path based health monitoring will be deleted for the GslbServices. If no custom health monitors are specified, AMKO sets the default health monitors for all GslbServices.
+6. `healthMonitorRefs`: Provide federated custom health monitors. If this option is used and refs are specified, the default path based health monitoring will be deleted for the GslbServices. If no custom health monitors are specified, `healthMonitorTemplate` from the GDP object will be inherited or AMKO sets the default health monitors for all GslbServices.
 
-7. `sitePersistenceRef`: Provide an Application Persistence Profile ref (pre-created in Avi Controller). This has to be a federated profile. Please follow the steps [here](https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/#outline-of-steps-to-be-taken) to create a federated Application Persistence Profile on the Avi Controller. If no reference is provided, Site Persistence is disabled.
+7. `healthMonitorTemplate`: If a GslbService requires customization of the health monitor settings, the user can create a federated custom health monitor template in the Avi Controller and provide the name of it here. To add a health monitor template, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). Currently, the `Client Request Header` and `Response Code` of the health monitor template are inherited. If no custom health monitor template has been added, the `healthMonitorRefs` from the GDP object will be inherited or AMKO sets the default health monitors.
 
-8. `poolAlgorithmSettings`: Provide the GslbService pool algorithm settings. Refer to [pool algorithm settings](gslbhostrule.md#pool-algorithm-settings) for details. If this field is absent, the default is assumed as Round Robin algorithm.
+**Note** User can provide either `healthMonitorRefs` or `healthMonitorTemplate` in the `GDP` objects. The health monitor template added in the controller must be of type HTTP/HTTPS.
+
+8. `sitePersistenceRef`: Provide an Application Persistence Profile ref (pre-created in Avi Controller). This has to be a federated profile. Please follow the steps [here](https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/#outline-of-steps-to-be-taken) to create a federated Application Persistence Profile on the Avi Controller. If no reference is provided, Site Persistence is disabled.
+
+9. `poolAlgorithmSettings`: Provide the GslbService pool algorithm settings. Refer to [pool algorithm settings](gslbhostrule.md#pool-algorithm-settings) for details. If this field is absent, the default is assumed as Round Robin algorithm.
  
 ### Notes
 * Only one `GDP` object is allowed.
