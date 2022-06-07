@@ -51,3 +51,15 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Changed:
  - Encode names of all HM objects except HM created for passthrough ingress/routes.
+
+
+## AMKO-1.7.1
+
+### Added:
+  - Support for multiple FQDNs to a single GS using `HostRule` CRD.
+  - Support for multi-cluster load balancing for applications deployed in the public cloud.
+  - GSLB Monitors settings created by AMKO can now be customized via `GlobalDeploymentPolicy` and `GSLBHostRule`.
+
+### Bugs fixed:
+  - Fixed the issue of the AMKO pod does not respond periodically.
+  - AMKO now takes into account the priority values given in the `GSLBHostRule` objects.
