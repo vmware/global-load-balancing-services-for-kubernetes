@@ -41,9 +41,18 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 
 5. `healthMonitorRefs`: If a GslbService requires some custom health monitoring, the user can create a federated custom health monitor in the Avi Controller and provide the ref(s) here. To add a custom health monitor, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). If no custom health monitor refs have been added, the `healthMonitorTemplate` from the `GDP`/`GSLBHostRule` object will be inherited or `healthMonitorRefs` from the GDP object will be inherited.
 
+   ```yaml
+    healthMonitorRefs:
+    - my-health-monitor1
+   ```
+
 6. `healthMonitorTemplate`: If a GslbService requires customization of the health monitor settings, the user can create a federated custom health monitor template in the Avi Controller and provide the name of it here. To add a health monitor template, follow the steps [here](https://avinetworks.com/docs/20.1/avi-gslb-service-and-health-monitors/#configuring-health-monitoring). Currently, the `Client Request Header` and `Response Code` of the health monitor template are inherited. If no custom health monitor template has been added, the `healthMonitorRefs` from the `GDP`/`GSLBHostRule` object will be inherited or `healthMonitorTemplate` from the GDP object will be inherited.
 
-**Note** User can provide either `healthMonitorRefs` or `healthMonitorTemplate` in the `GSLBHostRule` objects. The health monitor template added in the controller must be of type HTTP/HTTPS.
+   ```yaml
+    healthMonitorTemplate: my-health-monitor-template-1
+   ```
+
+   **Note** User can provide either `healthMonitorRefs` or `healthMonitorTemplate` in the `GSLBHostRule` objects. The health monitor template added in the controller must be of type HTTP/HTTPS.
 
 7. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.
 
