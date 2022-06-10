@@ -108,6 +108,7 @@ spec:
           imagePullPolicy: {{ .Values.federation.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{ if .Values.multiClusterIngress.enable }}
         - name: amko-service-discovery
           {{ if .Values.persistentVolumeClaim }}
           volumeMounts:
@@ -120,6 +121,7 @@ spec:
           imagePullPolicy: {{ .Values.serviceDiscovery.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{ end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
