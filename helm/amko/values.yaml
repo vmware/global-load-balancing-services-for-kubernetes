@@ -27,11 +27,11 @@ federation:
 # Configs related to AMKO Service discovery
 serviceDiscovery:
   # image repository
-  image:
-    repository: projects.registry.vmware.com/ako/amko-service-discovery
-    pullPolicy: IfNotPresent
+  # image:
+  #   repository: projects.registry.vmware.com/ako/amko-service-discovery
+  #   pullPolicy: IfNotPresent
 
-# Configs related to Multi-cluster ingress
+# Configs related to Multi-cluster ingress. Note: MultiClusterIngress is a tech preview.
 multiClusterIngress:
   enable: false
 
