@@ -6,4 +6,4 @@ role is described in [GOVERNANCE.md](GOVERNANCE.md).
 | Maintainer | GitHub ID | Affiliation |
 | ---------- | --------- | ----------- |
 | Swathin Sankaran |  swathinsankaran | VMware |
-| Shubham Chauhan | chauhanshubham | VMware |
+| Akshay Havile | akshayhavile | VMware |

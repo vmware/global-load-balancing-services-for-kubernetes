@@ -29,7 +29,7 @@ If aliases are repeated across clusters, AMKO will ignore such an alias.
 2. If AMKO is configured to use custom global fqdn i.e., `useCustomGlobalFqdn: true` in gslb config object, a GSLB Service is created for a fqdn, only if a corresponding hostrule exists. [Refer this](https://github.com/vmware/global-load-balancing-services-for-kubernetes/blob/master/docs/local_and_global_fqdn.md)
 
 In such a case there can be 2 choices to the user. <br>
-*  A user can choose to include the aliases mentioned in the hostrule as domain names of the GSLB Service. <br>
+* A user can choose to include the aliases mentioned in the hostrule as domain names of the GSLB Service. <br>
 * A user can choose to ignore the aliases - default action taken by AMKO. 
 
 A flag called `includeAliases` under `gslb` section of the hostrule lets the user decide. 
