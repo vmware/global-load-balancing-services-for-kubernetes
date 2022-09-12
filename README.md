@@ -1,6 +1,6 @@
 # AMKO: Avi Multi Kubernetes Operator
 
-## What's AMKO?
+### What's AMKO?
 AMKO provides application load-balancing across multiple kubernetes clusters using AVI's enterprise grade GSLB capabilities.
 
 GSLB - Load balancing across instances of the application that have been deployed to multiple locations (typically, multiple data centers and/or public clouds). Avi uses the Domain Name System (DNS) for providing the optimal destination information to the user clients.
