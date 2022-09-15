@@ -34,3 +34,4 @@ spec:
 ### Notes
 * Only one `GSLBConfig` object is allowed.
 * If using `helm install`, a `GSLBConfig` object is created by picking up values from the `values.yaml` file.
+* During `helm delete`, the `GSLBConfig` that holds the UUID of the current instance is deleted. Hence a cleanup of stale GSLB services, if any, is required at the controller before re-installing AMKO.

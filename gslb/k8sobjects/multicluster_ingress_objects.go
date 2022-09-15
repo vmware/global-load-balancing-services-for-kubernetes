@@ -65,7 +65,7 @@ func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cna
 		// Note that the ingress key will still be published to graph layer, but the key
 		// won't be processed, this is just to maintain the ingress information as part
 		// of in-memory map.
-		gslbutils.Errf("ns: %s, ingress: %s, msg: skipping ingress because of error: %v",
+		gslbutils.Logf("ns: %s, ingress: %s, msg: skipping ingress because of error: %v",
 			mci.Namespace, mci.Name, err)
 	}
 	if (controllerUUID == "" || len(vsUUIDs) == 0) && !syncVIPsOnly {

@@ -78,14 +78,14 @@ Following steps have to be executed on all member clusters:
    $ helm search repo
 
    NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
-   ako/amko	1.7.1	            1.7.1	            A helm chart for Avi Multicluster Kubernetes Operator
+   amko/amko	1.7.1	            1.7.1	            A helm chart for Avi Multicluster Kubernetes Operator
 
    ```
 
 4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values ako/amko --version 1.7.1 > values.yaml
+   helm show values amko/amko --version 1.7.1 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
@@ -97,7 +97,7 @@ Following steps have to be executed on all member clusters:
 
 6. Install AMKO:
    ```
-   $ helm install  ako/amko  --generate-name --version 1.7.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install  amko/amko  --generate-name --version 1.7.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
 7. Check the installation:
    ```
@@ -121,7 +121,7 @@ If a user needs to remove the already created GSLB services, one has to remove t
 kubectl delete gdp -n avi-system global-gdp
 ```
 
-Typically, an AKO instance could have been deployed in the `avi-system` namespace. But, if it is not, then the `avi-system` namespace can also be removed:
+Typically, an AMKO instance could have been deployed in the `avi-system` namespace. But, if it is not, then the `avi-system` namespace can also be removed:
 ```
 kubectl delete ns avi-system
 ```
@@ -135,7 +135,7 @@ Follow these steps if you are upgrading from an older AMKO release.
 Update the helm repo with the following command:
 
 ```
-helm repo update ako
+helm repo update amko
 ```
 
 *Step2*
@@ -143,7 +143,7 @@ helm repo update ako
 Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
 
 ```
-helm template ako/amko --version 1.7.1 --include-crds --output-dir <output_dir>
+helm template amko/amko --version 1.7.1 --include-crds --output-dir <output_dir>
 ```
 
 This will save the helm files to an output directory which will contain the CRDs corresponding to the AMKO version.
@@ -167,9 +167,9 @@ amko-1598451370 avi-system	1       	2022-05-19 10:00:31.609195757 +0000 UTC	    
 Update the helm repo URL
 
 ```
-helm repo add --force-update ako https://projects.registry.vmware.com/chartrepo/ako
+helm repo add --force-update amko https://projects.registry.vmware.com/chartrepo/ako
 
-"ako" has been added to your repositories
+"amko" has been added to your repositories
 
 ```
 
@@ -178,14 +178,14 @@ helm repo add --force-update ako https://projects.registry.vmware.com/chartrepo/
 Get the values.yaml for the latest AMKO version
 
 ```
-helm show values ako/amko --version 1.7.1 > values.yaml
+helm show values amko/amko --version 1.7.1 > values.yaml
 
 ```
 
 Upgrade the helm chart
 
 ```
-helm upgrade amko-1598451370 ako/amko -f /path/to/values.yaml --version 1.7.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
+helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.7.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
 
 ```
 

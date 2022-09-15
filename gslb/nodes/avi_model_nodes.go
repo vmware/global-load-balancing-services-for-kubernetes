@@ -436,10 +436,10 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitorsFromObj(obj AviGSK8sObj, 
 	tls := obj.TLS
 	if tls {
 		v.Hm.HMProtocol = gslbutils.SystemGslbHealthMonitorHTTPS
-		v.Hm.Port = gslbutils.DefaultHTTPHealthMonitorPort
+		v.Hm.Port = gslbutils.DefaultHTTPSHealthMonitorPort
 	} else {
 		v.Hm.HMProtocol = gslbutils.SystemGslbHealthMonitorHTTP
-		v.Hm.Port = gslbutils.DefaultHTTPSHealthMonitorPort
+		v.Hm.Port = gslbutils.DefaultHTTPHealthMonitorPort
 	}
 }
 
@@ -466,10 +466,10 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 	}
 	if tls {
 		v.Hm.HMProtocol = gslbutils.SystemGslbHealthMonitorHTTPS
-		v.Hm.Port = gslbutils.DefaultHTTPHealthMonitorPort
+		v.Hm.Port = gslbutils.DefaultHTTPSHealthMonitorPort
 	} else {
 		v.Hm.HMProtocol = gslbutils.SystemGslbHealthMonitorHTTP
-		v.Hm.Port = gslbutils.DefaultHTTPSHealthMonitorPort
+		v.Hm.Port = gslbutils.DefaultHTTPHealthMonitorPort
 	}
 }
 
