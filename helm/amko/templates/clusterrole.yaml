@@ -27,6 +27,9 @@ rules:
   - apiGroups: ["ako.vmware.com"]
     resources: ["serviceimports"]
     verbs: ["create", "get", "watch", "list", "patch", "update", "delete"]
+  - apiGroups: ["ako.vmware.com"]
+    resources: ["hostrules"]
+    verbs: ["get", "watch", "list"]
 
 {{- if .Values.rbac.pspEnable }}
   - apiGroups:
