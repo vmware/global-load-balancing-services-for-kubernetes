@@ -27,7 +27,7 @@ For Kubernetes clusters:
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Openshift      | 4.4-4.9     |
+| Openshift      | 4.4-4.10     |
 | AKO            | 1.7.1       |
 | AVI Controller | 20.1.5-21.1.4 |
 
