@@ -213,7 +213,7 @@ func (restOp *RestOperations) getHmPathDiff(aviGSGraph *nodes.AviGSObjectGraph, 
 	existingHMObjs := GetHMCacheObjFromGSCache(gsCacheObj)
 	for _, hmObj := range existingHMObjs {
 		hmName := hmObj.Name
-		if _, exists := newHms[hmName]; !exists {
+		if _, exists := newHms[hmName]; !exists && aviGSGraph.IsHmTypeCustom(hmName) {
 			toBeDeleted = append(toBeDeleted, hmName)
 		}
 	}
