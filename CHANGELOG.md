@@ -63,3 +63,12 @@ All notable changes to this project will be documented in this file. The format 
 ### Bugs fixed:
   - Fixed the issue of the AMKO pod does not respond periodically.
   - AMKO now takes into account the priority values given in the `GSLBHostRule` objects.
+
+
+## AMKO-1.8.1
+
+### Added:
+  - Support for Kubernetes 1.24.
+
+### Bugs fixed:
+  - Fixed an issue of AMKO updating the health monitors with the wrong ports.
