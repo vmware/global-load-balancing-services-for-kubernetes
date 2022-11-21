@@ -11,8 +11,12 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
+	github.com/prometheus/client_golang v1.11.1 // indirect
 	github.com/vmware/alb-sdk v0.0.0-20220405050634-1a01e2eee142
 	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220405050344-3a6d72bbda3e
+	golang.org/x/crypto v0.0.0-20220314234659-1baeb1ce4c0b // indirect
+	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c // indirect
+	golang.org/x/text v0.3.8 // indirect
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
