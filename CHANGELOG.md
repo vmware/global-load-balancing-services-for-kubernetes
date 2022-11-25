@@ -64,7 +64,6 @@ All notable changes to this project will be documented in this file. The format 
   - Fixed the issue of the AMKO pod does not respond periodically.
   - AMKO now takes into account the priority values given in the `GSLBHostRule` objects.
 
-
 ## AMKO-1.8.1
 
 ### Added:
@@ -72,3 +71,9 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Bugs fixed:
   - Fixed an issue of AMKO updating the health monitors with the wrong ports.
+
+## AMKO-1.8.2
+
+### Bugs fixed:
+  - Fixed an issue of AMKO deleting the health monitors references specified as `healthMonitorRefs` via `GlobalDeploymentPolicy` and `GSLBHostRule` from the controller.
+  - Fixed few security vulnerabilities in the dependant Golang packages and the base image.
