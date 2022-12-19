@@ -57,6 +57,7 @@ type GDPSpec struct {
 	TTL                   *int                               `json:"ttl,omitempty"`
 	SitePersistenceRef    *string                            `json:"sitePersistenceRef,omitempty"`
 	PoolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings `json:"poolAlgorithmSettings,omitempty"`
+	DownResponse          *gslbalphav1.DownResponse          `json:"downResponse,omitempty"`
 }
 
 // ClusterProperty specifies all the properties required for a Cluster. Cluster is the cluster
