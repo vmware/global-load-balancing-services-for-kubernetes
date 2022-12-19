@@ -170,8 +170,8 @@ type SitePersistence struct {
 // DownResponse defines the properties of the DNS service such as response towards the client when the GSLB service is DOWN,
 // fallback IP to use in A response to the client query.
 type DownResponse struct {
-	ResponseType string `json:"responseType,omitempty"`
-	FallbackIP   string `json:"fallbackIP,omitempty"`
+	Type       string `json:"type,omitempty"`
+	FallbackIP string `json:"fallbackIP,omitempty"`
 }
 
 // GSLBHostRuleStatus contains the current state of the GSLBHostRule resource. If the

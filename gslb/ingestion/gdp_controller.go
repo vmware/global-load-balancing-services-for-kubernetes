@@ -366,6 +366,15 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 			return fmt.Errorf("site persistence ref %s not present", *gdp.Spec.SitePersistenceRef)
 		}
 	}
+
+	// DownResponse check
+	if gdp.Spec.DownResponse != nil {
+		err := isGSLBDownResponseValid(gdp.Spec.DownResponse.Type, gdp.Spec.DownResponse.FallbackIP)
+		if err != nil {
+			return fmt.Errorf("invalid down response configuration: %v", err)
+		}
+	}
+
 	return nil
 }
 

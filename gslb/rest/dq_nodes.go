@@ -35,6 +35,7 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session"
+	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -1096,6 +1097,14 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 			aviGslbSvc.HealthMonitorRefs = append(aviGslbSvc.HealthMonitorRefs,
 				hmAPI+hmName)
 		}
+	}
+
+	aviGslbSvc.DownResponse = &avimodels.GslbServiceDownResponse{
+		Type: &gsMeta.GslbDownResponse.Type,
+		FallbackIP: &avimodels.IPAddr{
+			Addr: &gsMeta.GslbDownResponse.FallbackIP,
+			Type: proto.String("V4"),
+		},
 	}
 
 	path := "/api/gslbservice/"

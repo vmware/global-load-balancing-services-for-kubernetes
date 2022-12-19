@@ -34,6 +34,7 @@ type GSHostRules struct {
 	TrafficSplit      []gslbhralphav1.TrafficSplitElem
 	ThirdPartyMembers []gslbhralphav1.ThirdPartyMember
 	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
+	GslbDownResponse  *gslbalphav1.DownResponse
 	Checksum          uint32
 	Lock              sync.RWMutex
 }
@@ -74,6 +75,7 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 		**out = **in
 	}
 	out.GslbPoolAlgorithm = in.GslbPoolAlgorithm.DeepCopy()
+	out.GslbDownResponse = in.GslbDownResponse.DeepCopy()
 }
 
 func (ghr *GSHostRules) CalculateAndSetChecksum() {
@@ -112,7 +114,8 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 		utils.Hash(utils.Stringify(ttl)) +
 		utils.Hash(utils.Stringify(clusterWeights)) +
 		utils.Hash(utils.Stringify(thirdPartyMembers)) +
-		getChecksumForPoolAlgorithm(ghr.GslbPoolAlgorithm)
+		getChecksumForPoolAlgorithm(ghr.GslbPoolAlgorithm) +
+		getChecksumForDownResponse(ghr.GslbDownResponse)
 
 	ghr.Checksum = cksum
 }
@@ -150,6 +153,7 @@ func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 	if gslbhrSpec.HealthMonitorTemplate != nil {
 		gsHostRules.HmTemplate = proto.String(*gslbhrSpec.HealthMonitorTemplate)
 	}
+	gsHostRules.GslbDownResponse = gslbhrSpec.DownResponse.DeepCopy()
 
 	gsHostRules.CalculateAndSetChecksum()
 	return &gsHostRules

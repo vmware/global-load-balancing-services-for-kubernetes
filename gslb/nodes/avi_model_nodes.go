@@ -218,6 +218,7 @@ type AviGSObjectGraph struct {
 	SitePersistenceRef *string
 	TTL                *int
 	GslbPoolAlgorithm  *gslbalphav1.PoolAlgorithmSettings
+	GslbDownResponse   *gslbalphav1.DownResponse
 	Lock               sync.RWMutex
 }
 
@@ -288,7 +289,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
-		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm, gslbutils.AMKOControlConfig().CreatedByField())
+		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm, v.GslbDownResponse, gslbutils.AMKOControlConfig().CreatedByField())
 }
 
 // GetMemberRouteList returns a list of member objects

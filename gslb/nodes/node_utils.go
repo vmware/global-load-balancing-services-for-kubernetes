@@ -134,6 +134,12 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 			gsGraph.MemberObjs[idx].Priority = getK8sMemberPriority(priorityMap, member.Cluster, member.Namespace)
 		}
 	}
+
+	if gsRuleExists && gsRule.GslbDownResponse != nil {
+		gsGraph.GslbDownResponse = gsRule.GslbDownResponse.DeepCopy()
+	} else {
+		gsGraph.GslbDownResponse = gf.GetDownResponse()
+	}
 }
 
 func getThirdPartyMemberWeight(weightMap map[string]int32, site string) int32 {

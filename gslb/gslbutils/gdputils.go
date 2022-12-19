@@ -93,7 +93,9 @@ type GlobalFilter struct {
 	TTL *int
 	// Gslb Pool algorithm settings
 	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
-	Checksum          uint32
+	// Response to the client when the GSLB service is down
+	GslbDownResponse *gslbalphav1.DownResponse
+	Checksum         uint32
 	// Respective filters for the namespaces.
 	// NSFilterMap map[string]*NSFilter
 	// GlobalLock is locked before accessing any of the filters.
@@ -189,6 +191,13 @@ func (gf *GlobalFilter) GetGslbPoolAlgorithm() *gslbalphav1.PoolAlgorithmSetting
 	return gf.GslbPoolAlgorithm.DeepCopy()
 }
 
+func (gf *GlobalFilter) GetDownResponse() *gslbalphav1.DownResponse {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.GslbDownResponse.DeepCopy()
+}
+
 func (gf *GlobalFilter) GetCopy() *GlobalFilter {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
@@ -203,6 +212,7 @@ func (gf *GlobalFilter) GetCopy() *GlobalFilter {
 		SitePersistenceRef:    gf.SitePersistenceRef,
 		TTL:                   gf.TTL,
 		GslbPoolAlgorithm:     gf.GslbPoolAlgorithm,
+		GslbDownResponse:      gf.GslbDownResponse,
 		Checksum:              gf.Checksum,
 	}
 	return &newFilter
@@ -323,13 +333,14 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		gf.HealthMonitorRefs = make([]string, len(gdp.Spec.HealthMonitorRefs))
 		copy(gf.HealthMonitorRefs, gdp.Spec.HealthMonitorRefs)
 	}
-	gf.GslbPoolAlgorithm = gdp.Spec.PoolAlgorithmSettings
 
 	gf.TTL = gdp.Spec.TTL
 
 	gf.SitePersistenceRef = gdp.Spec.SitePersistenceRef
 
 	gf.GslbPoolAlgorithm = gdp.Spec.PoolAlgorithmSettings.DeepCopy()
+
+	gf.GslbDownResponse = gdp.Spec.DownResponse.DeepCopy()
 
 	gf.ComputeChecksum()
 	Logf("ns: %s, object: NSFilter, msg: added/changed the global filter", gdp.ObjectMeta.Namespace)
@@ -358,6 +369,18 @@ func getChecksumForPoolAlgorithm(pa *gslbalphav1.PoolAlgorithmSettings) uint32 {
 		}
 	}
 
+	return cksum
+}
+
+func getChecksumForDownResponse(dr *gslbalphav1.DownResponse) uint32 {
+	var cksum uint32
+	if dr == nil {
+		return 0
+	}
+	cksum = utils.Hash(dr.Type)
+	if dr.Type == gslbalphav1.GSLBServiceDownResponseFallbackIP {
+		cksum += utils.Hash(dr.FallbackIP)
+	}
 	return cksum
 }
 
@@ -392,6 +415,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 		sort.Strings(hmRefs)
 		cksum += utils.Hash(utils.Stringify(hmRefs))
 	}
+	cksum += getChecksumForDownResponse(gf.GslbDownResponse)
 
 	gf.Checksum = cksum
 }
@@ -563,10 +587,17 @@ func IsHmTemplateChanged(old, new *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return false
 }
 
+func IsDownResponseChanged(old, new *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	oldCksum := getChecksumForDownResponse(old.Spec.DownResponse)
+	newCksum := getChecksumForDownResponse(new.Spec.DownResponse)
+	return oldCksum != newCksum
+}
+
 func isAllGSPropertyChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return isHmRefsChanged(old, new) || isSitePersistenceChanged(old, new) ||
 		isTTLChanged(old, new) || isGslbPoolAlgorithmChanged(old, new) ||
-		isTrafficWeightChanged(new, old) || IsHmTemplateChanged(old, new)
+		isTrafficWeightChanged(new, old) || IsHmTemplateChanged(old, new) ||
+		IsDownResponseChanged(old, new)
 }
 
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
@@ -598,6 +629,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.HealthMonitorRefs = nf.HealthMonitorRefs
 	gf.GslbPoolAlgorithm = nf.GslbPoolAlgorithm
 	gf.HealthMonitorTemplate = nf.HealthMonitorTemplate
+	gf.GslbDownResponse = nf.GslbDownResponse
 	gf.Checksum = nf.Checksum
 
 	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)
@@ -614,6 +646,7 @@ func (gf *GlobalFilter) DeleteFromGlobalFilter(gdp *gdpv1alpha2.GlobalDeployment
 	gf.ApplicableClusters = make(map[string]ClusterProperties)
 	gf.Checksum = 0
 	gf.TrafficSplit = []ClusterTraffic{}
+	gf.GslbDownResponse = &gslbalphav1.DownResponse{}
 }
 
 // GetNewGlobalFilter returns a new GlobalFilter. It is to be called only once with the
@@ -629,6 +662,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		TTL:                nil,
 		SitePersistenceRef: nil,
 		GslbPoolAlgorithm:  nil,
+		GslbDownResponse:   nil,
 	}
 	return gf
 }
