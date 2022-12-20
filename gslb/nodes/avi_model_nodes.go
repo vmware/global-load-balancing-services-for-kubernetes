@@ -841,6 +841,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	}
 	gsObjCopy.SitePersistenceRef = v.SitePersistenceRef
 	gsObjCopy.GslbPoolAlgorithm = v.GslbPoolAlgorithm.DeepCopy()
+	gsObjCopy.GslbDownResponse = v.GslbDownResponse.DeepCopy()
 
 	gsObjCopy.MemberObjs = make([]AviGSK8sObj, 0)
 	for _, memberObj := range v.MemberObjs {

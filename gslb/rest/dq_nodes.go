@@ -1099,12 +1099,17 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		}
 	}
 
-	aviGslbSvc.DownResponse = &avimodels.GslbServiceDownResponse{
-		Type: &gsMeta.GslbDownResponse.Type,
-		FallbackIP: &avimodels.IPAddr{
-			Addr: &gsMeta.GslbDownResponse.FallbackIP,
-			Type: proto.String("V4"),
-		},
+	if gsMeta.GslbDownResponse != nil {
+		gsDownResponse := &avimodels.GslbServiceDownResponse{}
+		gsDownResponse.Type = &gsMeta.GslbDownResponse.Type
+		if gsMeta.GslbDownResponse.Type == gslbalphav1.GSLBServiceDownResponseFallbackIP {
+			fallbackIP := avimodels.IPAddr{
+				Addr: &gsMeta.GslbDownResponse.FallbackIP,
+				Type: proto.String("V4"),
+			}
+			gsDownResponse.FallbackIP = &fallbackIP
+		}
+		aviGslbSvc.DownResponse = gsDownResponse
 	}
 
 	path := "/api/gslbservice/"
@@ -1428,7 +1433,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 		return errors.New("uuid not present in response")
 	}
 
-	cksum, gsMembers, memberObjs, hms, createdBy, err := avicache.GetDetailsFromAviGSLB(respElem)
+	cksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, err := avicache.GetDetailsFromAviGSLB(respElem)
 	if err != nil {
 		gslbutils.Errf("key: %s, resp: %v, msg: error in getting checksum for gslb svc: %s", key, respElem, err)
 	}
@@ -1443,6 +1448,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			gsCacheObj.Members = gsMembers
 			gsCacheObj.K8sObjects = memberObjs
 			gsCacheObj.HealthMonitor = hms
+			gsCacheObj.GSDownResponse = gsDownResponse
 			gsCacheObj.CreatedBy = createdBy
 			gslbutils.Logf(spew.Sprintf("key: %s, cacheKey: %v, value: %v, msg: updated GS cache\n", key, k,
 				utils.Stringify(gsCacheObj)))
@@ -1457,6 +1463,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 				Members:          gsMembers,
 				K8sObjects:       memberObjs,
 				HealthMonitor:    hms,
+				GSDownResponse:   gsDownResponse,
 				CloudConfigCksum: cksum,
 				CreatedBy:        createdBy,
 			}
@@ -1473,6 +1480,7 @@ func (restOp *RestOperations) AviGSCacheAdd(operation *utils.RestOp, key string)
 			Members:          gsMembers,
 			K8sObjects:       memberObjs,
 			HealthMonitor:    hms,
+			GSDownResponse:   gsDownResponse,
 			CloudConfigCksum: cksum,
 			CreatedBy:        createdBy,
 		}

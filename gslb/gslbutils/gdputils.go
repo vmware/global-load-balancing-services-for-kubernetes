@@ -378,7 +378,7 @@ func getChecksumForDownResponse(dr *gslbalphav1.DownResponse) uint32 {
 		return 0
 	}
 	cksum = utils.Hash(dr.Type)
-	if dr.Type == gslbalphav1.GSLBServiceDownResponseFallbackIP {
+	if dr.FallbackIP != "" {
 		cksum += utils.Hash(dr.FallbackIP)
 	}
 	return cksum
