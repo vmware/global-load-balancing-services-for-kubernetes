@@ -129,6 +129,8 @@ spec:
                   fallbackIP:
                     description: "Fallback IP address to use in A response to the client query when the GSLB service is DOWN."
                     type: string
+                required:
+                - type
           status:
             type: "object"
             properties:
