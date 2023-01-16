@@ -182,7 +182,7 @@ envtest_setup:
 	tar -zvxf /tmp/envtest-bins.tar.gz -C $(PWD)
 
 .PHONY: test
-test: int_test ingestion_test graph_test rest_test
+test: envtest_setup int_test ingestion_test graph_test rest_test
 
 .PHONY: gen-clientsets
 codegen:
