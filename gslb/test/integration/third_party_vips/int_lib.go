@@ -58,7 +58,9 @@ const (
 	Oshift        = 1
 	MaxClusters   = 2
 	// AMKO CRD directory
-	AmkoCRDs = "../../../../helm/amko/crds"
+	AmkoCRDs   = "../../../../helm/amko/crds"
+	AkoCRDs    = "../../crds/ako"
+	oshiftCRDs = "../../crds/oshift"
 
 	AviSystemNS     = "avi-system"
 	AviSecret       = "avi-secret"
@@ -163,7 +165,7 @@ func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, pat
 		if !withStatus {
 			continue
 		}
-		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 			IP:       ingIP,
 			Hostname: ingHost,
 		})
@@ -372,6 +374,13 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 		t.Fatalf("Couldn't create route obj: %v, err: %v", routeObj, err)
 	}
 	t.Logf("route object successfully created with name: %s, ns: %s, cname: %s", ns, name, cname)
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": routeObj.Status,
+	})
+	newObj, err = oshiftClient.RouteV1().Routes(ns).Patch(context.TODO(), routeObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("Couldn't update route obj: %v, err: %v", newObj, err)
+	}
 	return newObj
 }
 
@@ -404,7 +413,7 @@ func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc stri
 	var ingPaths []networkingv1.HTTPIngressPath
 	var pathType networkingv1.PathType = "ImplementationSpecific"
 	ingress.Spec.Rules = []networkingv1.IngressRule{}
-	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{}
+	ingress.Status.LoadBalancer.Ingress = []networkingv1.IngressLoadBalancerIngress{}
 	for _, path := range paths {
 		ingPath := networkingv1.HTTPIngressPath{
 			Path:     path,
@@ -432,7 +441,7 @@ func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc stri
 				},
 			},
 		})
-		ingress.Status.LoadBalancer.Ingress = append(ingress.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		ingress.Status.LoadBalancer.Ingress = append(ingress.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 			IP:       ingIP,
 			Hostname: ingHost,
 		})
@@ -473,6 +482,13 @@ func oshiftUpdateRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, ho
 	_, err = oshiftClient.RouteV1().Routes(ns).Update(context.TODO(), route, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("error in updating ingress: %v", err)
+	}
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": route.Status,
+	})
+	route, err = oshiftClient.RouteV1().Routes(ns).Patch(context.TODO(), route.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("Couldn't update route obj: %v, err: %v", route, err)
 	}
 	return route
 }

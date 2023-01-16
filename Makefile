@@ -1,4 +1,4 @@
-GOCMD=/usr/local/go/bin/go
+GOCMD=go
 GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOGET=$(GOCMD) get
@@ -7,9 +7,17 @@ GOTEST=$(GOCMD) test
 AMKO_BIN=amko
 FEDERATOR_BIN=amko-federator
 SERVICE_DISCOVERY_BIN=amko-service-discovery
+PACKAGE_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes
 AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/gslb
 FEDERATOR_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/federator
 SERVICE_DISCOVERY_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/service_discovery
+
+
+ifdef GOLANG_SRC_REPO
+	BUILD_GO_IMG=$(GOLANG_SRC_REPO)
+else
+	BUILD_GO_IMG=golang:latest
+endif
 
 .PHONY: all
 all: vendor build
@@ -106,37 +114,75 @@ docker: amko-docker amko-federator-docker amko-service-discovery-docker
 
 .PHONY: ingestion_test
 ingestion_test:
-		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 
 .PHONY: graph_test
 graph_test:
-		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
 
 .PHONY: rest_test
 rest_test:
-		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
+
+.PHONY: federator_test
+federator_test:
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v
+
+.PHONY: bootup_test
+bootup_test:
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./gslb/test/bootuptest -ginkgo.v -ginkgo.seed=1624910766
+
+.PHONY: custom_fqdn_test
+custom_fqdn_test:
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast
+
+.PHONY: third_party_vips_test
+third_party_vips_test:
+	sudo docker run \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
 
 .PHONY: int_test
-int_test:
-		ACK_GINKGO_DEPRECATIONS=1.19.2 $(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v
-		ACK_GINKGO_DEPRECATIONS=1.19.2 $(GOTEST) -v -mod=vendor ./gslb/test/bootuptest -ginkgo.v -ginkgo.seed=1624910766
-		$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast
-		$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
+int_test: federator_test bootup_test custom_fqdn_test third_party_vips_test
 
-
-K8S_VERSION=1.19.2
-GOOS := $(shell $(GOCMD) env GOOS)
-GOARCH := $(shell $(GOCMD) env GOARCH)
-URL=https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${K8S_VERSION}-$(GOOS)-$(GOARCH).tar.gz
+K8S_VERSION=1.24.2
+URL=https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${K8S_VERSION}-linux-amd64.tar.gz
 envtest_setup:
 	curl -sSLo /tmp/envtest-bins.tar.gz ${URL}
-	tar -zvxf /tmp/envtest-bins.tar.gz -C /usr/local/
+	tar -zvxf /tmp/envtest-bins.tar.gz -C $(PWD)
 
 .PHONY: test
-test: envtest_setup int_test
-		$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
-		$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
-		$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
+test: int_test ingestion_test graph_test rest_test
 
 .PHONY: gen-clientsets
 codegen:
@@ -153,7 +199,7 @@ fmt:
 
 .golangci-bin:
 	@echo "Installing Golangci-lint"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $@ v1.32.1
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $@ v1.50.1
 
 .PHONY: golangci
 golangci: .golangci-bin

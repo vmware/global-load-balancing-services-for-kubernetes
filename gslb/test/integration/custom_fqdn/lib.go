@@ -35,7 +35,7 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	apiextensionv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +54,9 @@ const (
 	Oshift        = 1
 	MaxClusters   = 2
 	// AMKO CRD directory
-	AmkoCRDs = "../../../../helm/amko/crds"
+	AmkoCRDs   = "../../../../helm/amko/crds"
+	AkoCRDs    = "../../crds/ako"
+	oshiftCRDs = "../../crds/oshift"
 
 	AviSystemNS    = "avi-system"
 	AviSecret      = "avi-secret"
@@ -74,8 +76,8 @@ var (
 	graphKeyChan         chan string
 	oshiftClient         *oshiftclient.Clientset
 	KubeBuilderAssetsVal string
-	routeCRD             apiextensionv1beta1.CustomResourceDefinition
-	hrCRD                apiextensionv1beta1.CustomResourceDefinition
+	routeCRD             apiextensionv1.CustomResourceDefinition
+	hrCRD                apiextensionv1.CustomResourceDefinition
 )
 
 var appLabel map[string]string = map[string]string{"key": "value"}
@@ -94,7 +96,7 @@ func BuildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, wit
 		if !withStatus {
 			continue
 		}
-		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 			IP:       ingIP,
 			Hostname: ingHost,
 		})
@@ -247,6 +249,16 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 	if err != nil {
 		t.Fatalf("Couldn't create route obj: %v, err: %v", routeObj, err)
 	}
+	t.Logf("route created %+v", newObj)
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": routeObj.Status,
+	})
+	newObj, err = oshiftClient.RouteV1().Routes(ns).Patch(context.TODO(), routeObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("Couldn't update route obj: %v, err: %v", newObj, err)
+	}
+	t.Logf("route updated %+v", newObj)
+
 	t.Logf("route object successfully created with name: %s, ns: %s, cname: %s", ns, name, cname)
 	return newObj
 }
@@ -733,9 +745,25 @@ func createHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1a
 	if err != nil {
 		t.Fatalf("error in creating hostrule for cluster %d: %v", cluster, err)
 	}
+	updateHostRuleStatus(t, cluster, hr)
 	t.Cleanup(func() {
 		deleteHostRule(t, cluster, newHr.Name, newHr.Namespace)
 	})
+	return newHr
+}
+
+func updateHostRuleStatus(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
+	if err != nil {
+		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
+	}
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": hr.Status,
+	})
+	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Patch(context.TODO(), hr.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("error in updating the status of hostrule for cluster %d: %v", cluster, err)
+	}
 	return newHr
 }
 

@@ -430,7 +430,7 @@ func TestStatusChangeFromEmptyIngress(t *testing.T) {
 	// Verify the presence of the object in the accepted store
 	verifyInIngStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 
-	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 		IP:       ipAddr,
 		Hostname: host,
 	})
@@ -556,7 +556,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	}
 
 	// Add status for host1
-	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 		IP:       hostIPMap[host1],
 		Hostname: host1,
 	})
@@ -571,7 +571,7 @@ func TestStatusChangeFromEmptyMultihostIngress(t *testing.T) {
 	verifyInIngStore(g, acceptedIngStore, true, ingName, ns, cname, host1, "10.10.10.10")
 
 	// Add status for host1
-	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+	ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 		IP:       hostIPMap[host2],
 		Hostname: host2,
 	})
@@ -837,7 +837,7 @@ func buildIngressObj(name, ns, svc, cname string, hostIPs map[string]string, wit
 		if !withStatus {
 			continue
 		}
-		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+		ingObj.Status.LoadBalancer.Ingress = append(ingObj.Status.LoadBalancer.Ingress, networkingv1.IngressLoadBalancerIngress{
 			IP:       ingIP,
 			Hostname: ingHost,
 		})

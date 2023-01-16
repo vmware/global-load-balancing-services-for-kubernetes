@@ -18,14 +18,12 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	routev1 "github.com/openshift/api/route/v1"
 
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -39,14 +37,11 @@ import (
 	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/clientset/versioned"
 	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/informers/externalversions"
-	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -70,61 +65,19 @@ func cleanUp() {
 	testEnvs = nil
 }
 
-func createRouteCRD() {
-	routeCRD = apiextensionv1beta1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "routes." + routev1.SchemeGroupVersion.Group,
-		},
-		Spec: apiextensionv1beta1.CustomResourceDefinitionSpec{
-			Group:   routev1.SchemeGroupVersion.Group,
-			Version: routev1.SchemeGroupVersion.Version,
-			Scope:   apiextensionv1beta1.NamespaceScoped,
-			Names: apiextensionv1beta1.CustomResourceDefinitionNames{
-				Plural: "routes",
-				Kind:   reflect.TypeOf(routev1.Route{}).Name(),
-			},
-		},
-	}
-}
-
-func createHostRuleCRD() {
-	hrCRD = apiextensionv1beta1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "hostrules." + akov1alpha1.SchemeGroupVersion.Group,
-		},
-		Spec: apiextensionv1beta1.CustomResourceDefinitionSpec{
-			Group:   akov1alpha1.SchemeGroupVersion.Group,
-			Version: akov1alpha1.SchemeGroupVersion.Version,
-			Scope:   apiextensionv1beta1.NamespaceScoped,
-			Names: apiextensionv1beta1.CustomResourceDefinitionNames{
-				Plural: "hostrules",
-				Kind:   reflect.TypeOf(akov1alpha1.HostRule{}).Name(),
-			},
-		},
-	}
-}
-
 func SetUpEnvClusters() {
 	cfgs = make([]*rest.Config, MaxClusters)
 	clusterClients = make([]*kubernetes.Clientset, MaxClusters)
 	testEnvs = make([]*envtest.Environment, MaxClusters)
-	createHostRuleCRD()
 
 	testEnv1 := &envtest.Environment{
-		CRDDirectoryPaths: []string{AmkoCRDs},
-		CRDs: []client.Object{
-			&hrCRD,
-		},
+		CRDDirectoryPaths:     []string{AmkoCRDs, AkoCRDs},
 		ErrorIfCRDPathMissing: true,
 	}
 	testEnvs[0] = testEnv1
 
-	createRouteCRD()
 	testEnv2 := &envtest.Environment{
-		CRDs: []client.Object{
-			&routeCRD,
-			&hrCRD,
-		},
+		CRDDirectoryPaths:     []string{AkoCRDs, oshiftCRDs},
 		ErrorIfCRDPathMissing: true,
 	}
 	testEnvs[1] = testEnv2
@@ -350,6 +303,9 @@ type forGomega struct {
 func (f forGomega) Fatalf(format string, args ...interface{}) {
 	gslbutils.Errf(format, args...)
 	CleanupAndExit()
+}
+
+func (f forGomega) Helper() {
 }
 
 func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
