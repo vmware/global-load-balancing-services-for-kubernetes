@@ -584,10 +584,7 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 		gslbutils.HostRuleAccepted, nil, true)
 	createHostRule(t, K8s, k8sHr)
 
-	t.Logf("SWATHIN expectedMembers %+v", expectedMembers)
-
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
-	t.Logf("SWATHIN expectedMembers %+v", expectedMembers)
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
@@ -598,7 +595,6 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	createHostRule(t, Oshift, ocHr)
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
-	t.Logf("SWATHIN getTestGSMemberFromRoute %+v", expectedMembers)
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
@@ -607,12 +603,10 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	newK8sHr.Spec.VirtualHost.Aliases = []string{"dupK8s_alias.avi.com", "dupK8s_alias.avi.com"}
 	newK8sHr.Status.Status = gslbutils.HostRuleRejected
-	// updateHostRule(t, K8s, newK8sHr)
 	updateHostRuleStatus(t, K8s, newK8sHr)
 
 	// ingMember is removed from expectedMembers as the hostrule is rejected
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
-	t.Logf("SWATHIN getTestGSMemberFromRoute %+v", expectedMembers)
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
@@ -621,7 +615,6 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	newOcHr := getTestHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
 	newOcHr.Spec.VirtualHost.Aliases = []string{"dupOc_alias.avi.com", "dupOc_alias.avi.com"}
 	newOcHr.Status.Status = gslbutils.HostRuleRejected
-	// updateHostRule(t, Oshift, newOcHr)
 	updateHostRuleStatus(t, Oshift, newOcHr)
 
 	// since both the hostrules are rejected the corresponding GS is deleted
@@ -778,7 +771,6 @@ func TestHostRuleInvalidToValidForCustomFqdn(t *testing.T) {
 	// update the hostrule to a valid one for the ingress object
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	newK8sHr.Status.Status = gslbutils.HostRuleAccepted
-	// updateHostRule(t, K8s, newK8sHr)
 	updateHostRuleStatus(t, K8s, newK8sHr)
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
@@ -818,7 +810,6 @@ func TestHostRuleValidToInvalidForCustomFqdn(t *testing.T) {
 	// change the ingress's host rule to invalid
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	newK8sHr.Status.Status = gslbutils.HostRuleRejected
-	// updateHostRule(t, K8s, newK8sHr)
 	updateHostRuleStatus(t, K8s, newK8sHr)
 
 	// GS graph should now have only one member
