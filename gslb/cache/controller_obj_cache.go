@@ -624,12 +624,14 @@ func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbal
 		fallbackAlgorithm = &f
 	}
 
-	hashMaskF, ok := group["consistent_hash_mask"].(float64)
-	if ok {
-		hashMaskI := int32(hashMaskF)
-		consistentHashMask = &hashMaskI
-	} else {
-		gslbutils.Debugf("couldn't parse hash mask: %v", group)
+	if a == gslbalphav1.PoolAlgorithmConsistentHash || f == gslbalphav1.PoolAlgorithmConsistentHash {
+		hashMaskF, ok := group["consistent_hash_mask"].(float64)
+		if ok {
+			hashMaskI := int32(hashMaskF)
+			consistentHashMask = &hashMaskI
+		} else {
+			gslbutils.Warnf("couldn't parse hash mask: %v", group)
+		}
 	}
 
 	return ParsePoolAlgorithmSettings(algorithm, fallbackAlgorithm, consistentHashMask)
