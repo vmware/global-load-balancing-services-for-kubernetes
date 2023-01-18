@@ -103,6 +103,11 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 		*out = new(v1alpha1.PoolAlgorithmSettings)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DownResponse != nil {
+		in, out := &in.DownResponse, &out.DownResponse
+		*out = new(v1alpha1.DownResponse)
+		**out = **in
+	}
 	return
 }
 

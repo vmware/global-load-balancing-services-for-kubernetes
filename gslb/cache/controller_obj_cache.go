@@ -377,6 +377,7 @@ type AviGSCache struct {
 	Members          []GSMember
 	K8sObjects       []string
 	HealthMonitor    []string
+	GSDownResponse   *gslbalphav1.DownResponse
 	CloudConfigCksum uint32
 	CreatedBy        string
 }
@@ -520,7 +521,7 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 	uuid = *gsObj.UUID
 
 	// find the health monitor for this object
-	cksum, gsMembers, memberObjs, hms, createdBy, err := GetDetailsFromAviGSLBFormatted(gsObj)
+	cksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, err := GetDetailsFromAviGSLBFormatted(gsObj)
 	if err != nil {
 		gslbutils.Errf("resp: %v, msg: error occurred while parsing the response: %s", gsObj, err)
 		// if we want to get avi gs object for a spefic gs name,
@@ -538,6 +539,7 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 		Members:          gsMembers,
 		K8sObjects:       memberObjs,
 		HealthMonitor:    hms,
+		GSDownResponse:   gsDownResponse,
 		CloudConfigCksum: cksum,
 		CreatedBy:        createdBy,
 	}
@@ -622,18 +624,65 @@ func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbal
 		fallbackAlgorithm = &f
 	}
 
-	hashMaskF, ok := group["consistent_hash_mask"].(float64)
-	if ok {
-		hashMaskI := int32(hashMaskF)
-		consistentHashMask = &hashMaskI
-	} else {
-		gslbutils.Logf("couldn't parse hash mask: %v", group["consistent_hash_mask"])
+	if a == gslbalphav1.PoolAlgorithmConsistentHash || f == gslbalphav1.PoolAlgorithmConsistentHash {
+		hashMaskF, ok := group["consistent_hash_mask"].(float64)
+		if ok {
+			hashMaskI := int32(hashMaskF)
+			consistentHashMask = &hashMaskI
+		} else {
+			gslbutils.Warnf("couldn't parse hash mask: %v", group)
+		}
 	}
 
 	return ParsePoolAlgorithmSettings(algorithm, fallbackAlgorithm, consistentHashMask)
 }
 
-func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, string, error) {
+func parseDownResponse(gsDownResponse *models.GslbServiceDownResponse) *gslbalphav1.DownResponse {
+	if gsDownResponse == nil {
+		return nil
+	}
+	response := &gslbalphav1.DownResponse{}
+	response.Type = *gsDownResponse.Type
+	if *gsDownResponse.Type == gslbalphav1.GSLBServiceDownResponseFallbackIP {
+		if gsDownResponse.FallbackIP != nil {
+			response.FallbackIP = *gsDownResponse.FallbackIP.Addr
+		}
+	}
+	return response
+}
+
+func parseDownResponseFromRaw(val interface{}) *gslbalphav1.DownResponse {
+	response, ok := val.(map[string]interface{})
+	if !ok {
+		gslbutils.Warnf("couldn't parse down response: %v", val)
+		return nil
+	}
+	responseType, ok := response["type"].(string)
+	if !ok {
+		gslbutils.Warnf("couldn't parse down response type: %v", val)
+		return nil
+	}
+	downResponse := &gslbalphav1.DownResponse{}
+	downResponse.Type = responseType
+	if responseType != gslbalphav1.GSLBServiceDownResponseFallbackIP {
+		return downResponse
+	}
+
+	fallbackIP, ok := response["fallback_ip"].(map[string]interface{})
+	if !ok {
+		gslbutils.Warnf("couldn't parse fallback address: %v", response)
+		return nil
+	}
+	addr, ok := fallbackIP["addr"].(string)
+	if !ok {
+		gslbutils.Warnf("couldn't parse fallback IP address: %v", response)
+		return nil
+	}
+	downResponse.FallbackIP = addr
+	return downResponse
+}
+
+func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMember, []string, []string, *gslbalphav1.DownResponse, string, error) {
 	var serverList, domainList, memberObjs []string
 	var hms []string
 	var gsMembers []GSMember
@@ -641,10 +690,11 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	var persistenceProfileRefPtr *string
 	var sitePersistenceRequired bool
 	var ttl *int
+	var gsDownResponse *gslbalphav1.DownResponse
 
 	domainNames := gsObj.DomainNames
 	if len(domainNames) == 0 {
-		return 0, nil, memberObjs, nil, createdBy, errors.New("domain names absent in gslb service")
+		return 0, nil, memberObjs, nil, gsDownResponse, createdBy, errors.New("domain names absent in gslb service")
 	}
 	// make a copy of the domain names list
 	for _, domain := range domainNames {
@@ -653,11 +703,11 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 	groups := gsObj.Groups
 	if len(groups) == 0 {
-		return 0, nil, memberObjs, nil, createdBy, errors.New("groups absent in gslb service")
+		return 0, nil, memberObjs, nil, gsDownResponse, createdBy, errors.New("groups absent in gslb service")
 	}
 
 	if gsObj.Description == nil || *gsObj.Description == "" {
-		return 0, nil, memberObjs, nil, createdBy, errors.New("description absent in gslb service")
+		return 0, nil, memberObjs, nil, gsDownResponse, createdBy, errors.New("description absent in gslb service")
 	}
 
 	if gsObj.CreatedBy != nil {
@@ -668,7 +718,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	for _, hmRef := range hmRefs {
 		hmRefSplit := strings.Split(hmRef, "/api/healthmonitor/")
 		if len(hmRefSplit) != 2 {
-			return 0, nil, memberObjs, nil, createdBy, errors.New("health monitor name is absent in health monitor ref: " + hmRefs[0])
+			return 0, nil, memberObjs, nil, gsDownResponse, createdBy, errors.New("health monitor name is absent in health monitor ref: " + hmRefs[0])
 		}
 		hmUUID := hmRefSplit[1]
 		hmCache := GetAviHmCache()
@@ -768,10 +818,13 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	if err != nil {
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
+
+	gsDownResponse = parseDownResponse(gsObj.DownResponse)
+
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, createdBy)
-	return checksum, gsMembers, memberObjs, hms, createdBy, nil
+		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, gsDownResponse, createdBy)
+	return checksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, nil
 }
 
 // As name is encoded, retreiving information about the Hm becomes difficult
@@ -848,28 +901,29 @@ func GetGSFromHmName(hmName string) (string, int8, error) {
 	return "", 0, fmt.Errorf("hmName: %s, hmDescription: %s, msg: hm is malformed, %v", hmName, hmDesc, err)
 }
 
-func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []string, string, error) {
+func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMember, []string, []string, *gslbalphav1.DownResponse, string, error) {
 	var serverList, domainList, memberObjs []string
 	var hms []string
 	var gsMembers []GSMember
 	var ttl *int
 	var createdBy string
+	var gsDownResponse *gslbalphav1.DownResponse
 
 	domainNames, ok := gslbSvcMap["domain_names"].([]interface{})
 	if !ok {
-		return 0, nil, memberObjs, hms, createdBy, errors.New("domain names absent in gslb service")
+		return 0, nil, memberObjs, hms, gsDownResponse, createdBy, errors.New("domain names absent in gslb service")
 	}
 	for _, domain := range domainNames {
 		domainList = append(domainList, domain.(string))
 	}
 	groups, ok := gslbSvcMap["groups"].([]interface{})
 	if !ok {
-		return 0, nil, memberObjs, hms, createdBy, errors.New("groups absent in gslb service")
+		return 0, nil, memberObjs, hms, gsDownResponse, createdBy, errors.New("groups absent in gslb service")
 	}
 
 	description, ok := gslbSvcMap["description"].(string)
 	if !ok {
-		return 0, nil, memberObjs, hms, createdBy, errors.New("description absent in gslb service")
+		return 0, nil, memberObjs, hms, gsDownResponse, createdBy, errors.New("description absent in gslb service")
 	}
 
 	createdBy, ok = gslbSvcMap["created_by"].(string)
@@ -884,7 +938,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			hmRefSplit := strings.Split(hmRef, "#")
 			if len(hmRefSplit) != 2 {
 				errStr := fmt.Sprintf("health monitor name is absent in health monitor ref: %v", hmRefSplit[0])
-				return 0, nil, memberObjs, hms, createdBy, errors.New(errStr)
+				return 0, nil, memberObjs, hms, gsDownResponse, createdBy, errors.New(errStr)
 			}
 			hm := hmRefSplit[1]
 			hms = append(hms, hm)
@@ -895,7 +949,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 
 	sitePersistenceEnabled, ok := gslbSvcMap["site_persistence_enabled"].(bool)
 	if !ok {
-		return 0, nil, memberObjs, hms, createdBy, errors.New("site_persistence_enabled absent in gslb service")
+		return 0, nil, memberObjs, hms, gsDownResponse, createdBy, errors.New("site_persistence_enabled absent in gslb service")
 	}
 
 	var persistenceProfileRef string
@@ -904,7 +958,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 		var ok bool
 		persistenceProfileRef, ok = gslbSvcMap["application_persistence_profile_ref"].(string)
 		if !ok {
-			return 0, nil, memberObjs, hms, createdBy,
+			return 0, nil, memberObjs, hms, gsDownResponse, createdBy,
 				errors.New("application_persistence_profile_ref absent in gslb service")
 		}
 		persistenceProfileRefPtr = &persistenceProfileRef
@@ -994,10 +1048,15 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	if err != nil {
 		gslbutils.Errf("object: GSLBService, msg: error while parsing description field: %s", err)
 	}
+
+	if val, ok := gslbSvcMap["down_response"]; ok {
+		gsDownResponse = parseDownResponseFromRaw(val)
+	}
+
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, createdBy)
-	return checksum, gsMembers, memberObjs, hms, createdBy, nil
+		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, gsDownResponse, createdBy)
+	return checksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, nil
 }
 
 func (c *AviCache) AviObjCachePopulate(client *clients.AviClient,

@@ -254,7 +254,7 @@ var Debugf = utils.AviLog.Debugf
 
 func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
 	persistenceProfileRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings,
-	createdBy string) uint32 {
+	downResponse *gslbalphav1.DownResponse, createdBy string) uint32 {
 
 	sort.Strings(serverList)
 	sort.Strings(domainList)
@@ -276,6 +276,7 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 		cksum += utils.Hash(*persistenceProfileRef)
 	}
 	cksum += getChecksumForPoolAlgorithm(pa)
+	cksum += getChecksumForDownResponse(downResponse)
 	return cksum
 }
 

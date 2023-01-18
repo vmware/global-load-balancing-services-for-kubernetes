@@ -141,6 +141,9 @@ type GSLBHostRuleSpec struct {
 	HealthMonitorTemplate *string `json:"healthMonitorTemplate,omitempty"`
 	// TrafficSplit defines the weightage of traffic that can be routed to each cluster.
 	TrafficSplit []TrafficSplitElem `json:"trafficSplit,omitempty"`
+	// DownResponse defines the properties of the DNS service such as response towards the client when the GSLB service is DOWN,
+	// fallback IP to use in A response to the client query.
+	DownResponse *DownResponse `json:"downResponse,omitempty"`
 }
 
 // PoolAlgorithmSettings define a set of properties to select the Gslb Algorithm for a Gslb
@@ -164,6 +167,13 @@ type SitePersistence struct {
 	ProfileRef string `json:"profileRef,omitempty"`
 }
 
+// DownResponse defines the properties of the DNS service such as response towards the client when the GSLB service is DOWN,
+// fallback IP to use in A response to the client query.
+type DownResponse struct {
+	Type       string `json:"type,omitempty"`
+	FallbackIP string `json:"fallbackIP,omitempty"`
+}
+
 // GSLBHostRuleStatus contains the current state of the GSLBHostRule resource. If the
 // current state is rejected, then an error message is also shown in the Error field.
 type GSLBHostRuleStatus struct {
@@ -181,4 +191,11 @@ const (
 	PoolAlgorithmGeo            = "GSLB_ALGORITHM_GEO"
 	PoolAlgorithmRoundRobin     = "GSLB_ALGORITHM_ROUND_ROBIN"
 	PoolAlgorithmTopology       = "GSLB_ALGORITHM_TOPOLOGY"
+)
+
+const (
+	GSLBServiceDownResponseNone       = "GSLB_SERVICE_DOWN_RESPONSE_NONE"
+	GSLBServiceDownResponseAllRecords = "GSLB_SERVICE_DOWN_RESPONSE_ALL_RECORDS"
+	GSLBServiceDownResponseFallbackIP = "GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP"
+	GSLBServiceDownResponseEmpty      = "GSLB_SERVICE_DOWN_RESPONSE_EMPTY"
 )

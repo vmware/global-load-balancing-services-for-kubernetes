@@ -245,6 +245,20 @@ func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName 
 	return false
 }
 
+func isGSLBDownResponseValid(responseType string, fallbackIP string) error {
+	switch responseType {
+	case gslbhralphav1.GSLBServiceDownResponseFallbackIP:
+		if fallbackIP == "" {
+			return fmt.Errorf("Fallback IP is required for %s", responseType)
+		}
+	default:
+		if fallbackIP != "" {
+			return fmt.Errorf("Fallback IP is not allowed for %s", responseType)
+		}
+	}
+	return nil
+}
+
 func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) error {
 	gslbhrName := gslbhr.ObjectMeta.Name
 	gslbhrSpec := gslbhr.Spec
@@ -307,6 +321,15 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 			}
 		}
 	}
+
+	// DownResponse check
+	if gslbhrSpec.DownResponse != nil {
+		err := isGSLBDownResponseValid(gslbhrSpec.DownResponse.Type, gslbhrSpec.DownResponse.FallbackIP)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
