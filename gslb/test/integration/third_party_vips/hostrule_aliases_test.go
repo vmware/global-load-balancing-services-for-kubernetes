@@ -16,6 +16,7 @@ package third_party_vips
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -158,6 +160,7 @@ func CreateHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1a
 	if err != nil {
 		t.Fatalf("error in creating hostrule for cluster %d: %v", cluster, err)
 	}
+	updateHostRuleStatus(t, cluster, hr)
 	t.Cleanup(func() {
 		DeleteHostRule(t, cluster, newHr.Name, newHr.Namespace)
 	})
@@ -173,6 +176,22 @@ func UpdateHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1a
 	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Update(context.TODO(), hr, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("error in updating hostrule for cluster %d: %v", cluster, err)
+	}
+	updateHostRuleStatus(t, cluster, hr)
+	return newHr
+}
+
+func updateHostRuleStatus(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
+	if err != nil {
+		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
+	}
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": hr.Status,
+	})
+	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Patch(context.TODO(), hr.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("error in updating the status of hostrule for cluster %d: %v", cluster, err)
 	}
 	return newHr
 }

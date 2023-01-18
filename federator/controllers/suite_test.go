@@ -35,7 +35,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -53,7 +52,7 @@ func TestAPIs(t *testing.T) {
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Federator Suite",
-		[]Reporter{printer.NewlineReporter{}})
+		[]Reporter{})
 }
 
 var cfg1 *rest.Config
@@ -61,6 +60,9 @@ var cfg2 *rest.Config
 
 var k8sClient1 client.Client
 var k8sClient2 client.Client
+
+var ctx context.Context
+var cancel context.CancelFunc
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -123,8 +125,11 @@ var _ = BeforeSuite(func() {
 	kdata := os.Getenv("GSLB_CONFIG")
 	fmt.Fprintf(GinkgoWriter, "kubeconfig data: %v", kdata)
 
+	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
+
 	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
@@ -580,6 +585,7 @@ var _ = Describe("Federation Consolidation Operations", func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	cancel()
 	err := testEnv1.Stop()
 	Expect(err).NotTo(HaveOccurred())
 	err = testEnv2.Stop()

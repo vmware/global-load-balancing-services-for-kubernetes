@@ -81,8 +81,8 @@ func AddIngressAndRouteObjects(t *testing.T, testPrefix string) (*networkingv1.I
 
 // Initialize HR names, Gfdn, expectedMembers. Creates GDP and return ingObj and routeObj
 func Initialize(t *testing.T, hrPrefix string, hmRefs []string) (*networkingv1.Ingress, *routev1.Route) {
-	hrNameK8s = hrPrefix + "hr"
-	hrNameOC = hrPrefix + "hr"
+	hrNameK8s = hrPrefix + "hr1"
+	hrNameOC = hrPrefix + "hr1"
 	gfqdn = "test-gs.avi.com"
 	expectedMembers = []nodes.AviGSK8sObj{}
 	AddTestGDPWithProperties(t, hmRefs, nil, nil, nil)
@@ -603,7 +603,7 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	newK8sHr.Spec.VirtualHost.Aliases = []string{"dupK8s_alias.avi.com", "dupK8s_alias.avi.com"}
 	newK8sHr.Status.Status = gslbutils.HostRuleRejected
-	updateHostRule(t, K8s, newK8sHr)
+	updateHostRuleStatus(t, K8s, newK8sHr)
 
 	// ingMember is removed from expectedMembers as the hostrule is rejected
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
@@ -615,7 +615,7 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	newOcHr := getTestHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
 	newOcHr.Spec.VirtualHost.Aliases = []string{"dupOc_alias.avi.com", "dupOc_alias.avi.com"}
 	newOcHr.Status.Status = gslbutils.HostRuleRejected
-	updateHostRule(t, Oshift, newOcHr)
+	updateHostRuleStatus(t, Oshift, newOcHr)
 
 	// since both the hostrules are rejected the corresponding GS is deleted
 	g.Eventually(func() bool {
@@ -771,7 +771,8 @@ func TestHostRuleInvalidToValidForCustomFqdn(t *testing.T) {
 	// update the hostrule to a valid one for the ingress object
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	newK8sHr.Status.Status = gslbutils.HostRuleAccepted
-	updateHostRule(t, K8s, newK8sHr)
+	updateHostRuleStatus(t, K8s, newK8sHr)
+
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, utils.ADMIN_NS, hmRefs, nil, nil,
@@ -809,7 +810,7 @@ func TestHostRuleValidToInvalidForCustomFqdn(t *testing.T) {
 	// change the ingress's host rule to invalid
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	newK8sHr.Status.Status = gslbutils.HostRuleRejected
-	updateHostRule(t, K8s, newK8sHr)
+	updateHostRuleStatus(t, K8s, newK8sHr)
 
 	// GS graph should now have only one member
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
@@ -895,7 +896,7 @@ func TestHostRuleInsecureToSecureForCustomFqdn(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "test-type"}
+	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "secret"}
 	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = testCert
 	updateHostRule(t, K8s, newK8sHr)
 
@@ -936,7 +937,7 @@ func TestHostRuleSecureToInsecureForCustomFqdn(t *testing.T) {
 	var expectedMembers []nodes.AviGSK8sObj
 	g := gomega.NewGomegaWithT(t)
 
-	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "test-type"}
+	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "secret"}
 
 	k8sHr := getHostRuleForCustomFqdn(hrNameK8s, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn,
 		gslbutils.HostRuleAccepted)

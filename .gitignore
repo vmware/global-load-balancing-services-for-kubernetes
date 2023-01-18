@@ -1,1 +1,2 @@
-bin/amko
+bin
+kubebuilder

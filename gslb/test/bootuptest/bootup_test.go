@@ -57,6 +57,9 @@ var testEnv2 *envtest.Environment
 
 var testScheme *runtime.Scheme
 
+var ctx context.Context
+var cancel context.CancelFunc
+
 const (
 	Cluster1                 = "cluster1"
 	Cluster2                 = "cluster2"
@@ -345,7 +348,7 @@ var _ = Describe("AMKO member cluster event handling", func() {
 	Context("when the leader field in member cluster changes", func() {
 		It("AMKO should reboot", func() {
 			By("Shutting Down AMKO api server")
-			ctx := context.Background()
+			ctx, cancel = context.WithCancel(context.Background())
 
 			// Create a fake API Server
 			amkoAPIServer := api.FakeApiServer{
@@ -374,6 +377,7 @@ var _ = Describe("AMKO member cluster event handling", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
+				defer GinkgoRecover()
 				if err := k8sManager.Start(ctx); err != nil {
 					Expect(err).ToNot(HaveOccurred())
 				}
@@ -426,21 +430,18 @@ var _ = Describe("AMKO bootup Validation", func() {
 
 	Context("One Member Cluster is down", func() {
 		Specify("AMKO Should boot up", func() {
-			var err error
-			err = testEnv2.Stop()
+			err := testEnv2.Stop()
 			Expect(err).To(BeNil())
 			ok, _ := ingestion.HandleBootup(cfg1)
 			Expect(ok).Should(BeTrue())
 
-			// save the new config in cfg2 for future test cases
-			cfg2, err = testEnv2.Start()
-			Expect(err).To(BeNil())
 		})
 	})
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	cancel()
 	err := testEnv1.Stop()
 	Expect(err).NotTo(HaveOccurred())
 	err = testEnv2.Stop()
