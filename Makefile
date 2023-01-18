@@ -24,15 +24,33 @@ all: vendor build
 
 .PHONY: build-amko
 build-amko:
-	$(GOBUILD) -o bin/$(AMKO_BIN) -mod=vendor $(AMKO_REL_PATH)
+	sudo docker run \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	go build \
+	-o /go/src/$(PACKAGE_PATH)/bin/$(AMKO_BIN) \
+	-mod=vendor \
+	/go/src/$(AMKO_REL_PATH)
 
 .PHONY: build-amko-federator
 build-amko-federator:
-	$(GOBUILD) -o bin/$(FEDERATOR_BIN) -mod=vendor $(FEDERATOR_REL_PATH)
+	sudo docker run \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	go build \
+	-o /go/src/$(PACKAGE_PATH)/bin/$(FEDERATOR_BIN) \
+	-mod=vendor \
+	/go/src/$(FEDERATOR_REL_PATH)
 
 .PHONY: build-amko-service-discovery
 build-amko-service-discovery:
-	$(GOBUILD) -o bin/$(SERVICE_DISCOVERY_BIN) -mod=vendor $(SERVICE_DISCOVERY_REL_PATH)
+	sudo docker run \
+	-w=/go/src/$(PACKAGE_PATH) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	go build \
+	-o /go/src/$(PACKAGE_PATH)/bin/$(SERVICE_DISCOVERY_BIN) \
+	-mod=vendor \
+	/go/src/$(SERVICE_DISCOVERY_REL_PATH)
 
 .PHONY: build
 build: build-amko build-amko-federator build-amko-service-discovery
