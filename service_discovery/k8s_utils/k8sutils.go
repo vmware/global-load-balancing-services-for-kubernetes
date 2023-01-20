@@ -20,8 +20,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	akov1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +31,9 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 )
 
 const (
@@ -235,7 +236,7 @@ func GetWorkqueueForCluster(cname string) []workqueue.RateLimitingInterface {
 
 func GetClusterListFromSharedClusters() []string {
 	result := []string{}
-	for cname, _ := range sharedClusterList {
+	for cname := range sharedClusterList {
 		result = append(result, cname)
 	}
 	return result

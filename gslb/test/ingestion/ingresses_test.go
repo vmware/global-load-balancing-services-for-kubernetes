@@ -200,7 +200,7 @@ func TestBasicIngressLabelChange(t *testing.T) {
 	ingObj.ResourceVersion = "101"
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
-	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// the key should be for DELETE, as we have amended the label on the ingress, which is not
 	// allowed by the GDP object selection criteria
 	buildIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// the ihm object should be moved from the accepted to the rejected store
@@ -251,7 +251,7 @@ func TestMultihostIngressLabelChange(t *testing.T) {
 	ingObj.ResourceVersion = "101"
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
-	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// the key should be for DELETE, as we have amended the label on the ingress, which is not
 	// allowed by the GDP object selection criteria
 	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, ingHostIPMap)
 	// both the ihms should be now moved to rejected list
@@ -310,7 +310,7 @@ func TestMultihostIngressHostAndLabelChange(t *testing.T) {
 	ingObj.ResourceVersion = "101"
 	k8sUpdateIngress(t, fooKubeClient, ns, cname, ingObj)
 
-	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// the key should be for DELETE, as we have amended the label on the ingress, which is not
 	// allowed by the GDP object selection criteria
 	buildIngMultiHostKeyAndVerify(t, false, "DELETE", cname, ns, ingName, ingHostIPMap)
 	// both the ihms should be moved from accepted store to the rejected store

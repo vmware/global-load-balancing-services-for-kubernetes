@@ -21,9 +21,10 @@ import (
 	"sort"
 	"sync"
 
+	networkingv1 "k8s.io/api/networking/v1"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
@@ -185,8 +186,6 @@ type IngressHostMeta struct {
 	Paths              []string
 	TLS                bool
 }
-
-var clusterHostMeta map[string]map[string]IngressHostMeta
 
 func (ing IngressHostMeta) GetType() string {
 	return gdpv1alpha2.IngressObj

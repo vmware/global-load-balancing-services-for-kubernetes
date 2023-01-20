@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1alpha1 contains API Schema definitions for the amko.vmware.com v1alpha1 API group
-//+kubebuilder:object:generate=true
-//+groupName=amko.vmware.com
+// +kubebuilder:object:generate=true
+// +groupName=amko.vmware.com
 package v1alpha1
 
 import (

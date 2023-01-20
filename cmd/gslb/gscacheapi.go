@@ -17,11 +17,12 @@ package main
 import (
 	"net/http"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 )
 
 type GSCacheAPI struct{}

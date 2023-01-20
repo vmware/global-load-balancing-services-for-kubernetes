@@ -26,15 +26,16 @@ import (
 	"encoding/json"
 
 	. "github.com/onsi/gomega"
-	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+	amkovmwarecomv1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+
+	amkov1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -241,7 +242,7 @@ func BuildAndCreateTestClusterset(mgmtAmkoClient *amkov1.Clientset) {
 			},
 		},
 	}
-	_, err := mgmtAmkoClient.AmkoV1alpha1().ClusterSets(sdutils.AviSystemNS).Create(context.TODO(),
+	_, err := mgmtAmkoClient.AkoV1alpha1().ClusterSets(sdutils.AviSystemNS).Create(context.TODO(),
 		&cs, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
@@ -350,7 +351,7 @@ func IsServiceImportExpected(ctx context.Context, mgmtClient *amkov1.Clientset, 
 	siName := cname + "--" + svc.GetNamespace() + "--" + svc.GetName()
 	fmt.Printf("fetching service import: %s\n", siName)
 
-	si, err := mgmtClient.AmkoV1alpha1().ServiceImports(sdutils.AviSystemNS).Get(ctx, siName, metav1.GetOptions{})
+	si, err := mgmtClient.AkoV1alpha1().ServiceImports(sdutils.AviSystemNS).Get(ctx, siName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Sprintf("unexpected error in getting service import %s: %v", siName, err)
 	}
@@ -428,7 +429,7 @@ func VerifyServiceImportNotExists(ctx context.Context, cname string, mgmtClient 
 	siName := cname + "--" + svc.GetNamespace() + "--" + svc.GetName()
 	Eventually(func() error {
 		fmt.Printf("searching for service import: %s\n", siName)
-		_, err := mgmtClient.AmkoV1alpha1().ServiceImports(sdutils.AviSystemNS).Get(ctx, siName, metav1.GetOptions{})
+		_, err := mgmtClient.AkoV1alpha1().ServiceImports(sdutils.AviSystemNS).Get(ctx, siName, metav1.GetOptions{})
 		return err
 	}, 5*time.Second, 1*time.Second).Should(HaveOccurred())
 }

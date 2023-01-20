@@ -21,8 +21,9 @@ package store
 import (
 	"sync"
 
-	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 )
 
 // Cluster Routes store for all the route objects.
@@ -356,7 +357,7 @@ func (store *ObjectStore) GetAllNamespaces() []string {
 	store.NSLock.RLock()
 	defer store.NSLock.RUnlock()
 	var allNamespaces []string
-	for ns, _ := range store.NSObjectMap {
+	for ns := range store.NSObjectMap {
 		allNamespaces = append(allNamespaces, ns)
 	}
 	return allNamespaces
@@ -368,7 +369,7 @@ func (store *ObjectStore) AddOrUpdate(key, objName string, obj interface{}) {
 	objStore := store.GetNSStore(key)
 	// Updating an object inside the object map requires a read lock on the ns store.
 	store.NSLock.RLock()
-	store.NSLock.RUnlock()
+	defer store.NSLock.RUnlock()
 	objStore.AddOrUpdate(objName, obj)
 }
 

@@ -21,10 +21,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/openshift/client-go/route/clientset/versioned/scheme"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
-	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	mciapi "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	mcics "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	mcischeme "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/scheme"
@@ -38,6 +34,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
+	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 )
 
 func ValidateMCIObj(mciObj *mciapi.MultiClusterIngress, clusterList []string) error {

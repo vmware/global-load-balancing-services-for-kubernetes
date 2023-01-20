@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
@@ -26,7 +28,6 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	gdpalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"

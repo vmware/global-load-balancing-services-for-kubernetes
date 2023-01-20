@@ -124,7 +124,7 @@ func TestMultiClusterIngressLabelChange(t *testing.T) {
 	ingObj.ResourceVersion = "101"
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
 
-	// the key should be for DELETE, as we have ammended the label on the ingress, which is not
+	// the key should be for DELETE, as we have amended the label on the ingress, which is not
 	// allowed by the GDP object selection criteria
 	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
 	// the ihm object should be moved from the accepted to the rejected store
@@ -392,16 +392,13 @@ func k8sAddMultiClusterIngress(t *testing.T, kc *crdfake.Clientset, name string,
 func k8sAddTLSMultiClusterIngress(t *testing.T, k8sCs *k8sfake.Clientset, cs *crdfake.Clientset, name string, ns string, svc string,
 	cname string, hostIPs map[string]string) *akov1alpha1.MultiClusterIngress {
 
-	var hosts []string
 	secretObj := buildk8sSecret(ns)
 	_, err := k8sCs.CoreV1().Secrets(ns).Create(context.TODO(), secretObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating secret: %v", err)
 	}
 	ingObj := buildMultiClusterIngressObj(name, ns, svc, cname, hostIPs, true)
-	for h := range hostIPs {
-		hosts = append(hosts, h)
-	}
+
 	ingObj.Spec.SecretName = secretObj.Name
 	_, err = cs.AkoV1alpha1().MultiClusterIngresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {

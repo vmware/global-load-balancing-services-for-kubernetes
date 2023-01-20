@@ -16,20 +16,22 @@ package nodes
 
 import (
 	"strings"
+	"sync"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	"google.golang.org/protobuf/proto"
 )
 
 // getSitePersistence returns the applicable site persistence for a GS object. Three conditions:
-// 1. GSLBHostRule contains site persistence, but it is disabled:
-//    Regardless of what's in the GDP object, we disable Site Persistence on this GS object.
-// 2. GSLBHostRule contains site persistence, it is enabled and a profile ref is given:
-//    We enable Site Persistence on the GS object and set the provided ref as the persistence ref.
-// 3. GSLBHostRule doesn't contain Site Persistence, we inherit the Site Persistence properties from
-//    the Global filter (GDP object).
+//  1. GSLBHostRule contains site persistence, but it is disabled:
+//     Regardless of what's in the GDP object, we disable Site Persistence on this GS object.
+//  2. GSLBHostRule contains site persistence, it is enabled and a profile ref is given:
+//     We enable Site Persistence on the GS object and set the provided ref as the persistence ref.
+//  3. GSLBHostRule doesn't contain Site Persistence, we inherit the Site Persistence properties from
+//     the Global filter (GDP object).
 func getSitePersistence(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gslbutils.GlobalFilter) *string {
 	if gsRuleExists && gsRule.SitePersistence != nil {
 		if gsRule.SitePersistence.Enabled {
@@ -57,6 +59,7 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 	// check if a GSLB Host Rule has been defined for this fqdn (gsName)
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	var gsRule gslbutils.GSHostRules
+	gsRule.Lock = new(sync.RWMutex)
 	var gsRuleExists bool
 
 	gsGraph.DomainNames = DeriveGSLBServiceDomainNames(gsFqdn)

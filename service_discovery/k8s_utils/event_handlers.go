@@ -15,12 +15,13 @@
 package k8sutils
 
 import (
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 )
 
 func SvcEventHandlers(numWorkers uint32, c *K8sClusterConfig) cache.ResourceEventHandler {

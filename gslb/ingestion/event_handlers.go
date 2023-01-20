@@ -28,11 +28,12 @@ import (
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 
-	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 )
 
 func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
@@ -489,7 +490,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname, lfqdn, gfqdn string, numWorkers uint32,
 	k8swq []workqueue.RateLimitingInterface) {
 
-	// primaryFqdn -> this is the fqdn choosen as the GSName
+	// primaryFqdn -> this is the fqdn chosen as the GSName
 	primaryFqdn := lfqdn
 	if gslbutils.GetCustomFqdnMode() {
 		primaryFqdn = gfqdn

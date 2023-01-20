@@ -28,6 +28,17 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
@@ -36,17 +47,6 @@ import (
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	apiextensionv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 const (
@@ -82,11 +82,8 @@ var (
 	stopCh               <-chan struct{}
 	apiURL               string
 	ingestionKeyChan     chan string
-	graphKeyChan         chan string
 	oshiftClient         *oshiftclient.Clientset
 	KubeBuilderAssetsVal string
-	routeCRD             apiextensionv1beta1.CustomResourceDefinition
-	hrCRD                apiextensionv1beta1.CustomResourceDefinition
 	defaultPath          = []string{"/"}
 )
 
@@ -274,7 +271,7 @@ func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname strin
 	patchPayload, _ := json.Marshal(map[string]interface{}{
 		"status": nil,
 	})
-	updatedIng, err := kc.NetworkingV1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	_, err := kc.NetworkingV1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in updating ingress %s/%s in cluster %s: %v", ingObj.Namespace, ingObj.Name, cname, err)
 	}
@@ -284,7 +281,7 @@ func k8sCleanupIngressStatus(t *testing.T, kc *kubernetes.Clientset, cname strin
 		},
 	}
 	patchPayloadBytes, _ := json.Marshal(patchPayloadJson)
-	updatedIng, err = kc.NetworkingV1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayloadBytes, metav1.PatchOptions{})
+	updatedIng, err := kc.NetworkingV1().Ingresses(ingObj.Namespace).Patch(context.TODO(), ingObj.Name, types.MergePatchType, patchPayloadBytes, metav1.PatchOptions{})
 	if err != nil {
 		t.Fatalf("error in updating ingress %s/%s in cluster %s: %v", ingObj.Namespace, ingObj.Name, cname, err)
 	}
@@ -296,7 +293,7 @@ func k8sAddLBService(t *testing.T, kc *kubernetes.Clientset, name, ns string, ho
 	hostname := name + "." + ns + "." + ingestion_test.TestDomain1
 	svcObj.Annotations = getAnnotations([]string{hostname})
 
-	svc, err := kc.CoreV1().Services(ns).Create(context.TODO(), svcObj, metav1.CreateOptions{})
+	_, err := kc.CoreV1().Services(ns).Create(context.TODO(), svcObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create service : %v", err)
 	}
@@ -305,7 +302,7 @@ func k8sAddLBService(t *testing.T, kc *kubernetes.Clientset, name, ns string, ho
 		"status": svcObj.Status,
 	})
 
-	svc, err = kc.CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	svc, err := kc.CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in patching service: %v", err)
 	}
@@ -369,7 +366,7 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 	// applying annotations
 	hostname := routeObj.Spec.Host
 	routeObj.Annotations = getAnnotations([]string{hostname})
-	newObj, err := oshiftClient.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
+	_, err := oshiftClient.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't create route obj: %v, err: %v", routeObj, err)
 	}
@@ -377,7 +374,7 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 	patchPayload, _ := json.Marshal(map[string]interface{}{
 		"status": routeObj.Status,
 	})
-	newObj, err = oshiftClient.RouteV1().Routes(ns).Patch(context.TODO(), routeObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	newObj, err := oshiftClient.RouteV1().Routes(ns).Patch(context.TODO(), routeObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("Couldn't update route obj: %v, err: %v", newObj, err)
 	}
@@ -430,9 +427,7 @@ func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc stri
 		ingPaths = append(ingPaths, ingPath)
 	}
 
-	var hosts []string
 	for ingHost, ingIP := range hostIPs {
-		hosts = append(hosts, ingHost)
 		ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1.IngressRule{
 			Host: ingHost,
 			IngressRuleValue: networkingv1.IngressRuleValue{

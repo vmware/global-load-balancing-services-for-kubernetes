@@ -18,6 +18,9 @@ import (
 	"context"
 	"fmt"
 
+	mcics "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/clusterset"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
@@ -25,8 +28,6 @@ import (
 	serviceimport "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/service_import"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
-	mcics "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func BootupSync(clusterConfigs []*k8sutils.K8sClusterConfig, mcics *mcics.Clientset) error {

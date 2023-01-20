@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/vmware/alb-sdk/go/models"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	avictrl "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -41,7 +42,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
@@ -49,9 +49,10 @@ import (
 	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	gslblisters "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/listers/amko/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
+
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/clientset/versioned"
 	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/informers/externalversions"
-	corev1 "k8s.io/api/core/v1"
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 
@@ -105,10 +106,6 @@ type K8SInformers struct {
 	Cs kubernetes.Interface
 }
 
-type ClusterCache struct {
-	clusterName string
-}
-
 type InitializeGSLBMemberClustersFn func(string, []gslbalphav1.MemberCluster) ([]*GSLBMemberController, error)
 type GSLBConfigAddfn func(obj interface{}, f InitializeGSLBMemberClustersFn) error
 
@@ -118,7 +115,6 @@ var (
 	insideCluster     bool
 	membersKubeConfig string
 	stopCh            <-chan struct{}
-	cacheOnce         sync.Once
 	informerTimeout   int64
 )
 
@@ -136,7 +132,6 @@ type GSLBConfigController struct {
 	gslbLister    gslblisters.GSLBConfigLister
 	gslbSynced    cache.InformerSynced
 	workqueue     workqueue.RateLimitingInterface
-	recorder      record.EventRecorder
 }
 
 func (gslbController *GSLBConfigController) Cleanup() {

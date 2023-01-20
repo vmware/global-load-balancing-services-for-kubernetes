@@ -17,10 +17,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 )
 
 type FilterAPI struct{}

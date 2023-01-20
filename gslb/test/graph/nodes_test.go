@@ -66,8 +66,8 @@ func setUp() {
 	setupQueue(testStopCh)
 	gf := gslbutils.GetGlobalFilter()
 	gf.ApplicableClusters = make(map[string]gslbutils.ClusterProperties)
-	gf.ApplicableClusters[FooCluster] = gslbutils.ClusterProperties{true}
-	gf.ApplicableClusters[BarCluster] = gslbutils.ClusterProperties{true}
+	gf.ApplicableClusters[FooCluster] = gslbutils.ClusterProperties{SyncVipsOnly: true}
+	gf.ApplicableClusters[BarCluster] = gslbutils.ClusterProperties{SyncVipsOnly: true}
 }
 
 func graphSyncFuncForTest(key interface{}, wg *sync.WaitGroup) error {
@@ -254,13 +254,13 @@ func TestGSGraphsForSingleIhms(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, false, 0, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -288,13 +288,13 @@ func TestGSGraphsForMultiIhms(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, true, 1, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -331,13 +331,13 @@ func TestGSGraphsForSingleIhmUpdate(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, updatedIhm1)
 	acceptedIngStore.DeleteClusterNSObj(updatedIhm1.Cluster, updatedIhm1.Namespace, updatedIhm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
 	verifyGsGraph(t, updatedIhm1, false, 0, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -384,13 +384,13 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, updatedIhm1)
 	acceptedIngStore.DeleteClusterNSObj(updatedIhm1.Cluster, updatedIhm1.Namespace, updatedIhm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
 	verifyGsGraph(t, updatedIhm1, true, 1, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, updatedIhm2)
 	acceptedIngStore.DeleteClusterNSObj(updatedIhm2.Cluster, updatedIhm2.Namespace, updatedIhm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm2.Hostname, false)
 	verifyGsGraph(t, updatedIhm2, false, 0, false)
 }
 
@@ -419,13 +419,13 @@ func TestGSGraphsForSingleSvc(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, svc1)
 	acceptedIngStore.DeleteClusterNSObj(svc1.Cluster, svc1.Namespace, svc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
 	verifyGsGraph(t, svc1, false, 0, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, svc2)
 	acceptedIngStore.DeleteClusterNSObj(svc2.Cluster, svc2.Namespace, svc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
 	verifyGsGraph(t, svc2, false, 0, false)
 }
 
@@ -453,13 +453,13 @@ func TestGSGraphsForMultiSvc(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, svc1)
 	acceptedIngStore.DeleteClusterNSObj(svc1.Cluster, svc1.Namespace, svc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
 	verifyGsGraph(t, svc1, true, 1, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, svc2)
 	acceptedIngStore.DeleteClusterNSObj(svc2.Cluster, svc2.Namespace, svc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
 	verifyGsGraph(t, svc2, false, 0, false)
 }
 
@@ -502,13 +502,13 @@ func TestGSGraphsForSingleSvcUpdate(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, updatedSvc1)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc1.Cluster, updatedSvc1.Namespace, updatedSvc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
 	verifyGsGraph(t, updatedSvc1, false, 0, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, svc2)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc2.Cluster, updatedSvc2.Namespace, updatedSvc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
 	verifyGsGraph(t, updatedSvc2, false, 0, false)
 }
 
@@ -551,13 +551,13 @@ func TestGSGraphsForMultiSvcUpdate(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, updatedSvc1)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc1.Cluster, updatedSvc1.Namespace, updatedSvc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
 	verifyGsGraph(t, updatedSvc1, true, 1, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, updatedSvc2)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc2.Cluster, updatedSvc2.Namespace, updatedSvc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
 	verifyGsGraph(t, updatedSvc2, false, 0, false)
 }
 
@@ -586,13 +586,13 @@ func TestGSGraphsForSingleMCIhms(t *testing.T) {
 	key1 := GetMCIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, false, 0, false)
 
 	key2 := GetMCIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -620,12 +620,12 @@ func TestGSGraphsForMultiMCIhms(t *testing.T) {
 	key1 := GetMCIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, true, 1, false)
 
 	key2 := GetMCIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }

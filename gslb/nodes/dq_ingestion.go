@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -74,7 +75,7 @@ func GetObjTrafficRatio(ns, cname string) int32 {
 	}
 	val, err := globalFilter.GetTrafficWeight(cname)
 	if err != nil {
-		gslbutils.Warnf("ns: %s, cname: %s, msg: error occured while fetching traffic info for this cluster, %s",
+		gslbutils.Warnf("ns: %s, cname: %s, msg: error occurred while fetching traffic info for this cluster, %s",
 			ns, cname, err.Error())
 		return 1
 	}
@@ -90,7 +91,7 @@ func GetObjTrafficPriority(ns, cname string) int32 {
 	}
 	val, err := globalFilter.GetTrafficPriority(cname)
 	if err != nil {
-		gslbutils.Warnf("ns: %s, cname: %s, msg: error occured while fetching traffic priority info for this cluster, %s",
+		gslbutils.Warnf("ns: %s, cname: %s, msg: error occurred while fetching traffic priority info for this cluster, %s",
 			ns, cname, err.Error())
 		return 10
 	}
@@ -333,7 +334,7 @@ func GetNewObj(objType string) (k8sobjects.MetaObject, error) {
 }
 
 func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.WorkerQueue) {
-	gslbutils.Logf("key: %s, objType: %s, msg: %s", key, objType, "recieved delete operation for object")
+	gslbutils.Logf("key: %s, objType: %s, msg: %s", key, objType, "received delete operation for object")
 
 	metaObj, err := GetNewObj(objType)
 	if err != nil {
@@ -494,7 +495,7 @@ func OperateOnHostRule(key string) {
 
 	switch op {
 	case gslbutils.ObjectAdd:
-		// TODO: Might be unneccessary code
+		// TODO: Might be unnecessary code
 		fqdnMap := gslbutils.GetFqdnMap()
 		fqdnMap.AddUpdateToFqdnMapping(gfqdn, lfqdn, cname)
 		DeleteAndAddGSGraphForFqdn(agl, lfqdn, gfqdn, key, cname)

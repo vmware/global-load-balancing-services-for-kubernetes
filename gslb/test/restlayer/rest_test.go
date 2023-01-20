@@ -78,7 +78,7 @@ func setUp() {
 
 func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType string) nodes.AviGSObjectGraph {
 	memberObjs := []nodes.AviGSK8sObj{}
-	for idx, _ := range clusterList {
+	for idx := range clusterList {
 		memberObj := nodes.AviGSK8sObj{
 			Cluster:   clusterList[idx],
 			ObjType:   objType,

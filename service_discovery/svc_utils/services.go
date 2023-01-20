@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 
 var acceptedServiceTypes []string = []string{
