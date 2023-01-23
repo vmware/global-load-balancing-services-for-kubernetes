@@ -74,9 +74,8 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.Lock != nil {
-		out.Lock = new(sync.RWMutex)
-	}
+	out.Lock = new(sync.RWMutex)
+
 	out.GslbPoolAlgorithm = in.GslbPoolAlgorithm.DeepCopy()
 	out.GslbDownResponse = in.GslbDownResponse.DeepCopy()
 }
