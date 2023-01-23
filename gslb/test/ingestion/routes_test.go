@@ -328,7 +328,7 @@ func TestStatusChangeFromEmptyRoute(t *testing.T) {
 	DeleteTestGDPObj(gdp)
 }
 
-/*func testStatusChangeIPAddrRoute(t *testing.T) {
+func TestStatusChangeIPAddrRoute(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testPrefix := "rscip-"
 	routeName := testPrefix + "def-route"
@@ -355,4 +355,4 @@ func TestStatusChangeFromEmptyRoute(t *testing.T) {
 	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, newIPAddr)
 	DeleteTestGDPObj(gdp)
-}*/
+}

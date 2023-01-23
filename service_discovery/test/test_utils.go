@@ -26,7 +26,7 @@ import (
 	"encoding/json"
 
 	. "github.com/onsi/gomega"
-	amkovmwarecomv1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	akovmwarecomv1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +35,7 @@ import (
 
 	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 
-	amkov1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	akov1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -224,15 +224,15 @@ func BuildTestTenantSecretObj(kubeCfgData []byte) *corev1.Secret {
 	}
 }
 
-func BuildAndCreateTestClusterset(mgmtAmkoClient *amkov1.Clientset) {
-	cs := amkovmwarecomv1alpha1.ClusterSet{
+func BuildAndCreateTestClusterset(mgmtAmkoClient *akov1.Clientset) {
+	cs := akovmwarecomv1alpha1.ClusterSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      TestClustersetName,
 			Namespace: sdutils.AviSystemNS,
 		},
-		Spec: amkovmwarecomv1alpha1.ClusterSetSpec{
+		Spec: akovmwarecomv1alpha1.ClusterSetSpec{
 			SecretName: TestMemberClusterSecret,
-			Clusters: []amkovmwarecomv1alpha1.ClusterConfig{
+			Clusters: []akovmwarecomv1alpha1.ClusterConfig{
 				{
 					Context: MemberCluster1,
 				},
@@ -247,13 +247,13 @@ func BuildAndCreateTestClusterset(mgmtAmkoClient *amkov1.Clientset) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func getTestMCIObj(mciName string, configs []amkovmwarecomv1alpha1.BackendConfig) *amkovmwarecomv1alpha1.MultiClusterIngress {
-	return &amkovmwarecomv1alpha1.MultiClusterIngress{
+func getTestMCIObj(mciName string, configs []akovmwarecomv1alpha1.BackendConfig) *akovmwarecomv1alpha1.MultiClusterIngress {
+	return &akovmwarecomv1alpha1.MultiClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mciName,
 			Namespace: sdutils.AviSystemNS,
 		},
-		Spec: amkovmwarecomv1alpha1.MultiClusterIngressSpec{
+		Spec: akovmwarecomv1alpha1.MultiClusterIngressSpec{
 			Hostname:   "abc.avi.com",
 			SecretName: "test-secret",
 			Config:     configs,
@@ -261,13 +261,13 @@ func getTestMCIObj(mciName string, configs []amkovmwarecomv1alpha1.BackendConfig
 	}
 }
 
-func getTestBackendDefaultConfigs() []amkovmwarecomv1alpha1.BackendConfig {
-	return []amkovmwarecomv1alpha1.BackendConfig{
+func getTestBackendDefaultConfigs() []akovmwarecomv1alpha1.BackendConfig {
+	return []akovmwarecomv1alpha1.BackendConfig{
 		{
 			Path:           "/foo",
 			ClusterContext: MemberCluster1,
 			Weight:         50,
-			Service: amkovmwarecomv1alpha1.Service{
+			Service: akovmwarecomv1alpha1.Service{
 				Name:      Cluster1TestSvc,
 				Port:      Cluster1TestSvcPort,
 				Namespace: Cluster1TestNS,
@@ -277,7 +277,7 @@ func getTestBackendDefaultConfigs() []amkovmwarecomv1alpha1.BackendConfig {
 			Path:           "/bar",
 			ClusterContext: MemberCluster2,
 			Weight:         50,
-			Service: amkovmwarecomv1alpha1.Service{
+			Service: akovmwarecomv1alpha1.Service{
 				Name:      Cluster2TestSvc,
 				Port:      Cluster2TestSvcPort,
 				Namespace: Cluster2TestNS,
@@ -336,8 +336,8 @@ func getTestNode(nodeName, nodeIP string) *corev1.Node {
 	}
 }
 
-func VerifyServiceImport(ctx context.Context, cname string, mgmtClient *amkov1.Clientset, obj *corev1.Service,
-	kubeClient *kubernetes.Clientset, newMCIObj *amkovmwarecomv1alpha1.MultiClusterIngress, nodes []string,
+func VerifyServiceImport(ctx context.Context, cname string, mgmtClient *akov1.Clientset, obj *corev1.Service,
+	kubeClient *kubernetes.Clientset, newMCIObj *akovmwarecomv1alpha1.MultiClusterIngress, nodes []string,
 	excludePorts []int32) {
 
 	Eventually(func() string {
@@ -345,7 +345,7 @@ func VerifyServiceImport(ctx context.Context, cname string, mgmtClient *amkov1.C
 	}, 5*time.Second, 1*time.Second).Should(Equal("success"))
 }
 
-func IsServiceImportExpected(ctx context.Context, mgmtClient *amkov1.Clientset, svc *corev1.Service,
+func IsServiceImportExpected(ctx context.Context, mgmtClient *akov1.Clientset, svc *corev1.Service,
 	cname string, nodes []string, excludePorts []int32) string {
 
 	siName := cname + "--" + svc.GetNamespace() + "--" + svc.GetName()
@@ -425,7 +425,7 @@ func BuildTestNamespace(name string) *corev1.Namespace {
 	}
 }
 
-func VerifyServiceImportNotExists(ctx context.Context, cname string, mgmtClient *amkov1.Clientset, svc *corev1.Service) {
+func VerifyServiceImportNotExists(ctx context.Context, cname string, mgmtClient *akov1.Clientset, svc *corev1.Service) {
 	siName := cname + "--" + svc.GetNamespace() + "--" + svc.GetName()
 	Eventually(func() error {
 		fmt.Printf("searching for service import: %s\n", siName)
