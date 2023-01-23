@@ -16,7 +16,6 @@ package nodes
 
 import (
 	"strings"
-	"sync"
 
 	"google.golang.org/protobuf/proto"
 
@@ -59,7 +58,6 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 	// check if a GSLB Host Rule has been defined for this fqdn (gsName)
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	var gsRule gslbutils.GSHostRules
-	gsRule.Lock = new(sync.RWMutex)
 	var gsRuleExists bool
 
 	gsGraph.DomainNames = DeriveGSLBServiceDomainNames(gsFqdn)

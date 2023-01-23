@@ -225,9 +225,6 @@ type AviGSObjectGraph struct {
 }
 
 func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	if len(num) > 0 {
@@ -238,18 +235,12 @@ func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
 }
 
 func (v *AviGSObjectGraph) GetRetryCounter() int {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 	return v.RetryCount
 }
 
 func (v *AviGSObjectGraph) DecrementRetryCounter() {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	if v.RetryCount > 0 {
@@ -316,7 +307,7 @@ func (v *AviGSObjectGraph) GetMemberObjList() []string {
 }
 
 func NewAviGSObjectGraph() *AviGSObjectGraph {
-	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount}
+	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount, Lock: &sync.RWMutex{}}
 }
 
 func (v *AviGSObjectGraph) BuildPathHM(gsName, path string, isSec bool) PathHealthMonitorDetails {
@@ -486,9 +477,6 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitorsFromObj(obj AviGSK8sObj, 
 } */
 
 func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj bool, tls bool) {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -513,9 +501,6 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj
 }
 
 func (v *AviGSObjectGraph) GetGSMembersByCluster(cname string) []AviGSK8sObj {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 
@@ -527,9 +512,6 @@ func (v *AviGSObjectGraph) GetGSMembersByCluster(cname string) []AviGSK8sObj {
 }
 
 func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []AviGSK8sObj) {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -630,9 +612,6 @@ func (v *AviGSObjectGraph) updateGSHmPathListAndProtocol() {
 }
 
 func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool) {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -644,9 +623,6 @@ func (v *AviGSObjectGraph) SetPropertiesForGS(gsFqdn string, tls bool) {
 func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 	v.SetPropertiesForGS(v.Name, newMember.TLS)
 
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -724,9 +700,6 @@ func (v *AviGSObjectGraph) UpdateGSMemberFromMetaObj(metaObj k8sobjects.MetaObje
 
 func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
 	idx := -1
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 	for i, memberObj := range v.MemberObjs {
@@ -779,18 +752,12 @@ func (v *AviGSObjectGraph) GetHmPathNamesList() []string {
 }
 
 func (v *AviGSObjectGraph) MembersLen() int {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 	return len(v.MemberObjs)
 }
 
 func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSK8sObj {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 	for _, member := range v.MemberObjs {
@@ -802,9 +769,6 @@ func (v *AviGSObjectGraph) GetGSMember(cname, ns, name string) AviGSK8sObj {
 }
 
 func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 	objs := make([]AviGSK8sObj, len(v.MemberObjs))
@@ -823,9 +787,6 @@ func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 // GetUniqueMemberObjs returns a non-duplicated list of objects, uniqueness is checked by the IPAddr
 // TODO: Check the uniqueness depending on the member type (vip or vs uuid)
 func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 
@@ -854,9 +815,6 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 }
 
 func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
-	if v.Lock == nil {
-		v.Lock = new(sync.RWMutex)
-	}
 	v.Lock.RLock()
 	defer v.Lock.RUnlock()
 
@@ -898,7 +856,6 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDomainNames []string) (AviGSK8sObj, error) {
 	// Update the GS fields
 	var ghRules gslbutils.GSHostRules
-	ghRules.Lock = new(sync.RWMutex)
 	var svcPort int32
 	var svcProtocol string
 

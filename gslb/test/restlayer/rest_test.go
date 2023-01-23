@@ -109,7 +109,9 @@ func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType stri
 				},
 			},
 		},
+		Lock: &sync.RWMutex{},
 	}
+
 	gsGraph.GetChecksum()
 	return gsGraph
 }
