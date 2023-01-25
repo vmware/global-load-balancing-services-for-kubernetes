@@ -1,2 +1,3 @@
 bin
 kubebuilder
+.golangci-bin/

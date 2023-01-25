@@ -25,14 +25,15 @@ import (
 	b64 "encoding/base64"
 
 	. "github.com/onsi/gomega"
-	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -206,6 +207,8 @@ func getTestAMKOClusterStatusReason(status amkovmwarecomv1alpha1.AMKOClusterStat
 	return map[string]string{}
 }
 
+/*
+
 func getTestAMKOClusterStatusMsg(status amkovmwarecomv1alpha1.AMKOClusterStatus, statusType string) string {
 	for _, condition := range status.Conditions {
 		if condition.Type == statusType {
@@ -213,7 +216,7 @@ func getTestAMKOClusterStatusMsg(status amkovmwarecomv1alpha1.AMKOClusterStatus,
 		}
 	}
 	return ""
-}
+}*/
 
 func getTestGCObj() gslbalphav1.GSLBConfig {
 	return gslbalphav1.GSLBConfig{

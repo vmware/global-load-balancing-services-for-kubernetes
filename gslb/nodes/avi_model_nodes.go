@@ -19,13 +19,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 )
 
 const (
@@ -219,7 +221,7 @@ type AviGSObjectGraph struct {
 	TTL                *int
 	GslbPoolAlgorithm  *gslbalphav1.PoolAlgorithmSettings
 	GslbDownResponse   *gslbalphav1.DownResponse
-	Lock               sync.RWMutex
+	Lock               *sync.RWMutex
 }
 
 func (v *AviGSObjectGraph) SetRetryCounter(num ...int) {
@@ -305,7 +307,7 @@ func (v *AviGSObjectGraph) GetMemberObjList() []string {
 }
 
 func NewAviGSObjectGraph() *AviGSObjectGraph {
-	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount}
+	return &AviGSObjectGraph{RetryCount: gslbutils.DefaultRetryCount, Lock: &sync.RWMutex{}}
 }
 
 func (v *AviGSObjectGraph) BuildPathHM(gsName, path string, isSec bool) PathHealthMonitorDetails {
@@ -384,7 +386,7 @@ func (v *AviGSObjectGraph) buildNonPathHealthMonitorFromObj(port int32, isPassth
 	v.MemberObjs[0].Proto = protocol
 }
 
-func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObject, key string) {
+/* func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObject, key string) {
 	port, err := metaObj.GetPort()
 	if err != nil {
 		gslbutils.Errf("key: %s, gsName: %s, msg: port not found for this object", key, v.Name)
@@ -416,7 +418,7 @@ func (v *AviGSObjectGraph) buildNonPathHealthMonitor(metaObj k8sobjects.MetaObje
 	}
 	v.MemberObjs[0].Port = port
 	v.MemberObjs[0].Proto = protocol
-}
+} */
 
 func (v *AviGSObjectGraph) buildAndAttachHealthMonitorsFromObj(obj AviGSK8sObj, key string) {
 	objType := obj.ObjType
@@ -444,7 +446,7 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitorsFromObj(obj AviGSK8sObj, 
 	}
 }
 
-func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaObject, key string) {
+/* func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaObject, key string) {
 	objType := metaObj.GetType()
 	if objType == gslbutils.SvcType {
 		v.buildNonPathHealthMonitor(metaObj, key)
@@ -472,7 +474,7 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitors(metaObj k8sobjects.MetaO
 		v.Hm.HMProtocol = gslbutils.SystemGslbHealthMonitorHTTP
 		v.Hm.Port = gslbutils.DefaultHTTPHealthMonitorPort
 	}
-}
+} */
 
 func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj bool, tls bool) {
 	v.Lock.Lock()
@@ -847,6 +849,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	for _, memberObj := range v.MemberObjs {
 		gsObjCopy.MemberObjs = append(gsObjCopy.MemberObjs, memberObj.getCopy())
 	}
+	gsObjCopy.Lock = new(sync.RWMutex)
 	return &gsObjCopy
 }
 

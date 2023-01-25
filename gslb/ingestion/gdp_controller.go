@@ -68,8 +68,6 @@ type GDPController struct {
 	gdpclientset  gdpcs.Interface
 	gdpLister     gdplisters.GlobalDeploymentPolicyLister
 	gdpSynced     cache.InformerSynced
-	workqueue     workqueue.RateLimitingInterface
-	recorder      record.EventRecorder
 }
 
 func (gdpController *GDPController) Run(stopCh <-chan struct{}) error {
@@ -108,7 +106,8 @@ func MoveNSObjs(nsObjs []string, fromStore *store.ObjectStore, toStore *store.Ob
 
 // MoveObjs moves the objects in "objList" from "fromStore" to "toStore".
 // TODO: call this function via an interface, so we can remove dependency
-//       on objType.
+//
+//	on objType.
 func MoveObjs(objList []string, fromStore *store.ClusterStore, toStore *store.ClusterStore, objType string) {
 	var cname, ns, objName string
 	var err error
@@ -277,7 +276,7 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 	}
 }
 
-func validObjectType(objType string) bool {
+/* func validObjectType(objType string) bool {
 	if objType == gdpalphav2.IngressObj ||
 		objType == gdpalphav2.LBSvcObj ||
 		objType == gdpalphav2.RouteObj ||
@@ -285,7 +284,7 @@ func validObjectType(objType string) bool {
 		return true
 	}
 	return false
-}
+} */
 
 func validLabel(label map[string]string) error {
 	for k, v := range label {

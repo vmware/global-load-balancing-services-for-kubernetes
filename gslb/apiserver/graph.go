@@ -16,9 +16,10 @@ package apiserver
 import (
 	"net/http"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 )
 
 type GSGraphAPI struct{}

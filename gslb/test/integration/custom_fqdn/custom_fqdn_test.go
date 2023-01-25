@@ -26,6 +26,13 @@ import (
 	"github.com/onsi/gomega/types"
 
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
@@ -35,12 +42,6 @@ import (
 	gslbinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 	gdpcs "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/clientset/versioned"
 	gdpinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha2/informers/externalversions"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 func TestMain(m *testing.M) {
@@ -86,7 +87,7 @@ func StartEnvClusters() {
 	for idx, testEnv := range testEnvs {
 		cfgs[idx], err = testEnv.Start()
 		if err != nil {
-			gslbutils.Errf("error occured while starting test env cluster %d: %v", idx, err)
+			gslbutils.Errf("error occurred while starting test env cluster %d: %v", idx, err)
 			CleanupAndExit()
 		}
 		gslbutils.Logf("started cluster %d", idx)
@@ -100,7 +101,7 @@ func SetUpClients() {
 		cfg.Transport = nil
 		clientset, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
-			gslbutils.Errf("error occured while fetching clientset for cluster %d: %v", idx, err)
+			gslbutils.Errf("error occurred while fetching clientset for cluster %d: %v", idx, err)
 			CleanupAndExit()
 		}
 		gslbutils.Logf("set up the clientset for cluster %d", idx)
@@ -114,7 +115,7 @@ func SetUpClients() {
 	clusterClients[ConfigCluster].CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
 	oc, err := oshiftclient.NewForConfig(cfgs[Oshift])
 	if err != nil {
-		gslbutils.Errf("error occured while fetching the openshift client: %v", err)
+		gslbutils.Errf("error occurred while fetching the openshift client: %v", err)
 		CleanupAndExit()
 	}
 	oshiftClient = oc
@@ -127,7 +128,7 @@ func SyncFromTestIngestionLayer(key interface{}, wg *sync.WaitGroup) error {
 		return nil
 	}
 
-	gslbutils.Logf("recieved key from ingestion layer: %s", key)
+	gslbutils.Logf("received key from ingestion layer: %s", key)
 	ingestionKeyChan <- keyStr
 
 	return nil
@@ -140,7 +141,7 @@ func SyncFromTestNodesLayer(key interface{}, wg *sync.WaitGroup) error {
 		return nil
 	}
 
-	gslbutils.Logf("recived key from graph layer: %s", key)
+	gslbutils.Logf("received key from graph layer: %s", key)
 	graphKeyChan <- keyStr
 
 	return nil
@@ -174,14 +175,14 @@ func SetUpAMKOConfigs() {
 
 	gslbClient, err := gslbcs.NewForConfig(cfgs[ConfigCluster])
 	if err != nil {
-		gslbutils.Errf("error occured while creating a clientset for gslb: %v", err)
+		gslbutils.Errf("error occurred while creating a clientset for gslb: %v", err)
 		CleanupAndExit()
 	}
 	amkoControlConfig.SetGSLBClientset(gslbClient)
 
 	gdpClient, err := gdpcs.NewForConfig(cfgs[ConfigCluster])
 	if err != nil {
-		gslbutils.Errf("error occured while creating a clientset for gdp: %v", err)
+		gslbutils.Errf("error occurred while creating a clientset for gdp: %v", err)
 		CleanupAndExit()
 	}
 	amkoControlConfig.SetGDPClientset(gdpClient)

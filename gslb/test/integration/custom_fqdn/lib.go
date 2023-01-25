@@ -24,18 +24,11 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
-	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,6 +36,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 )
 
 const (
@@ -76,8 +75,6 @@ var (
 	graphKeyChan         chan string
 	oshiftClient         *oshiftclient.Clientset
 	KubeBuilderAssetsVal string
-	routeCRD             apiextensionv1.CustomResourceDefinition
-	hrCRD                apiextensionv1.CustomResourceDefinition
 )
 
 var appLabel map[string]string = map[string]string{"key": "value"}
@@ -585,6 +582,7 @@ func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID st
 	}
 }
 
+/*
 func buildGSLBHostRule(name, ns, gsFqdn string, sitePersistence *gslbalphav1.SitePersistence,
 	hmRefs []string, ttl *int) *gslbalphav1.GSLBHostRule {
 	return &gslbalphav1.GSLBHostRule{
@@ -644,7 +642,7 @@ func getGSLBHostRule(t *testing.T, name, ns string) *gslbalphav1.GSLBHostRule {
 		t.Fatalf("error in getting GSLB HostRule %s/%s: %v", ns, name, err)
 	}
 	return obj
-}
+}*/
 
 func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 	g := gomega.NewGomegaWithT(t)
@@ -695,6 +693,7 @@ func getDefaultAliases(objType string) []string {
 	}
 }
 
+/*
 func getHostRuleWithAliases(name, objType, ns, lfqdn, status string, aliases []string) *akov1alpha1.HostRule {
 	if aliases == nil {
 		aliases = getDefaultAliases(objType)
@@ -702,7 +701,7 @@ func getHostRuleWithAliases(name, objType, ns, lfqdn, status string, aliases []s
 	hr := getDefaultHostRule(name, ns, lfqdn, status)
 	hr.Spec.VirtualHost.Aliases = aliases
 	return hr
-}
+}*/
 
 func getHostRuleWithAliasesForCustomFqdn(name, objType, ns, lfqdn, gfqdn, status string, aliases []string, includeAliases bool) *akov1alpha1.HostRule {
 	if aliases == nil {

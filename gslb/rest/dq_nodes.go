@@ -31,12 +31,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	avimodels "github.com/vmware/alb-sdk/go/models"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
+
+	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 )
 
 const (
@@ -462,7 +463,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 				if op == nil {
 					gslbutils.Errf("key: %s, gsKey: %s, msg: couldn't build a rest operation for health monitor, returning",
 						key, gsKey)
-					// won't retry in this case as this was a case of bad model we recieved from layer 2
+					// won't retry in this case as this was a case of bad model we received from layer 2
 					return
 				}
 				hmKey := avicache.TenantName{Tenant: aviGSGraph.Tenant, Name: aviGSGraph.Hm.Name}
@@ -517,8 +518,8 @@ func AviRestOperateWrapper(restOp *RestOperations, aviClient *clients.AviClient,
 	case err := <-restTimeoutChan:
 		return err
 	case <-time.After(gslbutils.RestTimeoutSecs * time.Second):
-		gslbutils.Errf(spew.Sprintf("operation: %v, err: rest timeout occured", operation))
-		return errors.New("rest timeout occured")
+		gslbutils.Errf(spew.Sprintf("operation: %v, err: rest timeout occurred", operation))
+		return errors.New("rest timeout occurred")
 	}
 }
 
@@ -534,7 +535,7 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 		err := AviRestOperateWrapper(restOp, aviClient, operation)
 		gslbutils.Debugf("key: %s, queue: %d, msg: avi rest operate wrapper response, %v", key, bkt, err)
 		if err != nil {
-			if err.Error() == "rest timeout occured" {
+			if err.Error() == "rest timeout occurred" {
 				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
 				restOp.PublishKeyToRetryLayer(gsKey, hmKey, err, key)
 				return
@@ -666,8 +667,8 @@ func (restOp *RestOperations) PublishKeyToRetryLayer(gsKey, hmKey *avicache.Tena
 
 	gslbutils.Debugf("key: %s, gsKey: %v, hmKey: %v, msg: evaluating whether to publish to retry queue",
 		key, gsKey, hmKey)
-	if webApiErr.Error() == "rest timeout occured" {
-		gslbutils.Errf("gsKey: %v, hmKey: %v, msg: timeout occured while doing rest call", gsKey, hmKey)
+	if webApiErr.Error() == "rest timeout occurred" {
+		gslbutils.Errf("gsKey: %v, hmKey: %v, msg: timeout occurred while doing rest call", gsKey, hmKey)
 		// if this error occurs, we will reset the error counter, so it keeps on retrying until it has
 		// nothing to do for this key
 		err := setRetryCounterForGraph(key)
@@ -1216,7 +1217,7 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 	err := AviRestOperateWrapper(restOp, aviclient, restOps)
 	if err != nil {
 		gslbutils.Warnf("key: %s, HealthMonitor: %s, msg: %s", key, hmName, "failed to delete, will retry")
-		if err.Error() == "rest timeout occured" {
+		if err.Error() == "rest timeout occurred" {
 			gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
 			restOp.PublishKeyToRetryLayer(nil, &hmKey, err, key)
 			return err
@@ -1246,51 +1247,51 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderErr)
 		return
 	}
+
 	gsName := gsCacheObj.Name
 	gsKey := avicache.TenantName{Tenant: tenant, Name: gsCacheObj.Name}
-	if gsCacheObj != nil {
-		operation := restOp.AviGSDel(gsCacheObj.Uuid, tenant, key, gsCacheObj.Name)
-		restOps = operation
-		err := AviRestOperateWrapper(restOp, aviclient, restOps)
-		gslbutils.Debugf("key: %s, GSLBService: %s, msg: avi rest operate wrapper response %v", key, gsCacheObj.Uuid, err)
-		if err != nil {
-			gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
-				"failed to delete GSLB Service")
-			if err.Error() == "rest timeout occured" {
-				gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
-				restOp.PublishKeyToRetryLayer(&gsKey, nil, err, key)
-				return
-			}
-			webSyncErr, ok := err.(*utils.WebSyncError)
-			if !ok {
-				gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
-					"got an improper web api error, publishing to retry queue")
-			}
-			restOp.PublishKeyToRetryLayer(&gsKey, nil, webSyncErr.GetWebAPIError(), key)
+	operation := restOp.AviGSDel(gsCacheObj.Uuid, tenant, key, gsCacheObj.Name)
+	restOps = operation
+	err := AviRestOperateWrapper(restOp, aviclient, restOps)
+	gslbutils.Debugf("key: %s, GSLBService: %s, msg: avi rest operate wrapper response %v", key, gsCacheObj.Uuid, err)
+	if err != nil {
+		gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
+			"failed to delete GSLB Service")
+		if err.Error() == "rest timeout occurred" {
+			gslbutils.Errf("key: %s, queue: %d, msg: got a rest timeout", key, bkt)
+			restOp.PublishKeyToRetryLayer(&gsKey, nil, err, key)
 			return
 		}
-
-		// Clear all the cache objects which were deleted
-		restOp.AviGSCacheDel(restOp.cache, operation, key)
-
-		// if no HM refs for this GS, delete all HMs for this GS
-		if len(gsGraph.HmRefs) == 0 {
-			for _, hmName := range gsCacheObj.HealthMonitor {
-				// check if this HM is created by AMKO, if not, don't try to remove it
-				if !gslbutils.HMCreatedByAMKO(hmName) {
-					continue
-				}
-				err = restOp.deleteHmIfRequired(gsName, tenant, key, gsCacheObj, gsKey, hmName)
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			gslbutils.Debugf("key: %s, GSLBService: %s, msg: won't remove HM refs", key, gsGraph.Name)
+		webSyncErr, ok := err.(*utils.WebSyncError)
+		if !ok {
+			gslbutils.Errf("key: %s, GSLBService: %s, msg: %s", key, gsCacheObj.Uuid,
+				"got an improper web api error, publishing to retry queue")
 		}
-		gslbutils.Logf("key: %s, msg: deleting key from layer 2 delete cache", key)
-		nodes.SharedDeleteGSGraphLister().Delete(key)
+		restOp.PublishKeyToRetryLayer(&gsKey, nil, webSyncErr.GetWebAPIError(), key)
+		return
 	}
+
+	// Clear all the cache objects which were deleted
+	restOp.AviGSCacheDel(restOp.cache, operation, key)
+
+	// if no HM refs for this GS, delete all HMs for this GS
+	if len(gsGraph.HmRefs) == 0 {
+		for _, hmName := range gsCacheObj.HealthMonitor {
+			// check if this HM is created by AMKO, if not, don't try to remove it
+			if !gslbutils.HMCreatedByAMKO(hmName) {
+				continue
+			}
+			err = restOp.deleteHmIfRequired(gsName, tenant, key, gsCacheObj, gsKey, hmName)
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		gslbutils.Debugf("key: %s, GSLBService: %s, msg: won't remove HM refs", key, gsGraph.Name)
+	}
+	gslbutils.Logf("key: %s, msg: deleting key from layer 2 delete cache", key)
+	nodes.SharedDeleteGSGraphLister().Delete(key)
+
 }
 
 func (restOp *RestOperations) AviGSHmCacheDel(hmCache *avicache.AviHmCache, op *utils.RestOp, key string) {

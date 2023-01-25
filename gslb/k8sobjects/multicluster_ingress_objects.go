@@ -19,9 +19,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 
 var mcihMapInit sync.Once

@@ -23,10 +23,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	amkov1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	k8smodule "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/modules/k8s_module"
-	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
+	amkovmwarecomv1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	amkov1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	k8smodule "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/modules/k8s_module"
+	sdutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -49,7 +50,8 @@ func TestAPIs(t *testing.T) {
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Service Discovery Suite",
-	)
+		[]Reporter{})
+
 }
 
 // All of the test suites will use 2 member clusters, one management (config) cluster.
@@ -156,7 +158,7 @@ var _ = Describe("Service Validation", func() {
 		It("should create a service import object with information from both the clusters", func() {
 			By("Creating two new services in two different member clusters")
 			ctx := context.Background()
-			newMCIObj, err := mgmtAmkoClient.AmkoV1alpha1().MultiClusterIngresses(sdutils.AviSystemNS).Create(ctx, mciObj, metav1.CreateOptions{})
+			newMCIObj, err := mgmtAmkoClient.AkoV1alpha1().MultiClusterIngresses(sdutils.AviSystemNS).Create(ctx, mciObj, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			cluster1Svc, err := k8sClient1.CoreV1().Services(cluster1Svc.GetNamespace()).Create(ctx, cluster1Svc, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())

@@ -19,16 +19,17 @@ import (
 	"strings"
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	k8sutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/k8s_utils"
 	svcutils "github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/svc_utils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/service_discovery/utils"
-	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func HandleMCIObject(ns, name string) {
-	// for any MCI object recieved, fetch all the services
+	// for any MCI object received, fetch all the services
 }
 
 func HandleClusterObject(cname string) {

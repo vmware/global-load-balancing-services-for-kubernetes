@@ -19,10 +19,10 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
-	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
-	gslbhralphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	"google.golang.org/protobuf/proto"
+
+	gslbhralphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 )
 
 type GSHostRules struct {
@@ -33,10 +33,10 @@ type GSHostRules struct {
 	TTL               *int
 	TrafficSplit      []gslbhralphav1.TrafficSplitElem
 	ThirdPartyMembers []gslbhralphav1.ThirdPartyMember
-	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
-	GslbDownResponse  *gslbalphav1.DownResponse
+	GslbPoolAlgorithm *gslbhralphav1.PoolAlgorithmSettings
+	GslbDownResponse  *gslbhralphav1.DownResponse
 	Checksum          uint32
-	Lock              sync.RWMutex
+	Lock              *sync.RWMutex
 }
 
 func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
@@ -74,6 +74,8 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 		*out = new(string)
 		**out = **in
 	}
+	out.Lock = new(sync.RWMutex)
+
 	out.GslbPoolAlgorithm = in.GslbPoolAlgorithm.DeepCopy()
 	out.GslbDownResponse = in.GslbDownResponse.DeepCopy()
 }
@@ -154,6 +156,7 @@ func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 		gsHostRules.HmTemplate = proto.String(*gslbhrSpec.HealthMonitorTemplate)
 	}
 	gsHostRules.GslbDownResponse = gslbhrSpec.DownResponse.DeepCopy()
+	gsHostRules.Lock = new(sync.RWMutex)
 
 	gsHostRules.CalculateAndSetChecksum()
 	return &gsHostRules

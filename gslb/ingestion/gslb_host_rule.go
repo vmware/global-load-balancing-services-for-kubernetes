@@ -21,8 +21,9 @@ import (
 	"net"
 
 	"github.com/vmware/alb-sdk/go/models"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	avictrl "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	gslbhralphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
@@ -143,15 +144,15 @@ func isFallbackAlgorithmValid(fa *gslbhralphav1.GeoFallback) (bool, error) {
 }
 
 // Check if the pool algorithm settings provided, are valid. Verification logic:
-// 1. If nothing is specified, we return true, as that's the default case (and, RoundRobin will be
-//    selected).
-// 2. If "RoundRobin" or "Topology" algos are specfied, no other fields should be set, and we return
-//    true.
-// 3. If "ConsistentHash" is specified, we check if a valid mask is present, if yes, we return true.
-// 4. If "Geo" is specified, there can be three conditions:
-//    i) If the fallback algorithm is specified as "ConsistentHash", a valid "mask" must be specified.
-//    ii) If the fallback algorithm is specified as "RoundRobin", this is a valid condition.
-//    iii) No other algorithm can be added as the fallback algorithm.
+//  1. If nothing is specified, we return true, as that's the default case (and, RoundRobin will be
+//     selected).
+//  2. If "RoundRobin" or "Topology" algos are specfied, no other fields should be set, and we return
+//     true.
+//  3. If "ConsistentHash" is specified, we check if a valid mask is present, if yes, we return true.
+//  4. If "Geo" is specified, there can be three conditions:
+//     i) If the fallback algorithm is specified as "ConsistentHash", a valid "mask" must be specified.
+//     ii) If the fallback algorithm is specified as "RoundRobin", this is a valid condition.
+//     iii) No other algorithm can be added as the fallback algorithm.
 func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings) (bool, error) {
 	if algoSettings == nil {
 		return true, nil

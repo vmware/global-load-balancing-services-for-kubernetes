@@ -16,16 +16,12 @@ package k8sobjects
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gdpv1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
 )
-
-var shMapInit sync.Once
-var shMap ObjHostMap
 
 func getSvcPortProtocol(svc *corev1.Service) (int32, string, error) {
 	if svc == nil {

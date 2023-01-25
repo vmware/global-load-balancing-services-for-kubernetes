@@ -22,8 +22,6 @@ import (
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 
-	gslbfake "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned/fake"
-
 	oshiftfake "github.com/openshift/client-go/route/clientset/versioned/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -38,13 +36,10 @@ import (
 )
 
 var (
-	kubeClient       *k8sfake.Clientset
 	keyChan          chan string
-	oshiftClient     *oshiftfake.Clientset
 	fooOshiftClient  *oshiftfake.Clientset
 	barOshiftClient  *oshiftfake.Clientset
 	testStopCh       <-chan struct{}
-	gslbClient       *gslbfake.Clientset
 	fooKubeClient    *k8sfake.Clientset
 	barKubeClient    *k8sfake.Clientset
 	fooCRDKubeClient *crdfake.Clientset
@@ -76,7 +71,10 @@ func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 			ResourceVersion: "10",
 		},
 		Spec: gslbalphav1.GSLBConfigSpec{
-			GSLBLeader:     gslbalphav1.GSLBLeader{"", "", ""},
+			GSLBLeader: gslbalphav1.GSLBLeader{
+				Credentials:       "",
+				ControllerVersion: "",
+				ControllerIP:      ""},
 			MemberClusters: memberClusters,
 		},
 	}
@@ -222,10 +220,10 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	fooInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
 	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer}
-	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{fooKubeClient}, fooRegisteredInformers, fooInformersArg)
+	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{ClientSet: fooKubeClient}, fooRegisteredInformers, fooInformersArg)
 	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance, nil)
 	fooCtrl.Start(testStopCh)
-	fooCtrl.SetupEventHandlers(gslbingestion.K8SInformers{fooKubeClient})
+	fooCtrl.SetupEventHandlers(gslbingestion.K8SInformers{Cs: fooKubeClient})
 
 	// Initialize a bar kube client
 	barKubeClient = k8sfake.NewSimpleClientset()
@@ -237,10 +235,10 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	barInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
 	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer}
-	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{barKubeClient}, barRegisteredInformers, barInformersArg)
+	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{ClientSet: barKubeClient}, barRegisteredInformers, barInformersArg)
 	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance, nil)
 	barCtrl.Start(testStopCh)
-	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{barKubeClient})
+	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{Cs: barKubeClient})
 	return nil
 }
 
@@ -277,7 +275,7 @@ func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname
 		keys = append(keys, newKey)
 	}
 	for range keys {
-		// Have to verify for all the keys, since no order is guranteed
+		// Have to verify for all the keys, since no order is guaranteed
 		passed, errStr := waitAndVerify(t, keys, timeoutExpected)
 		if !passed {
 			t.Fatal(errStr)

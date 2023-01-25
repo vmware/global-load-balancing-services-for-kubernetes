@@ -62,6 +62,7 @@ func deleteSomething(old interface{}, k8swq []workqueue.RateLimitingInterface, n
 
 }
 
+/*
 func updateTestGDPObject(gdp *gdpalphav2.GlobalDeploymentPolicy, clusterList []string, version string) {
 	gdp.Spec.MatchClusters = make([]gdpalphav2.ClusterProperty, len(clusterList))
 	for idx, c := range clusterList {
@@ -69,7 +70,7 @@ func updateTestGDPObject(gdp *gdpalphav2.GlobalDeploymentPolicy, clusterList []s
 		gdp.Spec.MatchClusters[idx].SyncVipOnly = true
 	}
 	gdp.ObjectMeta.ResourceVersion = version
-}
+}*/
 
 func setAndGetHostMap(host, ip string) map[string]string {
 	ingHostMap := make(map[string]string)
@@ -111,11 +112,6 @@ func TestGDPSelectAllObjsFromOneCluster(t *testing.T) {
 	t.Logf("Deleting ingresses")
 	DeleteMultipleIngresses(t, fooKubeClient, ingList)
 	// verify delete keys
-	allKeys = []string{}
-	for _, ing := range ingList {
-		key := GetIngressKey("DELETE", cname, ns, ing.ObjectMeta.Name, ing.Status.LoadBalancer.Ingress[0].Hostname)
-		allKeys = append(allKeys, key)
-	}
 	allKeys = GetMultipleIngDeleteKeys(t, ingList, cname, ns)
 	VerifyAllKeys(t, allKeys, false)
 	DeleteTestGDPObj(gdp)
@@ -311,7 +307,7 @@ func TestUpdateGDPSelectFew(t *testing.T) {
 	gdp.ResourceVersion = "101"
 	UpdateTestGDPObj(oldGdp, gdp)
 
-	// Now, there should be two keys for one additonal ingresses added for each cluster (ing3)
+	// Now, there should be two keys for one additional ingresses added for each cluster (ing3)
 	t.Logf("verifying keys")
 	VerifyAllKeys(t, allKeys, false)
 
@@ -521,7 +517,7 @@ func TestGDPSelectNoClusters(t *testing.T) {
 
 	t.Logf("verifying keys")
 	for range allKeys {
-		// Have to verify for all keys, since no order is guranteed
+		// Have to verify for all keys, since no order is guaranteed
 		passed, errStr := waitAndVerify(t, allKeys, true)
 		if !passed {
 			t.Fatalf(errStr)
@@ -605,7 +601,7 @@ func AddTestGDPObj(gdp *gdpalphav2.GlobalDeploymentPolicy) {
 
 func VerifyAllKeys(t *testing.T, allKeys []string, timeoutExpected bool) {
 	for range allKeys {
-		// Have to verify for all keys, since no order is guranteed
+		// Have to verify for all keys, since no order is guaranteed
 		passed, errStr := waitAndVerify(t, allKeys, timeoutExpected)
 		if !passed {
 			t.Fatalf(errStr)

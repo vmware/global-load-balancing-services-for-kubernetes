@@ -213,7 +213,7 @@ func TestBasicRouteLabelChange(t *testing.T) {
 	routeObj.Labels["key"] = "value1"
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, routeObj)
 
-	// the key should be for delete, as we have ammended the label on the route
+	// the key should be for delete, as we have amended the label on the route
 	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, ipAddr)
 	verifyInRouteStore(g, rejectedRouteStore, true, routeName, ns, cname, host, ipAddr)
@@ -328,7 +328,7 @@ func TestStatusChangeFromEmptyRoute(t *testing.T) {
 	DeleteTestGDPObj(gdp)
 }
 
-func testStatusChangeIPAddrRoute(t *testing.T) {
+func TestStatusChangeIPAddrRoute(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testPrefix := "rscip-"
 	routeName := testPrefix + "def-route"

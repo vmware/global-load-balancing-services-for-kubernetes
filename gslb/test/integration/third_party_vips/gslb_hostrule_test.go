@@ -22,15 +22,16 @@ import (
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-	networkingv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -347,7 +348,7 @@ func TestGDPPropertiesForPoolAlgorithmCombinations(t *testing.T) {
 	verifyMembers(pa)
 }
 
-// Create a GSLBHostRule object and check if the GS properties are overriden with the
+// Create a GSLBHostRule object and check if the GS properties are overridden with the
 // the properties specified in the GSLB HostRule object.
 func TestGSLBHostRuleCreate(t *testing.T) {
 	testPrefix := "gdp-gslbhr-"
@@ -434,7 +435,7 @@ func TestGSLBHostRuleUpdate(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
-// Create a GSLBHostRule object, verify the overriden properties, delete the GSLBHostRule object
+// Create a GSLBHostRule object, verify the overridden properties, delete the GSLBHostRule object
 // and see if the GS falls back to the GDP properties.
 func TestGSLBHostRuleDelete(t *testing.T) {
 	testPrefix := "gdp-gslbhrd-"

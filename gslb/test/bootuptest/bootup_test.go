@@ -37,10 +37,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
+
 	amkovmwarecomv1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"

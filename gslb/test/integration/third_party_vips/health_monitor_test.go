@@ -21,9 +21,10 @@ import (
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
 func TestHMAddIngressAndRoutes(t *testing.T) {

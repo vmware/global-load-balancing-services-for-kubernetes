@@ -115,7 +115,7 @@ type GSLBHostRuleList struct {
 	Items           []GSLBHostRule `json:"items"`
 }
 
-// GSLBHostRuleSpec defines all the properties of a GSLB Service that can be overriden
+// GSLBHostRuleSpec defines all the properties of a GSLB Service that can be overridden
 // by a user.
 type GSLBHostRuleSpec struct {
 	// Fqdn is the fqdn of the GSLB Service for which the below properties can be

@@ -19,12 +19,11 @@ import (
 	"sync"
 	"testing"
 
+	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
-	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
-
-const kubeConfigPath = "/tmp/gslb-kubeconfig"
 
 func syncFuncForTest(key interface{}, wg *sync.WaitGroup) error {
 	keyStr, ok := key.(string)

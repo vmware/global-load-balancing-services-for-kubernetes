@@ -16,7 +16,6 @@ package ingestion
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -40,15 +39,13 @@ import (
 // GSLBMemberController is actually kubernetes cluster which is added to an AVI controller
 // here which is added to an AVI controller
 type GSLBMemberController struct {
-	name            string
-	worker_id       uint32
-	worker_id_mutex sync.Mutex
-	informers       *containerutils.Informers
-	hrInformer      *hrinformer.HostRuleInformer
-	hrClientSet     *hrcs.Clientset
-	workqueue       []workqueue.RateLimitingInterface
-	recorder        *gslbutils.EventRecorder
-	syncType        int
+	name        string
+	worker_id   uint32
+	informers   *containerutils.Informers
+	hrInformer  *hrinformer.HostRuleInformer
+	hrClientSet *hrcs.Clientset
+	workqueue   []workqueue.RateLimitingInterface
+	recorder    *gslbutils.EventRecorder
 }
 
 // GetAviController sets config for an AviController
