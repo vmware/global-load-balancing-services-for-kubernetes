@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 )
@@ -116,6 +117,9 @@ func UpdateObjOnMemberCluster(ctx context.Context, c client.Client, source,
 		sourceGC := source.(*gslbalphav1.GSLBConfig)
 		targetGC := target.(*gslbalphav1.GSLBConfig)
 		sourceGC.Spec.DeepCopyInto(&targetGC.Spec)
+		if uuid, ok := sourceGC.Annotations[gslbutils.AmkoUuid]; ok {
+			targetGC.Annotations[gslbutils.AmkoUuid] = uuid
+		}
 	case gdpGVK:
 		sourceGDP := source.(*gdpalphav2.GlobalDeploymentPolicy)
 		targetGDP := target.(*gdpalphav2.GlobalDeploymentPolicy)
