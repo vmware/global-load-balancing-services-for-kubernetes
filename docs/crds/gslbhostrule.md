@@ -60,6 +60,8 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 
 9. `poolAlgorithmSettings`: Override the default GslbService algorithm provided in the GDP object. Refer to [pool algorithm settings](#pool-algorithm-settings) for details. If this field is absent, GDP's pool algorithm's settings apply on this GslbService.
 
+10. `downResponse`: Specifies the response to the client query when the GSLB service is DOWN. If this field is absent, GDP's down response settings would get applied on the GslbService. Refer to [down response settings](#down-response-settings) for details.
+
 ## Pool Algorithm Settings
 The pool algorithm settings for GslbService(s) can be specified via the `GDP` or a `GSLBHostRule` objects. The GslbService uses the algorithm settings to distribute the traffic accordingly. To set the required settings, following fields must be used:
 ```yaml
@@ -82,6 +84,24 @@ If `GSLB_ALGORITHM_GEO` is set as the main algorithm, the user needs to specify 
 2. GSLB_ALGORITHM_ROUND_ROBIN
 
 For more details on the algorithm that best fits the user needs and it's configuration on the Avi Controller, follow [this](https://avinetworks.com/docs/20.1/gslb-architecture-terminology-object-model/#load-balancingalgorithms-for-gslb-pool-members) link.
+
+## Down Response Settings
+Down Response specifies the response to the client query when the GSLB service is DOWN. The down response settings for GslbService(s) can be specified via the `GDP` or `GSLBHostRule` objects.
+To following fields must be used to set the down response,:
+
+```yaml
+  downResponse:
+    type:
+    fallbackIP: # required only when the type is set as GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP
+```
+
+`type` is used to specify the type of response from DNS service towards the client when the GSLB service is DOWN. Supported types are:
+1. GSLB_SERVICE_DOWN_RESPONSE_NONE - No response to the client query when the GSLB service.
+2. GSLB_SERVICE_DOWN_RESPONSE_ALL_RECORDS - Respond with all the records to the client query when the GSLB.
+3. GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP - Respond with the given fallback IP address to the client query when GSLB service is down.
+4. GSLB_SERVICE_DOWN_RESPONSE_EMPTY - Respond with an empty response to the client query when the GSLB service is down.
+
+`fallbackIP` is the fallback IP address to use in A response to the client query when the GSLB service is DOWN.
 
 ## Caveats:
 * Site Persistence cannot be enabled for the GslbServices which have insecure ingresses or routes as the members.

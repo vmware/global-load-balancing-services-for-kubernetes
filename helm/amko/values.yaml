@@ -98,6 +98,10 @@ globalDeploymentPolicy:
   # - hmref1
   # - hmref2
 
+  # Uncomment below to specify custom health monitor template. Either healthMonitorRefs or healthMonitorTemplate
+  # is allowed.
+  # healthMonitorTemplate: hmTemplate1
+
   # Uncomment below to specify a Site Persistence profile ref. By default, Site Persistence is disabled.
   # Also, note that, Site Persistence is only applicable on secure ingresses/routes and ignored
   # for all other cases. Follow https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/ to create
@@ -117,6 +121,17 @@ globalDeploymentPolicy:
   #   geoFallback:        # fallback settings required only for lbAlgorithm == GSLB_ALGORITHM_GEO
   #     lbAlgorithm:      # can only have either GSLB_ALGORITHM_ROUND_ROBIN or GSLB_ALGORITHM_CONSISTENT_HASH
   #     hashMask:         # required only for fallback lbAlgorithm as GSLB_ALGORITHM_CONSISTENT_HASH
+
+  # Uncomment below to specify gslb service down response settings for all gslb services.
+  # Applicable values for type are:
+  # 1. GSLB_SERVICE_DOWN_RESPONSE_NONE (default)
+  # 2. GSLB_SERVICE_DOWN_RESPONSE_ALL_RECORDS
+  # 3. GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP (needs fallbackIP to be set too)
+  # 4. GSLB_SERVICE_DOWN_RESPONSE_EMPTY
+  #
+  # downResponse:
+  #   type:
+  #   fallbackIP:         # required only for type == GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP
 
 serviceAccount:
   # Specifies whether a service account should be created
