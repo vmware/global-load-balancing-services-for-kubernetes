@@ -112,7 +112,9 @@ matchRules:
 8. `sitePersistenceRef`: Provide an Application Persistence Profile ref (pre-created in Avi Controller). This has to be a federated profile. Please follow the steps [here](https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/#outline-of-steps-to-be-taken) to create a federated Application Persistence Profile on the Avi Controller. If no reference is provided, Site Persistence is disabled.
 
 9. `poolAlgorithmSettings`: Provide the GslbService pool algorithm settings. Refer to [pool algorithm settings](gslbhostrule.md#pool-algorithm-settings) for details. If this field is absent, the default is assumed as Round Robin algorithm.
- 
+
+10. `downResponse`: Specifies the response to the client query when the GSLB service is DOWN. If this field is absent, the GSLB service will be configured with `GSLB_SERVICE_DOWN_RESPONSE_NONE`. Refer to [down response settings](gslbhostrule.md#down-response-settings) for details.
+
 ### Notes
 * Only one `GDP` object is allowed.
 
