@@ -252,6 +252,9 @@ func isGSLBDownResponseValid(responseType string, fallbackIP string) error {
 		if fallbackIP == "" {
 			return fmt.Errorf("Fallback IP is required for %s", responseType)
 		}
+		if net.ParseIP(fallbackIP) == nil {
+			return fmt.Errorf("Fallback IP %s is not valid", fallbackIP)
+		}
 	default:
 		if fallbackIP != "" {
 			return fmt.Errorf("Fallback IP is not allowed for %s", responseType)
