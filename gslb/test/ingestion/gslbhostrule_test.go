@@ -216,4 +216,16 @@ func TestGSLBHostRuleInvalidDownResponse(t *testing.T) {
 	t.Logf("Verifying GSLBHostRule")
 	g.Expect(err).NotTo(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
+
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and with an invalid IP address as fallbackIP
+	gslbhrObj.Spec.DownResponse = &gslbalphav1.DownResponse{
+		Type:       gslbalphav1.GSLBServiceDownResponseFallbackIP,
+		FallbackIP: "INVALID",
+	}
+	t.Logf("Adding GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and with an invalid IP address as fallbackIP")
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("Fallback IP INVALID is not valid"))
+	t.Logf("Verified GSLBHostRule")
 }
