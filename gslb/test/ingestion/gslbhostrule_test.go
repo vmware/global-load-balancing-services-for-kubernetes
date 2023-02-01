@@ -165,3 +165,67 @@ func TestGSLBHostRuleBothHmRefAndHmTemplate(t *testing.T) {
 	g.Expect(err).NotTo(gomega.BeNil())
 	t.Logf("Verified GSLBHostRule")
 }
+
+func TestGSLBHostRuleValidDownResponse(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_EMPTY
+	gslbhrObj.Spec.DownResponse = &gslbalphav1.DownResponse{
+		Type: gslbalphav1.GSLBServiceDownResponseEmpty,
+	}
+	t.Logf("Adding GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_EMPTY")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and with a fallbackIP
+	gslbhrObj.Spec.DownResponse = &gslbalphav1.DownResponse{
+		Type:       gslbalphav1.GSLBServiceDownResponseFallbackIP,
+		FallbackIP: "10.10.1.1",
+	}
+	t.Logf("Adding GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and with a fallbackIP")
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}
+
+func TestGSLBHostRuleInvalidDownResponse(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and empty fallbackIP.
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.DownResponse = &gslbalphav1.DownResponse{
+		Type: gslbalphav1.GSLBServiceDownResponseFallbackIP,
+	}
+	t.Logf("Adding GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and empty fallbackIP")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_ALL_RECORDS and with a fallbackIP
+	gslbhrObj.Spec.DownResponse = &gslbalphav1.DownResponse{
+		Type:       gslbalphav1.GSLBServiceDownResponseAllRecords,
+		FallbackIP: "10.10.1.2",
+	}
+	t.Logf("Adding GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_ALL_RECORDS and with a fallbackIP")
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and with an invalid IP address as fallbackIP
+	gslbhrObj.Spec.DownResponse = &gslbalphav1.DownResponse{
+		Type:       gslbalphav1.GSLBServiceDownResponseFallbackIP,
+		FallbackIP: "INVALID",
+	}
+	t.Logf("Adding GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and with an invalid IP address as fallbackIP")
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("Fallback IP INVALID is not valid"))
+	t.Logf("Verified GSLBHostRule")
+}
