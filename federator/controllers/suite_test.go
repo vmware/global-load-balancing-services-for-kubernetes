@@ -259,6 +259,18 @@ var _ = Describe("Federation Operation", func() {
 			TestGCGDPExist(k8sClient2)
 		})
 
+		It("should federate UUID in GC to cluster2", func() {
+			Eventually(func() string {
+				var obj gslbalphav1.GSLBConfig
+				Expect(k8sClient2.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      gcObj.Name,
+						Namespace: gcObj.Namespace},
+					&obj)).Should(Succeed())
+				return obj.Annotations["amko.vmware.com/amko-uuid"]
+			}, 5*time.Second, 1*time.Second).Should(Equal("3e328a5c-a717-11ed-a422-0a580a80025b"))
+		})
+
 		It("should federate GC updates to cluster2", func() {
 			By("updating the GC object on cluster1")
 			ctx := context.Background()
