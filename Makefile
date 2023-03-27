@@ -191,7 +191,7 @@ third_party_vips_test:
 	$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
 
 .PHONY: int_test
-int_test: federator_test bootup_test custom_fqdn_test third_party_vips_test
+int_test: envtest_setup federator_test bootup_test custom_fqdn_test third_party_vips_test
 
 K8S_VERSION=1.24.2
 URL=https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${K8S_VERSION}-linux-amd64.tar.gz
