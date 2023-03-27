@@ -17,6 +17,7 @@ package ingestion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 
@@ -305,7 +306,16 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 			return fmt.Errorf(errmsg)
 		}
 	}
-
+	// TrafficSplit checks
+	for _, ip := range gslbhrSpec.PublicIP {
+		if !gslbutils.IsClusterContextPresent(ip.Cluster) {
+			return errors.New("cluster " + ip.Cluster + " in traffic policy not present in GSLBConfig")
+		}
+		if net.ParseIP(ip.IP) == nil {
+			errmsg := "Invalid IP for site " + ip.Cluster + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
+			return fmt.Errorf(errmsg)
+		}
+	}
 	// HM template and reference cannot be specified together
 	if gslbhrSpec.HealthMonitorTemplate != nil &&
 		len(gslbhrSpec.HealthMonitorRefs) != 0 {

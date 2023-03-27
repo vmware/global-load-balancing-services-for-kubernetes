@@ -369,6 +369,7 @@ type GSMember struct {
 	Priority   int32
 	VsUUID     string
 	Controller string
+	PublicIP   string
 }
 
 type AviGSCache struct {
@@ -810,6 +811,9 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 			}
 			if server == "" {
 				server = ipAddr
+			}
+			if member.PublicIP != nil && member.PublicIP.IP != nil && member.PublicIP.IP.Addr != nil {
+				gsMember.PublicIP = *member.PublicIP.IP.Addr
 			}
 			serverList = append(serverList, server+"-"+strconv.Itoa(int(weight))+"-"+strconv.Itoa(int(priority)))
 			gsMembers = append(gsMembers, gsMember)

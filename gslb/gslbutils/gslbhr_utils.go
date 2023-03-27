@@ -32,6 +32,7 @@ type GSHostRules struct {
 	SitePersistence   *gslbhralphav1.SitePersistence
 	TTL               *int
 	TrafficSplit      []gslbhralphav1.TrafficSplitElem
+	PublicIP          []gslbhralphav1.PublicIPElem
 	ThirdPartyMembers []gslbhralphav1.ThirdPartyMember
 	GslbPoolAlgorithm *gslbhralphav1.PoolAlgorithmSettings
 	GslbDownResponse  *gslbhralphav1.DownResponse
@@ -69,6 +70,11 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 		*out = make([]gslbhralphav1.TrafficSplitElem, len((*in)))
 		copy(*out, *in)
 	}
+	if in.PublicIP != nil {
+		in, out := &in.PublicIP, &out.PublicIP
+		*out = make([]gslbhralphav1.PublicIPElem, len((*in)))
+		copy(*out, *in)
+	}
 	if in.HmTemplate != nil {
 		in, out := &in.HmTemplate, &out.HmTemplate
 		*out = new(string)
@@ -103,10 +109,14 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 	sort.Strings(clusterWeights)
 	thirdPartyMembers := []string{}
 	for _, tp := range ghr.ThirdPartyMembers {
-		thirdPartyMembers = append(thirdPartyMembers, tp.Site+tp.VIP)
+		thirdPartyMembers = append(thirdPartyMembers, tp.Site+tp.VIP+tp.PublicIP)
 	}
 	sort.Strings(thirdPartyMembers)
-
+	ipWeights := []string{}
+	for _, c := range ghr.PublicIP {
+		ipWeights = append(ipWeights, c.Cluster+c.IP)
+	}
+	sort.Strings(ipWeights)
 	if ghr.HmTemplate != nil {
 		cksum += utils.Hash(*ghr.HmTemplate)
 	}
@@ -117,7 +127,8 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 		utils.Hash(utils.Stringify(clusterWeights)) +
 		utils.Hash(utils.Stringify(thirdPartyMembers)) +
 		getChecksumForPoolAlgorithm(ghr.GslbPoolAlgorithm) +
-		getChecksumForDownResponse(ghr.GslbDownResponse)
+		getChecksumForDownResponse(ghr.GslbDownResponse) +
+		utils.Hash(utils.Stringify(ipWeights))
 
 	ghr.Checksum = cksum
 }
@@ -156,6 +167,8 @@ func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 		gsHostRules.HmTemplate = proto.String(*gslbhrSpec.HealthMonitorTemplate)
 	}
 	gsHostRules.GslbDownResponse = gslbhrSpec.DownResponse.DeepCopy()
+	gsHostRules.PublicIP = make([]gslbhralphav1.PublicIPElem, len(gslbhrSpec.PublicIP))
+	copy(gsHostRules.PublicIP, gslbhrSpec.PublicIP)
 	gsHostRules.Lock = new(sync.RWMutex)
 
 	gsHostRules.CalculateAndSetChecksum()

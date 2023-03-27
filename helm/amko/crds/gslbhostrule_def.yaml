@@ -55,6 +55,9 @@ spec:
                     site: 
                       description: Site name of the thirdPartyMember site
                       type: string
+                    publicIP:
+                      description: Public IP of the thirdPartyMember site
+                      type: string
               healthMonitorRefs:
                 description: "List of Custom Health Monitors that will monitor the Gslb Service pool members."
                 type: array
@@ -114,6 +117,18 @@ spec:
                       type: integer
                       minimum: 0
                       default: 1
+              publicIP:
+                description: "Public IP of the sites"
+                type: array
+                items:
+                  type: object
+                  properties:
+                    cluster:
+                      description: "Cluster context name"
+                      type: string
+                    ip:
+                      description: "Public IP of the corresponding site"
+                      type: string
               downResponse:
                 description: "Response to the client query when the GSLB service is DOWN."
                 type: object
