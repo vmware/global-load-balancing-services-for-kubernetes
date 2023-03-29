@@ -74,6 +74,16 @@ func getPathsForHost(host string, ingress *networkingv1.Ingress) []string {
 func getTLSHosts(ingress *networkingv1.Ingress) []string {
 	tlsHosts := []string{}
 
+	if gslbutils.IsDefaultSecretEnabled(ingress.GetAnnotations()) {
+		for _, rule := range ingress.Spec.Rules {
+			if gslbutils.PresentInList(rule.Host, tlsHosts) {
+				continue
+			}
+			tlsHosts = append(tlsHosts, rule.Host)
+		}
+		return tlsHosts
+	}
+
 	for _, hosts := range ingress.Spec.TLS {
 		for _, host := range hosts.Hosts {
 			if gslbutils.PresentInList(host, tlsHosts) {

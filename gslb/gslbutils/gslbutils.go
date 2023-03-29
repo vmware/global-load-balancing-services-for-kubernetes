@@ -700,3 +700,8 @@ func SetEqual(a, b []string) bool {
 	setB := sets.NewString(b...)
 	return setA.Equal(setB)
 }
+
+func IsDefaultSecretEnabled(annotations map[string]string) bool {
+	_, ok := annotations[DefaultSecretEnabled]
+	return ok
+}
