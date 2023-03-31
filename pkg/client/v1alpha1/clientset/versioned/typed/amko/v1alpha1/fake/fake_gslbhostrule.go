@@ -117,7 +117,7 @@ func (c *FakeGSLBHostRules) UpdateStatus(ctx context.Context, gSLBHostRule *v1al
 // Delete takes name of the gSLBHostRule and deletes it. Returns an error if one occurs.
 func (c *FakeGSLBHostRules) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(gslbhostrulesResource, c.ns, name), &v1alpha1.GSLBHostRule{})
+		Invokes(testing.NewDeleteActionWithOptions(gslbhostrulesResource, c.ns, name, opts), &v1alpha1.GSLBHostRule{})
 
 	return err
 }

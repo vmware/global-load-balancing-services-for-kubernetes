@@ -107,6 +107,7 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 					ObjType:     gslbutils.ThirdPartyMemberType,
 					IPAddr:      tpm.VIP,
 					Name:        tpm.Site,
+					PublicIP:    tpm.PublicIP,
 					SyncVIPOnly: true,
 				}
 				// weight of a third party member is decided only by a GSLBHostRule, and not
@@ -121,6 +122,10 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 	}
 	weightMap := make(map[string]int32)
 	priorityMap := make(map[string]int32)
+	publicIPMap := make(map[string]string)
+	for _, publicIP := range gsRule.PublicIP {
+		publicIPMap[publicIP.Cluster] = publicIP.IP
+	}
 	for _, clusterWeight := range gsRule.TrafficSplit {
 		weightMap[clusterWeight.Cluster] = int32(clusterWeight.Weight)
 		priorityMap[clusterWeight.Cluster] = int32(clusterWeight.Priority)
@@ -133,6 +138,9 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		} else {
 			gsGraph.MemberObjs[idx].Weight = getK8sMemberWeight(weightMap, member.Cluster, member.Namespace)
 			gsGraph.MemberObjs[idx].Priority = getK8sMemberPriority(priorityMap, member.Cluster, member.Namespace)
+			if pIP, ok := publicIPMap[member.Cluster]; ok {
+				gsGraph.MemberObjs[idx].PublicIP = pIP
+			}
 		}
 	}
 
@@ -178,14 +186,14 @@ func updateThirdPartyMembers(gsGraph *AviGSObjectGraph, thirdPartyMembers []v1al
 	newMembers := make(map[string]bool)
 
 	for _, tpm := range thirdPartyMembers {
-		newMembers[tpm.Site+"/"+tpm.VIP] = false
+		newMembers[tpm.Site+"/"+tpm.VIP+"/"+tpm.PublicIP] = false
 	}
 	// find any existing member which is supposed to be deleted
 	for idx, member := range gsGraph.MemberObjs {
 		if member.ObjType != gslbutils.ThirdPartyMemberType {
 			continue
 		}
-		siteIP := member.Name + "/" + member.IPAddr
+		siteIP := member.Name + "/" + member.IPAddr + "/" + member.PublicIP
 		existingMembers[siteIP] = struct{}{}
 
 		if _, exists := newMembers[siteIP]; !exists {
@@ -203,12 +211,13 @@ func updateThirdPartyMembers(gsGraph *AviGSObjectGraph, thirdPartyMembers []v1al
 			continue
 		}
 		siteIP := strings.Split(k, "/")
-		site, IP := siteIP[0], siteIP[1]
+		site, IP, PubIP := siteIP[0], siteIP[1], siteIP[2]
 		memberObj := AviGSK8sObj{
 			ObjType:     gslbutils.ThirdPartyMemberType,
 			IPAddr:      IP,
 			Name:        site,
 			SyncVIPOnly: true,
+			PublicIP:    PubIP,
 		}
 		gsGraph.MemberObjs = append(gsGraph.MemberObjs, memberObj)
 	}

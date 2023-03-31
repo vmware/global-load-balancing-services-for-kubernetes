@@ -89,6 +89,13 @@ type TrafficSplitElem struct {
 	Priority uint32 `json:"priority,omitempty"`
 }
 
+// PublicIPElem determines the publicip of a cluster where traffic should be routed
+type PublicIPElem struct {
+	// Cluster is the cluster context
+	Cluster string `json:"cluster,omitempty"`
+	IP      string `json:"ip,omitempty"`
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
@@ -144,6 +151,8 @@ type GSLBHostRuleSpec struct {
 	// DownResponse defines the properties of the DNS service such as response towards the client when the GSLB service is DOWN,
 	// fallback IP to use in A response to the client query.
 	DownResponse *DownResponse `json:"downResponse,omitempty"`
+	// PublicIP determines the publicip of a cluster where traffic should be routed
+	PublicIP []PublicIPElem `json:"publicIP,omitempty"`
 }
 
 // PoolAlgorithmSettings define a set of properties to select the Gslb Algorithm for a Gslb
@@ -182,8 +191,9 @@ type GSLBHostRuleStatus struct {
 }
 
 type ThirdPartyMember struct {
-	VIP  string `json:"vip,omitempty"`
-	Site string `json:"site,omitempty"`
+	VIP      string `json:"vip,omitempty"`
+	Site     string `json:"site,omitempty"`
+	PublicIP string `json:"publicIP,omitempty"`
 }
 
 const (

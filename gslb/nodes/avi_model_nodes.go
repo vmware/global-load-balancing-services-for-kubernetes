@@ -95,6 +95,7 @@ type AviGSK8sObj struct {
 	Weight        int32
 	Priority      int32
 	IsPassthrough bool
+	PublicIP      string
 	// Port and protocol will be only used by LB service
 	Port               int32
 	Proto              string
@@ -124,6 +125,7 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 		ControllerUUID:     gsk8sObj.ControllerUUID,
 		SyncVIPOnly:        gsk8sObj.SyncVIPOnly,
 		IsPassthrough:      gsk8sObj.IsPassthrough,
+		PublicIP:           gsk8sObj.PublicIP,
 	}
 	return obj
 }
@@ -271,7 +273,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 			server = gsMember.IPAddr
 		}
 		memberAddrs = append(memberAddrs, server+"-"+strconv.Itoa(int(gsMember.Weight))+
-			"-"+strconv.Itoa(int(gsMember.Priority)))
+			"-"+strconv.Itoa(int(gsMember.Priority))+"-"+gsMember.PublicIP)
 		if gsMember.ObjType == gslbutils.ThirdPartyMemberType {
 			continue
 		}
@@ -808,6 +810,7 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 			ControllerUUID:     memberObj.ControllerUUID,
 			VirtualServiceUUID: memberObj.VirtualServiceUUID,
 			SyncVIPOnly:        memberObj.SyncVIPOnly,
+			PublicIP:           memberObj.PublicIP,
 		})
 		memberVips = append(memberVips, memberObj.IPAddr)
 	}

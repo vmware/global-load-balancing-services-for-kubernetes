@@ -105,7 +105,7 @@ func (c *FakeGlobalDeploymentPolicies) Update(ctx context.Context, globalDeploym
 // Delete takes name of the globalDeploymentPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeGlobalDeploymentPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(globaldeploymentpoliciesResource, c.ns, name), &v1alpha2.GlobalDeploymentPolicy{})
+		Invokes(testing.NewDeleteActionWithOptions(globaldeploymentpoliciesResource, c.ns, name, opts), &v1alpha2.GlobalDeploymentPolicy{})
 
 	return err
 }
