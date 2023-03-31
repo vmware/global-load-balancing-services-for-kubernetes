@@ -105,7 +105,7 @@ func (c *FakeGSLBConfigs) Update(ctx context.Context, gSLBConfig *v1alpha1.GSLBC
 // Delete takes name of the gSLBConfig and deletes it. Returns an error if one occurs.
 func (c *FakeGSLBConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(gslbconfigsResource, c.ns, name), &v1alpha1.GSLBConfig{})
+		Invokes(testing.NewDeleteActionWithOptions(gslbconfigsResource, c.ns, name, opts), &v1alpha1.GSLBConfig{})
 
 	return err
 }

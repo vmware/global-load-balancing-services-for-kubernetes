@@ -17,6 +17,7 @@ package rest
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -965,6 +966,19 @@ func buildGsPoolMember(member nodes.AviGSK8sObj, key string) *avimodels.GslbPool
 		}
 		gsPoolMember.VsUUID = &vsUUID
 	}
+
+	if member.PublicIP != "" {
+		publicIP := member.PublicIP
+		var publicIpVersion string
+		if net.ParseIP(publicIP).To4() != nil {
+			publicIpVersion = "V4"
+		} else {
+			publicIpVersion = "V6"
+
+		}
+		gsPoolMember.PublicIP = &avimodels.GslbIPAddr{IP: &avimodels.IPAddr{Addr: &publicIP, Type: &publicIpVersion}}
+	}
+
 	return &gsPoolMember
 }
 
