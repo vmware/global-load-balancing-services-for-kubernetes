@@ -140,6 +140,8 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 			gsGraph.MemberObjs[idx].Priority = getK8sMemberPriority(priorityMap, member.Cluster, member.Namespace)
 			if pIP, ok := publicIPMap[member.Cluster]; ok {
 				gsGraph.MemberObjs[idx].PublicIP = pIP
+			} else {
+				gsGraph.MemberObjs[idx].PublicIP = ""
 			}
 		}
 	}

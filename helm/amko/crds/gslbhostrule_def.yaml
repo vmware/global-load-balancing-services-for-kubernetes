@@ -129,6 +129,9 @@ spec:
                     ip:
                       description: "Public IP of the corresponding site"
                       type: string
+                  required:
+                  - cluster
+                  - ip
               downResponse:
                 description: "Response to the client query when the GSLB service is DOWN."
                 type: object

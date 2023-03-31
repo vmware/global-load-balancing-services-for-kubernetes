@@ -229,3 +229,35 @@ func TestGSLBHostRuleInvalidDownResponse(t *testing.T) {
 	g.Expect(err.Error()).Should(gomega.Equal("Fallback IP INVALID is not valid"))
 	t.Logf("Verified GSLBHostRule")
 }
+
+func TestGSLBHostRuleValidPublicIP(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	buildAndAddTestGSLBObject(t)
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and empty fallbackIP.
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "cluster1", IP: "10.23.23.45"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}
+
+func TestGSLBHostRuleInvalidPublicIP(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	buildAndAddTestGSLBObject(t)
+	// GSLBHostRule with down response of type GSLB_SERVICE_DOWN_RESPONSE_FALLBACK_IP and empty fallbackIP.
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "k8", IP: "10.23.23.45"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("cluster k8 in Public IP  not present in GSLBConfig"))
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "cluster1", IP: "10.23.23"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("Invalid IP for site cluster1," + gslbhrTestObjName + " GSLBHostRule (expecting IP address)"))
+
+}
