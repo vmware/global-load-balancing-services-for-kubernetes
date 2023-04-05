@@ -223,6 +223,9 @@ func getTestGCObj() gslbalphav1.GSLBConfig {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      TestGCName,
 			Namespace: AviSystemNS,
+			Annotations: map[string]string{
+				"amko.vmware.com/amko-uuid": "3e328a5c-a717-11ed-a422-0a580a80025b",
+			},
 		},
 		Spec: gslbalphav1.GSLBConfigSpec{
 			GSLBLeader: gslbalphav1.GSLBLeader{
