@@ -138,11 +138,7 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		} else {
 			gsGraph.MemberObjs[idx].Weight = getK8sMemberWeight(weightMap, member.Cluster, member.Namespace)
 			gsGraph.MemberObjs[idx].Priority = getK8sMemberPriority(priorityMap, member.Cluster, member.Namespace)
-			if pIP, ok := publicIPMap[member.Cluster]; ok {
-				gsGraph.MemberObjs[idx].PublicIP = pIP
-			} else {
-				gsGraph.MemberObjs[idx].PublicIP = ""
-			}
+			gsGraph.MemberObjs[idx].PublicIP = getMemberPublicIP(publicIPMap, member.Cluster)
 		}
 	}
 
@@ -151,6 +147,13 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 	} else {
 		gsGraph.GslbDownResponse = gf.GetDownResponse()
 	}
+}
+
+func getMemberPublicIP(publicIPMap map[string]string, site string) string {
+	if ip, ok := publicIPMap[site]; ok {
+		return ip
+	}
+	return ""
 }
 
 func getThirdPartyMemberWeight(weightMap map[string]int32, site string) int32 {

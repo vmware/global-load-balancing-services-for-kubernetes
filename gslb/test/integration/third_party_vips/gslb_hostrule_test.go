@@ -927,3 +927,60 @@ func TestGSLBHostRuleWithPublicIPUpdate(t *testing.T) {
 	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
 	verifyMembers(nil)
 }
+
+func TestGSLBHostRuleWithThirdpartyPublicIPUpdate(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(expectedMember nodes.AviGSK8sObj) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+		expectedMembers = append(expectedMembers, expectedMember)
+		g := gomega.NewGomegaWithT(t)
+
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, &sp,
+				&ttl, nil, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+
+	hostName := routeObj.Spec.Host
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+	gslbhrTpm1 := gslbalphav1.ThirdPartyMember{
+		VIP:      "10.10.10.10",
+		Site:     "test-third-party-member",
+		PublicIP: "10.20.30.40",
+	}
+	expectedeMmberObj := nodes.AviGSK8sObj{
+		ObjType:     gslbutils.ThirdPartyMemberType,
+		IPAddr:      gslbhrTpm1.VIP,
+		Name:        gslbhrTpm1.Site,
+		SyncVIPOnly: true,
+		PublicIP:    gslbhrTpm1.PublicIP,
+		Weight:      1,
+		Priority:    1,
+	}
+	newObj := getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.ThirdPartyMembers = []gslbalphav1.ThirdPartyMember{gslbhrTpm1}
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+	verifyMembers(expectedeMmberObj)
+	gslbhrTpm1 = gslbalphav1.ThirdPartyMember{
+		VIP:  "10.10.10.10",
+		Site: "test-third-party-member",
+	}
+	newObj = getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.ThirdPartyMembers = []gslbalphav1.ThirdPartyMember{gslbhrTpm1}
+	//update hostrule to remove public IP for 3rd party
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+	expectedeMmberObj.PublicIP = gslbhrTpm1.PublicIP
+	verifyMembers(expectedeMmberObj)
+}
