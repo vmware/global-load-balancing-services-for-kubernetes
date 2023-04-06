@@ -20,16 +20,16 @@ AMKO is aware of the following object types:
 For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Kubernetes     | 1.21-1.24   |
-| AKO            | 1.8.2       |
-| AVI Controller | 21.1.3-22.1.2 |
+| Kubernetes     | 1.22-1.25   |
+| AKO            | 1.9.1       |
+| AVI Controller | 21.1.5-22.1.3 |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Openshift      | 4.6-4.10    |
-| AKO            | 1.8.2       |
-| AVI Controller | 21.1.3-22.1.2 |
+| Openshift      | 4.6-4.11    |
+| AKO            | 1.9.1       |
+| AVI Controller | 21.1.5-22.1.3 |
 
 #### Pre-requisites
 To kick-start AMKO, we need:
@@ -78,14 +78,14 @@ Following steps have to be executed on all member clusters:
    $ helm search repo
 
    NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
-   amko/amko	1.8.2	            1.8.2	            A helm chart for Avi Multicluster Kubernetes Operator
+   amko/amko	1.9.1	            1.9.1	            A helm chart for Avi Multicluster Kubernetes Operator
 
    ```
 
 4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values amko/amko --version 1.8.2 > values.yaml
+   helm show values amko/amko --version 1.9.1 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
@@ -97,14 +97,14 @@ Following steps have to be executed on all member clusters:
 
 6. Install AMKO:
    ```
-   $ helm install  amko/amko  --generate-name --version 1.8.2 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install  amko/amko  --generate-name --version 1.9.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
 7. Check the installation:
    ```
    $ helm list -n avi-system
 
    NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
-   amko-1598451370	avi-system	1       	2022-11-25 11:16:21.889538175 +0000 UTC	deployed	amko-1.8.2	            1.8.2
+   amko-1598451370	avi-system	1       	2022-02-04 11:16:21.889538175 +0000 UTC	deployed	amko-1.9.1	            1.9.1
    ```
 
 #### Troubleshooting and Log collection
@@ -143,7 +143,7 @@ helm repo update amko
 Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
 
 ```
-helm template amko/amko --version 1.8.2 --include-crds --output-dir <output_dir>
+helm template amko/amko --version 1.9.1 --include-crds --output-dir <output_dir>
 ```
 
 This will save the helm files to an output directory which will contain the CRDs corresponding to the AMKO version.
@@ -178,14 +178,14 @@ helm repo add --force-update amko https://projects.registry.vmware.com/chartrepo
 Get the values.yaml for the latest AMKO version
 
 ```
-helm show values amko/amko --version 1.8.2 > values.yaml
+helm show values amko/amko --version 1.9.1 > values.yaml
 
 ```
 
 Upgrade the helm chart
 
 ```
-helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.8.2 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
+helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.9.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
 
 ```
 

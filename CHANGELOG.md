@@ -77,3 +77,12 @@ All notable changes to this project will be documented in this file. The format 
 ### Bugs fixed:
   - Fixed an issue of AMKO deleting the health monitors references specified as `healthMonitorRefs` via `GlobalDeploymentPolicy` and `GSLBHostRule` from the controller.
   - Fixed few security vulnerabilities in the dependant Golang packages and the base image.
+
+## AMKO-1.9.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.25 and OCP 4.11.
+  - AMKO support for GslbService property Down Response via `GlobalDeploymentPolicy` and `GSLBHostRule`.
+
+### Bugs fixed:
+  - Fixed an issue of UUID not being federated across member clusters.
