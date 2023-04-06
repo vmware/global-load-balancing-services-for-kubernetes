@@ -92,8 +92,8 @@ type TrafficSplitElem struct {
 // PublicIPElem determines the publicip of a cluster where traffic should be routed
 type PublicIPElem struct {
 	// Cluster is the cluster context
-	Cluster string `json:"cluster,omitempty"`
-	IP      string `json:"ip,omitempty"`
+	Cluster string `json:"cluster"`
+	IP      string `json:"ip"`
 }
 
 // +genclient
