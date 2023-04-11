@@ -229,3 +229,48 @@ func TestGSLBHostRuleInvalidDownResponse(t *testing.T) {
 	g.Expect(err.Error()).Should(gomega.Equal("Fallback IP INVALID is not valid"))
 	t.Logf("Verified GSLBHostRule")
 }
+
+func TestGSLBHostRuleValidPublicIP(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	buildAndAddTestGSLBObject(t)
+	// GSLBHostRule with valid publicIP v4.
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "cluster1", IP: "10.23.23.45"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+	// GSLBHostRule with valid publicIP v6.
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "cluster1", IP: "2001:0:3238:DFE1:63::FEFB"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+
+}
+
+func TestGSLBHostRuleInvalidPublicIP(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	buildAndAddTestGSLBObject(t)
+	// GSLBHostRule with invalid cluster in PublicIP
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "k8", IP: "10.23.23.45"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("cluster k8 in Public IP  not present in GSLBConfig"))
+	// GSLBHostRule with invalid IP address v4 in PublicIP
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "cluster1", IP: "10.23.23"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("Invalid IP for site cluster1," + gslbhrTestObjName + " GSLBHostRule (expecting IP address)"))
+	// GSLBHostRule with invalid IP address v6 in PublicIP
+	gslbhrObj.Spec.PublicIP = []gslbalphav1.PublicIPElem{{Cluster: "cluster1", IP: "2001:db8:a0b:12f0::::0:1"}, {Cluster: "cluster2", IP: "10.23.23.46"}}
+	err = gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).Should(gomega.Equal("Invalid IP for site cluster1," + gslbhrTestObjName + " GSLBHostRule (expecting IP address)"))
+
+}

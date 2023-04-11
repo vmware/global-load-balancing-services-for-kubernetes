@@ -882,6 +882,10 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 					m.VirtualServiceUUID)
 				return false
 			}
+			if e.PublicIP != m.PublicIP {
+				t.Logf("Public for members don't match, expected: %v, fetched: %v", e.PublicIP, m.PublicIP)
+				return false
+			}
 		}
 	}
 	return true
