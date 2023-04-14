@@ -984,3 +984,49 @@ func TestGSLBHostRuleWithThirdpartyPublicIPUpdate(t *testing.T) {
 	expectedeMmberObj.PublicIP = gslbhrTpm1.PublicIP
 	verifyMembers(expectedeMmberObj)
 }
+func TestGSLBHostRuleWithPriorityUpdate(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(pa []gslbalphav1.TrafficSplitElem) {
+		var expectedMembers []nodes.AviGSK8sObj
+		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+		if pa != nil {
+			expectedMembers[0].Priority = int32(pa[0].Priority)
+			expectedMembers[1].Priority = int32(pa[1].Priority)
+		}
+		g := gomega.NewGomegaWithT(t)
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, utils.ADMIN_NS, hmRefs, nil, &sp,
+				&ttl, nil, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	hostName := routeObj.Spec.Host
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+	gslbhostrulepip := []gslbalphav1.TrafficSplitElem{
+		{Cluster: K8sContext, Weight: 1, Priority: 1},
+		{Cluster: OshiftContext, Weight: 1, Priority: 2}}
+	newObj := getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.TrafficSplit = gslbhostrulepip
+	//update hostrule to add priority
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+	verifyMembers(gslbhostrulepip)
+	newGslbhostrulepip := []gslbalphav1.TrafficSplitElem{
+		{Cluster: K8sContext, Weight: 1, Priority: 2},
+		{Cluster: OshiftContext, Weight: 1, Priority: 1}}
+	newObj = getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.TrafficSplit = newGslbhostrulepip
+	// update hostrulr to change priority
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+	verifyMembers(newGslbhostrulepip)
+
+}
