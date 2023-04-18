@@ -22,8 +22,10 @@ spec:
   trafficSplit:
   - cluster: k8s
     weight: 15
+    priority: 10
   - cluster: oshift
     weight: 5
+    priority: 10
   ttl: 30
 ```
 1. `namespace`: namespace of this object must be `avi-system`.
@@ -54,7 +56,7 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 
    **Note** User can provide either `healthMonitorRefs` or `healthMonitorTemplate` in the `GSLBHostRule` objects. The health monitor template added in the controller must be of type HTTP/HTTPS.
 
-7. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.
+7. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.`trafficSplit` can also be used to prioritize certain clusters before others. Maximum value for priority is 100 and default is 10. Let's say two clusters are given a priority of 20 and a third cluster is added with a priority of 10. The third cluster won't be routed any traffic unless both cluster1 and cluster2 (with priority 20) are down.
 
 8. `ttl`: Override the default `ttl` value specified on the GDP object using this field.
 
