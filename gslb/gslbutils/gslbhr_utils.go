@@ -104,7 +104,8 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 	clusterWeights := []string{}
 	for _, c := range ghr.TrafficSplit {
 		weight := strconv.Itoa(int(c.Weight))
-		clusterWeights = append(clusterWeights, c.Cluster+weight)
+		priority := strconv.Itoa(int(c.Priority))
+		clusterWeights = append(clusterWeights, c.Cluster+weight+priority)
 	}
 	sort.Strings(clusterWeights)
 	thirdPartyMembers := []string{}
