@@ -85,7 +85,7 @@ func TestPoolPriorityValidity(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, defaultPath, TlsFalse)
+		ingHostIPMap, defaultPath, TlsFalse, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 
@@ -130,7 +130,7 @@ func TestMultiplePriorityValidity(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, defaultPath, TlsFalse)
+		ingHostIPMap, defaultPath, TlsFalse, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 
@@ -188,7 +188,7 @@ func TestPriorityOnOneCluster(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, defaultPath, TlsFalse)
+		ingHostIPMap, defaultPath, TlsFalse, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 
@@ -251,7 +251,7 @@ func TestPriorityOneClusterUpdate(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, defaultPath, TlsFalse)
+		ingHostIPMap, defaultPath, TlsFalse, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 
@@ -320,7 +320,7 @@ func TestMultiplePriorityUpdate(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, defaultPath, TlsFalse)
+		ingHostIPMap, defaultPath, TlsFalse, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, defaultPath[0], TlsFalse)
 

@@ -32,6 +32,7 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/mockaviserver"
+	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 )
 
 const (
@@ -192,7 +193,7 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	tls := false
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, path, tls)
+		ingHostIPMap, path, tls, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, path[0], tls)
 
@@ -241,7 +242,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	tls := false
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, path, tls)
+		ingHostIPMap, path, tls, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, path[0], tls)
 
@@ -266,5 +267,67 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
 		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, nil, nil, nil, path, tls)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
+// Add an ingress with default secret, a route and a GDP object with
+// site persistence reference. UT verifies whether the site persistence
+// is configured in the GS.
+func TestIngressWithDefaultSecretAndRoutes(t *testing.T) {
+
+	sitePersistenceRef := "gap-1"
+
+	gdpObj := GetTestDefaultGDPObject()
+	gdpObj.Spec.MatchRules.AppSelector = gdpalphav2.AppSelector{
+		Label: appLabel,
+	}
+	gdpObj.Spec.MatchClusters = []gdpalphav2.ClusterProperty{
+		{Cluster: K8sContext}, {Cluster: OshiftContext},
+	}
+	gdpObj.Spec.SitePersistenceRef = &sitePersistenceRef
+	newGDP, err := AddAndVerifyTestGDPSuccess(t, gdpObj)
+	if err != nil {
+		t.Fatalf("error in building, adding and verifying app selector GDP: %v", err)
+	}
+
+	testPrefix := "tdr-"
+	ingName := testPrefix + "def-ing"
+	routeName := testPrefix + "def-route"
+	ns := "default"
+	host := testPrefix + ingestion_test.TestDomain1
+	ingIPAddr := "1.1.1.1"
+	routeIPAddr := "2.2.2.2"
+	ingCluster := "k8s"
+	routeCluster := "oshift"
+	ingHostIPMap := map[string]string{host: ingIPAddr}
+	path := []string{"/"}
+
+	t.Cleanup(func() {
+		k8sDeleteIngress(t, clusterClients[K8s], ingName, ns)
+		oshiftDeleteRoute(t, clusterClients[Oshift], routeName, ns)
+		DeleteTestGDP(t, newGDP.Namespace, newGDP.Name)
+	})
+
+	initMiddlewares(t)
+	g := gomega.NewGomegaWithT(t)
+	tls := true
+	useDefaultSecret := true
+
+	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
+		ingHostIPMap, path, false, useDefaultSecret)
+	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
+		routeCluster, host, routeIPAddr, path[0], true)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, &sitePersistenceRef, nil, nil, path, tls, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	hmNames := BuildTestHmNames(host, path, tls)
+	g.Eventually(func() bool {
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmNames, &sitePersistenceRef, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
