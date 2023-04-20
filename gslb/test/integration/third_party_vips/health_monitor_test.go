@@ -54,7 +54,7 @@ func TestHMAddIngressAndRoutes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, path, TlsTrue)
+		ingHostIPMap, path, TlsTrue, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, path[0], TlsTrue)
 
@@ -104,7 +104,7 @@ func TestHMAddIngressAndRoutesMultiplePaths(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, ingPaths, TlsTrue)
+		ingHostIPMap, ingPaths, TlsTrue, false)
 	var routeObj []*routev1.Route
 	for idx, path := range routePaths {
 		name := routePrefix + strconv.Itoa(idx)
@@ -156,7 +156,7 @@ func TestHMAddEditHostAndPathIngressAndRoutes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, nil, TlsTrue)
+		ingHostIPMap, nil, TlsTrue, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, path[0], TlsTrue)
 

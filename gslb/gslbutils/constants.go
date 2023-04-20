@@ -121,4 +121,7 @@ const (
 	RequestHeaderStringSeparator = " "
 	NoOfRequestHeaderParams      = 3
 	CreatedFrom                  = "created from: "
+
+	// Default secret constants
+	DefaultSecretEnabled = "ako.vmware.com/enable-tls"
 )

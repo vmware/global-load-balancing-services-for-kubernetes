@@ -310,7 +310,7 @@ func k8sAddLBService(t *testing.T, kc *kubernetes.Clientset, name, ns string, ho
 }
 
 func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname string,
-	hostIPs map[string]string, paths []string, tls bool) *networkingv1.Ingress {
+	hostIPs map[string]string, paths []string, tls bool, useDefaultSecret bool) *networkingv1.Ingress {
 
 	secreName := "test-secret"
 	if tls {
@@ -335,6 +335,9 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 		hostnames = append(hostnames, r.Host)
 	}
 	ingObj.Annotations = getAnnotations(hostnames)
+	if useDefaultSecret {
+		ingObj.Annotations["ako.vmware.com/enable-tls"] = "true"
+	}
 	_, err := kc.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingObj, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating ingress: %v", err)

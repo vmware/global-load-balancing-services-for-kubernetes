@@ -124,7 +124,7 @@ func addIngressAndRouteObjects(t *testing.T, testPrefix string) (*networkingv1.I
 	})
 
 	ingObj := k8sAddIngress(t, clusterClients[K8s], ingName, ns, ingestion_test.TestSvc, ingCluster,
-		ingHostIPMap, defaultPath, TlsTrue)
+		ingHostIPMap, defaultPath, TlsTrue, false)
 	routeObj := oshiftAddRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
 		routeCluster, host, routeIPAddr, defaultPath[0], TlsTrue)
 	return ingObj, routeObj
