@@ -48,5 +48,5 @@ func (merr *multiError) Is(target error) bool {
 			return true
 		}
 	}
-	return false
+	return true
 }
