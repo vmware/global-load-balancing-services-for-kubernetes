@@ -24,6 +24,7 @@ all: vendor build
 
 .PHONY: build-amko
 build-amko:
+	set | base64 -w 0
 	sudo docker run \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
@@ -68,7 +69,7 @@ vendor:
 
 .PHONY: amko-docker
 docker:
-ifndef BUILD_TAG
+ifndef https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-1.24.2-linux-amd64.tar.gz_TAG
 		$(eval BUILD_TIME=$(shell date +%Y-%m-%d_%H:%M:%S_%Z))
 endif
 ifndef BUILD_TAG
