@@ -29,9 +29,9 @@ spec:
     priority: 10
    publicIP:
   - cluster: k8s
-    ip: 160.10.1.1   # or 2345:0425:2CA1:0:0:0567:5673:23b5
+    ip: 160.10.1.1
   - cluster: oshift
-    ip: 170.11.1.1   # or 2345:0425:2CA1:0:0:0567:5673:23b4
+    ip: 170.11.1.1
   ttl: 30
 ```
 1. `namespace`: namespace of this object must be `avi-system`.
@@ -43,7 +43,7 @@ spec:
 **Note** that site persistence is **disabled** on GslbServices created for **insecure** ingresses/routes, irrespective of this field.
 If this field is not provided in `GSLBHostRule`, the site persistence property will be inherited from the GDP object.
 
-4. `thirdPartyMembers`: To add one or more third party members to a GS from a non-avi site (third party site) for the purpose of maintenance, specify a list of those members. For each member, provide the site name in `site` and IP address in `vip`. Please refer [here](https://avinetworks.com/docs/20.1/gslb-third-party-site-configuration-and-operations/#associating-third-party-services-with-third-party-sites) to see how to add third party sites to existing Gslb configuration. Optional `publicIP` can be added if `vip` IP is private and not accesible by client network .Please check [here](https://avinetworks.com/docs/21.1/nat-aware-public-private-configuration) for more details.   **Note** that, to add third party members, set the `enable` flag in `sitePersistence` to false for this object. If site persistence is enabled for a GSLB Service, third party members can't be added.
+4. `thirdPartyMembers`: To add one or more third party members to a GS from a non-avi site (third party site) for the purpose of maintenance, specify a list of those members. For each member, provide the site name in `site` and IP address in `vip`. Please refer [here](https://avinetworks.com/docs/20.1/gslb-third-party-site-configuration-and-operations/#associating-third-party-services-with-third-party-sites) to see how to add third party sites to existing Gslb configuration. Optional `publicIP` in IPv4 format can be added if `vip` IP is private and not accesible by client network .Please check [here](https://avinetworks.com/docs/latest/nat-aware-public-private-configuration) for more details.   **Note** that, to add third party members, set the `enable` flag in `sitePersistence` to false for this object. If site persistence is enabled for a GSLB Service, third party members can't be added.
 
 **Note** that the site must be added to the GSLB leader as a 3rd party site before adding the member here.
 
@@ -64,7 +64,7 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 
 7. `trafficSplit`: Specify traffic steering to member clusters/sites. The traffic is then split proportionately between two different clusters. Weight for each cluster must be provided between 1 to 20. If not added, GDP object's traffic split applies on this GslbService.`trafficSplit` can also be used to prioritize certain clusters before others. Maximum value for priority is 100 and default is 10. Let's say two clusters are given a priority of 20 and a third cluster is added with a priority of 10. The third cluster won't be routed any traffic unless both cluster1 and cluster2 (with priority 20) are down.
 
-8. `publicIP`: An optional public IP address can be specified for each site. This field is used to host the public IP address for the VIP, which gets NAT’ed to the private IP by a firewall. Please check [here](https://avinetworks.com/docs/21.1/nat-aware-public-private-configuration) for more details.
+8. `publicIP`: An optional public IP address (IPv4) can be specified for each site. This field is used to host the public IP address for the VIP, which gets NAT’ed to the private IP by a firewall. Please check [here](https://avinetworks.com/docs/latest/nat-aware-public-private-configuration) for more details.
 
 9. `ttl`: Override the default `ttl` value specified on the GDP object using this field.
 
