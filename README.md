@@ -20,16 +20,16 @@ AMKO is aware of the following object types:
 For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Kubernetes     | 1.22-1.25   |
-| AKO            | 1.9.1       |
-| AVI Controller | 21.1.5-22.1.3 |
+| Kubernetes     | 1.22-1.26   |
+| AKO            | 1.10.1       |
+| AVI Controller | 21.1.5-22.1.4 |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Openshift      | 4.6-4.11    |
-| AKO            | 1.9.1       |
-| AVI Controller | 21.1.5-22.1.3 |
+| Openshift      | 4.6-4.12    |
+| AKO            | 1.10.1       |
+| AVI Controller | 21.1.5-22.1.4 |
 
 #### Pre-requisites
 To kick-start AMKO, we need:
@@ -78,14 +78,14 @@ Following steps have to be executed on all member clusters:
    $ helm search repo
 
    NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
-   amko/amko	1.9.1	            1.9.1	            A helm chart for Avi Multicluster Kubernetes Operator
+   amko/amko	1.10.1	            1.10.1	            A helm chart for Avi Multicluster Kubernetes Operator
 
    ```
 
 4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values amko/amko --version 1.9.1 > values.yaml
+   helm show values amko/amko --version 1.10.1 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
@@ -97,14 +97,14 @@ Following steps have to be executed on all member clusters:
 
 6. Install AMKO:
    ```
-   $ helm install  amko/amko  --generate-name --version 1.9.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install  amko/amko  --generate-name --version 1.10.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
 7. Check the installation:
    ```
    $ helm list -n avi-system
 
    NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
-   amko-1598451370	avi-system	1       	2022-02-04 11:16:21.889538175 +0000 UTC	deployed	amko-1.9.1	            1.9.1
+   amko-1598451370	avi-system	1       	2022-02-04 11:16:21.889538175 +0000 UTC	deployed	amko-1.10.1	            1.10.1
    ```
 
 #### Troubleshooting and Log collection
@@ -143,7 +143,7 @@ helm repo update amko
 Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
 
 ```
-helm template amko/amko --version 1.9.1 --include-crds --output-dir <output_dir>
+helm template amko/amko --version 1.10.1 --include-crds --output-dir <output_dir>
 ```
 
 This will save the helm files to an output directory which will contain the CRDs corresponding to the AMKO version.
@@ -159,7 +159,7 @@ kubectl apply -f <output_dir>/amko/crds/
 helm list -n avi-system
 
 NAME          	NAMESPACE 	REVISION	UPDATED                             	    STATUS  	CHART    	APP VERSION
-amko-1598451370 avi-system	1       	2022-05-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.8.1	1.8.1
+amko-1598451370 avi-system	1       	2022-05-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.9.1	1.9.1
 ```
 
 *Step4*
@@ -178,14 +178,14 @@ helm repo add --force-update amko https://projects.registry.vmware.com/chartrepo
 Get the values.yaml for the latest AMKO version
 
 ```
-helm show values amko/amko --version 1.9.1 > values.yaml
+helm show values amko/amko --version 1.10.1 > values.yaml
 
 ```
 
 Upgrade the helm chart
 
 ```
-helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.9.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
+helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.10.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
 
 ```
 
@@ -211,8 +211,10 @@ helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.9.1 -
 | `gdpConfig.trafficSplit`                         | List of weights for clusters (names must match the names in configs.memberClusters), each weight must range from 1 to 20 | Nil                                   |
 | `gdpConfig.ttl`                         | Time To Live, ranges from 1-86400 seconds | Nil                                   |
 | `gdpConfig.healthMonitorRefs`                         | List of health monitor references to be applied on all Gslb Services | Nil                                   |
+| `gdpConfig.healthMonitorTemplate`                | Health monitor template using which a user can customize the health monitor settings such as `Client Request Header` and `Response Code` | Nil                          |
 | `gdpConfig.sitePersistenceRef`                         | Reference for a federated application persistence profile created on the Avi Controller | Nil                                   |
 | `gdpConfig.poolAlgorithmSettings`   | Pool algorithm settings to be used by the GslbServices for traffic distribution across pool members. See [pool algorithm settings](docs/crds/gslbhostrule.md#pool-algorithm-settings) to configure the appropriate settings. |          GSLB_ALGORITHM_ROUND_ROBIN         |
+| `gdpConfig.downResponse`   | Type of response to the client query when the GSLB service is DOWN |          Nil         |
 
 
 #### Custom resources
@@ -266,5 +268,7 @@ Certain Gslb Service properties can be set and modified at runtime. If these are
 | Third party members | `GSLBHostRule`      |
 | Traffic Split| `GDP`, `GSLBHostRule`      |
 | Pool Algorithm Settings | `GDP`, `GSLBHostRule`|
+| Down Response | `GDP`, `GSLBHostRule` |
+| Public IP Address | `GSLBHostRule` |
 
 To set them, follow steps for [GlobalDeploymentPolicy](docs/crds/gdp.md) and for [GSLBHostRule](docs/crds/gslbhostrule.md).
