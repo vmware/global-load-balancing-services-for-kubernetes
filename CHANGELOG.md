@@ -86,3 +86,14 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Bugs fixed:
   - Fixed an issue of UUID not being federated across member clusters.
+
+## AMKO-1.10.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.26 and OCP 4.12.
+  - Support for GslbService Pool property `Public IP Address` via `GSLBHostRule`.
+
+### Bugs fixed:
+  - Fixed an issue where AMKO was not considering the updates to priority in `GSLBHostRule` objects.
+  - Fixed an issue of AMKO not taking into account the TLS annotation in an ingress which was causing
+    site persistence configurations to fail.
