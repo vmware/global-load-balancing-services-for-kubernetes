@@ -86,3 +86,6 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Bugs fixed:
   - Fixed an issue of UUID not being federated across member clusters.
+
+### Known Issues:
+  - AMKO fails to create GSLB services with site persistence enabled for controller versions above 22.1.2.
