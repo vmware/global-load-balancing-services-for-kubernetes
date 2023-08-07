@@ -202,14 +202,14 @@ func GetSvcKey(op string, svc k8sobjects.SvcMeta) string {
 func verifyGsGraph(t *testing.T, metaObj k8sobjects.MetaObject, present bool, nMembers int, memberCheck bool) {
 	g := gomega.NewGomegaWithT(t)
 
-	modelName := utils.ADMIN_NS + "/" + nodes.DeriveGSLBServiceName(metaObj.GetHostname(), "")
+	modelName := gslbutils.GetAviConfig().Tenant + "/" + nodes.DeriveGSLBServiceName(metaObj.GetHostname(), "")
 	ok, aviModelIntf := nodes.SharedAviGSGraphLister().Get(modelName)
 	if present == false {
 		g.Expect(ok).To(gomega.Equal(present))
 		return
 	}
 	aviGsModel := aviModelIntf.(*nodes.AviGSObjectGraph)
-	g.Expect(aviGsModel.Tenant).To(gomega.Equal(utils.ADMIN_NS))
+	g.Expect(aviGsModel.Tenant).To(gomega.Equal(gslbutils.GetAviConfig().Tenant))
 	g.Expect(aviGsModel.Name).To(gomega.Equal(metaObj.GetHostname()))
 	g.Expect(aviGsModel.MembersLen()).To(gomega.Equal(nMembers))
 
@@ -230,6 +230,8 @@ func verifyGsGraph(t *testing.T, metaObj k8sobjects.MetaObject, present bool, nM
 }
 
 func TestGSGraphsForSingleIhms(t *testing.T) {
+	gslbutils.NewAviControllerConfig("admin", "admin", "url", "18.2.9", "gslbservice")
+
 	prefix := "si-"
 	acceptedIngStore := store.GetAcceptedRouteStore()
 	hostname1 := prefix + "host1.avi.com"
@@ -237,12 +239,12 @@ func TestGSGraphsForSingleIhms(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	ihm1 := AddIngressMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	ihm2 := AddIngressMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -254,13 +256,13 @@ func TestGSGraphsForSingleIhms(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, false, 0, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -271,12 +273,12 @@ func TestGSGraphsForMultiIhms(t *testing.T) {
 	hostname := prefix + "host1.avi.com"
 	acceptedIngStore := store.GetAcceptedRouteStore()
 	ihm1 := AddIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	ihm2 := AddIngressMeta(t, barIng1, DefNS, hostname, BarCluster+"-"+DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -288,13 +290,13 @@ func TestGSGraphsForMultiIhms(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, true, 1, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -306,12 +308,12 @@ func TestGSGraphsForSingleIhmUpdate(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	ihm1 := AddIngressMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	ihm2 := AddIngressMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -321,7 +323,7 @@ func TestGSGraphsForSingleIhmUpdate(t *testing.T) {
 
 	// update one of the Ihms, ihm1
 	updatedIhm1 := AddIngressMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.11", FooCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -331,13 +333,13 @@ func TestGSGraphsForSingleIhmUpdate(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, updatedIhm1)
 	acceptedIngStore.DeleteClusterNSObj(updatedIhm1.Cluster, updatedIhm1.Namespace, updatedIhm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedIhm1.Hostname, false)
 	verifyGsGraph(t, updatedIhm1, false, 0, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -348,12 +350,12 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 	hostname := prefix + "host1.avi.com"
 	acceptedIngStore := store.GetAcceptedRouteStore()
 	ihm1 := AddIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	ihm2 := AddIngressMeta(t, barIng1, DefNS, hostname, BarCluster+"-"+DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -364,7 +366,7 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 	// update one of the Ihms, ihm1
 	// AddIngressMeta not just adds a new object, it can also update an existing object too
 	updatedIhm1 := AddIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.11", FooCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedIhm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -374,7 +376,7 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 
 	// let's update the second member as well
 	updatedIhm2 := AddIngressMeta(t, barIng1, DefNS, hostname, BarCluster+"-"+DefSvc, "10.10.10.21", BarCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -384,13 +386,13 @@ func TestGSGraphsForMultiIhmUpdate(t *testing.T) {
 	key1 := GetIhmKey(gslbutils.ObjectDelete, updatedIhm1)
 	acceptedIngStore.DeleteClusterNSObj(updatedIhm1.Cluster, updatedIhm1.Namespace, updatedIhm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedIhm1.Hostname, false)
 	verifyGsGraph(t, updatedIhm1, true, 1, false)
 
 	key2 := GetIhmKey(gslbutils.ObjectDelete, updatedIhm2)
 	acceptedIngStore.DeleteClusterNSObj(updatedIhm2.Cluster, updatedIhm2.Namespace, updatedIhm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedIhm2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedIhm2.Hostname, false)
 	verifyGsGraph(t, updatedIhm2, false, 0, false)
 }
 
@@ -402,12 +404,12 @@ func TestGSGraphsForSingleSvc(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	svc1 := AddSvcMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	svc2 := AddSvcMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -419,13 +421,13 @@ func TestGSGraphsForSingleSvc(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, svc1)
 	acceptedIngStore.DeleteClusterNSObj(svc1.Cluster, svc1.Namespace, svc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc1.Hostname, false)
 	verifyGsGraph(t, svc1, false, 0, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, svc2)
 	acceptedIngStore.DeleteClusterNSObj(svc2.Cluster, svc2.Namespace, svc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc2.Hostname, false)
 	verifyGsGraph(t, svc2, false, 0, false)
 }
 
@@ -436,12 +438,12 @@ func TestGSGraphsForMultiSvc(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	svc1 := AddSvcMeta(t, fooIng1, DefNS, hostname, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	svc2 := AddSvcMeta(t, barIng1, DefNS, hostname, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -453,13 +455,13 @@ func TestGSGraphsForMultiSvc(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, svc1)
 	acceptedIngStore.DeleteClusterNSObj(svc1.Cluster, svc1.Namespace, svc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc1.Hostname, false)
 	verifyGsGraph(t, svc1, true, 1, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, svc2)
 	acceptedIngStore.DeleteClusterNSObj(svc2.Cluster, svc2.Namespace, svc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc2.Hostname, false)
 	verifyGsGraph(t, svc2, false, 0, false)
 }
 
@@ -471,12 +473,12 @@ func TestGSGraphsForSingleSvcUpdate(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	svc1 := AddSvcMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	svc2 := AddSvcMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -485,12 +487,12 @@ func TestGSGraphsForSingleSvcUpdate(t *testing.T) {
 	verifyGsGraph(t, svc2, true, 1, true)
 
 	updatedSvc1 := AddSvcMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.11", FooCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	updatedSvc2 := AddSvcMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.21", BarCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -502,13 +504,13 @@ func TestGSGraphsForSingleSvcUpdate(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, updatedSvc1)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc1.Cluster, updatedSvc1.Namespace, updatedSvc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc1.Hostname, false)
 	verifyGsGraph(t, updatedSvc1, false, 0, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, svc2)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc2.Cluster, updatedSvc2.Namespace, updatedSvc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc2.Hostname, false)
 	verifyGsGraph(t, updatedSvc2, false, 0, false)
 }
 
@@ -519,12 +521,12 @@ func TestGSGraphsForMultiSvcUpdate(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	svc1 := AddSvcMeta(t, fooIng1, DefNS, hostname, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+svc1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	svc2 := AddSvcMeta(t, barIng1, DefNS, hostname, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+svc2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+svc2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -534,12 +536,12 @@ func TestGSGraphsForMultiSvcUpdate(t *testing.T) {
 
 	// update both the services
 	updatedSvc1 := AddSvcMeta(t, fooIng1, DefNS, hostname, DefSvc, "10.10.10.11", FooCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	updatedSvc2 := AddSvcMeta(t, barIng1, DefNS, hostname, DefSvc, "10.10.10.21", BarCluster, false)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -551,13 +553,13 @@ func TestGSGraphsForMultiSvcUpdate(t *testing.T) {
 	key1 := GetSvcKey(gslbutils.ObjectDelete, updatedSvc1)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc1.Cluster, updatedSvc1.Namespace, updatedSvc1.Name)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc1.Hostname, false)
 	verifyGsGraph(t, updatedSvc1, true, 1, false)
 
 	key2 := GetSvcKey(gslbutils.ObjectDelete, updatedSvc2)
 	acceptedIngStore.DeleteClusterNSObj(updatedSvc2.Cluster, updatedSvc2.Namespace, updatedSvc2.Name)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+updatedSvc2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+updatedSvc2.Hostname, false)
 	verifyGsGraph(t, updatedSvc2, false, 0, false)
 }
 
@@ -569,12 +571,12 @@ func TestGSGraphsForSingleMCIhms(t *testing.T) {
 	fooIng1 := prefix + "foo-ing1"
 	barIng1 := prefix + "bar-ing1"
 	ihm1 := AddMultiClusterIngressMeta(t, fooIng1, DefNS, hostname1, DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	ihm2 := AddMultiClusterIngressMeta(t, barIng1, DefNS, hostname2, DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -586,13 +588,13 @@ func TestGSGraphsForSingleMCIhms(t *testing.T) {
 	key1 := GetMCIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, false, 0, false)
 
 	key2 := GetMCIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }
 
@@ -603,12 +605,12 @@ func TestGSGraphsForMultiMCIhms(t *testing.T) {
 	hostname := prefix + "host1.avi.com"
 	acceptedIngStore := store.GetAcceptedMultiClusterIngressStore()
 	ihm1 := AddMultiClusterIngressMeta(t, fooIng1, DefNS, hostname, FooCluster+"-"+DefSvc, "10.10.10.10", FooCluster, true)
-	ok, msg := waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	ok, msg := waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
 	ihm2 := AddMultiClusterIngressMeta(t, barIng1, DefNS, hostname, BarCluster+"-"+DefSvc, "10.10.10.20", BarCluster, true)
-	ok, msg = waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	ok, msg = waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	if !ok {
 		t.Fatalf("%s", msg)
 	}
@@ -620,12 +622,12 @@ func TestGSGraphsForMultiMCIhms(t *testing.T) {
 	key1 := GetMCIhmKey(gslbutils.ObjectDelete, ihm1)
 	acceptedIngStore.DeleteClusterNSObj(ihm1.Cluster, ihm1.Namespace, ihm1.ObjName)
 	addKeyToIngestionQueue(DefNS, key1)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm1.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm1.Hostname, false)
 	verifyGsGraph(t, ihm1, true, 1, false)
 
 	key2 := GetMCIhmKey(gslbutils.ObjectDelete, ihm2)
 	acceptedIngStore.DeleteClusterNSObj(ihm2.Cluster, ihm2.Namespace, ihm2.ObjName)
 	addKeyToIngestionQueue(DefNS, key2)
-	waitAndVerify(t, utils.ADMIN_NS+"/"+ihm2.Hostname, false)
+	waitAndVerify(t, gslbutils.GetAviConfig().Tenant+"/"+ihm2.Hostname, false)
 	verifyGsGraph(t, ihm2, false, 0, false)
 }

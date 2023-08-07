@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
@@ -96,7 +96,7 @@ func TestPoolPriorityValidity(t *testing.T) {
 		int32(commonWeight), int32(commonPriority)))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -141,7 +141,7 @@ func TestMultiplePriorityValidity(t *testing.T) {
 		int32(oshiftWeight), int32(oshiftPriority)))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -199,7 +199,7 @@ func TestPriorityOnOneCluster(t *testing.T) {
 		int32(oshiftWeight), int32(oshiftPriority)))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -262,7 +262,7 @@ func TestPriorityOneClusterUpdate(t *testing.T) {
 		int32(oshiftWeight), int32(oshiftPriority)))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	updTrafficSplit := []gdpalphav2.TrafficSplitElem{
@@ -283,7 +283,7 @@ func TestPriorityOneClusterUpdate(t *testing.T) {
 	updatedGSMembers = append(updatedGSMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster,
 		int32(oshiftWeight), int32(oshiftPriority)))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, updatedGSMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, updatedGSMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -331,7 +331,7 @@ func TestMultiplePriorityUpdate(t *testing.T) {
 		int32(oshiftWeight), int32(oshiftPriority)))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	updTrafficSplit := BuildTestTrafficSplit(k8sWeight, k8sPriority, oshiftWeight, UpdatedPriorityOshift)
@@ -346,6 +346,6 @@ func TestMultiplePriorityUpdate(t *testing.T) {
 	updatedGSMembers = append(updatedGSMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster,
 		int32(oshiftWeight), int32(UpdatedPriorityOshift)))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, updatedGSMembers, host, utils.ADMIN_NS, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
+		return verifyGSMembers(t, updatedGSMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, defaultPath, TlsFalse, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

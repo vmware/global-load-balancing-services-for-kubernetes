@@ -177,7 +177,7 @@ func GetHmChecksum(objType string, gsGraph *AviGSObjectGraph) uint32 {
 }
 
 func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.WorkerQueue, agl *AviGSGraphLister) {
-	modelName := utils.ADMIN_NS + "/" + objName
+	modelName := gslbutils.GetAviConfig().Tenant + "/" + objName
 	found, aviGS := agl.Get(modelName)
 	if !found {
 		// no existing GS for the GS FQDN
@@ -204,7 +204,7 @@ func AddUpdateGSLBHostRuleOperation(key, objType, objName string, wq *utils.Work
 		"updated the model"))
 	agl.Save(modelName, aviGS.(*AviGSObjectGraph))
 
-	PublishKeyToRestLayer(utils.ADMIN_NS, objName, key, wq)
+	PublishKeyToRestLayer(gslbutils.GetAviConfig().Tenant, objName, key, wq)
 }
 
 type memberFqdnList struct {
@@ -275,7 +275,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 	gsName := DeriveGSLBServiceName(metaObj.GetHostname(), metaObj.GetCluster())
 	gsDomainNames := DeriveGSLBServiceDomainNames(gsName)
 	UpdateMemberFqdnMapping(metaObj, metaObj.GetHostname(), gsName)
-	modelName := utils.ADMIN_NS + "/" + gsName
+	modelName := gslbutils.GetAviConfig().Tenant + "/" + gsName
 	found, aviGS := agl.Get(modelName)
 	if !found {
 		gslbutils.Logf("key: %s, modelName: %s, msg: %s", key, modelName, "generating new model")
@@ -314,7 +314,7 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 	metaObj.UpdateHostMap(cname + "/" + ns + "/" + objName)
 
 	if !fullSync || gslbutils.IsControllerLeader() {
-		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
+		PublishKeyToRestLayer(gslbutils.GetAviConfig().Tenant, gsName, key, wq)
 	}
 }
 
@@ -357,7 +357,7 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 	DeleteMemberFqdnMapping(metaObj, hostname, gsFqdn)
 
 	gsName := gsFqdn
-	modelName := utils.ADMIN_NS + "/" + gsFqdn
+	modelName := gslbutils.GetAviConfig().Tenant + "/" + gsFqdn
 
 	deleteGs := false
 	agl := SharedAviGSGraphLister()
@@ -393,7 +393,7 @@ func deleteObjOperation(key, cname, ns, objType, objName string, wq *utils.Worke
 		SharedAviGSGraphLister().Save(modelName, aviGS)
 	}
 	if gslbutils.IsControllerLeader() {
-		PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, wq)
+		PublishKeyToRestLayer(gslbutils.GetAviConfig().Tenant, gsName, key, wq)
 	}
 }
 
@@ -433,7 +433,7 @@ func DeleteGSOrGSMembers(aviGSGraph *AviGSObjectGraph, members []AviGSK8sObj, mo
 	} else {
 		agl.Save(gsName, aviGSGraph)
 	}
-	PublishKeyToRestLayer(utils.ADMIN_NS, gsName, key, sharedQ)
+	PublishKeyToRestLayer(gslbutils.GetAviConfig().Tenant, gsName, key, sharedQ)
 }
 
 func DeleteAndAddGSGraphForFqdn(agl *AviGSGraphLister, oldFqdn, newFqdn, key, cname string) {
@@ -441,7 +441,7 @@ func DeleteAndAddGSGraphForFqdn(agl *AviGSGraphLister, oldFqdn, newFqdn, key, cn
 
 	// a Global Fqdn for a Local Fqdn was added, see if we need to delete the GS for local fqdn first
 	var members []AviGSK8sObj
-	modelName := utils.ADMIN_NS + "/" + oldFqdn
+	modelName := gslbutils.GetAviConfig().Tenant + "/" + oldFqdn
 	found, aviGS := agl.Get(modelName)
 	if found {
 		aviGSGraph := aviGS.(*AviGSObjectGraph)
@@ -459,7 +459,7 @@ func DeleteAndAddGSGraphForFqdn(agl *AviGSGraphLister, oldFqdn, newFqdn, key, cn
 	}
 
 	// a new GS object needs to be created or updated for the global fqdn
-	newModelName := utils.ADMIN_NS + "/" + newFqdn
+	newModelName := gslbutils.GetAviConfig().Tenant + "/" + newFqdn
 	found, aviGS = agl.Get(newModelName)
 	if found {
 		gslbutils.Logf("key: %s, gsName: %s, msg: GS for fqdn %s already exists, will update", key,
@@ -472,7 +472,7 @@ func DeleteAndAddGSGraphForFqdn(agl *AviGSGraphLister, oldFqdn, newFqdn, key, cn
 			}
 		}
 		agl.Save(newFqdn, aviGS.(*AviGSObjectGraph))
-		PublishKeyToRestLayer(utils.ADMIN_NS, newFqdn, key, sharedQ, oldFqdn)
+		PublishKeyToRestLayer(gslbutils.GetAviConfig().Tenant, newFqdn, key, sharedQ, oldFqdn)
 		return
 	}
 
@@ -482,7 +482,7 @@ func DeleteAndAddGSGraphForFqdn(agl *AviGSGraphLister, oldFqdn, newFqdn, key, cn
 	gslbutils.Debugf(spew.Sprintf("key: %s, gsName: %s, model: %v, msg: constructed new model", key, modelName,
 		*(aviGSGraph)))
 	agl.Save(newModelName, aviGS.(*AviGSObjectGraph))
-	PublishKeyToRestLayer(utils.ADMIN_NS, newFqdn, key, sharedQ, oldFqdn)
+	PublishKeyToRestLayer(gslbutils.GetAviConfig().Tenant, newFqdn, key, sharedQ, oldFqdn)
 }
 
 func OperateOnHostRule(key string) {

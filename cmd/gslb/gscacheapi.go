@@ -19,10 +19,10 @@ import (
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/apiserver"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 )
 
 type GSCacheAPI struct{}
@@ -44,7 +44,7 @@ func GSCacheHandler(w http.ResponseWriter, r *http.Request) {
 	names, ok := r.URL.Query()["name"]
 	if ok {
 		name := names[0]
-		key := cache.TenantName{Tenant: utils.ADMIN_NS, Name: name}
+		key := cache.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: name}
 		obj, present := aviCache.AviCacheGet(key)
 		if !present {
 			apiserver.WriteErrorToResponse(w)
@@ -82,7 +82,7 @@ func HmCacheHandler(w http.ResponseWriter, r *http.Request) {
 	names, ok := r.URL.Query()["name"]
 	if ok {
 		name := names[0]
-		obj, present := aviHmCache.AviHmCacheGet(cache.TenantName{Tenant: utils.ADMIN_NS, Name: name})
+		obj, present := aviHmCache.AviHmCacheGet(cache.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: name})
 		if !present {
 			apiserver.WriteErrorToResponse(w)
 			return

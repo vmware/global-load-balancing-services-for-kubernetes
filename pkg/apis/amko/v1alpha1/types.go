@@ -53,9 +53,10 @@ type GSLBConfigSpec struct {
 
 // GSLBLeader is the leader node in the GSLB cluster
 type GSLBLeader struct {
-	Credentials       string `json:"credentials,omitempty"`
-	ControllerVersion string `json:"controllerVersion,omitempty"`
-	ControllerIP      string `json:"controllerIP,omitempty"`
+	Credentials       string  `json:"credentials,omitempty"`
+	ControllerVersion string  `json:"controllerVersion,omitempty"`
+	ControllerIP      string  `json:"controllerIP,omitempty"`
+	Tenant            *string `json:"tenant,omitempty"`
 }
 
 // MemberCluster defines a GSLB member cluster details

@@ -17,8 +17,8 @@ import (
 	"net/http"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 )
 
@@ -41,7 +41,7 @@ func GSGraphHandler(w http.ResponseWriter, r *http.Request) {
 	names, ok := r.URL.Query()["name"]
 	if ok {
 		name := names[0]
-		tenName := utils.ADMIN_NS + "/" + name
+		tenName := gslbutils.GetAviConfig().Tenant + "/" + name
 		_, aviGS := agl.Get(tenName)
 		if aviGS == nil {
 			WriteToResponse(w, nil)

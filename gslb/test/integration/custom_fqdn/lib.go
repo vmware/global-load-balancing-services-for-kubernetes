@@ -26,7 +26,6 @@ import (
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -360,7 +359,7 @@ func AddAndVerifyTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPo
 
 func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph {
 	gsList := nodes.SharedAviGSGraphLister()
-	key := utils.ADMIN_NS + "/" + gsName
+	key := gslbutils.GetAviConfig().Tenant + "/" + gsName
 	found, gsObj := gsList.Get(key)
 	if !found {
 		t.Logf("error in fetching GS for key %s", key)

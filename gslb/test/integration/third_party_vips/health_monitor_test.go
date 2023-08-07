@@ -21,8 +21,8 @@ import (
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 )
@@ -65,11 +65,11 @@ func TestHMAddIngressAndRoutes(t *testing.T) {
 	hmRefs := BuildTestPathHmNames(host, path, TlsTrue)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, path, TlsTrue, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, path, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, path, TlsTrue)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, path, TlsTrue)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -121,11 +121,11 @@ func TestHMAddIngressAndRoutesMultiplePaths(t *testing.T) {
 	hmRefs := BuildTestPathHmNames(host, paths, TlsTrue)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, paths, TlsTrue, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, paths, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, GetUniqueMembers(expectedMembers), host, utils.ADMIN_NS, hmRefs, nil, nil, nil, paths, TlsTrue)
+		return verifyGSMembersInRestLayer(t, GetUniqueMembers(expectedMembers), host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, paths, TlsTrue)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -167,11 +167,11 @@ func TestHMAddEditHostAndPathIngressAndRoutes(t *testing.T) {
 	hmRefs := BuildTestPathHmNames(host, path, TlsTrue)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, path, TlsTrue, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, path, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, path, TlsTrue)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, path, TlsTrue)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newPath := []string{"/updatedPath"}
@@ -188,11 +188,11 @@ func TestHMAddEditHostAndPathIngressAndRoutes(t *testing.T) {
 	hmRefs = BuildTestPathHmNames(newHost, newPath, TlsTrue)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, newHost, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, newPath, TlsTrue, nil)
+		return verifyGSMembers(t, expectedMembers, newHost, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, newPath, TlsTrue, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, newHost, utils.ADMIN_NS, hmRefs, nil, nil, nil, newPath, TlsTrue)
+		return verifyGSMembersInRestLayer(t, expectedMembers, newHost, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, newPath, TlsTrue)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -226,11 +226,11 @@ func TestHMAddLBServices(t *testing.T) {
 	hmRefs := []string{BuildTestNonPathHmNames(host)}
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, nil, false, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, nil, false, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, false)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, false)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -264,11 +264,11 @@ func TestHMUpdateLBServices(t *testing.T) {
 	hmRefs := []string{BuildTestNonPathHmNames(host)}
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, nil, false, &port)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, nil, false, &port)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, false)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, false)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	port = 9090
@@ -278,10 +278,10 @@ func TestHMUpdateLBServices(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromSvc(t, updatedSvcObj, k8sCluster, 1, DefaultPriority))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, nil, false, &port)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, nil, false, &port)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, utils.ADMIN_NS, hmRefs, nil, nil, nil, nil, false)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmRefs, nil, nil, nil, nil, false)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

@@ -56,6 +56,7 @@ const (
 )
 
 func getTestGSLBObject() *gslbalphav1.GSLBConfig {
+	tenant := "gslbservice"
 	memberClusters := []gslbalphav1.MemberCluster{
 		{
 			ClusterContext: "cluster1",
@@ -74,7 +75,8 @@ func getTestGSLBObject() *gslbalphav1.GSLBConfig {
 			GSLBLeader: gslbalphav1.GSLBLeader{
 				Credentials:       "",
 				ControllerVersion: "",
-				ControllerIP:      ""},
+				ControllerIP:      "",
+				Tenant:            &tenant},
 			MemberClusters: memberClusters,
 		},
 	}
