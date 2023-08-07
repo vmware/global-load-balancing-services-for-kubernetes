@@ -8,36 +8,35 @@ package models
 // swagger:model FalsePositiveResult
 type FalsePositiveResult struct {
 
-	// Whether this URI is always fail. Field introduced in 21.1.1.
-	AlwaysFail *bool `json:"always_fail,omitempty"`
-
-	// This flag indicates whether this result is identifying an attack. Field introduced in 21.1.1.
+	// This flag indicates whether this result is identifying an attack. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	Attack *bool `json:"attack,omitempty"`
 
-	// Confidence on false positive detection. Allowed values are 0-100. Field introduced in 21.1.1. Unit is PERCENT.
+	// Confidence on false positive detection. Allowed values are 0-100. Field introduced in 21.1.1. Unit is PERCENT. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	Confidence *float32 `json:"confidence,omitempty"`
 
-	// This flag indicates whether this result is identifying a false positive. Field introduced in 21.1.1.
+	// This flag indicates whether this result is identifying a false positive. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	FalsePositive *bool `json:"false_positive,omitempty"`
 
-	// Header info if URI hit signature rule and match element is REQUEST_HEADERS. Field introduced in 21.1.1.
-	HeaderInfo *HeaderInfoInURI `json:"header_info,omitempty"`
+	// Meta data for this false positive result. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	// Required: true
+	FpResultHeader *FalsePositiveResultHeader `json:"fp_result_header"`
 
-	// HTTP method for URIs did false positive detection. Field introduced in 21.1.1.
+	// HTTP method for URIs did false positive detection. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	HTTPMethod *string `json:"http_method,omitempty"`
 
-	// This flag indicates that system is not confident about this result. Field introduced in 21.1.1.
-	NotSure *bool `json:"not_sure,omitempty"`
+	// HTTP request header info if URI hit signature rule and match element is REQUEST_HEADERS. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	HTTPRequestHeaderInfo *HeaderInfoInURI `json:"http_request_header_info,omitempty"`
 
-	// Params info if URI hit signature rule and match element is ARGS. Field introduced in 21.1.1.
+	// Params info if URI hit signature rule and match element is ARGS. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	ParamsInfo *ParamsInURI `json:"params_info,omitempty"`
 
-	// Signature rule info hitted by URI. Field introduced in 21.1.1.
+	// Signature rule info hitted by URI. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	RuleInfo *RuleInfo `json:"rule_info,omitempty"`
 
-	// Whether this URI is sometimes fail. Field introduced in 21.1.1.
-	SometimesFail *bool `json:"sometimes_fail,omitempty"`
-
-	// URIs did false positive detection. Field introduced in 21.1.1.
+	// URIs did false positive detection. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	URI *string `json:"uri,omitempty"`
+
+	// What failing mode that false positive detected as for current URI. Enum options - ALWAYS_FAIL, SOMETIMES_FAIL, NOT_SURE. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	// Required: true
+	URIResultMode *string `json:"uri_result_mode"`
 }
