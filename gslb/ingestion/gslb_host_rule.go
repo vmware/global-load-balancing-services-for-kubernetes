@@ -78,7 +78,7 @@ func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string)
 func isSitePersistenceRefPresentInCache(spName string) bool {
 	aviSpCache := avictrl.GetAviSpCache()
 
-	_, present := aviSpCache.AviSpCacheGet(avictrl.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: spName})
+	_, present := aviSpCache.AviSpCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: spName})
 	return present
 }
 
@@ -118,7 +118,7 @@ func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool
 		gslbutils.Errf("incomplete site persistence ref unmarshalled %s", utils.Stringify(sp))
 		return false
 	}
-	k := avictrl.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: *sp.Name}
+	k := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
 	spCache := avictrl.GetAviSpCache()
 	spCache.AviSpCacheAdd(k, &sp)
 	spCache.AviSpCacheAddByUUID(*sp.UUID, &sp)
@@ -190,7 +190,7 @@ func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings)
 func isHealthMonitorRefPresentInCache(hmName string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
-	_, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: hmName})
+	_, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName})
 	return present
 }
 

@@ -140,7 +140,7 @@ func GetGslbLeaderUuid(client *clients.AviClient) (string, error) {
 	var resp interface{}
 
 	uri := "/api/gslb"
-	SetTenant := session.SetTenant(gslbutils.GetAviConfig().Tenant)
+	SetTenant := session.SetTenant(gslbutils.GetTenant())
 	SetTenant(client.AviSession)
 	err := getAviObjectByUuid(uri, &resp, client)
 	if err != nil {

@@ -495,7 +495,7 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj
 		return
 	}
 	v.Name = gsFqdn
-	v.Tenant = gslbutils.GetAviConfig().Tenant
+	v.Tenant = gslbutils.GetTenant()
 	v.RetryCount = gslbutils.DefaultRetryCount
 	v.CalculateChecksum()
 }
@@ -517,7 +517,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 
 	// The GSLB service will be put into the admin tenant
 	v.Name = gsFqdn
-	v.Tenant = gslbutils.GetAviConfig().Tenant
+	v.Tenant = gslbutils.GetTenant()
 	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 

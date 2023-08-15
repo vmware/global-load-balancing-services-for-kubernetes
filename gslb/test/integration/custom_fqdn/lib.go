@@ -359,7 +359,7 @@ func AddAndVerifyTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPo
 
 func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph {
 	gsList := nodes.SharedAviGSGraphLister()
-	key := gslbutils.GetAviConfig().Tenant + "/" + gsName
+	key := gslbutils.GetTenant() + "/" + gsName
 	found, gsObj := gsList.Get(key)
 	if !found {
 		t.Logf("error in fetching GS for key %s", key)

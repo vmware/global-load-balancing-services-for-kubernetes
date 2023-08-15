@@ -638,7 +638,7 @@ func AddAndVerifyTestGDPStatus(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPol
 
 func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph {
 	gsList := nodes.SharedAviGSGraphLister()
-	key := gslbutils.GetAviConfig().Tenant + "/" + gsName
+	key := gslbutils.GetTenant() + "/" + gsName
 	found, gsObj := gsList.Get(key)
 	if !found {
 		t.Logf("error in fetching GS for key %s", key)
@@ -1076,8 +1076,8 @@ func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 
 func GetTestGSFromRestCache(t *testing.T, gsName string) *avicache.AviGSCache {
 	restLayerF := amkorest.NewRestOperations(nil, nil, nil)
-	gsKey := avicache.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: gsName}
-	key := gslbutils.GetAviConfig().Tenant + "/" + gsName
+	gsKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: gsName}
+	key := gslbutils.GetTenant() + "/" + gsName
 	gsObj := restLayerF.GetGSCacheObj(gsKey, key)
 	if gsObj == nil {
 		t.Logf("error in fetching GS from the rest cache for key: %v", gsKey)

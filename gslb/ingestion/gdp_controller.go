@@ -709,7 +709,7 @@ func deleteHmTemplateFromCacheIfRequired(oldGdp, newGdp *gdpalphav2.GlobalDeploy
 	if !gslbutils.IsHmTemplateChanged(oldGdp, newGdp) {
 		return false
 	}
-	hmKey := avictrl.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: *oldGdp.Spec.HealthMonitorTemplate}
+	hmKey := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *oldGdp.Spec.HealthMonitorTemplate}
 	gslbutils.Debugf("hmKey: %v, msg: deleting the hm template from gs hm cache", hmKey)
 	aviHmCache := avictrl.GetAviHmCache()
 	aviHmCache.AviHmCacheDelete(hmKey)

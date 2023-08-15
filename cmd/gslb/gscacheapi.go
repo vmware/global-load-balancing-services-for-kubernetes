@@ -44,7 +44,7 @@ func GSCacheHandler(w http.ResponseWriter, r *http.Request) {
 	names, ok := r.URL.Query()["name"]
 	if ok {
 		name := names[0]
-		key := cache.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: name}
+		key := cache.TenantName{Tenant: gslbutils.GetTenant(), Name: name}
 		obj, present := aviCache.AviCacheGet(key)
 		if !present {
 			apiserver.WriteErrorToResponse(w)
@@ -82,7 +82,7 @@ func HmCacheHandler(w http.ResponseWriter, r *http.Request) {
 	names, ok := r.URL.Query()["name"]
 	if ok {
 		name := names[0]
-		obj, present := aviHmCache.AviHmCacheGet(cache.TenantName{Tenant: gslbutils.GetAviConfig().Tenant, Name: name})
+		obj, present := aviHmCache.AviHmCacheGet(cache.TenantName{Tenant: gslbutils.GetTenant(), Name: name})
 		if !present {
 			apiserver.WriteErrorToResponse(w)
 			return

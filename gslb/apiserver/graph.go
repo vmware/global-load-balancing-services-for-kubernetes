@@ -41,7 +41,7 @@ func GSGraphHandler(w http.ResponseWriter, r *http.Request) {
 	names, ok := r.URL.Query()["name"]
 	if ok {
 		name := names[0]
-		tenName := gslbutils.GetAviConfig().Tenant + "/" + name
+		tenName := gslbutils.GetTenant() + "/" + name
 		_, aviGS := agl.Get(tenName)
 		if aviGS == nil {
 			WriteToResponse(w, nil)

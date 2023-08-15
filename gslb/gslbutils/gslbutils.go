@@ -295,7 +295,7 @@ func GetGSLBHmChecksum(hmType string, port int32, description []string, createdB
 }
 
 func GetAviAdminTenantRef() string {
-	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/?name=" + GetAviConfig().Tenant
+	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/?name=" + GetTenant()
 }
 
 // GSLBConfigObj is global and is initialized only once
@@ -436,6 +436,10 @@ func NewAviControllerConfig(username, password, ipAddr, version string, tenant s
 
 func GetAviConfig() AviControllerConfig {
 	return gslbLeaderConfig
+}
+
+func GetTenant() string {
+	return gslbLeaderConfig.Tenant
 }
 
 var allClusterContexts []string

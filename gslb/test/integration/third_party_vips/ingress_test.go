@@ -201,12 +201,12 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmNames, nil, nil, nil, path, tls)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmNames, nil, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -250,7 +250,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update the ingress object with an empty status field
@@ -260,12 +260,12 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10)}
 	t.Logf("verifying the GS to have only 1 member as route")
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmNames, nil, nil, nil, path, tls)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmNames, nil, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -322,11 +322,11 @@ func TestIngressWithDefaultSecretAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, nil, nil, &sitePersistenceRef, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, &sitePersistenceRef, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hmNames := BuildTestHmNames(host, path, tls)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetAviConfig().Tenant, hmNames, &sitePersistenceRef, nil, nil, path, tls)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmNames, &sitePersistenceRef, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }

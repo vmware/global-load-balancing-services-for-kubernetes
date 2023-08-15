@@ -93,7 +93,7 @@ func buildTestGSGraph(clusterList, ipList, objNames []string, host, objType stri
 	protocol := "https"
 	gsGraph := nodes.AviGSObjectGraph{
 		Name:        host,
-		Tenant:      gslbutils.GetAviConfig().Tenant,
+		Tenant:      gslbutils.GetTenant(),
 		DomainNames: []string{host},
 		MemberObjs:  memberObjs,
 		Hm: nodes.HealthMonitor{
@@ -146,7 +146,7 @@ func verifyInAviCache(t *testing.T, gsGraph nodes.AviGSObjectGraph, deleteCase b
 	gsCacheObj, ok := gsCache.(*avicache.AviGSCache)
 	g.Expect(ok).To(gomega.Equal(true))
 	g.Expect(gsCacheObj.Name).To(gomega.Equal(gsGraph.Name))
-	g.Expect(gsCacheObj.Tenant).To(gomega.Equal(gslbutils.GetAviConfig().Tenant))
+	g.Expect(gsCacheObj.Tenant).To(gomega.Equal(gslbutils.GetTenant()))
 	g.Expect(gsCacheObj.K8sObjects).To(gomega.HaveLen(len(gsGraph.MemberObjs)))
 	verifyMembersMatch(g, gsGraph, gsCacheObj)
 }
@@ -167,7 +167,7 @@ func TestCreateGS(t *testing.T) {
 	clusterList := []string{"foo", "bar"}
 	ipList := []string{"10.10.10.11", "10.10.10.21"}
 	names := []string{"ing1/host1.foo.com", "ing2/host1.foo.com"}
-	modelName := gslbutils.GetAviConfig().Tenant + "/" + host
+	modelName := gslbutils.GetTenant() + "/" + host
 	// build a AviGSObjectGraph
 	gsGraph := buildTestGSGraph(clusterList, ipList, names, host, gdpv1alpha2.IngressObj)
 	saveSyncAndVerify(t, modelName, gsGraph, false)
@@ -178,7 +178,7 @@ func TestUpdateGS(t *testing.T) {
 	clusterList := []string{"foo"}
 	ipList := []string{"10.10.10.21"}
 	names := []string{"ing1" + "/" + host}
-	modelName := gslbutils.GetAviConfig().Tenant + "/" + host
+	modelName := gslbutils.GetTenant() + "/" + host
 	gsGraph := buildTestGSGraph(clusterList, ipList, names, host, gdpv1alpha2.IngressObj)
 	saveSyncAndVerify(t, modelName, gsGraph, false)
 
@@ -200,7 +200,7 @@ func TestDeleteGS(t *testing.T) {
 	clusterList := []string{"foo", "bar"}
 	ipList := []string{"10.10.10.31", "10.10.10.32"}
 	names := []string{"ing1/" + host, "ing2/" + host}
-	modelName := gslbutils.GetAviConfig().Tenant + "/" + host
+	modelName := gslbutils.GetTenant() + "/" + host
 	// build a AviGSObjectGraph
 	gsGraph := buildTestGSGraph(clusterList, ipList, names, host, gdpv1alpha2.IngressObj)
 	saveSyncAndVerify(t, modelName, gsGraph, false)
