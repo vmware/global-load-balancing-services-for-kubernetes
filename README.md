@@ -66,40 +66,40 @@ Following steps have to be executed on all member clusters:
    $ kubectl create ns avi-system
    ```
 
-2. Add this repository to your helm client:
+> **Note**: Helm version 3.8 and above will be required to proceed with helm installation.
+
+2. Search the available charts for AMKO:
    ```
-   $ helm repo add amko https://projects.registry.vmware.com/chartrepo/ako
+   $ helm show chart oci://projects.registry.vmware.com/ako/helm-charts/amko --version 1.10.1
 
-   ```
-   Note: The helm charts are present in VMWare's public harbor repository
-
-3. Search the available charts for AMKO:
-   ```
-   $ helm search repo
-
-   NAME     	CHART VERSION    	APP VERSION      	DESCRIPTION
-   amko/amko	1.10.1	            1.10.1	            A helm chart for Avi Multicluster Kubernetes Operator
-
+   Pulled: projects.registry.vmware.com/ako/helm-charts/amko:1.10.1
+   Digest: sha256:xyxyxxyxyx
+   apiVersion: v2
+   appVersion: 1.10.1
+   description: A helm chart for Avi Kubernetes Operator
+   name: amko
+   type: application
+   version: 1.10.1
    ```
 
-4. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
+3. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values amko/amko --version 1.10.1 > values.yaml
+   helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --version 1.10.1 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
 
-5. To configure federation via `values.yaml`:
+4. To configure federation via `values.yaml`:
    * Set `configs.federation.currentClusterIsLeader` to `true` for the leader cluster. For all follower clusters, set this to `false`.
    * Set `configs.federation.currentCluster` to the current cluster context.
    * Add the member clusters to `configs.federation.memberClusters`.
 
-6. Install AMKO:
+5. Install AMKO:
    ```
-   $ helm install  amko/amko  --generate-name --version 1.10.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install --generate-name oci://projects.registry.vmware.com/ako/helm-charts/amko --version 1.10.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
-7. Check the installation:
+6. Check the installation:
    ```
    $ helm list -n avi-system
 
@@ -143,7 +143,7 @@ helm repo update amko
 Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
 
 ```
-helm template amko/amko --version 1.10.1 --include-crds --output-dir <output_dir>
+helm template oci://projects.registry.vmware.com/ako/helm-charts/amko --version 1.10.1 --include-crds --output-dir <output_dir>
 ```
 
 This will save the helm files to an output directory which will contain the CRDs corresponding to the AMKO version.
@@ -164,28 +164,19 @@ amko-1598451370 avi-system	1       	2022-05-19 10:00:31.609195757 +0000 UTC	    
 
 *Step4*
 
-Update the helm repo URL
+Get the values.yaml for the AMKO version 1.10.1 and edit the values as per the requirement.
 
 ```
-helm repo add --force-update amko https://projects.registry.vmware.com/chartrepo/ako
-
-"amko" has been added to your repositories
+helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --version 1.10.1 > values.yaml
 
 ```
 
 *Step5*
 
-Get the values.yaml for the latest AMKO version
-
-```
-helm show values amko/amko --version 1.10.1 > values.yaml
-
-```
-
 Upgrade the helm chart
 
 ```
-helm upgrade amko-1598451370 amko/amko -f /path/to/values.yaml --version 1.10.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
+helm upgrade amko-1598451370 oci://projects.registry.vmware.com/ako/helm-charts/amko -f /path/to/values.yaml --version 1.10.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
 
 ```
 
