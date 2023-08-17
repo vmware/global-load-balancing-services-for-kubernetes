@@ -295,7 +295,7 @@ func GetGSLBHmChecksum(hmType string, port int32, description []string, createdB
 }
 
 func GetAviAdminTenantRef() string {
-	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/" + utils.ADMIN_NS
+	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/?name=" + GetTenant()
 }
 
 // GSLBConfigObj is global and is initialized only once
@@ -415,18 +415,20 @@ type AviControllerConfig struct {
 	Password string
 	IPAddr   string
 	Version  string
+	Tenant   string
 }
 
 var gslbLeaderConfig AviControllerConfig
 var leaderConfig sync.Once
 
-func NewAviControllerConfig(username, password, ipAddr, version string) *AviControllerConfig {
+func NewAviControllerConfig(username, password, ipAddr, version string, tenant string) *AviControllerConfig {
 	leaderConfig.Do(func() {
 		gslbLeaderConfig = AviControllerConfig{
 			Username: username,
 			Password: password,
 			IPAddr:   ipAddr,
 			Version:  version,
+			Tenant:   tenant,
 		}
 	})
 	return &gslbLeaderConfig
@@ -434,6 +436,10 @@ func NewAviControllerConfig(username, password, ipAddr, version string) *AviCont
 
 func GetAviConfig() AviControllerConfig {
 	return gslbLeaderConfig
+}
+
+func GetTenant() string {
+	return gslbLeaderConfig.Tenant
 }
 
 var allClusterContexts []string

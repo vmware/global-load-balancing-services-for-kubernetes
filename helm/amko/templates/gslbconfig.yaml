@@ -8,6 +8,7 @@ spec:
     credentials: "gslb-avi-secret"
     controllerVersion: {{ .Values.configs.controllerVersion }}
     controllerIP: {{ .Values.configs.gslbLeaderController }}
+    tenant: {{ .Values.configs.tenant }}
 {{- with .Values.configs.memberClusters }}
   memberClusters:
     {{- toYaml . | nindent 4 }}

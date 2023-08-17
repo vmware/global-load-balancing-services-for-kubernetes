@@ -203,7 +203,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 				continue
 			}
 
-			k := TenantName{Tenant: utils.ADMIN_NS, Name: *hm.Name}
+			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *hm.Name}
 			var monitorPort int32
 			if hm.MonitorPort != nil {
 				monitorPort = *hm.MonitorPort
@@ -232,7 +232,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 			cksum := gslbutils.GetGSLBHmChecksum(*hm.Type, monitorPort, []string{description}, createdBy)
 			hmCacheObj := AviHmObj{
 				Name:             *hm.Name,
-				Tenant:           utils.ADMIN_NS,
+				Tenant:           gslbutils.GetTenant(),
 				UUID:             *hm.UUID,
 				Port:             monitorPort,
 				CloudConfigCksum: cksum,
@@ -340,7 +340,7 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 				continue
 			}
 
-			k := TenantName{Tenant: utils.ADMIN_NS, Name: *sp.Name}
+			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
 			s.AviSpCacheAdd(k, &sp)
 			s.AviSpCacheAddByUUID(*sp.UUID, &sp)
 			gslbutils.Debugf("processed site persistence %s, UUID: %s", *sp.Name, *sp.UUID)
@@ -533,10 +533,10 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 			return
 		}
 	}
-	k := TenantName{Tenant: utils.ADMIN_NS, Name: name}
+	k := TenantName{Tenant: gslbutils.GetTenant(), Name: name}
 	gsCacheObj := AviGSCache{
 		Name:             name,
-		Tenant:           utils.ADMIN_NS,
+		Tenant:           gslbutils.GetTenant(),
 		Uuid:             uuid,
 		Members:          gsMembers,
 		K8sObjects:       memberObjs,

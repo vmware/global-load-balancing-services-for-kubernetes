@@ -24,7 +24,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,7 +233,7 @@ func TestHostRuleCreate(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -244,7 +243,7 @@ func TestHostRuleCreate(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -264,7 +263,7 @@ func TestHostRuleRemoveAliases(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -274,7 +273,7 @@ func TestHostRuleRemoveAliases(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -284,7 +283,7 @@ func TestHostRuleRemoveAliases(t *testing.T) {
 	UpdateHostRule(t, K8s, newK8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -294,7 +293,7 @@ func TestHostRuleRemoveAliases(t *testing.T) {
 	UpdateHostRule(t, Oshift, newOcHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -318,7 +317,7 @@ func TestHostRuleCreateUpdateAliasesDelete(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -328,7 +327,7 @@ func TestHostRuleCreateUpdateAliasesDelete(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -338,7 +337,7 @@ func TestHostRuleCreateUpdateAliasesDelete(t *testing.T) {
 	UpdateHostRule(t, K8s, newK8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{newK8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -348,7 +347,7 @@ func TestHostRuleCreateUpdateAliasesDelete(t *testing.T) {
 	UpdateHostRule(t, Oshift, newOcHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -359,7 +358,7 @@ func TestHostRuleCreateUpdateAliasesDelete(t *testing.T) {
 	UpdateHostRule(t, K8s, newK8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -367,7 +366,7 @@ func TestHostRuleCreateUpdateAliasesDelete(t *testing.T) {
 	DeleteHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	DeleteHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -387,7 +386,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -397,7 +396,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -408,7 +407,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	UpdateHostRule(t, K8s, newK8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -419,7 +418,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	UpdateHostRule(t, Oshift, newOcHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -439,7 +438,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -449,7 +448,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -459,7 +458,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	UpdateHostRule(t, K8s, newK8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{newK8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -469,7 +468,7 @@ func TestHostRuleCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	UpdateHostRule(t, Oshift, newOcHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -489,7 +488,7 @@ func TestHostRuleCreateDeleteDuplicateAliasesInCluster(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -499,7 +498,7 @@ func TestHostRuleCreateDeleteDuplicateAliasesInCluster(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -507,7 +506,7 @@ func TestHostRuleCreateDeleteDuplicateAliasesInCluster(t *testing.T) {
 	DeleteHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	DeleteHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
@@ -527,7 +526,7 @@ func TestHostRuleCreateDeleteDuplicateAliasesAcrossCluster(t *testing.T) {
 	CreateHostRule(t, K8s, k8sHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -537,7 +536,7 @@ func TestHostRuleCreateDeleteDuplicateAliasesAcrossCluster(t *testing.T) {
 	CreateHostRule(t, Oshift, ocHr)
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			GetDefaultExpectedDomainNames(fqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
@@ -545,7 +544,7 @@ func TestHostRuleCreateDeleteDuplicateAliasesAcrossCluster(t *testing.T) {
 	DeleteHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
 	DeleteHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, fqdn, utils.ADMIN_NS, nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
+		return verifyGSMembers(t, expectedMembers, fqdn, gslbutils.GetTenant(), nil, nil, nil, nil, nil, hrIRPath, hrTls, nil,
 			[]string{fqdn})
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
