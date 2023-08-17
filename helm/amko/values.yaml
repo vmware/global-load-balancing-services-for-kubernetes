@@ -38,6 +38,7 @@ multiClusterIngress:
 configs:
   gslbLeaderController: ""
   controllerVersion: "20.1.4"
+  tenant: "admin"
   memberClusters:
     - clusterContext: "cluster1-admin"
     - clusterContext: "cluster2-admin"

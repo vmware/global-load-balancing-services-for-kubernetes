@@ -32,6 +32,8 @@ spec:
                     type: string
                   credentials:
                     type: string
+                  tenant:
+                    type: string
               logLevel:
                 enum:
                 - DEBUG

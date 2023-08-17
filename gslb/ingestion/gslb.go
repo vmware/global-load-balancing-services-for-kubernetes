@@ -499,8 +499,12 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 	if leaderVersion > gslbutils.CONTROLLER_VERSION_22_1_2 {
 		leaderVersion = gslbutils.CONTROLLER_VERSION_22_1_2
 	}
+	tenant := utils.ADMIN_NS
+	if gc.Spec.GSLBLeader.Tenant != nil {
+		tenant = *gc.Spec.GSLBLeader.Tenant
+	}
 
-	gslbutils.NewAviControllerConfig(string(ctrlUsername), string(ctrlPassword), leaderIP, leaderVersion)
+	gslbutils.NewAviControllerConfig(string(ctrlUsername), string(ctrlPassword), leaderIP, leaderVersion, tenant)
 
 	return nil
 }
@@ -963,7 +967,7 @@ func loadClusterAccess(membersKubeConfig string, memberClusters []gslbalphav1.Me
 func isHealthMonitorTemplatePresentInCache(hmName string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
-	obj, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: utils.ADMIN_NS, Name: hmName})
+	obj, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName})
 	if !present {
 		return false
 	}
@@ -1006,10 +1010,10 @@ func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool)
 		return fmt.Errorf("client request header in health monitor template %s is invalid", hmTemplate)
 	}
 
-	key := avictrl.TenantName{Tenant: utils.ADMIN_NS, Name: hmTemplate}
+	key := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmTemplate}
 	hmCacheObj := avictrl.AviHmObj{
 		Name:   hmTemplate,
-		Tenant: utils.ADMIN_NS,
+		Tenant: gslbutils.GetTenant(),
 		UUID:   *hm.UUID,
 		CustomHmSettings: &avictrl.CustomHmSettings{
 			RequestHeader: *hmHTTP.HTTPRequest,

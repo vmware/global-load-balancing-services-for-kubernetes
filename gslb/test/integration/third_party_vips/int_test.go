@@ -309,6 +309,7 @@ func (f forGomega) Helper() {
 }
 
 func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
+	tenant := "gslbservice"
 	return &gslbalphav1.GSLBConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      GslbConfigName,
@@ -320,6 +321,7 @@ func GetTestGSLBConfigObject() *gslbalphav1.GSLBConfig {
 				Credentials:       AviSecret,
 				ControllerVersion: "20.1.4",
 				ControllerIP:      apiURL,
+				Tenant:            &tenant,
 			},
 			MemberClusters: []gslbalphav1.MemberCluster{
 				{ClusterContext: K8sContext},

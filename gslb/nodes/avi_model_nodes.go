@@ -25,8 +25,6 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 )
 
@@ -497,7 +495,7 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj
 		return
 	}
 	v.Name = gsFqdn
-	v.Tenant = utils.ADMIN_NS
+	v.Tenant = gslbutils.GetTenant()
 	v.RetryCount = gslbutils.DefaultRetryCount
 	v.CalculateChecksum()
 }
@@ -519,7 +517,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 
 	// The GSLB service will be put into the admin tenant
 	v.Name = gsFqdn
-	v.Tenant = utils.ADMIN_NS
+	v.Tenant = gslbutils.GetTenant()
 	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 
