@@ -187,8 +187,8 @@ github.com/spf13/pflag
 # github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618
 ## explicit; go 1.13
 github.com/vmware-tanzu/service-apis/apis/v1alpha1pre1
-# github.com/vmware/alb-sdk v0.0.0-20220405050634-1a01e2eee142
-## explicit; go 1.13
+# github.com/vmware/alb-sdk v0.0.0-20230628102904-861ce312a6bf
+## explicit; go 1.16
 github.com/vmware/alb-sdk/go/models
 # github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20220405050344-3a6d72bbda3e
 ## explicit; go 1.15
@@ -746,8 +746,6 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
-# k8s.io/code-generator v0.26.0
-## explicit; go 1.19
 # k8s.io/component-base v0.26.0
 ## explicit; go 1.19
 k8s.io/component-base/config

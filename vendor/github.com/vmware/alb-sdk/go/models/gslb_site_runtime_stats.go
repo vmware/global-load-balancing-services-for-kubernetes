@@ -8,153 +8,171 @@ package models
 // swagger:model GslbSiteRuntimeStats
 type GslbSiteRuntimeStats struct {
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumFileCrTxed *int32 `json:"num_file_cr_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumFileDelTxed *int32 `json:"num_file_del_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGapCrRxed *int32 `json:"num_gap_cr_rxed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGapCrTxed *int32 `json:"num_gap_cr_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGapDelRxed *int32 `json:"num_gap_del_rxed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGapDelTxed *int32 `json:"num_gap_del_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGapUpdRxed *int32 `json:"num_gap_upd_rxed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGapUpdTxed *int32 `json:"num_gap_upd_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGeoCrRxed *int32 `json:"num_geo_cr_rxed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGeoCrTxed *int32 `json:"num_geo_cr_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGeoDelRxed *int32 `json:"num_geo_del_rxed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGeoDelTxed *int32 `json:"num_geo_del_txed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGeoUpdRxed *int32 `json:"num_geo_upd_rxed,omitempty"`
 
-	//  Field introduced in 17.1.1.
+	//  Field introduced in 17.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGeoUpdTxed *int32 `json:"num_geo_upd_txed,omitempty"`
 
-	// Number of num_ghm_cr_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGhmCrRxed *int32 `json:"num_ghm_cr_rxed,omitempty"`
 
-	// Number of num_ghm_cr_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGhmCrTxed *int32 `json:"num_ghm_cr_txed,omitempty"`
 
-	// Number of num_ghm_del_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGhmDelRxed *int32 `json:"num_ghm_del_rxed,omitempty"`
 
-	// Number of num_ghm_del_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGhmDelTxed *int32 `json:"num_ghm_del_txed,omitempty"`
 
-	// Number of num_ghm_upd_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGhmUpdRxed *int32 `json:"num_ghm_upd_rxed,omitempty"`
 
-	// Number of num_ghm_upd_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGhmUpdTxed *int32 `json:"num_ghm_upd_txed,omitempty"`
 
-	//  Field introduced in 20.1.5.
+	//  Field introduced in 20.1.5. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	NumGjwtCrRxed *int32 `json:"num_gjwt_cr_rxed,omitempty"`
 
-	//  Field introduced in 20.1.5.
+	//  Field introduced in 20.1.5. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	NumGjwtCrTxed *int32 `json:"num_gjwt_cr_txed,omitempty"`
 
-	//  Field introduced in 20.1.5.
+	//  Field introduced in 20.1.5. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	NumGjwtDelRxed *int32 `json:"num_gjwt_del_rxed,omitempty"`
 
-	//  Field introduced in 20.1.5.
+	//  Field introduced in 20.1.5. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	NumGjwtDelTxed *int32 `json:"num_gjwt_del_txed,omitempty"`
 
-	//  Field introduced in 20.1.5.
+	//  Field introduced in 20.1.5. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	NumGjwtUpdRxed *int32 `json:"num_gjwt_upd_rxed,omitempty"`
 
-	//  Field introduced in 20.1.5.
+	//  Field introduced in 20.1.5. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	NumGjwtUpdTxed *int32 `json:"num_gjwt_upd_txed,omitempty"`
 
-	// Number of num_glb_cr_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGlbCrRxed *int32 `json:"num_glb_cr_rxed,omitempty"`
 
-	// Number of num_glb_cr_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGlbCrTxed *int32 `json:"num_glb_cr_txed,omitempty"`
 
-	// Number of num_glb_del_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGlbDelRxed *int32 `json:"num_glb_del_rxed,omitempty"`
 
-	// Number of num_glb_del_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGlbDelTxed *int32 `json:"num_glb_del_txed,omitempty"`
 
-	// Number of num_glb_upd_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGlbUpdRxed *int32 `json:"num_glb_upd_rxed,omitempty"`
 
-	// Number of num_glb_upd_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGlbUpdTxed *int32 `json:"num_glb_upd_txed,omitempty"`
 
-	//  Field introduced in 17.1.3.
+	//  Field introduced in 17.1.3. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGpkiCrRxed *int32 `json:"num_gpki_cr_rxed,omitempty"`
 
-	//  Field introduced in 17.1.3.
+	//  Field introduced in 17.1.3. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGpkiCrTxed *int32 `json:"num_gpki_cr_txed,omitempty"`
 
-	//  Field introduced in 17.1.3.
+	//  Field introduced in 17.1.3. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGpkiDelRxed *int32 `json:"num_gpki_del_rxed,omitempty"`
 
-	//  Field introduced in 17.1.3.
+	//  Field introduced in 17.1.3. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGpkiDelTxed *int32 `json:"num_gpki_del_txed,omitempty"`
 
-	//  Field introduced in 17.1.3.
+	//  Field introduced in 17.1.3. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGpkiUpdRxed *int32 `json:"num_gpki_upd_rxed,omitempty"`
 
-	//  Field introduced in 17.1.3.
+	//  Field introduced in 17.1.3. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGpkiUpdTxed *int32 `json:"num_gpki_upd_txed,omitempty"`
 
-	// Number of num_gs_cr_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGsCrRxed *int32 `json:"num_gs_cr_rxed,omitempty"`
 
-	// Number of num_gs_cr_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGsCrTxed *int32 `json:"num_gs_cr_txed,omitempty"`
 
-	// Number of num_gs_del_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGsDelRxed *int32 `json:"num_gs_del_rxed,omitempty"`
 
-	// Number of num_gs_del_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGsDelTxed *int32 `json:"num_gs_del_txed,omitempty"`
 
-	// Number of num_gs_upd_rxed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGsUpdRxed *int32 `json:"num_gs_upd_rxed,omitempty"`
 
-	// Number of num_gs_upd_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumGsUpdTxed *int32 `json:"num_gs_upd_txed,omitempty"`
 
-	// Number of num_health_msgs_rxed.
+	// Used for federated ssl key and cert stats for create. Field introduced in 22.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	NumGsslCertCrRxed *int32 `json:"num_gssl_cert_cr_rxed,omitempty"`
+
+	// Used for federated ssl key and cert stats for delete. Field introduced in 22.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	NumGsslCertDelRxed *int32 `json:"num_gssl_cert_del_rxed,omitempty"`
+
+	// Used for federated ssl key and cert stats for update. Field introduced in 22.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	NumGsslCertUpdRxed *int32 `json:"num_gssl_cert_upd_rxed,omitempty"`
+
+	// Used for federated ssl profile stats for create. Field introduced in 22.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	NumGsslCrRxed *int32 `json:"num_gssl_cr_rxed,omitempty"`
+
+	// Used for federated ssl profile stats for delete. Field introduced in 22.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	NumGsslDelRxed *int32 `json:"num_gssl_del_rxed,omitempty"`
+
+	// Used for federated ssl profile stats for update. Field introduced in 22.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	NumGsslUpdRxed *int32 `json:"num_gssl_upd_rxed,omitempty"`
+
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumHealthMsgsRxed *int32 `json:"num_health_msgs_rxed,omitempty"`
 
-	// Number of num_health_msgs_txed.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumHealthMsgsTxed *int32 `json:"num_health_msgs_txed,omitempty"`
 
-	// Number of num_of_bad_responses.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumOfBadResponses *int32 `json:"num_of_bad_responses,omitempty"`
 
-	// Number of num_of_events_generated.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumOfEventsGenerated *int32 `json:"num_of_events_generated,omitempty"`
 
-	// Number of num_of_skip_outstanding_requests.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumOfSkipOutstandingRequests *int32 `json:"num_of_skip_outstanding_requests,omitempty"`
 
-	// Number of num_of_timeouts.
+	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	NumOfTimeouts *int32 `json:"num_of_timeouts,omitempty"`
 }
