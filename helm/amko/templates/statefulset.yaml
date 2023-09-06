@@ -64,6 +64,10 @@ spec:
             value: "true"
           {{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","/var/pre_stop_hook.sh"]
           ports:
             - name: http
               containerPort: 80
