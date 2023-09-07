@@ -44,7 +44,7 @@ func SharedAviClients() *utils.AviRestClientPool {
 			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
 		}
 		os.Setenv("CTRL_VERSION", ctrlCfg.Version)
-		aviClientInstance, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "")
+		aviClientInstance, _, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "", ctrlCfg.Version, "")
 		if err != nil {
 			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
 		}

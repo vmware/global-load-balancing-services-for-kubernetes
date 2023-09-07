@@ -36,6 +36,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 	akocrd "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
 	akoinformers "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions"
 )
@@ -257,9 +258,10 @@ func NewInformers(kubeClient KubeClientIntf, registeredInformers []string, args 
 		}
 	}
 
-	// In Openshift cluster use NS bound informer for secret as certificates for routes are specified in the route itself. Also,
-	// there are many secrets installed by default in Openshift cluster which have to be handled if NS bound informer is not used.
-	if HasElem(registeredInformers, RouteInformer) {
+	// In openshift, the secret handling is restricted to the namespace where the AKO is
+	// installed if the user sets `handleSecretsFromAKONSOnly` to true.
+	if oshiftclient != nil &&
+		IsSecretsHandlingRestrictedToAKONS() {
 		akoNSBoundInformer = true
 	}
 
@@ -363,10 +365,10 @@ func InitializeNSSync(labelKey, labelVal string) {
 	globalNSFilterObj.EnableMigration = true
 	globalNSFilterObj.nsFilter.key = labelKey
 	globalNSFilterObj.nsFilter.value = labelVal
-	globalNSFilterObj.validNSList.nsList = make(map[string]bool)
+	globalNSFilterObj.validNSList.nsList = make(map[string]struct{})
 }
 
-//Get namespace label filter key and value
+// Get namespace label filter key and value
 func GetNSFilter(obj *K8ValidNamespaces) (string, string) {
 	var key string
 	var value string
@@ -382,7 +384,7 @@ func GetNSFilter(obj *K8ValidNamespaces) (string, string) {
 func AddNamespaceToFilter(namespace string) {
 	globalNSFilterObj.validNSList.lock.Lock()
 	defer globalNSFilterObj.validNSList.lock.Unlock()
-	globalNSFilterObj.validNSList.nsList[namespace] = true
+	globalNSFilterObj.validNSList.nsList[namespace] = struct{}{}
 }
 
 func DeleteNamespaceFromFilter(namespace string) {
@@ -420,8 +422,8 @@ func CheckIfNamespaceAccepted(namespace string, opts ...interface{}) bool {
 	return false
 }
 func IsServiceNSValid(namespace string) bool {
-	//L4 Namespace sync not applicable for advance L4
-	if !GetAdvancedL4() {
+	// L4 Namespace sync not applicable for advance L4
+	if !GetAdvancedL4() && !IsVCFCluster() {
 		if !CheckIfNamespaceAccepted(namespace) {
 			return false
 		}
@@ -542,4 +544,78 @@ func IsMultiClusterIngressEnabled() bool {
 	}
 	AviLog.Debugf("Multi-cluster ingress is not enabled")
 	return false
+}
+
+type Version struct {
+	subversions []int
+}
+
+func (v *Version) Compare(v1 *Version) int {
+	/*
+		return 0 if v and v1 are equal
+		return -1 if v is less than v1
+		return 1 if v is greater than 1
+	*/
+	length := len(v.subversions)
+	if len(v1.subversions) < length {
+		length = len(v1.subversions)
+	}
+	for i := 0; i < length; i++ {
+		if v.subversions[i] == v1.subversions[i] {
+			continue
+		}
+		if v.subversions[i] < v1.subversions[i] {
+			return -1
+		}
+		return 1
+	}
+	if len(v.subversions) == len(v1.subversions) {
+		return 0
+	}
+	if len(v.subversions) < len(v1.subversions) {
+		return -1
+	}
+	return 1
+}
+
+func NewVersion(version string) (*Version, error) {
+	substrings := strings.Split(version, ".")
+	v := &Version{
+		subversions: make([]int, 0),
+	}
+	for _, substr := range substrings {
+		val, err := strconv.Atoi(substr)
+		if err != nil {
+			return nil, err
+		}
+		v.subversions = append(v.subversions, val)
+	}
+	return v, nil
+}
+
+// This utility returns a true/false depending on whether
+// the secret handling is restricted to the namespace where the AKO is installed.
+func IsSecretsHandlingRestrictedToAKONS() bool {
+	ok, err := strconv.ParseBool(os.Getenv(USE_DEFAULT_SECRETS_ONLY))
+	if err != nil {
+		return false
+	}
+	return ok
+}
+
+var VipNetworkList []akov1alpha1.AviInfraSettingVipNetwork
+
+func SetVipNetworkList(vipNetworks []akov1alpha1.AviInfraSettingVipNetwork) {
+	VipNetworkList = vipNetworks
+}
+
+func GetVipNetworkList() []akov1alpha1.AviInfraSettingVipNetwork {
+	return VipNetworkList
+}
+
+func String(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
 }

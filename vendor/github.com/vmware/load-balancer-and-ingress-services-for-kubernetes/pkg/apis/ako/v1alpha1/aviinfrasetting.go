@@ -34,9 +34,15 @@ type AviInfraSetting struct {
 
 // AviInfraSettingSpec consists of the main AviInfraSetting settings
 type AviInfraSettingSpec struct {
-	Network    AviInfraSettingNetwork `json:"network,omitempty"`
-	SeGroup    AviInfraSettingSeGroup `json:"seGroup,omitempty"`
-	L7Settings AviInfraL7Settings     `json:"l7Settings,omitempty"`
+	Network     AviInfraSettingNetwork `json:"network,omitempty"`
+	SeGroup     AviInfraSettingSeGroup `json:"seGroup,omitempty"`
+	L7Settings  AviInfraL7Settings     `json:"l7Settings,omitempty"`
+	NSXSettings AviInfraNSXSettings    `json:"nsxSettings,omitempty"`
+}
+
+type AviInfraNSXSettings struct {
+	Project *string `json:"project,omitempty"`
+	T1LR    *string `json:"t1lr,omitempty"`
 }
 
 type AviInfraSettingNetwork struct {
@@ -45,15 +51,24 @@ type AviInfraSettingNetwork struct {
 	EnableRhi      *bool                        `json:"enableRhi,omitempty"`
 	EnablePublicIP *bool                        `json:"enablePublicIP,omitempty"`
 	BgpPeerLabels  []string                     `json:"bgpPeerLabels,omitempty"`
+	Listeners      []AviInfraListeners          `json:"listeners,omitempty"`
 }
 
+type AviInfraListeners struct {
+	Port        *int  `json:"port,omitempty"`
+	EnableSSL   *bool `json:"enableSSL,omitempty"`
+	EnableHTTP2 *bool `json:"enableHTTP2,omitempty"`
+}
 type AviInfraSettingVipNetwork struct {
 	NetworkName string `json:"networkName,omitempty"`
+	NetworkUUID string `json:"networkUUID,omitempty"`
 	Cidr        string `json:"cidr,omitempty"`
+	V6Cidr      string `json:"v6cidr,omitempty"`
 }
 
 type AviInfraSettingNodeNetwork struct {
 	NetworkName string   `json:"networkName,omitempty"`
+	NetworkUUID string   `json:"networkUUID,omitempty"`
 	Cidrs       []string `json:"cidrs,omitempty"`
 }
 
@@ -68,7 +83,7 @@ type AviInfraL7Settings struct {
 // AviInfraSettingStatus holds the status of the AviInfraSetting
 type AviInfraSettingStatus struct {
 	Status string `json:"status,omitempty"`
-	Error  string `json:"error,omitempty"`
+	Error  string `json:"error"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

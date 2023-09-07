@@ -21,17 +21,17 @@ import (
 type FullSyncThread struct {
 	Stopped           bool
 	ShutdownChan      chan string
-	QuickSyncChan     chan string
+	QuickSyncChan     chan struct{}
 	Interval          time.Duration
 	SyncFunction      func()
-	QuickSyncFunction func() error
+	QuickSyncFunction func(bool) error
 }
 
 func NewFullSyncThread(interval time.Duration) *FullSyncThread {
 	return &FullSyncThread{
 		Stopped:       false,
 		ShutdownChan:  make(chan string),
-		QuickSyncChan: make(chan string),
+		QuickSyncChan: make(chan struct{}, 1),
 		Interval:      interval,
 	}
 }
@@ -48,7 +48,7 @@ func (w *FullSyncThread) Run() {
 			// First the regular sync function - that syncs the cache
 			w.SyncFunction()
 			// Second the function that syncs the k8s objects.
-			w.QuickSyncFunction()
+			w.QuickSyncFunction(true)
 			break
 		case <-time.After(w.Interval):
 			// Just the cache sync functions.
@@ -64,5 +64,11 @@ func (w *FullSyncThread) Shutdown() {
 }
 
 func (w *FullSyncThread) QuickSync() {
-	w.QuickSyncChan <- "quicksync"
+	select {
+	case w.QuickSyncChan <- struct{}{}:
+		AviLog.Debugf("Scheduled QuickSync on Worker %v", w)
+		return
+	default:
+	}
+
 }

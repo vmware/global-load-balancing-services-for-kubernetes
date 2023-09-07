@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients"
@@ -34,24 +34,28 @@ type AviRestClientPool struct {
 
 var AviClientInstance *AviRestClientPool
 
-func NewAviRestClientPool(num uint32, api_ep string, username string,
-	password string, authToken string) (*AviRestClientPool, error) {
+func NewAviRestClientPool(num uint32, api_ep, username,
+	password, authToken, controllerVersion, ctrlCAData string) (*AviRestClientPool, string, error) {
 	var clientPool AviRestClientPool
 	var wg sync.WaitGroup
 	var globalErr error
 
-	rootPEMCerts := os.Getenv("CTRL_CA_DATA")
-	var transport *http.Transport
-	if rootPEMCerts != "" {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM([]byte(rootPEMCerts))
+	rootPEMCerts := ctrlCAData
+	transport, isSecure := GetHTTPTransportWithCert(rootPEMCerts)
+	options := []func(*session.AviSession) error{
+		session.SetNoControllerStatusCheck,
+		session.SetTransport(transport),
+	}
 
-		transport =
-			&http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
-				},
-			}
+	if !isSecure {
+		options = append(options, session.SetInsecure)
+	}
+
+	if authToken == "" {
+		options = append(options, session.SetPassword(password))
+	} else {
+		options = append(options, session.SetAuthToken(authToken))
+		options = append(options, session.SetRefreshAuthTokenCallbackV2(GetAuthtokenFromCache))
 	}
 
 	clientPool.AviClient = make([]*clients.AviClient, num)
@@ -63,26 +67,7 @@ func NewAviRestClientPool(num uint32, api_ep string, username string,
 				return
 			}
 
-			var aviClient *clients.AviClient
-			var err error
-
-			if authToken == "" {
-				if rootPEMCerts != "" {
-					aviClient, err = clients.NewAviClient(api_ep, username,
-						session.SetPassword(password), session.SetNoControllerStatusCheck, session.SetTransport(transport))
-				} else {
-					aviClient, err = clients.NewAviClient(api_ep, username,
-						session.SetPassword(password), session.SetNoControllerStatusCheck, session.SetTransport(transport), session.SetInsecure)
-				}
-			} else {
-				if rootPEMCerts != "" {
-					aviClient, err = clients.NewAviClient(api_ep, username,
-						session.SetAuthToken(authToken), session.SetRefreshAuthTokenCallbackV2(GetAuthtokenFromCache), session.SetNoControllerStatusCheck, session.SetTransport(transport))
-				} else {
-					aviClient, err = clients.NewAviClient(api_ep, username,
-						session.SetAuthToken(authToken), session.SetRefreshAuthTokenCallbackV2(GetAuthtokenFromCache), session.SetNoControllerStatusCheck, session.SetTransport(transport), session.SetInsecure)
-				}
-			}
+			aviClient, err := clients.NewAviClient(api_ep, username, options...)
 			if err != nil {
 				AviLog.Warnf("NewAviClient returned err %v", err)
 				globalErr = err
@@ -94,20 +79,34 @@ func NewAviRestClientPool(num uint32, api_ep string, username string,
 
 	wg.Wait()
 
-	// Get the controller version if it is not present in env variable.
-	if CtrlVersion == "" {
-		version, err := clientPool.AviClient[0].AviSession.GetControllerVersion()
-		if err == nil {
-			AviLog.Infof("Setting the client version to the current controller version %v", version)
-			CtrlVersion = version
-		}
-	}
-
 	if globalErr != nil {
-		return &clientPool, globalErr
+		return &clientPool, controllerVersion, globalErr
 	}
 
-	return &clientPool, nil
+	// Get the controller version if it is not present in env variable.
+	if controllerVersion == "" {
+		version, err := clientPool.AviClient[0].AviSession.GetControllerVersion()
+		if err != nil {
+			return &clientPool, controllerVersion, err
+		}
+		maxVersion, err := NewVersion(MaxAviVersion)
+		if err != nil {
+			return &clientPool, controllerVersion, err
+		}
+		curVersion, err := NewVersion(version)
+		if err != nil {
+			return &clientPool, controllerVersion, err
+		}
+		if curVersion.Compare(maxVersion) > 0 {
+			AviLog.Infof("Overwriting the controller version %s to max Avi version %s", version, MaxAviVersion)
+			version = MaxAviVersion
+		}
+		AviLog.Infof("Setting the client version to the current controller version %v", version)
+		CtrlVersion = version
+		controllerVersion = version
+	}
+
+	return &clientPool, controllerVersion, nil
 }
 
 func (p *AviRestClientPool) AviRestOperate(c *clients.AviClient, rest_ops []*RestOp) error {
@@ -173,8 +172,48 @@ func AviModelToUrl(model string) string {
 	}
 }
 
-func GetAuthTokenWithRetry(c *clients.AviClient, retryCount int) (interface{}, error) {
+func GetAuthTokenMapWithRetry(c *clients.AviClient, tokens map[string]interface{}, retryCount int, overrideURI ...string) error {
 	tokenPath := "api/user-token"
+	if len(overrideURI) > 0 {
+		tokenPath = overrideURI[0]
+	}
+	robj, err := GetAuthTokenWithRetry(c, retryCount, tokenPath)
+	if err != nil {
+		return err
+	}
+	parseError := errors.New("failed to parse token response obj")
+
+	if _, ok := robj.(map[string]interface{}); !ok {
+		return parseError
+	}
+	tokenList, ok := robj.(map[string]interface{})["results"].([]interface{})
+	if !ok {
+		return parseError
+	}
+	for _, aviToken := range tokenList {
+		if _, ok := aviToken.(map[string]interface{}); !ok {
+			return parseError
+		}
+		token, ok := aviToken.(map[string]interface{})["token"].(string)
+		if !ok {
+			return parseError
+		}
+		tokens[token] = aviToken
+	}
+	next, ok := robj.(map[string]interface{})["next"].(string)
+	if !ok {
+		return nil
+	}
+	nextURI := strings.Split(next, "api/user-token")
+	nextPage := "api/user-token" + nextURI[1]
+	return GetAuthTokenMapWithRetry(c, tokens, retryCount, nextPage)
+}
+
+func GetAuthTokenWithRetry(c *clients.AviClient, retryCount int, nextPage ...string) (interface{}, error) {
+	tokenPath := "api/user-token"
+	if len(nextPage) > 0 {
+		tokenPath = nextPage[0]
+	}
 	var robj interface{}
 	var err error
 	for retry := 0; retry < retryCount; retry++ {
@@ -214,4 +253,21 @@ func DeleteAuthTokenWithRetry(c *clients.AviClient, tokenID string, retryCount i
 		AviLog.Warnf("Failed to delete authtoken, retry count:%d, err: %+v", retry, err)
 	}
 	return err
+}
+
+func GetHTTPTransportWithCert(rootPEMCerts string) (*http.Transport, bool) {
+	var transport *http.Transport
+	var isSecure bool
+	if rootPEMCerts != "" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM([]byte(rootPEMCerts))
+
+		transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: caCertPool,
+			},
+		}
+		isSecure = true
+	}
+	return transport, isSecure
 }

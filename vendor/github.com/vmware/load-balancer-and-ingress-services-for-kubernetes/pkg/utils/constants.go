@@ -14,6 +14,8 @@
 
 package utils
 
+import "time"
+
 const (
 	GraphLayer                    = "GraphLayer"
 	ObjectIngestionLayer          = "ObjectIngestionLayer"
@@ -30,8 +32,10 @@ const (
 	ConfigMapInformer             = "ConfigMapInformer"
 	MultiClusterIngressInformer   = "MultiClusterIngressInformer"
 	ServiceImportInformer         = "ServiceImportInformer"
-	K8S_TLS_SECRET_CERT           = "tls.cert"
+	K8S_TLS_SECRET_CERT           = "tls.crt"
 	K8S_TLS_SECRET_KEY            = "tls.key"
+	K8S_TLS_SECRET_ALT_CERT       = "alt.crt"
+	K8S_TLS_SECRET_ALT_KEY        = "alt.key"
 	IngressInformer               = "IngressInformer"
 	RouteInformer                 = "RouteInformer"
 	IngressClassInformer          = "IngressClassInformer"
@@ -53,9 +57,11 @@ const (
 	HTTPS                         = "HTTPS"
 	TCP                           = "TCP"
 	UDP                           = "UDP"
+	SCTP                          = "SCTP"
 	SYSTEM_UDP_FAST_PATH          = "System-UDP-Fast-Path"
 	TCP_NW_FAST_PATH              = "System-TCP-Fast-Path"
 	DEFAULT_TCP_NW_PROFILE        = "System-TCP-Proxy"
+	SYSTEM_SCTP_PROXY             = "System-SCTP-Proxy"
 	MIXED_NET_PROFILE             = "Mixed-Network-Profile-Internal"
 	DEFAULT_L4_APP_PROFILE        = "System-L4-Application"
 	DEFAULT_L7_APP_PROFILE        = "System-HTTP"
@@ -63,8 +69,8 @@ const (
 	DEFAULT_SHARD_VS_PREFIX       = "Shard-VS-"
 	L7_PG_PREFIX                  = "-PG-l7"
 	VS_DATASCRIPT_EVT_HTTP_REQ    = "VS_DATASCRIPT_EVT_HTTP_REQ"
-	HTTP_DS_SCRIPT                = "host = avi.http.get_host_tokens(1)\npath = avi.http.get_path_tokens(1)\nif host and path then\nlbl = host..\"/\"..path\nelse\nlbl = host..\"/\"\nend\navi.poolgroup.select(\"POOLGROUP\", string.lower(lbl) )"
-	HTTP_DS_SCRIPT_MODIFIED       = "host = avi.http.get_host_tokens(\"MODIFIED\", 1)\npath = avi.http.get_path_tokens(1)\nif host and path then\nlbl = host..\"/\"..path\nelse\nlbl = host..\"/\"\nend\navi.poolgroup.select(\"POOLGROUP\", string.lower(lbl) )"
+	HTTP_DS_SCRIPT                = "host = avi.http.get_host_tokens(1)\npath = avi.http.get_path_tokens(1)\nif host and path then\nlbl = host..\"/\"..path\nelse\nlbl = host..\"/\"\nend\navi.poolgroup.select(\"%s\", string.lower(lbl) )"
+	HTTP_DS_SCRIPT_MODIFIED       = "host = avi.http.get_host_tokens(\"MODIFIED\", 1)\npath = avi.http.get_path_tokens(1)\nif string.contains(host, \":\") then\nfor match in string.gmatch(host, \".*:\") do\nhost = string.sub(match,0,-2)\nend\nend\nif host and path then\nlbl = host..\"/\"..path\nelse\nlbl = host..\"/\"\nend\navi.poolgroup.select(\"%s\", string.lower(lbl) )"
 	ADMIN_NS                      = "admin"
 	TLS_PASSTHROUGH               = "TLS_PASSTHROUGH"
 	VS_TYPE_VH_PARENT             = "VS_TYPE_VH_PARENT"
@@ -83,9 +89,16 @@ const (
 	ENV_CTRL_PASSWORD             = "CTRL_PASSWORD"
 	ENV_CTRL_AUTHTOKEN            = "CTRL_AUTHTOKEN"
 	ENV_CTRL_IPADDRESS            = "CTRL_IPADDRESS"
+	ENV_CTRL_CADATA               = "CTRL_CA_DATA"
 	POD_NAMESPACE                 = "POD_NAMESPACE"
 	VCF_CLUSTER                   = "VCF_CLUSTER"
 	MCI_ENABLED                   = "MCI_ENABLED"
+	USE_DEFAULT_SECRETS_ONLY      = "USE_DEFAULT_SECRETS_ONLY"
+	CTRL_VERSION_22_1_3           = "22.1.3"
+	CTRL_VERSION_22_1_2           = "22.1.2"
+	Namespace                     = "Namespace"
+	MaxAviVersion                 = "22.1.3"
+	NamespaceNetworkInfo          = "NamespaceNetworkInfos"
 
 	RefreshAuthTokenInterval = 12  //hours
 	AuthTokenExpiry          = 240 //hours
@@ -95,4 +108,10 @@ const (
 	AVIAPI_INITIATING   = "INITIATING"
 	AVIAPI_CONNECTED    = "CONNECTED"
 	AVIAPI_DISCONNECTED = "DISCONNECTED"
+
+	// Constants used for leader election
+	leaseDuration = 15 * time.Second
+	renewDeadline = 10 * time.Second
+	retryPeriod   = 2 * time.Second
+	leaseLockName = "ako-lease-lock"
 )

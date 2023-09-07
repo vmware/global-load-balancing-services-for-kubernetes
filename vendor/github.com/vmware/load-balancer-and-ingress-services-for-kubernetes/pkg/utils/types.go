@@ -46,8 +46,9 @@ const (
 )
 
 const (
-	AVI_DEFAULT_TCP_HM string = "System-TCP"
-	AVI_DEFAULT_UDP_HM string = "System-UDP"
+	AVI_DEFAULT_TCP_HM  string = "System-TCP"
+	AVI_DEFAULT_UDP_HM  string = "System-UDP"
+	AVI_DEFAULT_SCTP_HM string = "System-SCTP"
 )
 
 const (
@@ -194,9 +195,9 @@ type NamespaceFilter struct {
 	value string
 }
 
-//Stores list of valid namespaces with lock
+// Stores list of valid namespaces with lock
 type K8NamespaceList struct {
-	nsList map[string]bool
+	nsList map[string]struct{}
 	lock   sync.RWMutex
 }
 type K8ValidNamespaces struct {
