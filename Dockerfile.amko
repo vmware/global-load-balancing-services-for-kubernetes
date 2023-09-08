@@ -13,4 +13,5 @@ RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -o $GOPATH/bin/amko -mod=vend
 FROM ${photon_src_repo}
 RUN yum install -y tar.x86_64
 COPY --from=build /go/bin/amko .
+COPY ./scripts/pre_stop_hook.sh /var/pre_stop_hook.sh
 ENTRYPOINT [ "./amko" ]
