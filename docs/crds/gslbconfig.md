@@ -12,6 +12,7 @@ spec:
     credentials: gslb-avi-secret
     controllerVersion: 20.1.1
     controllerIP: 10.10.10.10
+    tenant: admin
   memberClusters:
     - clusterContext: cluster1-admin
     - clusterContext: cluster2-admin
@@ -26,10 +27,11 @@ spec:
 5. `gslbLeader.credentials`: A secret object has to be created for (`helm install` does that automatically) the GSLB Leader cluster. The username and password have to be provided as part of this secret object.
 6. `gslbLeader.controllerVersion`: The version of the GSLB leader cluster.
 7. `gslbLeader.controllerIP`: The GSLB leader IP address or the hostname along with the port number, if any.
-8. `memberClusters`: The kubernetes/openshift cluster contexts which are part of this GSLB cluster. See [here](../kubeconfig.md#creating-a-multi-cluster-kubeconfig-file) to create contexts for multiple kubernetes clusters.
-9.  `refreshInterval`: This is an internal cache refresh time interval, on which syncs up with the AVI objects and checks if a sync is required.
-10. `logLevel`: Define the log level that the amko pod prints. The allowed levels are: `[INFO, DEBUG, WARN, ERROR]`.
-11. `useCustomGlobalFqdn`: If set to true, AMKO will look for AKO HostRules to derive the GslbService name using the local to global fqdn mapping. If set to false (default case), AMKO ignores AKO HostRules and uses the default way of deriving GslbService names by just looking at the local fqdn in the ingress/route/service type LB. See [Local and Global Fqdn](../local_and_global_fqdn.md).
+8. `gslbLeader.tenant`: The tenant where all the AKO objects will be created in AVI.
+9. `memberClusters`: The kubernetes/openshift cluster contexts which are part of this GSLB cluster. See [here](../kubeconfig.md#creating-a-multi-cluster-kubeconfig-file) to create contexts for multiple kubernetes clusters.
+10.  `refreshInterval`: This is an internal cache refresh time interval, on which syncs up with the AVI objects and checks if a sync is required.
+11. `logLevel`: Define the log level that the amko pod prints. The allowed levels are: `[INFO, DEBUG, WARN, ERROR]`.
+12. `useCustomGlobalFqdn`: If set to true, AMKO will look for AKO HostRules to derive the GslbService name using the local to global fqdn mapping. If set to false (default case), AMKO ignores AKO HostRules and uses the default way of deriving GslbService names by just looking at the local fqdn in the ingress/route/service type LB. See [Local and Global Fqdn](../local_and_global_fqdn.md).
 
 ### Notes
 * Only one `GSLBConfig` object is allowed.
