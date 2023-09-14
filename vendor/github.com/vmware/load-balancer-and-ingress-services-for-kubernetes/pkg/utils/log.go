@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -46,12 +47,17 @@ type AviLogger struct {
 	atom zap.AtomicLevel
 }
 
+// Init implements logr.LogSink.
+func (AviLogger) Init(info logr.RuntimeInfo) {
+	// Not used
+}
+
 func (aviLogger *AviLogger) Infof(template string, args ...interface{}) {
 	aviLogger.sugar.Infof(template, args...)
 }
 
-func (aviLogger *AviLogger) Info(args ...interface{}) {
-	aviLogger.sugar.Info(args...)
+func (aviLogger AviLogger) Info(level int, msg string, args ...interface{}) {
+	aviLogger.sugar.Info(msg)
 }
 
 func (aviLogger *AviLogger) Warnf(template string, args ...interface{}) {
@@ -66,8 +72,8 @@ func (aviLogger *AviLogger) Errorf(template string, args ...interface{}) {
 	aviLogger.sugar.Errorf(template, args...)
 }
 
-func (aviLogger *AviLogger) Error(args ...interface{}) {
-	aviLogger.sugar.Error(args...)
+func (aviLogger AviLogger) Error(err error, msg string, args ...interface{}) {
+	aviLogger.sugar.Error(msg)
 }
 
 func (aviLogger *AviLogger) Debugf(template string, args ...interface{}) {
@@ -89,6 +95,25 @@ func (aviLogger *AviLogger) Fatalf(template string, args ...interface{}) {
 // SetLevel changes loglevel during runtime
 func (aviLogger *AviLogger) SetLevel(l string) {
 	aviLogger.atom.SetLevel(LogLevelMap[l])
+}
+
+func (aviLogger AviLogger) Enabled(level int) bool {
+	return aviLogger.sugar != nil
+}
+
+func (aviLogger AviLogger) V(level int) logr.LogSink {
+	return aviLogger
+}
+
+func (aviLogger AviLogger) WithValues(keysAndValues ...interface{}) logr.LogSink {
+	// Not used
+	return &aviLogger
+}
+
+func (aviLogger AviLogger) WithName(name string) logr.LogSink {
+	_ = aviLogger.sugar.Named(name)
+	return &aviLogger
+
 }
 
 // log file sample name /log/ako-12345.avi.log
@@ -168,6 +193,4 @@ func init() {
 	sugar := logger.Sugar()
 	defer sugar.Sync()
 	AviLog = AviLogger{sugar, logger, atom}
-
-	return
 }
