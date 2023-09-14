@@ -27,7 +27,7 @@ spec:
 5. `gslbLeader.credentials`: A secret object has to be created for (`helm install` does that automatically) the GSLB Leader cluster. The username and password have to be provided as part of this secret object.
 6. `gslbLeader.controllerVersion`: The version of the GSLB leader cluster.
 7. `gslbLeader.controllerIP`: The GSLB leader IP address or the hostname along with the port number, if any.
-8. `gslbLeader.tenant`: The tenant where all the AMKO objects will be created in AVI.
+8. `gslbLeader.tenant`: The tenant where AMKO will be creating GslbService in AVI.
 9. `memberClusters`: The kubernetes/openshift cluster contexts which are part of this GSLB cluster. See [here](../kubeconfig.md#creating-a-multi-cluster-kubeconfig-file) to create contexts for multiple kubernetes clusters.
 10.  `refreshInterval`: This is an internal cache refresh time interval, on which syncs up with the AVI objects and checks if a sync is required.
 11. `logLevel`: Define the log level that the amko pod prints. The allowed levels are: `[INFO, DEBUG, WARN, ERROR]`.
