@@ -1,6 +1,6 @@
 {
     "allow_unlabelled_access": true,
-    "name": "ako-tenant",
+    "name": "amko-tenant",
     "privileges": [
         {
             "type": "WRITE_ACCESS",
@@ -239,7 +239,7 @@
             "resource": "PERMISSION_GSLBSERVICE"
         },
         {
-            "type": "WRITE_ACCESS",
+            "type": "READ_ACCESS",
             "resource": "PERMISSION_GSLBGEODBPROFILE"
         },
         {

@@ -190,6 +190,7 @@ helm upgrade amko-1598451370 oci://projects.registry.vmware.com/ako/helm-charts/
 | `configs.federation.currentClusterIsLeader`            | Set to `true` if current cluster is the leader (required)                                                                                         | false |
 | `configs.federation.memberClusters`            | member clusters on which federation should be done                                                                                    |  |
 | `configs.gslbLeaderController`                         | GSLB leader site URL                                                                                                     | Nil                                   |
+| `configs.tenant`                         | GSLB leader controller tenant                                                                                                   | `admin`                                    |
 | `gslbLeaderCredentials.username`         | GSLB leader controller username                                                                                          | `admin`                               |
 | `gslbLeaderCredentials.password`         | GSLB leader controller password                                                                                          |                               |
 | `configs.memberClusters.clusterContext`          | K8s member cluster context for GSLB                                                                                      | `cluster1-admin` and `cluster2-admin` |
