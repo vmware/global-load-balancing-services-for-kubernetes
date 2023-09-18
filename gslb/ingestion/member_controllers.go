@@ -23,10 +23,12 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	routev1 "github.com/openshift/api/route/v1"
-	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1beta1"
 
-	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	hrinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/ako/v1alpha1"
+	ahrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/clientset/versioned"
+
+	hrinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/informers/externalversions/ako/v1beta1"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -39,13 +41,14 @@ import (
 // GSLBMemberController is actually kubernetes cluster which is added to an AVI controller
 // here which is added to an AVI controller
 type GSLBMemberController struct {
-	name        string
-	worker_id   uint32
-	informers   *containerutils.Informers
-	hrInformer  *hrinformer.HostRuleInformer
-	hrClientSet *hrcs.Clientset
-	workqueue   []workqueue.RateLimitingInterface
-	recorder    *gslbutils.EventRecorder
+	name             string
+	worker_id        uint32
+	informers        *containerutils.Informers
+	hrInformer       *hrinformer.HostRuleInformer
+	hrClientSet      *hrcs.Clientset
+	hrAlphaClientSet *ahrcs.Clientset
+	workqueue        []workqueue.RateLimitingInterface
+	recorder         *gslbutils.EventRecorder
 }
 
 // GetAviController sets config for an AviController

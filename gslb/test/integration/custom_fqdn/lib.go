@@ -24,8 +24,8 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
-	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
-	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	akov1beta1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1beta1"
+	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -659,26 +659,26 @@ func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true), "GSLB Host Rule status should match")
 }
 
-func getDefaultHostRule(name, ns, lfqdn, status string) *akov1alpha1.HostRule {
-	return &akov1alpha1.HostRule{
+func getDefaultHostRule(name, ns, lfqdn, status string) *akov1beta1.HostRule {
+	return &akov1beta1.HostRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
 		},
-		Spec: akov1alpha1.HostRuleSpec{
-			VirtualHost: akov1alpha1.HostRuleVirtualHost{
+		Spec: akov1beta1.HostRuleSpec{
+			VirtualHost: akov1beta1.HostRuleVirtualHost{
 				Fqdn: lfqdn,
 			},
 		},
-		Status: akov1alpha1.HostRuleStatus{
+		Status: akov1beta1.HostRuleStatus{
 			Status: status,
 		},
 	}
 }
 
-func getHostRuleForCustomFqdn(name, ns, lfqdn, gfqdn, status string) *akov1alpha1.HostRule {
+func getHostRuleForCustomFqdn(name, ns, lfqdn, gfqdn, status string) *akov1beta1.HostRule {
 	hr := getDefaultHostRule(name, ns, lfqdn, status)
-	hr.Spec.VirtualHost.Gslb = akov1alpha1.HostRuleGSLB{
+	hr.Spec.VirtualHost.Gslb = akov1beta1.HostRuleGSLB{
 		Fqdn: gfqdn,
 	}
 	return hr
@@ -702,7 +702,7 @@ func getHostRuleWithAliases(name, objType, ns, lfqdn, status string, aliases []s
 	return hr
 }*/
 
-func getHostRuleWithAliasesForCustomFqdn(name, objType, ns, lfqdn, gfqdn, status string, aliases []string, includeAliases bool) *akov1alpha1.HostRule {
+func getHostRuleWithAliasesForCustomFqdn(name, objType, ns, lfqdn, gfqdn, status string, aliases []string, includeAliases bool) *akov1beta1.HostRule {
 	if aliases == nil {
 		aliases = getDefaultAliases(objType)
 	}
@@ -712,7 +712,7 @@ func getHostRuleWithAliasesForCustomFqdn(name, objType, ns, lfqdn, gfqdn, status
 	return hr
 }
 
-func getDefaultExpectedDomainNames(gsName string, hrObjList []*akov1alpha1.HostRule) []string {
+func getDefaultExpectedDomainNames(gsName string, hrObjList []*akov1beta1.HostRule) []string {
 	aliasList := []string{}
 	for _, hr := range hrObjList {
 		aliasList = append(aliasList, hr.Spec.VirtualHost.Aliases...)
@@ -727,19 +727,19 @@ func deleteHostRule(t *testing.T, cluster int, name, ns string) {
 		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
 	}
 
-	err = hrClient.AkoV1alpha1().HostRules(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = hrClient.AkoV1beta1().HostRules(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		t.Fatalf("error in deleting hostrule for cluster %d: %v", cluster, err)
 	}
 }
 
-func createHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+func createHostRule(t *testing.T, cluster int, hr *akov1beta1.HostRule) *akov1beta1.HostRule {
 	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
 	if err != nil {
 		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
 	}
 
-	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Create(context.TODO(), hr, metav1.CreateOptions{})
+	newHr, err := hrClient.AkoV1beta1().HostRules(hr.Namespace).Create(context.TODO(), hr, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("error in creating hostrule for cluster %d: %v", cluster, err)
 	}
@@ -750,7 +750,7 @@ func createHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1a
 	return newHr
 }
 
-func updateHostRuleStatus(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+func updateHostRuleStatus(t *testing.T, cluster int, hr *akov1beta1.HostRule) *akov1beta1.HostRule {
 	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
 	if err != nil {
 		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
@@ -758,33 +758,33 @@ func updateHostRuleStatus(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *
 	patchPayload, _ := json.Marshal(map[string]interface{}{
 		"status": hr.Status,
 	})
-	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Patch(context.TODO(), hr.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	newHr, err := hrClient.AkoV1beta1().HostRules(hr.Namespace).Patch(context.TODO(), hr.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
 	if err != nil {
 		t.Fatalf("error in updating the status of hostrule for cluster %d: %v", cluster, err)
 	}
 	return newHr
 }
 
-func updateHostRule(t *testing.T, cluster int, hr *akov1alpha1.HostRule) *akov1alpha1.HostRule {
+func updateHostRule(t *testing.T, cluster int, hr *akov1beta1.HostRule) *akov1beta1.HostRule {
 	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
 	if err != nil {
 		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
 	}
 
-	newHr, err := hrClient.AkoV1alpha1().HostRules(hr.Namespace).Update(context.TODO(), hr, metav1.UpdateOptions{})
+	newHr, err := hrClient.AkoV1beta1().HostRules(hr.Namespace).Update(context.TODO(), hr, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("error in updating hostrule for cluster %d: %v", cluster, err)
 	}
 	return newHr
 }
 
-func getTestHostRule(t *testing.T, cluster int, name, ns string) *akov1alpha1.HostRule {
+func getTestHostRule(t *testing.T, cluster int, name, ns string) *akov1beta1.HostRule {
 	hrClient, err := hrcs.NewForConfig(cfgs[cluster])
 	if err != nil {
 		t.Fatalf("error in getting hostrule client for cluster %d: %v", cluster, err)
 	}
 
-	hr, err := hrClient.AkoV1alpha1().HostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	hr, err := hrClient.AkoV1beta1().HostRules(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error in getting hostrule %s/%s: %v", ns, name, err)
 	}
