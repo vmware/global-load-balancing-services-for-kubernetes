@@ -21,7 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
-	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1beta1"
+	akov1beta1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1beta1"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,7 +155,7 @@ func TestHRCreate(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -166,7 +166,7 @@ func TestHRCreate(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -192,7 +192,7 @@ func TestHostRuleCreateWithHmTemplateInGDP(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), nil, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}), nil, &hmTemplate)
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}), nil, &hmTemplate)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -202,7 +202,7 @@ func TestHostRuleCreateWithHmTemplateInGDP(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), nil, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}), nil, &hmTemplate)
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}), nil, &hmTemplate)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -246,7 +246,7 @@ func TestHRRemoveAliases(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -257,7 +257,7 @@ func TestHRRemoveAliases(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update HostRule to remove all aliases
@@ -267,7 +267,7 @@ func TestHRRemoveAliases(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update HostRule to remove all aliases
@@ -292,7 +292,7 @@ func TestHRCreateToggleIncludeAliases(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -303,7 +303,7 @@ func TestHRCreateToggleIncludeAliases(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update HostRule to toggle includeAliases
@@ -313,7 +313,7 @@ func TestHRCreateToggleIncludeAliases(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update HostRule to toggle includeAliases
@@ -338,7 +338,7 @@ func TestHRCreateUpdateGfdnDelete(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -349,7 +349,7 @@ func TestHRCreateUpdateGfdnDelete(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newgfqdn := "new-" + gfqdn
@@ -361,7 +361,7 @@ func TestHRCreateUpdateGfdnDelete(t *testing.T) {
 	expectedMembers = append([]nodes.AviGSK8sObj{}, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, newgfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(newgfqdn, []*akov1alpha1.HostRule{newK8sHr}))
+			getDefaultExpectedDomainNames(newgfqdn, []*akov1beta1.HostRule{newK8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update gfqdn for hostrule
@@ -372,7 +372,7 @@ func TestHRCreateUpdateGfdnDelete(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, newgfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(newgfqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
+			getDefaultExpectedDomainNames(newgfqdn, []*akov1beta1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Delete HostRule
@@ -456,7 +456,7 @@ func TestHRCreateUpdateAliasesDelete(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -467,7 +467,7 @@ func TestHRCreateUpdateAliasesDelete(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update case 1 - Appending new aliases
@@ -477,7 +477,7 @@ func TestHRCreateUpdateAliasesDelete(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update case 2 - replacing old aliases
@@ -487,7 +487,7 @@ func TestHRCreateUpdateAliasesDelete(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update case 3 - removing some old aliases
@@ -498,7 +498,7 @@ func TestHRCreateUpdateAliasesDelete(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Delete HostRule
@@ -587,7 +587,7 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -597,7 +597,7 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update aliases for k8s hr
@@ -609,7 +609,7 @@ func TestHRCreateUpdateDuplicateAliasesInCluster(t *testing.T) {
 	// ingMember is removed from expectedMembers as the hostrule is rejected
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{ocHr}))
+		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil, getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update aliases for openshift hr
@@ -637,7 +637,7 @@ func TestHRCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -648,7 +648,7 @@ func TestHRCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update aliases for k8s hr
@@ -657,7 +657,7 @@ func TestHRCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 	updateHostRule(t, K8s, newK8sHr)
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Update aliases for openshift hr
@@ -667,7 +667,7 @@ func TestHRCreateUpdateDuplicateAliasesAcrossCluster(t *testing.T) {
 
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, newOcHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -720,7 +720,7 @@ func TestHRCreateDeleteDuplicateAliasesAcrossCluster(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -731,7 +731,7 @@ func TestHRCreateDeleteDuplicateAliasesAcrossCluster(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Delete hostrule whose duplicate alias was discarded
@@ -739,7 +739,7 @@ func TestHRCreateDeleteDuplicateAliasesAcrossCluster(t *testing.T) {
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromIng(t, ingObj, ingCluster, 1)}
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// Delete HostRule
@@ -766,7 +766,7 @@ func TestHostRuleInvalidToValidForCustomFqdn(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update the hostrule to a valid one for the ingress object
@@ -777,7 +777,7 @@ func TestHostRuleInvalidToValidForCustomFqdn(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -795,7 +795,7 @@ func TestHostRuleValidToInvalidForCustomFqdn(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// create a host rule for the route object's hostname, verify GS members
@@ -805,7 +805,7 @@ func TestHostRuleValidToInvalidForCustomFqdn(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// change the ingress's host rule to invalid
@@ -817,7 +817,7 @@ func TestHostRuleValidToInvalidForCustomFqdn(t *testing.T) {
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1)}
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{ocHr}))
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{ocHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -845,7 +845,7 @@ func TestHostRuleMultipleForCustomFqdn(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn1, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn1, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn1, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getHostRuleForCustomFqdn(hrNameK8s2, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn2,
@@ -855,7 +855,7 @@ func TestHostRuleMultipleForCustomFqdn(t *testing.T) {
 	// there shouldn't be any change in the GS graph
 	g.Eventually(func() bool {
 		return verifyGSMembers(t, expectedMembers, gfqdn1, gslbutils.GetTenant(), hmRefs, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn1, []*akov1alpha1.HostRule{k8sHr}))
+			getDefaultExpectedDomainNames(gfqdn1, []*akov1beta1.HostRule{k8sHr}))
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -893,11 +893,11 @@ func TestHostRuleInsecureToSecureForCustomFqdn(t *testing.T) {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `false` indicating HTTP type.
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), nil, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}), false)
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}), false)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "secret"}
+	testCert := akov1beta1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "secret"}
 	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = testCert
 	updateHostRule(t, K8s, newK8sHr)
 
@@ -914,7 +914,7 @@ func TestHostRuleInsecureToSecureForCustomFqdn(t *testing.T) {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `true` indicating HTTPS type.
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), nil, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}), true)
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, newOcHr}), true)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -938,7 +938,7 @@ func TestHostRuleSecureToInsecureForCustomFqdn(t *testing.T) {
 	var expectedMembers []nodes.AviGSK8sObj
 	g := gomega.NewGomegaWithT(t)
 
-	testCert := akov1alpha1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "secret"}
+	testCert := akov1beta1.HostRuleSSLKeyCertificate{Name: "test-cert", Type: "secret"}
 
 	k8sHr := getHostRuleForCustomFqdn(hrNameK8s, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn,
 		gslbutils.HostRuleAccepted)
@@ -960,16 +960,16 @@ func TestHostRuleSecureToInsecureForCustomFqdn(t *testing.T) {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `true` indicating HTTPS type.
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), nil, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{k8sHr, ocHr}), true)
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{k8sHr, ocHr}), true)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// remove the TLS fields from the hostrules
 	newK8sHr := getTestHostRule(t, K8s, k8sHr.Name, k8sHr.Namespace)
-	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSSLKeyCertificate{}
+	newK8sHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1beta1.HostRuleSSLKeyCertificate{}
 	updateHostRule(t, K8s, newK8sHr)
 
 	newOcHr := getTestHostRule(t, Oshift, ocHr.Name, ocHr.Namespace)
-	newOcHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1alpha1.HostRuleSSLKeyCertificate{}
+	newOcHr.Spec.VirtualHost.TLS.SSLKeyCertificate = akov1beta1.HostRuleSSLKeyCertificate{}
 	updateHostRule(t, Oshift, newOcHr)
 
 	// members will become non-TLS type once the host rules are updated above
@@ -981,6 +981,6 @@ func TestHostRuleSecureToInsecureForCustomFqdn(t *testing.T) {
 		// the last parameter below indicates the type of health monitor (HTTP/HTTPS), in this case,
 		// it must be `false` indicating HTTP type.
 		return verifyGSMembers(t, expectedMembers, gfqdn, gslbutils.GetTenant(), nil, nil, nil,
-			getDefaultExpectedDomainNames(gfqdn, []*akov1alpha1.HostRule{newK8sHr, newOcHr}), false)
+			getDefaultExpectedDomainNames(gfqdn, []*akov1beta1.HostRule{newK8sHr, newOcHr}), false)
 	}, 10*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
