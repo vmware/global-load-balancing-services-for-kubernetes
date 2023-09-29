@@ -133,7 +133,7 @@ func fetchAndApplyAllMultiClusterIngresses(c *GSLBMemberController, nsList *core
 	rejectedStore := store.GetRejectedMultiClusterIngressStore()
 
 	for _, namespace := range nsList.Items {
-		objList, err := c.hrClientSet.AkoV1alpha1().MultiClusterIngresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+		objList, err := c.hrAlphaClientSet.AkoV1alpha1().MultiClusterIngresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			gslbutils.Errf("process: fullsync, namespace: %s, msg: error in fetching the multi-cluster ingress list, %s",
 				namespace.Name, err.Error())
@@ -275,7 +275,7 @@ func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 		}
 
 		if gslbutils.GetCustomFqdnMode() {
-			hostRules, err := c.hrClientSet.AkoV1alpha1().HostRules("").List(context.TODO(), metav1.ListOptions{})
+			hostRules, err := c.hrClientSet.AkoV1beta1().HostRules("").List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				gslbutils.Errf("cluster: %s, error in fetching hostrules, %s", c.name, err.Error())
 				return

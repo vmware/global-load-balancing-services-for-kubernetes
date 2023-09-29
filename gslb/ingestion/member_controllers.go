@@ -23,10 +23,12 @@ import (
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 
 	routev1 "github.com/openshift/api/route/v1"
-	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	akov1beta1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1beta1"
 
-	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
-	hrinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/ako/v1alpha1"
+	ahrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1alpha1/clientset/versioned"
+	hrcs "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/clientset/versioned"
+
+	hrinformer "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/informers/externalversions/ako/v1beta1"
 	containerutils "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -39,13 +41,14 @@ import (
 // GSLBMemberController is actually kubernetes cluster which is added to an AVI controller
 // here which is added to an AVI controller
 type GSLBMemberController struct {
-	name        string
-	worker_id   uint32
-	informers   *containerutils.Informers
-	hrInformer  *hrinformer.HostRuleInformer
-	hrClientSet *hrcs.Clientset
-	workqueue   []workqueue.RateLimitingInterface
-	recorder    *gslbutils.EventRecorder
+	name             string
+	worker_id        uint32
+	informers        *containerutils.Informers
+	hrInformer       *hrinformer.HostRuleInformer
+	hrClientSet      *hrcs.Clientset
+	hrAlphaClientSet *ahrcs.Clientset
+	workqueue        []workqueue.RateLimitingInterface
+	recorder         *gslbutils.EventRecorder
 }
 
 // GetAviController sets config for an AviController
@@ -205,14 +208,14 @@ func DeleteFromLBSvcStore(clusterSvcStore *store.ClusterStore,
 	clusterSvcStore.DeleteClusterNSObj(cname, svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 }
 
-func isHostRuleAcceptable(hr *akov1alpha1.HostRule) bool {
+func isHostRuleAcceptable(hr *akov1beta1.HostRule) bool {
 	if hr.Status.Status != gslbutils.HostRuleAccepted || hr.Spec.VirtualHost.Fqdn == "" {
 		return false
 	}
 	return true
 }
 
-func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule) bool {
+func isHostRuleUpdated(oldHr *akov1beta1.HostRule, newHr *akov1beta1.HostRule) bool {
 	if oldHr.Spec.VirtualHost.Fqdn != newHr.Spec.VirtualHost.Fqdn {
 		return true
 	}
@@ -235,7 +238,7 @@ func isHostRuleUpdated(oldHr *akov1alpha1.HostRule, newHr *akov1alpha1.HostRule)
 // and then to ns store for the HostRule's namespace and then adds/updates the GS FQDN obj
 // in the object map store.
 func AddOrUpdateHostRuleStore(clusterHRStore *store.ClusterStore,
-	hr *akov1alpha1.HostRule, cname string) {
+	hr *akov1beta1.HostRule, cname string) {
 
 	var tls bool
 	// there should be a certificate present in the host rule for us to consider that
@@ -253,7 +256,7 @@ func AddOrUpdateHostRuleStore(clusterHRStore *store.ClusterStore,
 // and then ns store for the HostRule's namespace and then deletes the HostRule key from
 // the object map store.
 func DeleteFromHostRuleStore(hrStore *store.ClusterStore,
-	hr *akov1alpha1.HostRule, cname string) {
+	hr *akov1beta1.HostRule, cname string) {
 	if hrStore == nil {
 		// Store is empty, so, noop
 		return

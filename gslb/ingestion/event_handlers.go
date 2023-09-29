@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
+	akov1beta1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -487,7 +488,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 	return ingressEventHandler
 }
 
-func ReApplyObjectsOnHostRule(hr *akov1alpha1.HostRule, add bool, cname, lfqdn, gfqdn string, numWorkers uint32,
+func ReApplyObjectsOnHostRule(hr *akov1beta1.HostRule, add bool, cname, lfqdn, gfqdn string, numWorkers uint32,
 	k8swq []workqueue.RateLimitingInterface) {
 
 	// primaryFqdn -> this is the fqdn chosen as the GSName
@@ -634,7 +635,7 @@ func HandleHostRuleAliasChange(fqdn, cname string, oldAliasList, newAliasList []
 		gslbutils.SetDifference(newAliasList, oldAliasList))
 }
 
-func AddHostRule(numWorkers uint32, hrStore *store.ClusterStore, hr *akov1alpha1.HostRule, c *GSLBMemberController) {
+func AddHostRule(numWorkers uint32, hrStore *store.ClusterStore, hr *akov1beta1.HostRule, c *GSLBMemberController) {
 	gsDomainNameMap := gslbutils.GetDomainNameMap()
 	lFqdn := hr.Spec.VirtualHost.Fqdn
 	AddOrUpdateHostRuleStore(hrStore, hr, c.name)
@@ -666,7 +667,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 	gslbutils.Logf("cluster: %s, msg: adding handlers for host rule objects", c.name)
 	hrEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			hr, ok := obj.(*akov1alpha1.HostRule)
+			hr, ok := obj.(*akov1beta1.HostRule)
 			if !ok {
 				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, obj)
 				return
@@ -679,7 +680,7 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 			AddHostRule(numWorkers, hrStore, hr, c)
 		},
 		DeleteFunc: func(obj interface{}) {
-			hr, ok := obj.(*akov1alpha1.HostRule)
+			hr, ok := obj.(*akov1beta1.HostRule)
 			if !ok {
 				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, obj)
 				return
@@ -708,12 +709,12 @@ func AddHostRuleEventHandler(numWorkers uint32, c *GSLBMemberController) cache.R
 			}
 		},
 		UpdateFunc: func(old, curr interface{}) {
-			oldHr, ok := old.(*akov1alpha1.HostRule)
+			oldHr, ok := old.(*akov1beta1.HostRule)
 			if !ok {
 				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, old)
 				return
 			}
-			newHr, ok := curr.(*akov1alpha1.HostRule)
+			newHr, ok := curr.(*akov1beta1.HostRule)
 			if !ok {
 				gslbutils.Debugf("cluster: %s, msg: unable to convert obj %v type interface to HostRule", c.name, curr)
 				return

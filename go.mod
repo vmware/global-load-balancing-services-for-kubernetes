@@ -1,6 +1,6 @@
 module github.com/vmware/global-load-balancing-services-for-kubernetes
 
-go 1.18
+go 1.20
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -11,14 +11,14 @@ require (
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 	github.com/vmware/alb-sdk v0.0.0-20230628102904-861ce312a6bf
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20230907055619-402bb2efba83
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20230915081259-95bc706af3fb
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.26.0
-	k8s.io/apimachinery v0.26.0
-	k8s.io/client-go v0.26.0
-	sigs.k8s.io/controller-runtime v0.14.1
+	k8s.io/api v0.26.3
+	k8s.io/apimachinery v0.26.3
+	k8s.io/client-go v0.26.3
+	sigs.k8s.io/controller-runtime v0.14.6
 )
 
 require (
@@ -70,9 +70,9 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.26.0 // indirect
-	k8s.io/component-base v0.26.0 // indirect
-	k8s.io/klog/v2 v2.80.1 // indirect
+	k8s.io/apiextensions-apiserver v0.26.3 // indirect
+	k8s.io/component-base v0.26.3 // indirect
+	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230106171958-10e5f0effbd2 // indirect
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
