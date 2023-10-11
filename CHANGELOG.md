@@ -100,3 +100,14 @@ All notable changes to this project will be documented in this file. The format 
   - Fixed an issue where AMKO was not considering the updates to priority in `GSLBHostRule` objects.
   - Fixed an issue of AMKO not taking into account the TLS annotation in an ingress which was causing
     site persistence configurations to fail.
+
+## AMKO-1.11.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.27 and OCP 4.13.
+  - Support for Multitenancy 
+
+### Changed
+  - AKO library has been upgraded. User have to update CRD definitions and AKO to 1.11.1 before upgrading AMKO to 1.11.1.
+
+
