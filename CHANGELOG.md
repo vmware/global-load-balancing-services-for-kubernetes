@@ -105,7 +105,7 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Added:
   - AMKO now claims support for Kubernetes 1.27 and OCP 4.13.
-  - Support for Multitenancy 
+  - Support for [Multitenancy](docs/amko_tenancy.md) 
 
 ### Changed
   - AKO library has been upgraded. User have to update CRD definitions and AKO to 1.11.1 before upgrading AMKO to 1.11.1.
