@@ -20,16 +20,16 @@ AMKO is aware of the following object types:
 For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Kubernetes     | 1.22-1.26   |
-| AKO            | 1.10.1       |
-| AVI Controller | 21.1.5-22.1.4 |
+| Kubernetes     | 1.23-1.27   |
+| AKO            | 1.11.1       |
+| AVI Controller | 21.1.6 - 30.1.1 |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Openshift      | 4.8-4.12    |
-| AKO            | 1.10.1       |
-| AVI Controller | 21.1.5-22.1.4 |
+| Openshift      | 4.10-4.13    |
+| AKO            | 1.11.1       |
+| AVI Controller | 21.1.6 - 30.1.1 |
 
 #### Pre-requisites
 To kick-start AMKO, we need:
