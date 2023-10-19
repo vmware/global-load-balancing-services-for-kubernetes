@@ -104,7 +104,7 @@ Following steps have to be executed on all member clusters:
    $ helm list -n avi-system
 
    NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
-   amko-1598451370	avi-system	1       	2022-02-04 11:16:21.889538175 +0000 UTC	deployed	amko-1.11.1	            1.11.1
+   amko-1598451370	avi-system	1       	2023-10-14 11:16:21.889538175 +0000 UTC	deployed	amko-1.11.1	            1.11.1
    ```
 
 #### Troubleshooting and Log collection
@@ -159,7 +159,7 @@ kubectl apply -f <output_dir>/amko/crds/
 helm list -n avi-system
 
 NAME          	NAMESPACE 	REVISION	UPDATED                             	    STATUS  	CHART    	APP VERSION
-amko-1598451370 avi-system	1       	2022-05-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.10.1	1.10.1
+amko-1598451370 avi-system	1       	2023-06-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.10.1	1.10.1
 ```
 
 *Step4*
