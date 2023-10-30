@@ -3,6 +3,14 @@ kind: "GSLBConfig"
 metadata:
   name: "gc-1"
   namespace: {{ .Release.Namespace }}
+  {{ if .Values.configs.amkoUUID }}
+  {{ $length := len .Values.configs.amkoUUID }}
+  {{ if ne $length 36 }}
+  {{ fail "AMKO-UUID length should be equal to 36." }}
+  {{ end }}
+  annotations:
+    amko.vmware.com/amko-uuid: {{ .Values.configs.amkoUUID }}
+  {{ end }}
 spec:
   gslbLeader:
     credentials: "gslb-avi-secret"
