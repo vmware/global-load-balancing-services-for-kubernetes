@@ -3,8 +3,8 @@
 set -xe
 
 
-if [ $# -lt 5 ] ; then
-    echo "Usage: ./save_build.sh <BRANCH> <BUILD_NUMBER> <WORKSPACE> <JENKINS_JOB_NAME> <JENKINS_URL>";
+if [ $# -lt 6 ] ; then
+    echo "Usage: ./save_build.sh <BRANCH> <BUILD_NUMBER> <WORKSPACE> <JENKINS_JOB_NAME> <JENKINS_URL> <CI_REGISTRY_PATH>";
     exit 1
 fi
 
@@ -13,6 +13,7 @@ BUILD_NUMBER=$2
 WORKSPACE=$3
 JENKINS_JOB_NAME=$4
 JENKINS_URL=$5
+CI_REGISTRY_PATH=$6
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
@@ -78,17 +79,17 @@ sudo /srp-tools/srp provenance action stop --working-dir $WORKSPACE/provenance
 # declare the git source tree for the build.  We refer to this declaration below when adding source inputs.
 sudo /srp-tools/srp provenance declare-source git --verbose --set-key=mainsrc --path=$WORKSPACE --branch=$BRANCH --working-dir $WORKSPACE/provenance
 
-CI_REGISTRY_IMAGE=10.79.172.11:5000/avi-buildops/amko
+CI_REGISTRY_IMAGE=$CI_REGISTRY_PATH/amko
 IMAGE_DIGEST=`sudo docker images $CI_REGISTRY_IMAGE  --digests | grep sha256 | xargs | cut -d " " -f3`
 echo $IMAGE_DIGEST
 sudo /srp-tools/srp provenance add-output package.oci --set-key=amko-image --action-key=amko-build --name=${CI_REGISTRY_IMAGE}  --digest=${IMAGE_DIGEST} --working-dir $WORKSPACE/provenance
 
-CI_REGISTRY_IMAGE=10.79.172.11:5000/avi-buildops/amko-federator
+CI_REGISTRY_IMAGE=$CI_REGISTRY_PATH/amko-federator
 IMAGE_DIGEST=`sudo docker images $CI_REGISTRY_IMAGE  --digests | grep sha256 | xargs | cut -d " " -f3`
 echo $IMAGE_DIGEST
 sudo /srp-tools/srp provenance add-output package.oci --set-key=amko-federator-image --action-key=amko-build --name=${CI_REGISTRY_IMAGE}  --digest=${IMAGE_DIGEST} --working-dir $WORKSPACE/provenance
 
-CI_REGISTRY_IMAGE=10.79.172.11:5000/avi-buildops/amko-service-discovery
+CI_REGISTRY_IMAGE=$CI_REGISTRY_PATH/amko-service-discovery
 IMAGE_DIGEST=`sudo docker images $CI_REGISTRY_IMAGE  --digests | grep sha256 | xargs | cut -d " " -f3`
 echo $IMAGE_DIGEST
 sudo /srp-tools/srp provenance add-output package.oci --set-key=amko-service-discovery-image --action-key=amko-build --name=${CI_REGISTRY_IMAGE}  --digest=${IMAGE_DIGEST} --working-dir $WORKSPACE/provenance
