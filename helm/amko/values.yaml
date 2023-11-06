@@ -54,6 +54,10 @@ configs:
   #    gslb:
   #      fqdn: gs-foo.avi.com
   useCustomGlobalFqdn: false
+  # Set the below field with a unique UUID in standard form of xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  # If left empty AMKO will generate a unique identifier itself
+  amkoUUID: 
+
 
 gslbLeaderCredentials:
   username:
