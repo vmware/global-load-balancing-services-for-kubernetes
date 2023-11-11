@@ -170,8 +170,22 @@ AMKO uses a set of custom HTTP health monitors to determine the health of a GSLB
 The custom health monitors are created per host per path. Hence all host/path combinations for a given
 FQDN should be removed in order for the corresponding GSLB service to fail health monitor.
 
+#### Existing GSLB services are not modified on change in ingress after re-install of AMKO 
+
+##### Possible Reason/Solution
+
+During `helm uninstall`, the `GSLBConfig` that holds the UUID as annotation of the current instance is deleted.When Amko is installed again it will create a new `GSLBConfig` with a different UUID. This causes discrepancy between already created GSLB services on controller and ingress/route  on cluster.
 
 
+Follow below steps to maintain the correct state of AMKO during reinstall
+1. Before you uninstall AMKO conserve the amko-UUID from annotations of GSLBconfig. 
+2. Add it in `configs.amkoUUID` field of [values.yaml](../../README.md#parameters) during reinstall. Otherwise a cleanup of stale GSLB services, if any, is required at the controller before re-installing AMKO.
+
+Example of amko-uuid in GSLBConfig :
+  ```yaml
+  annotations:
+      amko.vmware.com/amko-uuid: b3923b8e-7bff-11ee-8972-a24a90367d8f
+  ```
 ## Log Collection
 
 For every log collection, also collect the following information:
