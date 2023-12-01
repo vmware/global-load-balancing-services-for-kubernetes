@@ -21,7 +21,7 @@ type ServiceEngineGroup struct {
 	// Enable aggressive failover configuration for ha. Allowed in Enterprise edition with any value, Essentials edition(Allowed values- false), Basic edition(Allowed values- false), Enterprise with Cloud Services edition.
 	AggressiveFailureDetection *bool `json:"aggressive_failure_detection,omitempty"`
 
-	// In compact placement, Virtual Services are placed on existing SEs until max_vs_per_se limit is reached. Enum options - PLACEMENT_ALGO_PACKED, PLACEMENT_ALGO_DISTRIBUTED. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
+	// In compact placement, Virtual Services are placed on existing SEs until max_vs_per_se limit is reached. In distributed placement, Virtual Services are placed on new SEs until max_se limit is reached. Once this limit is reached, Virtual Services are placed on SEs with least load. Enum options - PLACEMENT_ALGO_PACKED, PLACEMENT_ALGO_DISTRIBUTED. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	Algo *string `json:"algo,omitempty"`
 
 	// Allow SEs to be created using burst license. Field introduced in 17.2.5. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -261,7 +261,7 @@ type ServiceEngineGroup struct {
 	// Minimum response size content length to sample for client insights. Field introduced in 21.1.1. Allowed in Enterprise edition with any value, Essentials edition(Allowed values- 64), Basic edition(Allowed values- 64), Enterprise with Cloud Services edition.
 	HTTPRumMinContentLength *int32 `json:"http_rum_min_content_length,omitempty"`
 
-	// Toggles SE hybrid only mode of operation in DPDK mode with RSS configured;where-in each SE datapath instance operates as an independent standalonehybrid instance performing both dispatcher and proxy function. Requires reboot. Field introduced in 21.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	// Toggles SE hybrid only mode of operation in DPDK mode with RSS configured;where-in each SE datapath instance operates as a standalone hybrid instance performing both dispatcher and proxy function. Requires reboot. Field introduced in 21.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	HybridRssMode *bool `json:"hybrid_rss_mode,omitempty"`
 
 	// Override default hypervisor. Enum options - DEFAULT, VMWARE_ESX, KVM, VMWARE_VSAN, XEN. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
@@ -408,7 +408,7 @@ type ServiceEngineGroup struct {
 	// Indicates the percent of memory reserved for config updates. Allowed values are 0-100. Field introduced in 18.1.2. Unit is PERCENT. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	MemoryForConfigUpdate *int32 `json:"memory_for_config_update,omitempty"`
 
-	// Amount of memory for each of the Service Engine virtual machines. Changes to this setting do not affect existing SEs. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
+	// Amount of memory for each of the Service Engine virtual machines. Changes to this setting do not affect existing SEs. Allowed values are 2048-262144. Unit is MB. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	MemoryPerSe *int32 `json:"memory_per_se,omitempty"`
 
 	// Management network to use for Avi Service Engines. It is a reference to an object of type Network. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -667,7 +667,7 @@ type ServiceEngineGroup struct {
 	// Multiplier for SE threads based on vCPU. Allowed values are 1-10. Allowed in Enterprise edition with any value, Essentials edition(Allowed values- 1), Basic edition(Allowed values- 1), Enterprise with Cloud Services edition.
 	SeThreadMultiplier *int32 `json:"se_thread_multiplier,omitempty"`
 
-	// SE per-packet latency tracking configuration. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Essentials edition with any value, Basic edition with any value, Enterprise with Cloud Services edition.
+	// Time Tracker Properties for latency audit. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Essentials edition with any value, Basic edition with any value, Enterprise with Cloud Services edition.
 	SeTimeTrackerProps *SETimeTrackerProperties `json:"se_time_tracker_props,omitempty"`
 
 	// Traceroute port range. Field introduced in 17.2.8. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -794,7 +794,7 @@ type ServiceEngineGroup struct {
 	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	VcenterHosts *VcenterHosts `json:"vcenter_hosts,omitempty"`
 
-	// Parking port group to be used by 9 vnics at the time of SE creation. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	// Parking port group to be used by 9 vnics at the time of SE creation. Field introduced in 21.1.6. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	VcenterParkingVnicPg *string `json:"vcenter_parking_vnic_pg,omitempty"`
 
 	// VCenter information for scoping at Host/Cluster level. Field introduced in 20.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -836,7 +836,7 @@ type ServiceEngineGroup struct {
 	// Time to wait for the scaled out SE to become ready before marking the scaleout done. Unit is SEC. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	VsScaleoutTimeout *int32 `json:"vs_scaleout_timeout,omitempty"`
 
-	// Wait time for sending scaleout ready notification after Virtual Service is marked UP. In certain deployments, there may be an additional delay to accept traffic. For example, for BGP, some time is needed for route advertisement. Allowed values are 0-20. Field introduced in 18.1.5,18.2.1. Unit is SEC. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
+	// Wait time for sending scaleout ready notification after Virtual Service is marked UP. In certain deployments, there may be an additional delay to accept traffic. For example, for BGP, some time is needed for route advertisement. Allowed values are 0-300. Field introduced in 18.1.5,18.2.1. Unit is SEC. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	VsSeScaleoutAdditionalWaitTime *int32 `json:"vs_se_scaleout_additional_wait_time,omitempty"`
 
 	// Timeout in seconds for Service Engine to sendScaleout Ready notification of a Virtual Service. Allowed values are 0-90. Field introduced in 18.1.5,18.2.1. Unit is SEC. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
