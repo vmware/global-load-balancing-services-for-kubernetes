@@ -81,7 +81,7 @@ type Cloud struct {
 	// List of labels to be used for granular RBAC. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Essentials edition with any value, Basic edition with any value, Enterprise with Cloud Services edition.
 	Markers []*RoleFilterMatchLabel `json:"markers,omitempty"`
 
-	// Cloud metrics collector polling interval in seconds. Field introduced in 21.1.6. Unit is SECONDS. Allowed in Enterprise edition with any value, Essentials edition with any value, Basic edition with any value, Enterprise with Cloud Services edition.
+	// Cloud metrics collector polling interval in seconds. Field introduced in 22.1.1. Unit is SECONDS. Allowed in Enterprise edition with any value, Essentials edition with any value, Basic edition with any value, Enterprise with Cloud Services edition.
 	MetricsPollingInterval *int32 `json:"metrics_polling_interval,omitempty"`
 
 	// MTU setting for the cloud. Unit is BYTES. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -111,6 +111,9 @@ type Cloud struct {
 
 	//  Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	RancherConfiguration *RancherConfiguration `json:"rancher_configuration,omitempty"`
+
+	// Resolve IPv6 address for pool member FQDNs. Field introduced in 30.2.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	ResolveFqdnToIPV6 *bool `json:"resolve_fqdn_to_ipv6,omitempty"`
 
 	// The Service Engine Group to use as template. It is a reference to an object of type ServiceEngineGroup. Field introduced in 18.2.5. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	SeGroupTemplateRef *string `json:"se_group_template_ref,omitempty"`

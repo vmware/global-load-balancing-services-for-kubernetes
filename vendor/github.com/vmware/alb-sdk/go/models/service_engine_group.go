@@ -411,6 +411,9 @@ type ServiceEngineGroup struct {
 	// Amount of memory for each of the Service Engine virtual machines. Changes to this setting do not affect existing SEs. Allowed values are 2048-262144. Unit is MB. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	MemoryPerSe *int32 `json:"memory_per_se,omitempty"`
 
+	// Metrics collection mode, 0 = Pull mode.  se_agent pulls metrics from se_dp,  1 = Push mode. se_dp pushes metrics to se_agent.  9 = special value to reset collection state in push mode. . Allowed values are 0-1. Special values are 9- Reset metrics collection state. Field introduced in 30.2.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	MetricsCollectionMode *int32 `json:"metrics_collection_mode,omitempty"`
+
 	// Management network to use for Avi Service Engines. It is a reference to an object of type Network. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	MgmtNetworkRef *string `json:"mgmt_network_ref,omitempty"`
 
@@ -469,7 +472,7 @@ type ServiceEngineGroup struct {
 	// Configuration knobs for InterSE Object Distribution. Field introduced in 20.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	ObjsyncConfig *ObjSyncConfig `json:"objsync_config,omitempty"`
 
-	// TCP port on SE management interface for InterSE Object Distribution. Supported only for externally managed security groups. Not supported on full access deployments. Requires SE reboot. Field introduced in 20.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	// TCP port on SE management interface for InterSE Object Distribution. Supported only for externally managed security groups. Not supported on full access deployments. Requires SE reboot. Allowed values are 1024-65535. Field introduced in 20.1.3. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	ObjsyncPort *int32 `json:"objsync_port,omitempty"`
 
 	//  Field introduced in 17.1.1. Maximum of 5 items allowed. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -483,6 +486,12 @@ type ServiceEngineGroup struct {
 
 	// Amount of extra memory to be reserved for use by the Operating System on a Service Engine. Unit is MB. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	OsReservedMemory *int32 `json:"os_reserved_memory,omitempty"`
+
+	// Enable Path MTU Discovery feature for IPv4. Field introduced in 30.2.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	PathMtuDiscoveryV4 *bool `json:"path_mtu_discovery_v4,omitempty"`
+
+	// Enable Path MTU Discovery feature for IPv6. Field introduced in 30.2.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	PathMtuDiscoveryV6 *bool `json:"path_mtu_discovery_v6,omitempty"`
 
 	// Determines the PCAP transmit mode of operation. Requires SE Reboot. Enum options - PCAP_TX_AUTO, PCAP_TX_SOCKET, PCAP_TX_RING. Field introduced in 18.2.8, 20.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	PcapTxMode *string `json:"pcap_tx_mode,omitempty"`
@@ -794,7 +803,7 @@ type ServiceEngineGroup struct {
 	//  Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	VcenterHosts *VcenterHosts `json:"vcenter_hosts,omitempty"`
 
-	// Parking port group to be used by 9 vnics at the time of SE creation. Field introduced in 21.1.6. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	// Parking port group to be used by 9 vnics at the time of SE creation. Field introduced in 22.1.1. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
 	VcenterParkingVnicPg *string `json:"vcenter_parking_vnic_pg,omitempty"`
 
 	// VCenter information for scoping at Host/Cluster level. Field introduced in 20.1.1. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
@@ -835,6 +844,12 @@ type ServiceEngineGroup struct {
 
 	// Time to wait for the scaled out SE to become ready before marking the scaleout done. Unit is SEC. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	VsScaleoutTimeout *int32 `json:"vs_scaleout_timeout,omitempty"`
+
+	// Wait time for primary switchover ready notification after flows are completed. In certain deployments, there may be an additional delay to accept traffic. For example, for BGP, some time is needed for route advertisement. Allowed values are 0-300. Field introduced in 30.2.1. Unit is SEC. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	VsSePrimarySwitchoverAdditionalWaitTime *int32 `json:"vs_se_primary_switchover_additional_wait_time,omitempty"`
+
+	// Wait time for sending scalein ready notification after flows are completed. In certain deployments, there may be an additional delay to accept traffic. For example, for BGP, some time is needed for route advertisement. Allowed values are 0-300. Field introduced in 30.2.1. Unit is SEC. Allowed in Enterprise edition with any value, Enterprise with Cloud Services edition.
+	VsSeScaleinAdditionalWaitTime *int32 `json:"vs_se_scalein_additional_wait_time,omitempty"`
 
 	// Wait time for sending scaleout ready notification after Virtual Service is marked UP. In certain deployments, there may be an additional delay to accept traffic. For example, for BGP, some time is needed for route advertisement. Allowed values are 0-300. Field introduced in 18.1.5,18.2.1. Unit is SEC. Allowed in Enterprise edition with any value, Essentials, Basic, Enterprise with Cloud Services edition.
 	VsSeScaleoutAdditionalWaitTime *int32 `json:"vs_se_scaleout_additional_wait_time,omitempty"`
