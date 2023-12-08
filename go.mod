@@ -10,8 +10,8 @@ require (
 	github.com/onsi/gomega v1.24.1
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
-	github.com/vmware/alb-sdk v0.0.0-20230628102904-861ce312a6bf
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20230915081259-95bc706af3fb
+	github.com/vmware/alb-sdk v0.0.0-20231103063328-21be2d2129f4
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20231130054053-194ce305bd1d
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0

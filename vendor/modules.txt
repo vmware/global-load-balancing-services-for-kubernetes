@@ -187,10 +187,10 @@ github.com/spf13/pflag
 # github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618
 ## explicit; go 1.13
 github.com/vmware-tanzu/service-apis/apis/v1alpha1pre1
-# github.com/vmware/alb-sdk v0.0.0-20230628102904-861ce312a6bf
+# github.com/vmware/alb-sdk v0.0.0-20231103063328-21be2d2129f4
 ## explicit; go 1.16
 github.com/vmware/alb-sdk/go/models
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20230915081259-95bc706af3fb
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20231130054053-194ce305bd1d
 ## explicit; go 1.20
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
