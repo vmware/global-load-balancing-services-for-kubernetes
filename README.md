@@ -21,14 +21,14 @@ For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Kubernetes     | 1.23-1.27   |
-| AKO            | 1.11.44       |
+| AKO            | 1.11.1       |
 | AVI Controller | 21.1.6 - 30.1.1 |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Openshift      | 4.10-4.13    |
-| AKO            | 1.11.44       |
+| AKO            | 1.11.1       |
 | AVI Controller | 21.1.6 - 30.1.1 |
 
 #### Pre-requisites
