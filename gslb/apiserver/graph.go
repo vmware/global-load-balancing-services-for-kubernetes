@@ -16,6 +16,7 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -26,7 +27,7 @@ type GSGraphAPI struct{}
 
 func (g GSGraphAPI) InitModel() {}
 
-func (g GSGraphAPI) ApiOperationMap() []models.OperationMap {
+func (g GSGraphAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/gsgraph",
 		Method:  "GET",

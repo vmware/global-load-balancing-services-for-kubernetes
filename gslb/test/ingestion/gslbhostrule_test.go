@@ -103,6 +103,39 @@ func TestGSLBHostRuleInvalidSitePersistence(t *testing.T) {
 	t.Logf("Verified GSLBHostRule")
 }
 
+func TestGSLBHostRuleValidPkiProfile(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pkiProfile := "pki"
+	gslbhrsp := &gslbalphav1.SitePersistence{
+		Enabled:       true,
+		ProfileRef:    "test-profile-ref",
+		PKIProfileRef: &pkiProfile,
+	}
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.SitePersistence = gslbhrsp
+	t.Logf("Adding GSLBHostRule with valid PKI Profiles")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).To(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}
+
+func TestGSLBHostRuleInvalidPkiProfile(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pkiProfile := "pki3"
+	gslbhrsp := &gslbalphav1.SitePersistence{
+		Enabled:       true,
+		ProfileRef:    "test-profile-ref",
+		PKIProfileRef: &pkiProfile,
+	}
+	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
+	gslbhrObj.Spec.SitePersistence = gslbhrsp
+	t.Logf("Adding GSLBHostRule with invalid PKI Profiles")
+	err := gslbingestion.ValidateGSLBHostRule(gslbhrObj, false)
+	t.Logf("Verifying GSLBHostRule")
+	g.Expect(err).NotTo(gomega.BeNil())
+	t.Logf("Verified GSLBHostRule")
+}
 func TestGSLBHostRuleValidHealthMonitors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	gslbhrHealthMonitorRefs := []string{"test-health-monitor"}

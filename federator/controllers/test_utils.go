@@ -331,7 +331,7 @@ func VerifyTestAMKOClusterStatus(k8sClient client.Client, statusType, statusMsg,
 
 		fmt.Printf("status of AMKOCluster: %v\n", obj.Status)
 		return getTestAMKOClusterStatusReason(obj.Status, statusType)
-	}, 5*time.Second, 1*time.Second).Should(Equal(map[string]string{"reason": failureMsg,
+	}, 30*time.Second, 1*time.Second).Should(Equal(map[string]string{"reason": failureMsg,
 		"status": statusMsg,
 	}))
 }

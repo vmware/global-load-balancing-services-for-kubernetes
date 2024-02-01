@@ -64,6 +64,8 @@ spec:
                 maximum: 86400
               sitePersistenceRef:
                 type: string
+              pkiProfileRef:
+                type: string
               poolAlgorithmSettings:
                 description: "Algorithm settings to be specified for Gslb Service pool"
                 type: object

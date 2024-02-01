@@ -90,8 +90,10 @@ type GlobalFilter struct {
 	HealthMonitorTemplate *string
 	// Site Persistence properties to be applied to all the GSs
 	SitePersistenceRef *string
+	// PKI Profile to be used with site persistence
+	PkiProfileRef *string
 	// Time To Live value for each fqdn
-	TTL *int
+	TTL *uint32
 	// Gslb Pool algorithm settings
 	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
 	// Response to the client when the GSLB service is down
@@ -178,7 +180,14 @@ func (gf *GlobalFilter) GetSitePersistence() *string {
 	return gf.SitePersistenceRef
 }
 
-func (gf *GlobalFilter) GetTTL() *int {
+func (gf *GlobalFilter) GetPKIProfile() *string {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.PkiProfileRef
+}
+
+func (gf *GlobalFilter) GetTTL() *uint32 {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 
@@ -211,6 +220,7 @@ func (gf *GlobalFilter) GetCopy() *GlobalFilter {
 		HealthMonitorRefs:     gf.HealthMonitorRefs,
 		HealthMonitorTemplate: gf.HealthMonitorTemplate,
 		SitePersistenceRef:    gf.SitePersistenceRef,
+		PkiProfileRef:         gf.PkiProfileRef,
 		TTL:                   gf.TTL,
 		GslbPoolAlgorithm:     gf.GslbPoolAlgorithm,
 		GslbDownResponse:      gf.GslbDownResponse,
@@ -319,8 +329,8 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 	for _, ts := range gdp.Spec.TrafficSplit {
 		ct := ClusterTraffic{
 			ClusterName: ts.Cluster,
-			Weight:      int32(ts.Weight),
-			Priority:    int32(ts.Priority),
+			Weight:      uint32(ts.Weight),
+			Priority:    uint32(ts.Priority),
 		}
 		gf.TrafficSplit = append(gf.TrafficSplit, ct)
 	}
@@ -334,10 +344,14 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 		gf.HealthMonitorRefs = make([]string, len(gdp.Spec.HealthMonitorRefs))
 		copy(gf.HealthMonitorRefs, gdp.Spec.HealthMonitorRefs)
 	}
-
-	gf.TTL = gdp.Spec.TTL
+	if gdp.Spec.TTL != nil {
+		i := uint32(*gdp.Spec.TTL)
+		gf.TTL = &i
+	}
 
 	gf.SitePersistenceRef = gdp.Spec.SitePersistenceRef
+
+	gf.PkiProfileRef = gdp.Spec.PKIProfileRef
 
 	gf.GslbPoolAlgorithm = gdp.Spec.PoolAlgorithmSettings.DeepCopy()
 
@@ -404,6 +418,9 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	if gf.SitePersistenceRef != nil {
 		cksum += utils.Hash(*gf.SitePersistenceRef)
 	}
+	if gf.PkiProfileRef != nil {
+		cksum += utils.Hash(*gf.PkiProfileRef)
+	}
 	if gf.TTL != nil {
 		cksum += utils.Hash(utils.Stringify(*gf.TTL))
 	}
@@ -421,7 +438,7 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	gf.Checksum = cksum
 }
 
-func (gf *GlobalFilter) GetTrafficWeight(cname string) (int32, error) {
+func (gf *GlobalFilter) GetTrafficWeight(cname string) (uint32, error) {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 	for _, ts := range gf.TrafficSplit {
@@ -433,7 +450,7 @@ func (gf *GlobalFilter) GetTrafficWeight(cname string) (int32, error) {
 	return 0, errors.New("no weight available for cluster " + cname)
 }
 
-func (gf *GlobalFilter) GetTrafficPriority(cname string) (int32, error) {
+func (gf *GlobalFilter) GetTrafficPriority(cname string) (uint32, error) {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
 	for _, ts := range gf.TrafficSplit {
@@ -557,6 +574,20 @@ func isSitePersistenceChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool
 	return false
 }
 
+func isPkiProfileChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	newSp := new.Spec.PKIProfileRef
+	oldSp := old.Spec.PKIProfileRef
+
+	if newSp != nil && oldSp == nil {
+		return true
+	} else if newSp == nil && oldSp != nil {
+		return true
+	} else if newSp != nil && oldSp != nil && *newSp != *oldSp {
+		return true
+	}
+	return false
+}
+
 func isTTLChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	if new.Spec.TTL == nil && old.Spec.TTL != nil {
 		return true
@@ -598,7 +629,7 @@ func isAllGSPropertyChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return isHmRefsChanged(old, new) || isSitePersistenceChanged(old, new) ||
 		isTTLChanged(old, new) || isGslbPoolAlgorithmChanged(old, new) ||
 		isTrafficWeightChanged(new, old) || IsHmTemplateChanged(old, new) ||
-		IsDownResponseChanged(old, new)
+		IsDownResponseChanged(old, new) || isPkiProfileChanged(old, new)
 }
 
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
@@ -627,6 +658,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.ApplicableClusters = nf.ApplicableClusters
 	gf.TTL = nf.TTL
 	gf.SitePersistenceRef = nf.SitePersistenceRef
+	gf.PkiProfileRef = nf.PkiProfileRef
 	gf.HealthMonitorRefs = nf.HealthMonitorRefs
 	gf.GslbPoolAlgorithm = nf.GslbPoolAlgorithm
 	gf.HealthMonitorTemplate = nf.HealthMonitorTemplate
@@ -662,6 +694,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		HealthMonitorRefs:  []string{},
 		TTL:                nil,
 		SitePersistenceRef: nil,
+		PkiProfileRef:      nil,
 		GslbPoolAlgorithm:  nil,
 		GslbDownResponse:   nil,
 	}
@@ -671,6 +704,6 @@ func GetNewGlobalFilter() *GlobalFilter {
 // ClusterTraffic determines the "Weight" of traffic routed to a cluster with name "ClusterName"
 type ClusterTraffic struct {
 	ClusterName string
-	Weight      int32
-	Priority    int32
+	Weight      uint32
+	Priority    uint32
 }

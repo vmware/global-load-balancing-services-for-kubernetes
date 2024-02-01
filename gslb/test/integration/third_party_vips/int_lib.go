@@ -831,7 +831,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 			t.Logf("TTL should not be nil")
 			return false
 		}
-		if *gs.TTL != *ttl {
+		if int(*gs.TTL) != *ttl {
 			t.Logf("TTL values should be equal, expected: %d, fetched: %d", *ttl, *gs.TTL)
 			return false
 		}
@@ -991,8 +991,8 @@ func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID st
 		IsPassthrough:      isPassthrough,
 		TLS:                tls,
 		Paths:              paths,
-		Weight:             weight,
-		Priority:           priority,
+		Weight:             uint32(weight),
+		Priority:           uint32(priority),
 	}
 }
 

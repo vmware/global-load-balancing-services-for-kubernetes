@@ -11,7 +11,7 @@ PACKAGE_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes
 AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/gslb
 FEDERATOR_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/federator
 SERVICE_DISCOVERY_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/service_discovery
-
+GOLANG_UT_IMAGE=golang:bullseye
 
 ifdef GOLANG_SRC_REPO
 	BUILD_GO_IMG=$(GOLANG_SRC_REPO)
@@ -29,6 +29,7 @@ build-amko:
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
 	go build \
 	-o /go/src/$(PACKAGE_PATH)/bin/$(AMKO_BIN) \
+	-buildvcs=false \
 	-mod=vendor \
 	/go/src/$(AMKO_REL_PATH)
 
@@ -39,6 +40,7 @@ build-amko-federator:
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
 	go build \
 	-o /go/src/$(PACKAGE_PATH)/bin/$(FEDERATOR_BIN) \
+	-buildvcs=false \
 	-mod=vendor \
 	/go/src/$(FEDERATOR_REL_PATH)
 
@@ -49,6 +51,7 @@ build-amko-service-discovery:
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
 	go build \
 	-o /go/src/$(PACKAGE_PATH)/bin/$(SERVICE_DISCOVERY_BIN) \
+	-buildvcs=false \
 	-mod=vendor \
 	/go/src/$(SERVICE_DISCOVERY_REL_PATH)
 
@@ -135,7 +138,7 @@ ingestion_test:
 	sudo docker run \
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast
 
 .PHONY: graph_test
@@ -143,7 +146,7 @@ graph_test:
 	sudo docker run \
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast
 
 .PHONY: rest_test
@@ -151,16 +154,16 @@ rest_test:
 	sudo docker run \
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast
-
+ 
 .PHONY: federator_test
 federator_test:
 	sudo docker run \
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v
 
 .PHONY: bootup_test
@@ -169,7 +172,7 @@ bootup_test:
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/bootuptest -ginkgo.v -ginkgo.seed=1624910766
 
 .PHONY: custom_fqdn_test
@@ -178,7 +181,7 @@ custom_fqdn_test:
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast
 
 .PHONY: third_party_vips_test
@@ -187,7 +190,7 @@ third_party_vips_test:
 	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
 	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
 	-w=/go/src/$(PACKAGE_PATH) \
-	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
+	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast
 
 .PHONY: int_test
@@ -217,7 +220,7 @@ fmt:
 
 .golangci-bin:
 	@echo "Installing Golangci-lint"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $@ v1.50.1
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $@ v1.55.2
 
 .PHONY: golangci
 golangci: .golangci-bin

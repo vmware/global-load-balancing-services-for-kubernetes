@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	amkov1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/federator/api/v1alpha1"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
@@ -416,8 +415,8 @@ func (r *AMKOClusterReconciler) PatchAMKOClusterStatus(ctx context.Context, amko
 // SetupWithManager sets up the controller with the Manager.
 func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(&source.Kind{Type: &gslbalphav1.GSLBConfig{}},
-			handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+		Watches(&gslbalphav1.GSLBConfig{},
+			handler.EnqueueRequestsFromMapFunc(func(c context.Context, o client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -428,8 +427,8 @@ func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 			}),
 		).
-		Watches(&source.Kind{Type: &gdpalphav2.GlobalDeploymentPolicy{}},
-			handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+		Watches(&gdpalphav2.GlobalDeploymentPolicy{},
+			handler.EnqueueRequestsFromMapFunc(func(c context.Context, o client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{

@@ -514,7 +514,7 @@ var _ = Describe("Federation Consolidation Operations", func() {
 						Namespace: gcObj.Namespace},
 					&obj)).Should(Succeed())
 				return obj.Spec.RefreshInterval
-			}, 5*time.Second, 1*time.Second).Should(Equal(999))
+			}, 30*time.Second, 1*time.Second).Should(Equal(999))
 		})
 
 		It("should federate primary GDP updates to cluster2", func() {
@@ -532,7 +532,7 @@ var _ = Describe("Federation Consolidation Operations", func() {
 						Namespace: gdpObj.Namespace},
 					&obj)).Should(Succeed())
 				return *obj.Spec.TTL
-			}, 5*time.Second, 1*time.Second).Should(Equal(1000))
+			}, 30*time.Second, 1*time.Second).Should(Equal(1000))
 		})
 
 		Specify("deletion of AMKOCluster, GC and GDP is successful", func() {

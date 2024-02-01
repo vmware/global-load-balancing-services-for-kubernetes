@@ -17,6 +17,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models"
 
@@ -29,7 +30,7 @@ type GSCacheAPI struct{}
 
 func (g GSCacheAPI) InitModel() {}
 
-func (g GSCacheAPI) ApiOperationMap() []models.OperationMap {
+func (g GSCacheAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/gscache",
 		Method:  "GET",
@@ -67,7 +68,7 @@ type HmCacheAPI struct{}
 
 func (h HmCacheAPI) InitModel() {}
 
-func (h HmCacheAPI) ApiOperationMap() []models.OperationMap {
+func (h HmCacheAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/hmcache",
 		Method:  "GET",
@@ -113,7 +114,7 @@ func InitAmkoAPIServer() {
 		GSCacheAPI{},
 		HmCacheAPI{},
 	}
-	amkoAPIServer := api.NewServer("8080", modelList)
+	amkoAPIServer := api.NewServer("8080", modelList, false, nil)
 	amkoAPIServer.InitApi()
 
 	apiserver.SetAmkoAPIServer(amkoAPIServer)

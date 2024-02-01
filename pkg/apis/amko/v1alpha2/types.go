@@ -57,6 +57,7 @@ type GDPSpec struct {
 	HealthMonitorTemplate *string                            `json:"healthMonitorTemplate,omitempty"`
 	TTL                   *int                               `json:"ttl,omitempty"`
 	SitePersistenceRef    *string                            `json:"sitePersistenceRef,omitempty"`
+	PKIProfileRef         *string                            `json:"pkiProfileRef,omitempty"`
 	PoolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings `json:"poolAlgorithmSettings,omitempty"`
 	DownResponse          *gslbalphav1.DownResponse          `json:"downResponse,omitempty"`
 }

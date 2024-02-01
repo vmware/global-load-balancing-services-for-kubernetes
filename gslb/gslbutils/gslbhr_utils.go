@@ -30,7 +30,7 @@ type GSHostRules struct {
 	HmRefs            []string
 	HmTemplate        *string
 	SitePersistence   *gslbhralphav1.SitePersistence
-	TTL               *int
+	TTL               *uint32
 	TrafficSplit      []gslbhralphav1.TrafficSplitElem
 	PublicIP          []gslbhralphav1.PublicIPElem
 	ThirdPartyMembers []gslbhralphav1.ThirdPartyMember
@@ -47,7 +47,7 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 
 	if in.TTL != nil {
 		in, out := &in.TTL, &out.TTL
-		*out = new(int)
+		*out = new(uint32)
 		**out = **in
 	}
 	if in.SitePersistence != nil {
@@ -92,10 +92,13 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 
 	var cksum uint32
 	var sitePersistence string
-	var ttl int
+	var ttl uint32
 	if ghr.SitePersistence != nil {
 		cksum += utils.Hash(utils.Stringify(ghr.SitePersistence.Enabled)) +
 			utils.Hash(utils.Stringify(ghr.SitePersistence.ProfileRef))
+		if ghr.SitePersistence.PKIProfileRef != nil {
+			cksum += utils.Hash(utils.Stringify(*ghr.SitePersistence.PKIProfileRef))
+		}
 	}
 	if ghr.TTL != nil {
 		ttl = *ghr.TTL
@@ -149,12 +152,13 @@ func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 	}
 	if gslbhrSpec.SitePersistence != nil {
 		gsHostRules.SitePersistence = &gslbhralphav1.SitePersistence{
-			Enabled:    gslbhrSpec.SitePersistence.Enabled,
-			ProfileRef: gslbhr.Spec.SitePersistence.ProfileRef,
+			Enabled:       gslbhrSpec.SitePersistence.Enabled,
+			ProfileRef:    gslbhr.Spec.SitePersistence.ProfileRef,
+			PKIProfileRef: gslbhr.Spec.SitePersistence.PKIProfileRef,
 		}
 	}
 	if gslbhrSpec.TTL != nil {
-		ttl := *gslbhrSpec.TTL
+		ttl := uint32(*gslbhrSpec.TTL)
 		gsHostRules.TTL = &ttl
 	}
 	gsHostRules.ThirdPartyMembers = make([]gslbhralphav1.ThirdPartyMember, len(gslbhrSpec.ThirdPartyMembers))

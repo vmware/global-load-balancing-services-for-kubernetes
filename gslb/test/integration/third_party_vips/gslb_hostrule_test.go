@@ -943,8 +943,8 @@ func TestGSLBHostRuleWithPriorityUpdate(t *testing.T) {
 		expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
 		expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 		if pa != nil {
-			expectedMembers[0].Priority = int32(pa[0].Priority)
-			expectedMembers[1].Priority = int32(pa[1].Priority)
+			expectedMembers[0].Priority = uint32(pa[0].Priority)
+			expectedMembers[1].Priority = uint32(pa[1].Priority)
 		}
 		g := gomega.NewGomegaWithT(t)
 		g.Eventually(func() bool {

@@ -366,6 +366,15 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 		}
 	}
 
+	// PKI Profile check
+	if gdp.Spec.PKIProfileRef != nil && *gdp.Spec.PKIProfileRef == "" {
+		return fmt.Errorf("empty string as pki profile reference not supported")
+	} else if gdp.Spec.PKIProfileRef != nil {
+		if !isPKIProfilePresent(*gdp.Spec.PKIProfileRef, true, fullSync) {
+			return fmt.Errorf("pki profile ref %s not present", *gdp.Spec.PKIProfileRef)
+		}
+	}
+
 	// DownResponse check
 	if gdp.Spec.DownResponse != nil {
 		err := isGSLBDownResponseValid(gdp.Spec.DownResponse.Type, gdp.Spec.DownResponse.FallbackIP)

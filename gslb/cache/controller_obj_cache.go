@@ -40,12 +40,14 @@ import (
 )
 
 var (
-	aviCache       *AviCache
-	objCacheOnce   sync.Once
-	aviHmCache     *AviHmCache
-	hmObjCacheOnce sync.Once
-	aviSpCache     *AviSpCache
-	spObjCacheOnce sync.Once
+	aviCache        *AviCache
+	objCacheOnce    sync.Once
+	aviHmCache      *AviHmCache
+	hmObjCacheOnce  sync.Once
+	aviSpCache      *AviSpCache
+	spObjCacheOnce  sync.Once
+	aviPkiCache     *AviPkiCache
+	pkiObjCacheOnce sync.Once
 )
 
 type CustomHmSettings struct {
@@ -262,6 +264,114 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 	return nil
 }
 
+type AviPkiCache struct {
+	cacheLock sync.RWMutex
+	Cache     map[interface{}]interface{}
+	UUIDCache map[string]interface{}
+}
+
+func GetAviPkiCache() *AviPkiCache {
+	pkiObjCacheOnce.Do(func() {
+		aviPkiCache = &AviPkiCache{}
+		aviPkiCache.Cache = make(map[interface{}]interface{})
+		aviPkiCache.UUIDCache = make(map[string]interface{})
+	})
+	return aviPkiCache
+}
+
+func (s *AviPkiCache) AviPkiCacheAdd(k interface{}, val interface{}) {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	s.Cache[k] = val
+}
+
+func (s *AviPkiCache) AviPkiCacheAddByUUID(uuid string, val interface{}) {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	s.UUIDCache[uuid] = val
+}
+
+func (s *AviPkiCache) AviPkiCacheGet(k interface{}) (interface{}, bool) {
+	s.cacheLock.RLock()
+	defer s.cacheLock.RUnlock()
+	val, ok := s.Cache[k]
+	return val, ok
+}
+
+func (s *AviPkiCache) AviPkiCacheGetByUUID(uuid string) (interface{}, bool) {
+	s.cacheLock.RLock()
+	defer s.cacheLock.RUnlock()
+	val, ok := s.UUIDCache[uuid]
+	return val, ok
+}
+
+func (s *AviPkiCache) AviPkiCachePopulate(client *clients.AviClient) error {
+	var nextPageURI string
+	baseURI := "/api/pkiprofile"
+	uri := baseURI + "?page_size=100"
+	firstPkiProfile := false
+
+	// parse all pages with PKI Profile till we hit the last page
+	for {
+		if nextPageURI != "" {
+			uri = nextPageURI
+		}
+		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client, false)
+		if err != nil {
+			return fmt.Errorf("object: AviPkiProfileCache, msg: Pkiprofile get URI %s returned error: %v",
+				uri, err)
+		}
+
+		gslbutils.Logf("fetched %d PKI profiles", result.Count)
+		elems := make([]json.RawMessage, result.Count)
+		err = json.Unmarshal(result.Results, &elems)
+		if err != nil {
+			return errors.New("failed to unmarshal pki  profile ref, err: " + err.Error())
+		}
+
+		processedObjs := 0
+		for i := 0; i < len(elems); i++ {
+			sp := models.PKIprofile{}
+			err := json.Unmarshal(elems[i], &sp)
+			if err != nil {
+				gslbutils.Warnf("failed to unmarshal pki profile element, err: %s", err.Error())
+				continue
+			}
+
+			if sp.Name == nil || sp.UUID == nil {
+				gslbutils.Warnf("incomplete pki profile ref unmarshalled %s", utils.Stringify(sp))
+				continue
+			}
+
+			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+			s.AviPkiCacheAdd(k, &sp)
+			s.AviPkiCacheAddByUUID(*sp.UUID, &sp)
+
+			if !firstPkiProfile {
+				defaultPKI := TenantName{Tenant: gslbutils.GetTenant(), Name: gslbutils.DefaultPKI}
+				s.AviPkiCacheAdd(defaultPKI, &sp)
+				firstPkiProfile = true
+			}
+			gslbutils.Debugf("processed pki profile %s, UUID: %s", *sp.Name, *sp.UUID)
+			processedObjs++
+		}
+		gslbutils.Logf("processed %d pki profiles", processedObjs)
+
+		nextPageURI = ""
+		if result.Next != "" {
+			nextURI := strings.Split(result.Next, baseURI)
+			if len(nextURI) > 1 {
+				nextPageURI = baseURI + nextURI[1]
+				gslbutils.Logf("object: AviCache, msg: next field in response, will continue fetching")
+				continue
+			}
+			gslbutils.Warnf("error in getting the nextURI, can't proceed further, next URI %s", result.Next)
+		}
+		break
+	}
+	return nil
+}
+
 type AviSpCache struct {
 	cacheLock sync.RWMutex
 	Cache     map[interface{}]interface{}
@@ -365,8 +475,8 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 
 type GSMember struct {
 	IPAddr     string
-	Weight     int32
-	Priority   int32
+	Weight     uint32
+	Priority   uint32
 	VsUUID     string
 	Controller string
 	PublicIP   string
@@ -584,10 +694,10 @@ func parseDescription(description string) ([]string, error) {
 }
 
 func ParsePoolAlgorithmSettingsFromPool(gsPool models.GslbPool) *gslbalphav1.PoolAlgorithmSettings {
-	return ParsePoolAlgorithmSettings(gsPool.Algorithm, gsPool.FallbackAlgorithm, gsPool.ConsistentHashMask)
+	return ParsePoolAlgorithmSettings(gsPool.Algorithm, gsPool.FallbackAlgorithm, &gsPool.ConsistentHashMask)
 }
 
-func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, consistentHashMask *int32) *gslbalphav1.PoolAlgorithmSettings {
+func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, consistentHashMask *uint32) *gslbalphav1.PoolAlgorithmSettings {
 	if algorithm == nil {
 		return nil
 	}
@@ -611,7 +721,7 @@ func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, co
 // Parse the algorithm, fallback algorithm and consistent hash mask from the GS Group.
 func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbalphav1.PoolAlgorithmSettings {
 	var algorithm, fallbackAlgorithm *string
-	var consistentHashMask *int32
+	var consistentHashMask *uint32
 
 	a, ok := group["algorithm"].(string)
 	if !ok {
@@ -629,7 +739,7 @@ func ParsePoolAlgorithmSettingsFromPoolRaw(group map[string]interface{}) *gslbal
 	if a == gslbalphav1.PoolAlgorithmConsistentHash || f == gslbalphav1.PoolAlgorithmConsistentHash {
 		hashMaskF, ok := group["consistent_hash_mask"].(float64)
 		if ok {
-			hashMaskI := int32(hashMaskF)
+			hashMaskI := uint32(hashMaskF)
 			consistentHashMask = &hashMaskI
 		} else {
 			gslbutils.Warnf("couldn't parse hash mask: %v", group)
@@ -690,8 +800,9 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	var gsMembers []GSMember
 	var persistenceProfileRef, createdBy string
 	var persistenceProfileRefPtr *string
+	var pkiProfileRef *string
 	var sitePersistenceRequired bool
-	var ttl *int
+	var ttl uint32
 	var gsDownResponse *gslbalphav1.DownResponse
 
 	domainNames := gsObj.DomainNames
@@ -763,10 +874,31 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 				*gsObj.ApplicationPersistenceProfileRef)
 		}
 	}
-	if gsObj.TTL != nil {
-		ttlVal := int(*gsObj.TTL)
-		ttl = &ttlVal
+
+	if sitePersistenceRequired && gsObj.PkiProfileRef != nil {
+		// find out the name of the profile
+		refSplit := strings.Split(*gsObj.PkiProfileRef, "/pkiprofile/")
+		if len(refSplit) == 2 {
+			spCache := GetAviPkiCache()
+			sp, present := spCache.AviPkiCacheGetByUUID(refSplit[1])
+			if present {
+				spObj, ok := sp.(*models.PKIprofile)
+				if ok {
+					pkiProfileRef = spObj.Name
+				} else {
+					gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: stored pki profile not in right format",
+						*gsObj.Name, *gsObj.PkiProfileRef)
+				}
+			} else {
+				gslbutils.Warnf("gsName: %s, fetchedRef: %s, uuid: %s, msg: pki profile not present in cache by UUID",
+					*gsObj.Name, *gsObj.PkiProfileRef, refSplit[1])
+			}
+		} else {
+			gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: wrong format for pki profile ref", *gsObj.Name,
+				*gsObj.PkiProfileRef)
+		}
 	}
+	ttl = gsObj.TTL
 
 	var poolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings
 	for _, val := range groups {
@@ -790,10 +922,6 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 				continue
 			}
 			weight := *member.Ratio
-			if weight < 0 {
-				gslbutils.Warnf("invalid weight present, assigning 0: %v", member)
-				weight = 0
-			}
 			gsMember := GSMember{
 				IPAddr:   ipAddr,
 				Weight:   weight,
@@ -828,7 +956,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, gsDownResponse, createdBy)
+		persistenceProfileRefPtr, &ttl, poolAlgorithmSettings, gsDownResponse, pkiProfileRef, createdBy)
 	return checksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, nil
 }
 
@@ -910,7 +1038,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	var serverList, domainList, memberObjs []string
 	var hms []string
 	var gsMembers []GSMember
-	var ttl *int
+	var ttl *uint32
 	var createdBy string
 	var gsDownResponse *gslbalphav1.DownResponse
 
@@ -958,7 +1086,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 	}
 
 	var persistenceProfileRef string
-	var persistenceProfileRefPtr *string
+	var persistenceProfileRefPtr, pkiProfileRefPtr *string
 	if sitePersistenceEnabled == true {
 		var ok bool
 		persistenceProfileRef, ok = gslbSvcMap["application_persistence_profile_ref"].(string)
@@ -967,13 +1095,17 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 				errors.New("application_persistence_profile_ref absent in gslb service")
 		}
 		persistenceProfileRefPtr = &persistenceProfileRef
+		pkiProfileRef, ok := gslbSvcMap["pki_profile_ref"].(string)
+		if ok {
+			pkiProfileRefPtr = &pkiProfileRef
+		}
 	}
 
 	ttlVal, ok := gslbSvcMap["ttl"]
 	if ok {
 		parsedValF, ok := ttlVal.(float64)
 		if ok {
-			parsedValI := int(parsedValF)
+			parsedValI := uint32(parsedValF)
 			ttl = &parsedValI
 		} else {
 			gslbutils.Errf("couldn't parse the ttl value: %v", ttlVal)
@@ -993,7 +1125,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 			gslbutils.Warnf("couldn't parse the priority, won't proceed")
 			continue
 		}
-		priority := int32(priorityF)
+		priority := uint32(priorityF)
 		poolAlgorithmSettings = ParsePoolAlgorithmSettingsFromPoolRaw(group)
 		members, ok := group["members"].([]interface{})
 		if !ok {
@@ -1021,7 +1153,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 				gslbutils.Warnf("couldn't parse the weight, assigning 0: %v", member)
 				weight = 0
 			}
-			weightI := int32(weight)
+			weightI := uint32(weight)
 			vsUUID, ok := member["vs_uuid"].(string)
 			if !ok {
 				gslbutils.Warnf("couldn't parse the vs uuid, assigning \"\": %v", member)
@@ -1060,7 +1192,7 @@ func GetDetailsFromAviGSLB(gslbSvcMap map[string]interface{}) (uint32, []GSMembe
 
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, gsDownResponse, createdBy)
+		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, gsDownResponse, pkiProfileRefPtr, createdBy)
 	return checksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, nil
 }
 
@@ -1124,6 +1256,15 @@ func PopulateSPCache() *AviSpCache {
 	aviSpCache := GetAviSpCache()
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviSitePersistenceCachePopulate(aviRestClientPool.AviClient[0])
+	}
+	return aviSpCache
+}
+
+func PopulatePkiCache() *AviPkiCache {
+	aviRestClientPool := SharedAviClients()
+	aviSpCache := GetAviPkiCache()
+	if len(aviRestClientPool.AviClient) > 0 {
+		aviSpCache.AviPkiCachePopulate(aviRestClientPool.AviClient[0])
 	}
 	return aviSpCache
 }

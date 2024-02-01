@@ -15,7 +15,6 @@
 package ingestion
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -48,7 +47,7 @@ func TestGSLBNewController(t *testing.T) {
 
 // Unit test to see if a kube config can be generated from a encoded secret.
 func TestGSLBKubeConfig(t *testing.T) {
-	kubeconfigData, err := ioutil.ReadFile("./testdata/test-kube-config")
+	kubeconfigData, err := os.ReadFile("./testdata/test-kube-config")
 	if err != nil {
 		t.Fatal(err)
 	}

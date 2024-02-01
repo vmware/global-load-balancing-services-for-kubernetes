@@ -34,8 +34,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const metricsAddr = ":9090"
@@ -64,8 +64,8 @@ type AMKOClusterReconciler struct {
 
 func CreateController() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		MetricsBindAddress: metricsAddr,
-		Scheme:             clusterScheme,
+		Metrics: server.Options{BindAddress: metricsAddr},
+		Scheme:  clusterScheme,
 	})
 	if err != nil {
 		gslbutils.Errf("unable to create manager for AMKOCluster controller: %v", err)
@@ -153,8 +153,8 @@ func (r *AMKOClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *AMKOClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(&source.Kind{Type: &amkov1alpha1.AMKOCluster{}},
-			handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+		Watches(&amkov1alpha1.AMKOCluster{},
+			handler.EnqueueRequestsFromMapFunc(func(con context.Context, o client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{

@@ -17,7 +17,7 @@ package mockaviserver
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,7 +99,7 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		data, _ := ioutil.ReadAll(r.Body)
+		data, _ := io.ReadAll(r.Body)
 		json.Unmarshal(data, &resp)
 		objects := strings.Split(strings.Trim(url, "/"), "/")
 		rData, aviObject := resp, objects[1]
@@ -132,7 +132,7 @@ func DefaultServerMiddleware(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "resource not found"}`))
 	case "PUT":
-		data, _ := ioutil.ReadAll(r.Body)
+		data, _ := io.ReadAll(r.Body)
 		if PutMiddleware != nil && PutMiddleware(data, w) {
 			return
 		}
@@ -194,6 +194,8 @@ func SendResponseForObjects(objects []string, w http.ResponseWriter, r *http.Req
 		FeedMockHMData(w, r)
 	case "applicationpersistenceprofile":
 		FeedMockPersistenceData(w, r)
+	case "pkiprofile":
+		FeedMockPkiProfileData(w, r)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "resource not found"}`))
@@ -215,7 +217,7 @@ func FeedMockGSData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
-		data, err := ioutil.ReadFile(mockFilePath)
+		data, err := os.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("Error opening mock file %s", mockFilePath)
 			return
@@ -230,7 +232,7 @@ func FeedMockCloudData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
-		data, err := ioutil.ReadFile(mockFilePath)
+		data, err := os.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("can't read file: %v", err)
 			w.WriteHeader(404)
@@ -246,7 +248,7 @@ func FeedMockClusterData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
-		data, err := ioutil.ReadFile(mockFilePath)
+		data, err := os.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
 			w.WriteHeader(404)
@@ -262,7 +264,7 @@ func FeedMockGslbData(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.EscapedPath()
 	object := strings.Split(strings.Trim(url, "/"), "/")
 	if len(object) > 1 && r.Method == "GET" {
-		data, err := ioutil.ReadFile(mockFilePath)
+		data, err := os.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
 			w.WriteHeader(404)
@@ -298,7 +300,7 @@ func FeedMockHMData(w http.ResponseWriter, r *http.Request) {
 			w.Write(data)
 			return
 		}
-		data, err := ioutil.ReadFile(mockFilePath)
+		data, err := os.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
 			w.WriteHeader(404)
@@ -364,7 +366,7 @@ func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 			w.Write(data)
 			return
 		}
-		data, err := ioutil.ReadFile(mockFilePath)
+		data, err := os.ReadFile(mockFilePath)
 		if err != nil {
 			gslbutils.Errf("error in reading file: %v", err)
 			w.WriteHeader(404)
@@ -385,6 +387,72 @@ func FeedMockPersistenceData(w http.ResponseWriter, r *http.Request) {
 					responseData := MockAPData{
 						Count:   1,
 						Results: []models.ApplicationPersistenceProfile{ap},
+					}
+					data, err = json.Marshal(responseData)
+					if err != nil {
+						gslbutils.Errf("error in marshalling persistence profile data: %v", err)
+						w.WriteHeader(404)
+						return
+					}
+					w.WriteHeader(http.StatusOK)
+					w.Write(data)
+					return
+				}
+			}
+			w.WriteHeader(404)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
+func FeedMockPkiProfileData(w http.ResponseWriter, r *http.Request) {
+	mockFilePath := GetMockFilePath("pki_mock.json")
+	url := r.URL.String()
+	object := strings.Split(strings.Trim(url, "/"), "/")
+	if len(object) > 1 && r.Method == "GET" {
+		splitData := strings.Split(url, "?name=")
+		type MockPKIData struct {
+			Count   int                 `json:"count"`
+			Results []models.PKIprofile `json:"results"`
+		}
+		// Handling a invalid case - No Pki Profile of give name(suffix = InvalidObjectNameSuffix) exists. Sending an empty response
+		if len(splitData) == 2 && strings.HasSuffix(splitData[1], InvalidObjectNameSuffix) {
+			responseData := MockPKIData{
+				Count: 0,
+			}
+			data, err := json.Marshal(responseData)
+			if err != nil {
+				gslbutils.Errf("error in marshalling persistence profile data: %v", err)
+				w.WriteHeader(404)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+			return
+		}
+		data, err := os.ReadFile(mockFilePath)
+		if err != nil {
+			gslbutils.Errf("error in reading file: %v", err)
+			w.WriteHeader(404)
+			return
+		}
+		mockHmData := MockPKIData{
+			Results: []models.PKIprofile{},
+		}
+		err = json.Unmarshal([]byte(data), &mockHmData)
+		if err != nil {
+			gslbutils.Errf("error in unmarshalling persistence profile data: %v", err)
+			w.WriteHeader(404)
+		}
+		if len(splitData) == 2 {
+			// we need a specific persistence profile data
+			for _, ap := range mockHmData.Results {
+				if *ap.Name == splitData[1] {
+					responseData := MockPKIData{
+						Count:   1,
+						Results: []models.PKIprofile{ap},
 					}
 					data, err = json.Marshal(responseData)
 					if err != nil {
