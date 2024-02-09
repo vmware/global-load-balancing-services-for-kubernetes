@@ -30,7 +30,7 @@ type GSCacheAPI struct{}
 
 func (g GSCacheAPI) InitModel() {}
 
-func (g GSCacheAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (g GSCacheAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/gscache",
 		Method:  "GET",
@@ -68,7 +68,7 @@ type HmCacheAPI struct{}
 
 func (h HmCacheAPI) InitModel() {}
 
-func (h HmCacheAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (h HmCacheAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/hmcache",
 		Method:  "GET",

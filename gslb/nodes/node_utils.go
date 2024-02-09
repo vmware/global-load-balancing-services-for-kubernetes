@@ -44,10 +44,12 @@ func getSitePersistence(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gs
 }
 
 func getPKIProfile(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gslbutils.GlobalFilter) *string {
-	if gsRuleExists && gsRule.SitePersistence != nil && gsRule.SitePersistence.PKIProfileRef != nil {
+	if gsRuleExists && gsRule.SitePersistence != nil {
 		if gsRule.SitePersistence.Enabled {
-			ref := gsRule.SitePersistence.PKIProfileRef
-			return ref
+			if gsRule.SitePersistence.PKIProfileRef != nil {
+				ref := gsRule.SitePersistence.PKIProfileRef
+				return ref
+			}
 		} else {
 			return nil
 		}

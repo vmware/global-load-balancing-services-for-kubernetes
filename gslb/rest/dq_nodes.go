@@ -998,7 +998,6 @@ func buildGsPool(gsMeta *nodes.AviGSObjectGraph, gsPoolMembers []*avimodels.Gslb
 	}
 	if hashMask != nil {
 		pool.ConsistentHashMask = *hashMask
-
 	}
 	return pool
 }

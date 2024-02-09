@@ -726,7 +726,7 @@ func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
 // 1. hostrule aliases
 // the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name string, tenant string,
-	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32, extraArgs ...interface{}) bool {
+	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, PkiProfileRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32, extraArgs ...interface{}) bool {
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -822,6 +822,22 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 	} else {
 		if gs.SitePersistenceRef != nil {
 			t.Logf("Site persistence ref should be nil, it is %s", *gs.SitePersistenceRef)
+			return false
+		}
+	}
+
+	if PkiProfileRef != nil {
+		if gs.PkiProfileRef == nil {
+			t.Logf("Pki ref should not be nil, expected value: %s", *PkiProfileRef)
+			return false
+		}
+		if *PkiProfileRef != *gs.PkiProfileRef {
+			t.Logf("PKI Profile should be %s, it is %s", *PkiProfileRef, *gs.PkiProfileRef)
+			return false
+		}
+	} else {
+		if gs.PkiProfileRef != nil {
+			t.Logf("PKI Profile ref should be nil, it is %s", *gs.PkiProfileRef)
 			return false
 		}
 	}

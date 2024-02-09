@@ -494,13 +494,6 @@ func parseControllerDetails(gc *gslbalphav1.GSLBConfig) error {
 	}
 	ctrlUsername := secretObj.Data["username"]
 	ctrlPassword := secretObj.Data["password"]
-	/*
-		// Setting the client version as 22.1.2 as a work around for the GSLB service creation failure
-		// in 22.1.3 due to introduction of mandatory PKI profile.
-		// TODO: Change this logic and incorporate the PKI profile in the future releases.
-		if leaderVersion > gslbutils.CONTROLLER_VERSION_22_1_2 {
-			leaderVersion = gslbutils.CONTROLLER_VERSION_22_1_2
-		}*/
 	tenant := utils.ADMIN_NS
 	if gc.Spec.GSLBLeader.Tenant != nil {
 		tenant = *gc.Spec.GSLBLeader.Tenant

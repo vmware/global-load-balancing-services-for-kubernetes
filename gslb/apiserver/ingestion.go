@@ -29,7 +29,7 @@ type FilterAPI struct{}
 
 func (f FilterAPI) InitModel() {}
 
-func (f FilterAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (f FilterAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/filter",
 		Method:  "GET",
@@ -50,7 +50,7 @@ type GslbHostRuleAPI struct{}
 
 func (g GslbHostRuleAPI) InitModel() {}
 
-func (g GslbHostRuleAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (g GslbHostRuleAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/ghrules",
 		Method:  "GET",
@@ -93,7 +93,7 @@ type AcceptedIngressAPI struct{}
 
 func (ai AcceptedIngressAPI) InitModel() {}
 
-func (ai AcceptedIngressAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (ai AcceptedIngressAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/accepted/ingress",
 		Method:  "GET",
@@ -110,7 +110,7 @@ type RejectedIngressAPI struct{}
 
 func (ai RejectedIngressAPI) InitModel() {}
 
-func (ri RejectedIngressAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (ri RejectedIngressAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/rejected/ingress",
 		Method:  "GET",
@@ -127,7 +127,7 @@ type AcceptedRouteAPI struct{}
 
 func (ar AcceptedRouteAPI) InitModel() {}
 
-func (ar AcceptedRouteAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (ar AcceptedRouteAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/accepted/route",
 		Method:  "GET",
@@ -144,7 +144,7 @@ type RejectedRouteAPI struct{}
 
 func (rr RejectedRouteAPI) InitModel() {}
 
-func (rr RejectedRouteAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (rr RejectedRouteAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/rejected/route",
 		Method:  "GET",
@@ -161,7 +161,7 @@ type AcceptedLBSvcAPI struct{}
 
 func (as AcceptedLBSvcAPI) InitModel() {}
 
-func (as AcceptedLBSvcAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (as AcceptedLBSvcAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/accepted/lbsvc",
 		Method:  "GET",
@@ -178,7 +178,7 @@ type RejectedLBSvcAPI struct{}
 
 func (rs RejectedLBSvcAPI) InitModel() {}
 
-func (rs RejectedLBSvcAPI) ApiOperationMap(prometheusEnavbled bool, reg *prometheus.Registry) []models.OperationMap {
+func (rs RejectedLBSvcAPI) ApiOperationMap(prometheusEnabled bool, reg *prometheus.Registry) []models.OperationMap {
 	get := models.OperationMap{
 		Route:   "/api/rejected/lbsvc",
 		Method:  "GET",
