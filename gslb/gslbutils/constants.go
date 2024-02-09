@@ -124,10 +124,4 @@ const (
 
 	// Default secret constants
 	DefaultSecretEnabled = "ako.vmware.com/enable-tls"
-
-	// Controller version constants
-	CONTROLLER_VERSION_22_1_2 = "22.1.2"
-
-	// Default PKI Profile
-	DefaultPKI = "default_pki_profile_for_migration"
 )

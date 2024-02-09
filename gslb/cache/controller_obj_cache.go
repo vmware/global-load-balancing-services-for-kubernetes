@@ -309,7 +309,6 @@ func (s *AviPkiCache) AviPkiCachePopulate(client *clients.AviClient) error {
 	var nextPageURI string
 	baseURI := "/api/pkiprofile"
 	uri := baseURI + "?page_size=100"
-	firstPkiProfile := false
 
 	// parse all pages with PKI Profile till we hit the last page
 	for {
@@ -346,12 +345,6 @@ func (s *AviPkiCache) AviPkiCachePopulate(client *clients.AviClient) error {
 			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
 			s.AviPkiCacheAdd(k, &sp)
 			s.AviPkiCacheAddByUUID(*sp.UUID, &sp)
-
-			if !firstPkiProfile {
-				defaultPKI := TenantName{Tenant: gslbutils.GetTenant(), Name: gslbutils.DefaultPKI}
-				s.AviPkiCacheAdd(defaultPKI, &sp)
-				firstPkiProfile = true
-			}
 			gslbutils.Debugf("processed pki profile %s, UUID: %s", *sp.Name, *sp.UUID)
 			processedObjs++
 		}
