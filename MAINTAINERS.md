@@ -5,5 +5,5 @@ role is described in [GOVERNANCE.md](GOVERNANCE.md).
 
 | Maintainer | GitHub ID | Affiliation |
 | ---------- | --------- | ----------- |
-| Swathin Sankaran |  swathinsankaran | VMware |
+| Arihant Bachhawat| arihantg | VMware |
 | Akshay Havile | akshayhavile | VMware |
