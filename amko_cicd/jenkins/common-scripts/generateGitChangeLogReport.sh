@@ -6,7 +6,7 @@ REPORT_FILE=${REPORT_FILE:-"GitChangeLogReport.html"}
 rm -rf $WORKSPACE/amko_cicd/jenkins/git-changelog/$REPORT_FILE
 rm -rf $WORKSPACE/$REPORT_FILE
 
-cd $WORKSPACE/ako_cicd/jenkins/git-changelog;
+cd $WORKSPACE/amko_cicd/jenkins/git-changelog;
 
 python -m pip install jinja2
 python -m pip install pygal==2.4.0
