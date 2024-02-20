@@ -23,11 +23,13 @@ sudo chmod 600 ~/.boto
 sudo chown $USER:$USER ~/master-cloud-249007-mnt-read-write-sa.json ~/.boto
 
 sudo apt-get -y install gcc python-dev
+sudo python3 -m pip install virtualenv
 which virtualenv
 whereis virtualenv
 virtualenv -p python3 venv
 source venv/bin/activate
 pip install -U gsutil setuptools
+pip install requests==2.22.0
 pip install -U crcmod
 
 
