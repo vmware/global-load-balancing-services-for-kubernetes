@@ -433,7 +433,7 @@ def setup_args():
     parser = argparse.ArgumentParser(
             description='Extracts GIT Change log and generates reports')
     parser.add_argument('branch', metavar='branch', type=str,
-                        help=' AKO GIT branch name')
+                        help=' AMKO GIT branch name')
     parser.add_argument('build_type', metavar='build_type', type=str,
                         help='Build type (e.g. smoke, nightly')
     parser.add_argument('build_number', metavar='build_number', type=str,
