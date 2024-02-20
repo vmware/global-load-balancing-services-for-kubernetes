@@ -5,6 +5,8 @@ set -xe
 BRANCH=$branch
 CI_REGISTRY_PATH=$PVT_DOCKER_REGISTRY/$PVT_DOCKER_REPOSITORY
 
+echo $GIT_COMMIT > $WORKSPACE/HEAD_COMMIT;
+
 # Function to get GIT workspace root location
 function get_git_ws {
     git_ws=$(git rev-parse --show-toplevel)
@@ -12,7 +14,7 @@ function get_git_ws {
     echo $git_ws
 }
 
-BRANCH_VERSION_SCRIPT=$WORKSPACE/get_branch_version.sh
+BRANCH_VERSION_SCRIPT=$WORKSPACE/hack/jenkins/get_branch_version.sh
 # Compute base_build_num
 base_build_num=$(cat $(get_git_ws)/base_build_num)
 version_build_num=$(expr "$base_build_num" + "$BUILD_NUMBER")
