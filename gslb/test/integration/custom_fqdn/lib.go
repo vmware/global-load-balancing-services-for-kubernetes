@@ -336,7 +336,7 @@ func VerifyGDPStatus(t *testing.T, ns, name, status string) {
 			return ""
 		}
 		return gdpObj.Status.ErrorStatus
-	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(status), "GDP status must be equal to %s", status)
+	}, 30*time.Second, 1*time.Second).Should(gomega.Equal(status), "GDP status must be equal to %s", status)
 }
 
 func AddAndVerifyTestGDPSuccess(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPolicy) (*gdpalphav2.GlobalDeploymentPolicy, error) {
@@ -374,7 +374,7 @@ func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph
 // 2. hmTemplate
 // the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, tenant string,
-	hmRefs []string, sitePersistenceRef *string, ttl *int, expectedDomainNames []string, extraArgs ...interface{}) bool {
+	hmRefs []string, sitePersistenceRef *string, ttl *uint32, expectedDomainNames []string, extraArgs ...interface{}) bool {
 
 	var tls bool
 	if len(extraArgs) > 2 {
@@ -515,7 +515,7 @@ func verifyGSDoesNotExist(t *testing.T, name string) bool {
 }
 
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
-	weight int32) nodes.AviGSK8sObj {
+	weight uint32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", ingObj.Annotations, err)
@@ -545,7 +545,7 @@ func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname st
 }
 
 func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname string,
-	weight int32) nodes.AviGSK8sObj {
+	weight uint32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
 	if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", routeObj.Annotations, err)
@@ -564,7 +564,7 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 }
 
 func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID string,
-	syncVIPOnly, isPassthrough, tls bool, paths []string, weight int32) nodes.AviGSK8sObj {
+	syncVIPOnly, isPassthrough, tls bool, paths []string, weight uint32) nodes.AviGSK8sObj {
 	return nodes.AviGSK8sObj{
 		Cluster:            cname,
 		ObjType:            objType,

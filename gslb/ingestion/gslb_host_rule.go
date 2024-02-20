@@ -81,6 +81,12 @@ func isSitePersistenceRefPresentInCache(spName string) bool {
 	_, present := aviSpCache.AviSpCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: spName})
 	return present
 }
+func isPKIRefPresentInCache(spName string) bool {
+	aviSpCache := avictrl.GetAviPkiCache()
+
+	_, present := aviSpCache.AviPkiCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: spName})
+	return present
+}
 
 func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool) bool {
 	if fullSync && isSitePersistenceRefPresentInCache(profileName) {
@@ -123,6 +129,50 @@ func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool
 	spCache.AviSpCacheAdd(k, &sp)
 	spCache.AviSpCacheAddByUUID(*sp.UUID, &sp)
 	gslbutils.Debugf("sitePersistence: %s, msg: added site persistence to in memory cache", *sp.Name)
+	return true
+}
+
+func isPKIProfilePresent(profileName string, gdp bool, fullSync bool) bool {
+	if fullSync && isPKIRefPresentInCache(profileName) {
+		gslbutils.Debugf("pki %s present in pkiProfile cache", profileName)
+		return true
+	}
+	// Check if the profile mentioned in gslbHostRule is present as pki profile on the gslb leader
+	aviClient := avictrl.SharedAviClients().AviClient[0]
+	uri := "api/pkiprofile?name=" + profileName
+
+	// for gdp objects, we need to infinitely retry
+	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)
+	if err != nil {
+		gslbutils.Errf("Error getting uri %s from Avi : %s", uri, err)
+		return false
+	}
+	if result.Count == 0 {
+		gslbutils.Errf("PKI Profile %s does not exist", profileName)
+		return false
+	}
+
+	// if pki profile exists and is not present in the internal cache, add it
+	elems := make([]json.RawMessage, result.Count)
+	err = json.Unmarshal(result.Results, &elems)
+	if err != nil {
+		gslbutils.Errf("failed to unmarshal pki profile ref, err: %v", err.Error())
+		return false
+	}
+	sp := models.PKIprofile{}
+	if err = json.Unmarshal(elems[0], &sp); err != nil {
+		gslbutils.Errf("failed to unmarshal pki profile element, err: %v", err.Error())
+		return false
+	}
+	if sp.Name == nil || sp.UUID == nil {
+		gslbutils.Errf("incomplete pki profile ref unmarshalled %s", utils.Stringify(sp))
+		return false
+	}
+	k := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+	spCache := avictrl.GetAviPkiCache()
+	spCache.AviPkiCacheAdd(k, &sp)
+	spCache.AviPkiCacheAddByUUID(*sp.UUID, &sp)
+	gslbutils.Debugf("pkiProfile: %s, msg: added pki profile to in memory cache", *sp.Name)
 	return true
 }
 
@@ -285,6 +335,12 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync) {
 			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
 			return fmt.Errorf(errmsg)
+		}
+		if sitePersistence.PKIProfileRef != nil {
+			if !isPKIProfilePresent(*sitePersistence.PKIProfileRef, false, fullSync) {
+				errmsg = "PKI Profile " + *sitePersistence.PKIProfileRef + " error for " + gslbhrName + " GSLBHostRule"
+				return fmt.Errorf(errmsg)
+			}
 		}
 	}
 

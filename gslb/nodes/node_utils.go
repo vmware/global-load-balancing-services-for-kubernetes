@@ -43,6 +43,20 @@ func getSitePersistence(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gs
 	return gf.GetSitePersistence()
 }
 
+func getPKIProfile(gsRuleExists bool, gsRule *gslbutils.GSHostRules, gf *gslbutils.GlobalFilter) *string {
+	if gsRuleExists && gsRule.SitePersistence != nil {
+		if gsRule.SitePersistence.Enabled {
+			if gsRule.SitePersistence.PKIProfileRef != nil {
+				ref := gsRule.SitePersistence.PKIProfileRef
+				return ref
+			}
+		} else {
+			return nil
+		}
+	}
+	return gf.GetPKIProfile()
+}
+
 // getGslbPoolAlgorithm returns the applicable algorithn settings for a GS object. Two conditions:
 // 1. If the GSLBHostRule has the pool algorithm settings defined, we return that.
 // 2. If no settings defined in the GSLBHostRule (i.e., value is nil), we return the GDP object's settings.
@@ -90,6 +104,7 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 
 	if tls {
 		gsGraph.SitePersistenceRef = getSitePersistence(gsRuleExists, &gsRule, gf)
+		gsGraph.PkiProfileRef = getPKIProfile(gsRuleExists, &gsRule, gf)
 	}
 
 	pa := getGslbPoolAlgorithm(gsRuleExists, &gsRule, gf)
@@ -120,15 +135,15 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 			updateThirdPartyMembers(gsGraph, gsRule.ThirdPartyMembers)
 		}
 	}
-	weightMap := make(map[string]int32)
-	priorityMap := make(map[string]int32)
+	weightMap := make(map[string]uint32)
+	priorityMap := make(map[string]uint32)
 	publicIPMap := make(map[string]string)
 	for _, publicIP := range gsRule.PublicIP {
 		publicIPMap[publicIP.Cluster] = publicIP.IP
 	}
 	for _, clusterWeight := range gsRule.TrafficSplit {
-		weightMap[clusterWeight.Cluster] = int32(clusterWeight.Weight)
-		priorityMap[clusterWeight.Cluster] = int32(clusterWeight.Priority)
+		weightMap[clusterWeight.Cluster] = uint32(clusterWeight.Weight)
+		priorityMap[clusterWeight.Cluster] = uint32(clusterWeight.Priority)
 	}
 
 	for idx, member := range gsGraph.MemberObjs {
@@ -156,28 +171,28 @@ func getMemberPublicIP(publicIPMap map[string]string, site string) string {
 	return ""
 }
 
-func getThirdPartyMemberWeight(weightMap map[string]int32, site string) int32 {
+func getThirdPartyMemberWeight(weightMap map[string]uint32, site string) uint32 {
 	if weight, ok := weightMap[site]; ok {
 		return weight
 	}
 	return 1
 }
 
-func getThirdPartyMemberPriority(priorityMap map[string]int32, site string) int32 {
+func getThirdPartyMemberPriority(priorityMap map[string]uint32, site string) uint32 {
 	if priority, ok := priorityMap[site]; ok {
 		return priority
 	}
 	return 1
 }
 
-func getK8sMemberWeight(ghrWeightMap map[string]int32, cname, ns string) int32 {
+func getK8sMemberWeight(ghrWeightMap map[string]uint32, cname, ns string) uint32 {
 	if weight, ok := ghrWeightMap[cname]; ok {
 		return weight
 	}
 	return GetObjTrafficRatio(ns, cname)
 }
 
-func getK8sMemberPriority(ghrPriorityMap map[string]int32, cname, ns string) int32 {
+func getK8sMemberPriority(ghrPriorityMap map[string]uint32, cname, ns string) uint32 {
 	if priority, ok := ghrPriorityMap[cname]; ok {
 		return priority
 	}

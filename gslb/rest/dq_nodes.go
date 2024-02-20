@@ -915,7 +915,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	return &operation
 }
 
-func (restOp *RestOperations) getGSPoolAlgorithmSettings(gsMeta *nodes.AviGSObjectGraph) (*string, *int32, *string) {
+func (restOp *RestOperations) getGSPoolAlgorithmSettings(gsMeta *nodes.AviGSObjectGraph) (*string, *uint32, *string) {
 	var lbAlgorithm string
 
 	if gsMeta.GslbPoolAlgorithm == nil {
@@ -929,13 +929,13 @@ func (restOp *RestOperations) getGSPoolAlgorithmSettings(gsMeta *nodes.AviGSObje
 		return &lbAlgorithm, nil, nil
 
 	case gslbalphav1.PoolAlgorithmConsistentHash:
-		hashMask := int32(*gsMeta.GslbPoolAlgorithm.HashMask)
+		hashMask := uint32(*gsMeta.GslbPoolAlgorithm.HashMask)
 		return &lbAlgorithm, &hashMask, nil
 
 	case gslbalphav1.PoolAlgorithmGeo:
 		fa := gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.LBAlgorithm
 		if gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.HashMask != nil {
-			hashMask := int32(*gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.HashMask)
+			hashMask := uint32(*gsMeta.GslbPoolAlgorithm.FallbackAlgorithm.HashMask)
 			return &lbAlgorithm, &hashMask, &fa
 		} else {
 			return &lbAlgorithm, nil, &fa
@@ -948,7 +948,7 @@ func buildGsPoolMember(member nodes.AviGSK8sObj, key string) *avimodels.GslbPool
 	enabled := true
 	ipVersion := "V4"
 	ipAddr := member.IPAddr
-	ratio := member.Weight
+	ratio := uint32(member.Weight)
 	clusterUUID := member.ControllerUUID
 	vsUUID := member.VirtualServiceUUID
 
@@ -982,26 +982,29 @@ func buildGsPoolMember(member nodes.AviGSK8sObj, key string) *avimodels.GslbPool
 	return &gsPoolMember
 }
 
-func buildGsPool(gsMeta *nodes.AviGSObjectGraph, gsPoolMembers []*avimodels.GslbPoolMember, priority int32, restOp *RestOperations) *avimodels.GslbPool {
+func buildGsPool(gsMeta *nodes.AviGSObjectGraph, gsPoolMembers []*avimodels.GslbPoolMember, priority uint32, restOp *RestOperations) *avimodels.GslbPool {
 	poolEnabled := true
 	poolName := GsGroupNamePrefix + strconv.Itoa(int(priority))
-	minHealthMonUp := int32(2)
+	minHealthMonUp := uint32(2)
 	poolAlgorithm, hashMask, fallback := restOp.getGSPoolAlgorithmSettings(gsMeta)
-	return &avimodels.GslbPool{
+	pool := &avimodels.GslbPool{
 		Algorithm:           poolAlgorithm,
-		ConsistentHashMask:  hashMask,
 		FallbackAlgorithm:   fallback,
 		Enabled:             &poolEnabled,
 		Members:             gsPoolMembers,
 		Name:                &poolName,
 		Priority:            &priority,
-		MinHealthMonitorsUp: &minHealthMonUp,
+		MinHealthMonitorsUp: minHealthMonUp,
 	}
+	if hashMask != nil {
+		pool.ConsistentHashMask = *hashMask
+	}
+	return pool
 }
 
 func buildGslbSvcGroups(gsMeta *nodes.AviGSObjectGraph, key string, restOp *RestOperations) []*avimodels.GslbPool {
 	pools := []*avimodels.GslbPool{}
-	poolPriorityMap := map[int32][]nodes.AviGSK8sObj{}
+	poolPriorityMap := map[uint32][]nodes.AviGSK8sObj{}
 	// first group all members according to their priorities
 	for _, member := range gsMeta.GetUniqueMemberObjs() {
 		poolPriorityMap[member.Priority] = append(poolPriorityMap[member.Priority], member)
@@ -1039,7 +1042,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	gsEnabled := true
 	healthMonitorScope := "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS"
 	isFederated := true
-	minMembers := int32(0)
+	minMembers := uint32(0)
 	gsName := gsMeta.Name
 	resolveCname := false
 	tenantRef := gslbutils.GetAviAdminTenantRef()
@@ -1061,7 +1064,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		Groups:                        gslbSvcGroups,
 		HealthMonitorScope:            &healthMonitorScope,
 		IsFederated:                   &isFederated,
-		MinMembers:                    &minMembers,
+		MinMembers:                    minMembers,
 		Name:                          &gsName,
 		PoolAlgorithm:                 &gsAlgorithm,
 		ResolveCname:                  &resolveCname,
@@ -1071,10 +1074,10 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		Description:                   &description,
 	}
 
-	var ttl int32
+	var ttl uint32
 	if gsMeta.TTL != nil {
-		ttl = int32(*gsMeta.TTL)
-		aviGslbSvc.TTL = &ttl
+		ttl = uint32(*gsMeta.TTL)
+		aviGslbSvc.TTL = ttl
 	}
 
 	if gsMeta.SitePersistenceRef != nil {
@@ -1082,6 +1085,12 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		persistenceProfileRef := "/api/applicationpersistenceprofile?name=" + *gsMeta.SitePersistenceRef
 		aviGslbSvc.SitePersistenceEnabled = &sitePersistenceEnabled
 		aviGslbSvc.ApplicationPersistenceProfileRef = &persistenceProfileRef
+		if gsMeta.PkiProfileRef != nil {
+			pkiProfileRef := "/api/pkiprofile?name=" + *gsMeta.PkiProfileRef
+			aviGslbSvc.PkiProfileRef = &pkiProfileRef
+		} else {
+			aviGslbSvc.PkiProfileRef = gslbutils.GetDefaultPKI(cache.SharedAviClients().AviClient[0])
+		}
 	} else {
 		sitePersistenceEnabled := false
 		aviGslbSvc.SitePersistenceEnabled = &sitePersistenceEnabled
@@ -1104,8 +1113,8 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 			}
 		}
 	} else if len(gsMeta.HmRefs) > 0 {
-		minHmUp := int32(len(gsMeta.HmRefs) + 1)
-		aviGslbSvc.Groups[0].MinHealthMonitorsUp = &minHmUp
+		minHmUp := uint32(len(gsMeta.HmRefs) + 1)
+		aviGslbSvc.Groups[0].MinHealthMonitorsUp = minHmUp
 		// Add the custom health monitors here
 		aviGslbSvc.HealthMonitorRefs = []string{}
 		for _, hmName := range gsMeta.HmRefs {

@@ -90,8 +90,8 @@ type AviGSK8sObj struct {
 	Name          string
 	Namespace     string
 	IPAddr        string
-	Weight        int32
-	Priority      int32
+	Weight        uint32
+	Priority      uint32
 	IsPassthrough bool
 	PublicIP      string
 	// Port and protocol will be only used by LB service
@@ -218,7 +218,8 @@ type AviGSObjectGraph struct {
 	HmRefs             []string
 	HmTemplate         *string
 	SitePersistenceRef *string
-	TTL                *int
+	PkiProfileRef      *string
+	TTL                *uint32
 	GslbPoolAlgorithm  *gslbalphav1.PoolAlgorithmSettings
 	GslbDownResponse   *gslbalphav1.DownResponse
 	Lock               *sync.RWMutex
@@ -291,7 +292,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
-		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm, v.GslbDownResponse, gslbutils.AMKOControlConfig().CreatedByField())
+		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm, v.GslbDownResponse, v.PkiProfileRef, gslbutils.AMKOControlConfig().CreatedByField())
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -830,7 +831,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 		RetryCount:    v.RetryCount,
 		Hm:            v.Hm.getCopy(),
 	}
-	var ttl int
+	var ttl uint32
 	if v.TTL != nil {
 		ttl = *v.TTL
 		gsObjCopy.TTL = &ttl
@@ -843,6 +844,7 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 		gsObjCopy.HmTemplate = proto.String(*v.HmTemplate)
 	}
 	gsObjCopy.SitePersistenceRef = v.SitePersistenceRef
+	gsObjCopy.PkiProfileRef = v.PkiProfileRef
 	gsObjCopy.GslbPoolAlgorithm = v.GslbPoolAlgorithm.DeepCopy()
 	gsObjCopy.GslbDownResponse = v.GslbDownResponse.DeepCopy()
 
@@ -880,11 +882,11 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 		}
 	}
 	if weight == -1 {
-		weight = GetObjTrafficRatio(ns, cname)
+		weight = int32(GetObjTrafficRatio(ns, cname))
 	}
 
 	if priority == -1 {
-		priority = GetObjTrafficPriority(ns, cname)
+		priority = int32(GetObjTrafficPriority(ns, cname))
 	}
 
 	paths, err := metaObj.GetPaths()
@@ -911,8 +913,8 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 		Namespace:          ns,
 		Name:               metaObj.GetName(),
 		IPAddr:             metaObj.GetIPAddr(),
-		Weight:             weight,
-		Priority:           priority,
+		Weight:             uint32(weight),
+		Priority:           uint32(priority),
 		ObjType:            objType,
 		Port:               svcPort,
 		Proto:              svcProtocol,

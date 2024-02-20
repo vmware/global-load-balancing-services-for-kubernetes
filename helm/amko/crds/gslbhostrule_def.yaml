@@ -43,6 +43,9 @@ spec:
                   profileRef:
                     description: "Custom Site Persistence profile reference, will be applied on the applicable GSLB Service"
                     type: string
+                  pkiProfileRef:
+                    description: "Custom PKI profile reference, will be applied on the applicable GSLB Service"
+                    type: string
               thirdPartyMembers:
                 description: "ThirdPartyMembers is a list of third party members site"
                 type: array

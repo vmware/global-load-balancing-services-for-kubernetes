@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api"
 
@@ -367,8 +368,8 @@ var _ = Describe("AMKO member cluster event handling", func() {
 			utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
 			utilruntime.Must(amkovmwarecomv1alpha1.AddToScheme(testScheme))
 			k8sManager, err := ctrl.NewManager(cfg1, ctrl.Options{
-				Scheme:             testScheme,
-				MetricsBindAddress: ":7070",
+				Scheme:  testScheme,
+				Metrics: server.Options{BindAddress: ":7070"},
 			})
 			Expect(err).ToNot(HaveOccurred())
 			err = (&ingestion.AMKOClusterReconciler{

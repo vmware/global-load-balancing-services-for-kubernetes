@@ -726,7 +726,7 @@ func compareHmRefs(t *testing.T, expectedHmRefs, fetchedHmRefs []string) bool {
 // 1. hostrule aliases
 // the sequence must be followed to maintain the API.
 func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name string, tenant string,
-	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32, extraArgs ...interface{}) bool {
+	hmRefs []string, hmTemplate *string, sitePersistenceRef *string, PkiProfileRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings, paths []string, tls bool, port *int32, extraArgs ...interface{}) bool {
 
 	gs := GetTestGSGraphFromName(t, name)
 	if gs == nil {
@@ -826,12 +826,28 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 		}
 	}
 
+	if PkiProfileRef != nil {
+		if gs.PkiProfileRef == nil {
+			t.Logf("Pki ref should not be nil, expected value: %s", *PkiProfileRef)
+			return false
+		}
+		if *PkiProfileRef != *gs.PkiProfileRef {
+			t.Logf("PKI Profile should be %s, it is %s", *PkiProfileRef, *gs.PkiProfileRef)
+			return false
+		}
+	} else {
+		if gs.PkiProfileRef != nil {
+			t.Logf("PKI Profile ref should be nil, it is %s", *gs.PkiProfileRef)
+			return false
+		}
+	}
+
 	if ttl != nil {
 		if gs.TTL == nil {
 			t.Logf("TTL should not be nil")
 			return false
 		}
-		if *gs.TTL != *ttl {
+		if int(*gs.TTL) != *ttl {
 			t.Logf("TTL values should be equal, expected: %d, fetched: %d", *ttl, *gs.TTL)
 			return false
 		}
@@ -991,8 +1007,8 @@ func getTestGSMember(cname, objType, name, ns, ipAddr, vsUUID, controllerUUID st
 		IsPassthrough:      isPassthrough,
 		TLS:                tls,
 		Paths:              paths,
-		Weight:             weight,
-		Priority:           priority,
+		Weight:             uint32(weight),
+		Priority:           uint32(priority),
 	}
 }
 

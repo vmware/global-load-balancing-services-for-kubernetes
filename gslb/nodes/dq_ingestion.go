@@ -66,7 +66,7 @@ func PublishKeyToRestLayer(tenant, gsName, key string, sharedQueue *utils.Worker
 	gslbutils.Logf("key: %s, modelName: %s, bkt: %d, msg: %s", key, modelName, bkt, "published key to rest layer")
 }
 
-func GetObjTrafficRatio(ns, cname string) int32 {
+func GetObjTrafficRatio(ns, cname string) uint32 {
 	globalFilter := gslbutils.GetGlobalFilter()
 	if globalFilter == nil {
 		// return default traffic ratio
@@ -82,7 +82,7 @@ func GetObjTrafficRatio(ns, cname string) int32 {
 	return val
 }
 
-func GetObjTrafficPriority(ns, cname string) int32 {
+func GetObjTrafficPriority(ns, cname string) uint32 {
 	globalFilter := gslbutils.GetGlobalFilter()
 	if globalFilter == nil {
 		// return default priority

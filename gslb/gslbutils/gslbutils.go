@@ -30,6 +30,7 @@ import (
 	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session"
 
@@ -254,8 +255,8 @@ var Warnf = utils.AviLog.Warnf
 var Debugf = utils.AviLog.Debugf
 
 func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string,
-	persistenceProfileRef *string, ttl *int, pa *gslbalphav1.PoolAlgorithmSettings,
-	downResponse *gslbalphav1.DownResponse, createdBy string) uint32 {
+	persistenceProfileRef *string, ttl *uint32, pa *gslbalphav1.PoolAlgorithmSettings,
+	downResponse *gslbalphav1.DownResponse, pkiProfileRef *string, createdBy string) uint32 {
 
 	sort.Strings(serverList)
 	sort.Strings(domainList)
@@ -275,6 +276,10 @@ func GetGSLBServiceChecksum(serverList, domainList, memberObjs, hmNames []string
 
 	if persistenceProfileRef != nil {
 		cksum += utils.Hash(*persistenceProfileRef)
+	}
+
+	if pkiProfileRef != nil {
+		cksum += utils.Hash(*pkiProfileRef)
 	}
 	cksum += getChecksumForPoolAlgorithm(pa)
 	cksum += getChecksumForDownResponse(downResponse)
@@ -710,4 +715,31 @@ func SetEqual(a, b []string) bool {
 func IsDefaultSecretEnabled(annotations map[string]string) bool {
 	_, ok := annotations[DefaultSecretEnabled]
 	return ok
+}
+
+func GetDefaultPKI(aviClient *clients.AviClient) *string {
+	pki := models.PKIprofile{}
+	baseURI := "/api/pkiprofile"
+	uri := baseURI + "?page_size=10"
+	result, err := GetUriFromAvi(uri+"&is_federated=true", aviClient, false)
+	if err != nil {
+		Warnf("object: AviPkiProfileCache, msg: Pkiprofile get URI %s returned error: %v", uri, err.Error())
+	} else {
+		elems := make([]json.RawMessage, result.Count)
+		err = json.Unmarshal(result.Results, &elems)
+		if err != nil {
+			Warnf("failed to unmarshal pki  profile ref, err: " + err.Error())
+		} else {
+			for i := 0; i < len(elems); i++ {
+				err := json.Unmarshal(elems[i], &pki)
+				if err != nil {
+					Warnf("failed to unmarshal pki profile element, err: %s", err.Error())
+					continue
+				}
+				pkiProfileRef := "/api/pkiprofile?name=" + *pki.Name
+				return &pkiProfileRef
+			}
+		}
+	}
+	return nil
 }

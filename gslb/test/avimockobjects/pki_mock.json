@@ -1,0 +1,111 @@
+{
+  "count": 2,
+  "results": [
+    {
+      "_last_modified": "1706800166741903",
+      "allow_pki_errors": [
+        "ALLOW_ALL_ERRORS"
+      ],
+      "ca_certs": [
+        {
+          "certificate": "-----BEGIN CERTIFICATE-----\nMIIF+DCCA+CgAwIBAgIBATANBgkqhkiG9w0BAQsFADBgMQswCQYDVQQGEwJVUzET\nMBEGA1UECAwKQ2FsaWZvcm5pYTEUMBIGA1UEBwwLU2FudGEgQ2xhcmExEzARBgNV\nBAoMCkNvbnRyb2xsZXIxETAPBgNVBAMMCGNhLmxvY2FsMB4XDTcwMDEwMTAwMDAw\nMFoXDTM0MDEyOTEyMjE0NFowYDELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlm\nb3JuaWExFDASBgNVBAcMC1NhbnRhIENsYXJhMRMwEQYDVQQKDApDb250cm9sbGVy\nMREwDwYDVQQDDAhjYS5sb2NhbDCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoC\nggIBAKQzZVSiQH/XZ0QhUXaOZBZ0ysFeoNEGPyCslh+Klkup8QzHTQy32rnYHtDA\neLhm3fv6mGXoneLMakDssfqBMvu3bNNT8+rpqyeIqMcs/h5CBAH6MR1R5t2sliiN\nasv1UK5wbK54sM3OleSzmpqQykCDwdBuN9d4hn8sb+nbEkTlomfcUJNqIZvA7TaN\nlY3pj2jfpCK6886T1hsM/kq6/CzvKLbYEQKHsOgzydFMgetZlLdn9/U5lrsbPIM7\nP9zYGhwnaqnYbrQxd9ciD2y75S6KKfGfRkV0aY/u5UuCoji2zB6nqLsu0W8s2fqY\nqCvE5O4HGpaCa4InzkgpzVoXht9l+fc258+UJ9ZQrOGEJSaHus/v5jwDd8r2rPut\nfq7JpawZAy2TI0nXIrEW8gXX4EqGFx2tne9Lt3LbCT3Fp7DEMMcImPmvntjFACVl\nzF2huUxkhhIcej5c93qtbCQAC0a1ng7SCZQNC3Thc4Xc+NnaOBUqqJC8F/XM5Rek\n1VRvblaPz5DyVGNKrScr80wQfkWyvzONSmhwtiZ7Mv9O/6ZKiTr0MURO5VrBxyEv\n55S2ZtzNsMvLhdGVmwWlTTYbrJ/CfStSxMktO3obPNDbC03ucQkyhj2Opo9k4YOi\nylvoN2Sxoi9n0/SUyE7PV1ycRVHhr74xD9rc1GzLcXW0m55lAgMBAAGjgbwwgbkw\nHQYDVR0OBBYEFL5MjcufXaSDiT4emZ2UZTgXZrKkMIGJBgNVHSMEgYEwf4AUvkyN\ny59dpIOJPh6ZnZRlOBdmsqShZKRiMGAxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApD\nYWxpZm9ybmlhMRQwEgYDVQQHDAtTYW50YSBDbGFyYTETMBEGA1UECgwKQ29udHJv\nbGxlcjERMA8GA1UEAwwIY2EubG9jYWyCAQEwDAYDVR0TBAUwAwEB/zANBgkqhkiG\n9w0BAQsFAAOCAgEAC7P2qmx7UZoy7gPBSfvNqj5yIICh54az5YGWER/cx0nJOyof\nDMUhXYVFewR3tKGAfC8Twmg72wCs78HKGdpjOecehkkyaODUn9C+3T1KZZRSepsL\nhlclRP60eSdEFSulLq/Snc/wDdq6hutLJHGKwEaL5c2F1V1ogKmLtknFU/Umwfy2\ng/2HqXJiv60NBQyOnUsQ23kK1t3JZh5RTJnK2Sp6EIVFDQgy7MsAbj0BiFgSYRVQ\nt6RS23spVqdKBxQHxYMD4/SVhjrdA7Ovqk4e0GiS0AUnPIR6CUWBxmpCHMJLyiBj\ni52b5BRzJ+iVijFuMbmjQd5XSOEniEnaepwDlqz0cn6Bs47xpzFE1iy/lKViWGAB\ntwwsMG+ZkUU/uNsOzojI2b80Zch4wMx7aFDLs0aKOxn2NRyb+QxRn1qPoLko8VJE\nKGVIU39lRHD43nHzUeJDpD0cMRmfXTjqkzzcB+cy4LvfZctbPBii85U2lEL7BkmM\nLFWMTlpaGcLyrT4+Gn3hZJj6R6PW4HBduIkn+rcrGYH5H/KKI+JJsOzqS6U8Q8+2\nfVwRa8NVTdyFMXKWGKIKMfZghZtB7RJZWBp9OiclnzkgbupV6GPJMTHWiBC1umHe\nbWor87+u5JKVwiTy2p1uOCn/1xror+8r8MTLgQhyppGjEsGL4Af9o0TPJjE=\n-----END CERTIFICATE-----",
+          "days_until_expire": 365,
+          "expiry_status": "SSL_CERTIFICATE_GOOD",
+          "fingerprint": "SHA1 Fingerprint=27:C3:E7:78:A3:79:91:BB:F5:DA:09:FB:D8:4D:45:75:FF:F2:40:FB",
+          "issuer": {
+            "common_name": "ca.local",
+            "country": "US",
+            "distinguished_name": "C=US, ST=California, L=Santa Clara, O=Controller, CN=ca.local",
+            "locality": "Santa Clara",
+            "organization": "Controller",
+            "state": "California"
+          },
+          "key_params": {
+            "algorithm": "SSL_KEY_ALGORITHM_RSA",
+            "rsa_params": {
+              "exponent": 65537,
+              "key_size": "SSL_KEY_4096_BITS"
+            }
+          },
+          "not_after": "2034-01-29 12:21:44",
+          "not_before": "1970-01-01 00:00:00",
+          "public_key": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEApDNlVKJAf9dnRCFRdo5k\nFnTKwV6g0QY/IKyWH4qWS6nxDMdNDLfaudge0MB4uGbd+/qYZeid4sxqQOyx+oEy\n+7ds01Pz6umrJ4ioxyz+HkIEAfoxHVHm3ayWKI1qy/VQrnBsrniwzc6V5LOampDK\nQIPB0G4313iGfyxv6dsSROWiZ9xQk2ohm8DtNo2VjemPaN+kIrrzzpPWGwz+Srr8\nLO8ottgRAoew6DPJ0UyB61mUt2f39TmWuxs8gzs/3NgaHCdqqdhutDF31yIPbLvl\nLoop8Z9GRXRpj+7lS4KiOLbMHqeouy7RbyzZ+pioK8Tk7gcaloJrgifOSCnNWheG\n32X59zbnz5Qn1lCs4YQlJoe6z+/mPAN3yvas+61+rsmlrBkDLZMjSdcisRbyBdfg\nSoYXHa2d70u3ctsJPcWnsMQwxwiY+a+e2MUAJWXMXaG5TGSGEhx6Plz3eq1sJAAL\nRrWeDtIJlA0LdOFzhdz42do4FSqokLwX9czlF6TVVG9uVo/PkPJUY0qtJyvzTBB+\nRbK/M41KaHC2Jnsy/07/pkqJOvQxRE7lWsHHIS/nlLZm3M2wy8uF0ZWbBaVNNhus\nn8J9K1LEyS07ehs80NsLTe5xCTKGPY6mj2Thg6LKW+g3ZLGiL2fT9JTITs9XXJxF\nUeGvvjEP2tzUbMtxdbSbnmUCAwEAAQ==\n-----END PUBLIC KEY-----\n",
+          "self_signed": true,
+          "serial_number": "1",
+          "signature_algorithm": "sha256WithRSAEncryption",
+          "subject": {
+            "common_name": "ca.local",
+            "country": "US",
+            "distinguished_name": "C=US, ST=California, L=Santa Clara, O=Controller, CN=ca.local",
+            "locality": "Santa Clara",
+            "organization": "Controller",
+            "state": "California"
+          },
+          "text": "Certificate:\n    Data:\n        Version: 3 (0x2)\n        Serial Number: 1 (0x1)\n        Signature Algorithm: sha256WithRSAEncryption\n        Issuer: C = US, ST = California, L = Santa Clara, O = Controller, CN = ca.local\n        Validity\n            Not Before: Jan  1 00:00:00 1970 GMT\n            Not After : Jan 29 12:21:44 2034 GMT\n        Subject: C = US, ST = California, L = Santa Clara, O = Controller, CN = ca.local\n        Subject Public Key Info:\n            Public Key Algorithm: rsaEncryption\n                RSA Public-Key: (4096 bit)\n                Modulus:\n                    00:a4:33:65:54:a2:40:7f:d7:67:44:21:51:76:8e:\n                    64:16:74:ca:c1:5e:a0:d1:06:3f:20:ac:96:1f:8a:\n                    96:4b:a9:f1:0c:c7:4d:0c:b7:da:b9:d8:1e:d0:c0:\n                    78:b8:66:dd:fb:fa:98:65:e8:9d:e2:cc:6a:40:ec:\n                    b1:fa:81:32:fb:b7:6c:d3:53:f3:ea:e9:ab:27:88:\n                    a8:c7:2c:fe:1e:42:04:01:fa:31:1d:51:e6:dd:ac:\n                    96:28:8d:6a:cb:f5:50:ae:70:6c:ae:78:b0:cd:ce:\n                    95:e4:b3:9a:9a:90:ca:40:83:c1:d0:6e:37:d7:78:\n                    86:7f:2c:6f:e9:db:12:44:e5:a2:67:dc:50:93:6a:\n                    21:9b:c0:ed:36:8d:95:8d:e9:8f:68:df:a4:22:ba:\n                    f3:ce:93:d6:1b:0c:fe:4a:ba:fc:2c:ef:28:b6:d8:\n                    11:02:87:b0:e8:33:c9:d1:4c:81:eb:59:94:b7:67:\n                    f7:f5:39:96:bb:1b:3c:83:3b:3f:dc:d8:1a:1c:27:\n                    6a:a9:d8:6e:b4:31:77:d7:22:0f:6c:bb:e5:2e:8a:\n                    29:f1:9f:46:45:74:69:8f:ee:e5:4b:82:a2:38:b6:\n                    cc:1e:a7:a8:bb:2e:d1:6f:2c:d9:fa:98:a8:2b:c4:\n                    e4:ee:07:1a:96:82:6b:82:27:ce:48:29:cd:5a:17:\n                    86:df:65:f9:f7:36:e7:cf:94:27:d6:50:ac:e1:84:\n                    25:26:87:ba:cf:ef:e6:3c:03:77:ca:f6:ac:fb:ad:\n                    7e:ae:c9:a5:ac:19:03:2d:93:23:49:d7:22:b1:16:\n                    f2:05:d7:e0:4a:86:17:1d:ad:9d:ef:4b:b7:72:db:\n                    09:3d:c5:a7:b0:c4:30:c7:08:98:f9:af:9e:d8:c5:\n                    00:25:65:cc:5d:a1:b9:4c:64:86:12:1c:7a:3e:5c:\n                    f7:7a:ad:6c:24:00:0b:46:b5:9e:0e:d2:09:94:0d:\n                    0b:74:e1:73:85:dc:f8:d9:da:38:15:2a:a8:90:bc:\n                    17:f5:cc:e5:17:a4:d5:54:6f:6e:56:8f:cf:90:f2:\n                    54:63:4a:ad:27:2b:f3:4c:10:7e:45:b2:bf:33:8d:\n                    4a:68:70:b6:26:7b:32:ff:4e:ff:a6:4a:89:3a:f4:\n                    31:44:4e:e5:5a:c1:c7:21:2f:e7:94:b6:66:dc:cd:\n                    b0:cb:cb:85:d1:95:9b:05:a5:4d:36:1b:ac:9f:c2:\n                    7d:2b:52:c4:c9:2d:3b:7a:1b:3c:d0:db:0b:4d:ee:\n                    71:09:32:86:3d:8e:a6:8f:64:e1:83:a2:ca:5b:e8:\n                    37:64:b1:a2:2f:67:d3:f4:94:c8:4e:cf:57:5c:9c:\n                    45:51:e1:af:be:31:0f:da:dc:d4:6c:cb:71:75:b4:\n                    9b:9e:65\n                Exponent: 65537 (0x10001)\n        X509v3 extensions:\n            X509v3 Subject Key Identifier: \n                BE:4C:8D:CB:9F:5D:A4:83:89:3E:1E:99:9D:94:65:38:17:66:B2:A4\n            X509v3 Authority Key Identifier: \n                keyid:BE:4C:8D:CB:9F:5D:A4:83:89:3E:1E:99:9D:94:65:38:17:66:B2:A4\n                DirName:/C=US/ST=California/L=Santa Clara/O=Controller/CN=ca.local\n                serial:01\n\n            X509v3 Basic Constraints: \n                CA:TRUE\n    Signature Algorithm: sha256WithRSAEncryption\n         0b:b3:f6:aa:6c:7b:51:9a:32:ee:03:c1:49:fb:cd:aa:3e:72:\n         20:80:a1:e7:86:b3:e5:81:96:11:1f:dc:c7:49:c9:3b:2a:1f:\n         0c:c5:21:5d:85:45:7b:04:77:b4:a1:80:7c:2f:13:c2:68:3b:\n         db:00:ac:ef:c1:ca:19:da:63:39:e7:1e:86:49:32:68:e0:d4:\n         9f:d0:be:dd:3d:4a:65:94:52:7a:9b:0b:86:57:25:44:fe:b4:\n         79:27:44:15:2b:a5:2e:af:d2:9d:cf:f0:0d:da:ba:86:eb:4b:\n         24:71:8a:c0:46:8b:e5:cd:85:d5:5d:68:80:a9:8b:b6:49:c5:\n         53:f5:26:c1:fc:b6:83:fd:87:a9:72:62:bf:ad:0d:05:0c:8e:\n         9d:4b:10:db:79:0a:d6:dd:c9:66:1e:51:4c:99:ca:d9:2a:7a:\n         10:85:45:0d:08:32:ec:cb:00:6e:3d:01:88:58:12:61:15:50:\n         b7:a4:52:db:7b:29:56:a7:4a:07:14:07:c5:83:03:e3:f4:95:\n         86:3a:dd:03:b3:af:aa:4e:1e:d0:68:92:d0:05:27:3c:84:7a:\n         09:45:81:c6:6a:42:1c:c2:4b:ca:20:63:8b:9d:9b:e4:14:73:\n         27:e8:95:8a:31:6e:31:b9:a3:41:de:57:48:e1:27:88:49:da:\n         7a:9c:03:96:ac:f4:72:7e:81:b3:8e:f1:a7:31:44:d6:2c:bf:\n         94:a5:62:58:60:01:b7:0c:2c:30:6f:99:91:45:3f:b8:db:0e:\n         ce:88:c8:d9:bf:34:65:c8:78:c0:cc:7b:68:50:cb:b3:46:8a:\n         3b:19:f6:35:1c:9b:f9:0c:51:9f:5a:8f:a0:b9:28:f1:52:44:\n         28:65:48:53:7f:65:44:70:f8:de:71:f3:51:e2:43:a4:3d:1c:\n         31:19:9f:5d:38:ea:93:3c:dc:07:e7:32:e0:bb:df:65:cb:5b:\n         3c:18:a2:f3:95:36:94:42:fb:06:49:8c:2c:55:8c:4e:5a:5a:\n         19:c2:f2:ad:3e:3e:1a:7d:e1:64:98:fa:47:a3:d6:e0:70:5d:\n         b8:89:27:fa:b7:2b:19:81:f9:1f:f2:8a:23:e2:49:b0:ec:ea:\n         4b:a5:3c:43:cf:b6:7d:5c:11:6b:c3:55:4d:dc:85:31:72:96:\n         18:a2:0a:31:f6:60:85:9b:41:ed:12:59:58:1a:7d:3a:27:25:\n         9f:39:20:6e:ea:55:e8:63:c9:31:31:d6:88:10:b5:ba:61:de:\n         6d:6a:2b:f3:bf:ae:e4:92:95:c2:24:f2:da:9d:6e:38:29:ff:\n         d7:1a:e8:af:ef:2b:f0:c4:cb:81:08:72:a6:91:a3:12:c1:8b:\n         e0:07:fd:a3:44:cf:26:31\n",
+          "version": "3"
+        }
+      ],
+      "crl_check": false,
+      "ignore_peer_chain": false,
+      "is_federated": true,
+      "name": "pki",
+      "tenant_ref": "https://100.65.4.53/api/tenant/admin",
+      "url": "https://100.65.4.53/api/pkiprofile/pkiprofile-b2e31ac5-af66-4e32-987a-298535e9737c",
+      "uuid": "pkiprofile-b2e31ac5-af66-4e32-987a-298535e9737c",
+      "validate_only_leaf_crl": true
+    },
+    {
+        "_last_modified": "1706800166741903",
+        "allow_pki_errors": [
+          "ALLOW_ALL_ERRORS"
+        ],
+        "ca_certs": [
+          {
+            "certificate": "-----BEGIN CERTIFICATE-----\nMIIF+DCCA+CgAwIBAgIBATANBgkqhkiG9w0BAQsFADBgMQswCQYDVQQGEwJVUzET\nMBEGA1UECAwKQ2FsaWZvcm5pYTEUMBIGA1UEBwwLU2FudGEgQ2xhcmExEzARBgNV\nBAoMCkNvbnRyb2xsZXIxETAPBgNVBAMMCGNhLmxvY2FsMB4XDTcwMDEwMTAwMDAw\nMFoXDTM0MDEyOTEyMjE0NFowYDELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlm\nb3JuaWExFDASBgNVBAcMC1NhbnRhIENsYXJhMRMwEQYDVQQKDApDb250cm9sbGVy\nMREwDwYDVQQDDAhjYS5sb2NhbDCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoC\nggIBAKQzZVSiQH/XZ0QhUXaOZBZ0ysFeoNEGPyCslh+Klkup8QzHTQy32rnYHtDA\neLhm3fv6mGXoneLMakDssfqBMvu3bNNT8+rpqyeIqMcs/h5CBAH6MR1R5t2sliiN\nasv1UK5wbK54sM3OleSzmpqQykCDwdBuN9d4hn8sb+nbEkTlomfcUJNqIZvA7TaN\nlY3pj2jfpCK6886T1hsM/kq6/CzvKLbYEQKHsOgzydFMgetZlLdn9/U5lrsbPIM7\nP9zYGhwnaqnYbrQxd9ciD2y75S6KKfGfRkV0aY/u5UuCoji2zB6nqLsu0W8s2fqY\nqCvE5O4HGpaCa4InzkgpzVoXht9l+fc258+UJ9ZQrOGEJSaHus/v5jwDd8r2rPut\nfq7JpawZAy2TI0nXIrEW8gXX4EqGFx2tne9Lt3LbCT3Fp7DEMMcImPmvntjFACVl\nzF2huUxkhhIcej5c93qtbCQAC0a1ng7SCZQNC3Thc4Xc+NnaOBUqqJC8F/XM5Rek\n1VRvblaPz5DyVGNKrScr80wQfkWyvzONSmhwtiZ7Mv9O/6ZKiTr0MURO5VrBxyEv\n55S2ZtzNsMvLhdGVmwWlTTYbrJ/CfStSxMktO3obPNDbC03ucQkyhj2Opo9k4YOi\nylvoN2Sxoi9n0/SUyE7PV1ycRVHhr74xD9rc1GzLcXW0m55lAgMBAAGjgbwwgbkw\nHQYDVR0OBBYEFL5MjcufXaSDiT4emZ2UZTgXZrKkMIGJBgNVHSMEgYEwf4AUvkyN\ny59dpIOJPh6ZnZRlOBdmsqShZKRiMGAxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApD\nYWxpZm9ybmlhMRQwEgYDVQQHDAtTYW50YSBDbGFyYTETMBEGA1UECgwKQ29udHJv\nbGxlcjERMA8GA1UEAwwIY2EubG9jYWyCAQEwDAYDVR0TBAUwAwEB/zANBgkqhkiG\n9w0BAQsFAAOCAgEAC7P2qmx7UZoy7gPBSfvNqj5yIICh54az5YGWER/cx0nJOyof\nDMUhXYVFewR3tKGAfC8Twmg72wCs78HKGdpjOecehkkyaODUn9C+3T1KZZRSepsL\nhlclRP60eSdEFSulLq/Snc/wDdq6hutLJHGKwEaL5c2F1V1ogKmLtknFU/Umwfy2\ng/2HqXJiv60NBQyOnUsQ23kK1t3JZh5RTJnK2Sp6EIVFDQgy7MsAbj0BiFgSYRVQ\nt6RS23spVqdKBxQHxYMD4/SVhjrdA7Ovqk4e0GiS0AUnPIR6CUWBxmpCHMJLyiBj\ni52b5BRzJ+iVijFuMbmjQd5XSOEniEnaepwDlqz0cn6Bs47xpzFE1iy/lKViWGAB\ntwwsMG+ZkUU/uNsOzojI2b80Zch4wMx7aFDLs0aKOxn2NRyb+QxRn1qPoLko8VJE\nKGVIU39lRHD43nHzUeJDpD0cMRmfXTjqkzzcB+cy4LvfZctbPBii85U2lEL7BkmM\nLFWMTlpaGcLyrT4+Gn3hZJj6R6PW4HBduIkn+rcrGYH5H/KKI+JJsOzqS6U8Q8+2\nfVwRa8NVTdyFMXKWGKIKMfZghZtB7RJZWBp9OiclnzkgbupV6GPJMTHWiBC1umHe\nbWor87+u5JKVwiTy2p1uOCn/1xror+8r8MTLgQhyppGjEsGL4Af9o0TPJjE=\n-----END CERTIFICATE-----",
+            "days_until_expire": 365,
+            "expiry_status": "SSL_CERTIFICATE_GOOD",
+            "fingerprint": "SHA1 Fingerprint=27:C3:E7:78:A3:79:91:BB:F5:DA:09:FB:D8:4D:45:75:FF:F2:40:FB",
+            "issuer": {
+              "common_name": "ca.local",
+              "country": "US",
+              "distinguished_name": "C=US, ST=California, L=Santa Clara, O=Controller, CN=ca.local",
+              "locality": "Santa Clara",
+              "organization": "Controller",
+              "state": "California"
+            },
+            "key_params": {
+              "algorithm": "SSL_KEY_ALGORITHM_RSA",
+              "rsa_params": {
+                "exponent": 65537,
+                "key_size": "SSL_KEY_4096_BITS"
+              }
+            },
+            "not_after": "2034-01-29 12:21:44",
+            "not_before": "1970-01-01 00:00:00",
+            "public_key": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEApDNlVKJAf9dnRCFRdo5k\nFnTKwV6g0QY/IKyWH4qWS6nxDMdNDLfaudge0MB4uGbd+/qYZeid4sxqQOyx+oEy\n+7ds01Pz6umrJ4ioxyz+HkIEAfoxHVHm3ayWKI1qy/VQrnBsrniwzc6V5LOampDK\nQIPB0G4313iGfyxv6dsSROWiZ9xQk2ohm8DtNo2VjemPaN+kIrrzzpPWGwz+Srr8\nLO8ottgRAoew6DPJ0UyB61mUt2f39TmWuxs8gzs/3NgaHCdqqdhutDF31yIPbLvl\nLoop8Z9GRXRpj+7lS4KiOLbMHqeouy7RbyzZ+pioK8Tk7gcaloJrgifOSCnNWheG\n32X59zbnz5Qn1lCs4YQlJoe6z+/mPAN3yvas+61+rsmlrBkDLZMjSdcisRbyBdfg\nSoYXHa2d70u3ctsJPcWnsMQwxwiY+a+e2MUAJWXMXaG5TGSGEhx6Plz3eq1sJAAL\nRrWeDtIJlA0LdOFzhdz42do4FSqokLwX9czlF6TVVG9uVo/PkPJUY0qtJyvzTBB+\nRbK/M41KaHC2Jnsy/07/pkqJOvQxRE7lWsHHIS/nlLZm3M2wy8uF0ZWbBaVNNhus\nn8J9K1LEyS07ehs80NsLTe5xCTKGPY6mj2Thg6LKW+g3ZLGiL2fT9JTITs9XXJxF\nUeGvvjEP2tzUbMtxdbSbnmUCAwEAAQ==\n-----END PUBLIC KEY-----\n",
+            "self_signed": true,
+            "serial_number": "1",
+            "signature_algorithm": "sha256WithRSAEncryption",
+            "subject": {
+              "common_name": "ca.local",
+              "country": "US",
+              "distinguished_name": "C=US, ST=California, L=Santa Clara, O=Controller, CN=ca.local",
+              "locality": "Santa Clara",
+              "organization": "Controller",
+              "state": "California"
+            },
+            "text": "Certificate:\n    Data:\n        Version: 3 (0x2)\n        Serial Number: 1 (0x1)\n        Signature Algorithm: sha256WithRSAEncryption\n        Issuer: C = US, ST = California, L = Santa Clara, O = Controller, CN = ca.local\n        Validity\n            Not Before: Jan  1 00:00:00 1970 GMT\n            Not After : Jan 29 12:21:44 2034 GMT\n        Subject: C = US, ST = California, L = Santa Clara, O = Controller, CN = ca.local\n        Subject Public Key Info:\n            Public Key Algorithm: rsaEncryption\n                RSA Public-Key: (4096 bit)\n                Modulus:\n                    00:a4:33:65:54:a2:40:7f:d7:67:44:21:51:76:8e:\n                    64:16:74:ca:c1:5e:a0:d1:06:3f:20:ac:96:1f:8a:\n                    96:4b:a9:f1:0c:c7:4d:0c:b7:da:b9:d8:1e:d0:c0:\n                    78:b8:66:dd:fb:fa:98:65:e8:9d:e2:cc:6a:40:ec:\n                    b1:fa:81:32:fb:b7:6c:d3:53:f3:ea:e9:ab:27:88:\n                    a8:c7:2c:fe:1e:42:04:01:fa:31:1d:51:e6:dd:ac:\n                    96:28:8d:6a:cb:f5:50:ae:70:6c:ae:78:b0:cd:ce:\n                    95:e4:b3:9a:9a:90:ca:40:83:c1:d0:6e:37:d7:78:\n                    86:7f:2c:6f:e9:db:12:44:e5:a2:67:dc:50:93:6a:\n                    21:9b:c0:ed:36:8d:95:8d:e9:8f:68:df:a4:22:ba:\n                    f3:ce:93:d6:1b:0c:fe:4a:ba:fc:2c:ef:28:b6:d8:\n                    11:02:87:b0:e8:33:c9:d1:4c:81:eb:59:94:b7:67:\n                    f7:f5:39:96:bb:1b:3c:83:3b:3f:dc:d8:1a:1c:27:\n                    6a:a9:d8:6e:b4:31:77:d7:22:0f:6c:bb:e5:2e:8a:\n                    29:f1:9f:46:45:74:69:8f:ee:e5:4b:82:a2:38:b6:\n                    cc:1e:a7:a8:bb:2e:d1:6f:2c:d9:fa:98:a8:2b:c4:\n                    e4:ee:07:1a:96:82:6b:82:27:ce:48:29:cd:5a:17:\n                    86:df:65:f9:f7:36:e7:cf:94:27:d6:50:ac:e1:84:\n                    25:26:87:ba:cf:ef:e6:3c:03:77:ca:f6:ac:fb:ad:\n                    7e:ae:c9:a5:ac:19:03:2d:93:23:49:d7:22:b1:16:\n                    f2:05:d7:e0:4a:86:17:1d:ad:9d:ef:4b:b7:72:db:\n                    09:3d:c5:a7:b0:c4:30:c7:08:98:f9:af:9e:d8:c5:\n                    00:25:65:cc:5d:a1:b9:4c:64:86:12:1c:7a:3e:5c:\n                    f7:7a:ad:6c:24:00:0b:46:b5:9e:0e:d2:09:94:0d:\n                    0b:74:e1:73:85:dc:f8:d9:da:38:15:2a:a8:90:bc:\n                    17:f5:cc:e5:17:a4:d5:54:6f:6e:56:8f:cf:90:f2:\n                    54:63:4a:ad:27:2b:f3:4c:10:7e:45:b2:bf:33:8d:\n                    4a:68:70:b6:26:7b:32:ff:4e:ff:a6:4a:89:3a:f4:\n                    31:44:4e:e5:5a:c1:c7:21:2f:e7:94:b6:66:dc:cd:\n                    b0:cb:cb:85:d1:95:9b:05:a5:4d:36:1b:ac:9f:c2:\n                    7d:2b:52:c4:c9:2d:3b:7a:1b:3c:d0:db:0b:4d:ee:\n                    71:09:32:86:3d:8e:a6:8f:64:e1:83:a2:ca:5b:e8:\n                    37:64:b1:a2:2f:67:d3:f4:94:c8:4e:cf:57:5c:9c:\n                    45:51:e1:af:be:31:0f:da:dc:d4:6c:cb:71:75:b4:\n                    9b:9e:65\n                Exponent: 65537 (0x10001)\n        X509v3 extensions:\n            X509v3 Subject Key Identifier: \n                BE:4C:8D:CB:9F:5D:A4:83:89:3E:1E:99:9D:94:65:38:17:66:B2:A4\n            X509v3 Authority Key Identifier: \n                keyid:BE:4C:8D:CB:9F:5D:A4:83:89:3E:1E:99:9D:94:65:38:17:66:B2:A4\n                DirName:/C=US/ST=California/L=Santa Clara/O=Controller/CN=ca.local\n                serial:01\n\n            X509v3 Basic Constraints: \n                CA:TRUE\n    Signature Algorithm: sha256WithRSAEncryption\n         0b:b3:f6:aa:6c:7b:51:9a:32:ee:03:c1:49:fb:cd:aa:3e:72:\n         20:80:a1:e7:86:b3:e5:81:96:11:1f:dc:c7:49:c9:3b:2a:1f:\n         0c:c5:21:5d:85:45:7b:04:77:b4:a1:80:7c:2f:13:c2:68:3b:\n         db:00:ac:ef:c1:ca:19:da:63:39:e7:1e:86:49:32:68:e0:d4:\n         9f:d0:be:dd:3d:4a:65:94:52:7a:9b:0b:86:57:25:44:fe:b4:\n         79:27:44:15:2b:a5:2e:af:d2:9d:cf:f0:0d:da:ba:86:eb:4b:\n         24:71:8a:c0:46:8b:e5:cd:85:d5:5d:68:80:a9:8b:b6:49:c5:\n         53:f5:26:c1:fc:b6:83:fd:87:a9:72:62:bf:ad:0d:05:0c:8e:\n         9d:4b:10:db:79:0a:d6:dd:c9:66:1e:51:4c:99:ca:d9:2a:7a:\n         10:85:45:0d:08:32:ec:cb:00:6e:3d:01:88:58:12:61:15:50:\n         b7:a4:52:db:7b:29:56:a7:4a:07:14:07:c5:83:03:e3:f4:95:\n         86:3a:dd:03:b3:af:aa:4e:1e:d0:68:92:d0:05:27:3c:84:7a:\n         09:45:81:c6:6a:42:1c:c2:4b:ca:20:63:8b:9d:9b:e4:14:73:\n         27:e8:95:8a:31:6e:31:b9:a3:41:de:57:48:e1:27:88:49:da:\n         7a:9c:03:96:ac:f4:72:7e:81:b3:8e:f1:a7:31:44:d6:2c:bf:\n         94:a5:62:58:60:01:b7:0c:2c:30:6f:99:91:45:3f:b8:db:0e:\n         ce:88:c8:d9:bf:34:65:c8:78:c0:cc:7b:68:50:cb:b3:46:8a:\n         3b:19:f6:35:1c:9b:f9:0c:51:9f:5a:8f:a0:b9:28:f1:52:44:\n         28:65:48:53:7f:65:44:70:f8:de:71:f3:51:e2:43:a4:3d:1c:\n         31:19:9f:5d:38:ea:93:3c:dc:07:e7:32:e0:bb:df:65:cb:5b:\n         3c:18:a2:f3:95:36:94:42:fb:06:49:8c:2c:55:8c:4e:5a:5a:\n         19:c2:f2:ad:3e:3e:1a:7d:e1:64:98:fa:47:a3:d6:e0:70:5d:\n         b8:89:27:fa:b7:2b:19:81:f9:1f:f2:8a:23:e2:49:b0:ec:ea:\n         4b:a5:3c:43:cf:b6:7d:5c:11:6b:c3:55:4d:dc:85:31:72:96:\n         18:a2:0a:31:f6:60:85:9b:41:ed:12:59:58:1a:7d:3a:27:25:\n         9f:39:20:6e:ea:55:e8:63:c9:31:31:d6:88:10:b5:ba:61:de:\n         6d:6a:2b:f3:bf:ae:e4:92:95:c2:24:f2:da:9d:6e:38:29:ff:\n         d7:1a:e8:af:ef:2b:f0:c4:cb:81:08:72:a6:91:a3:12:c1:8b:\n         e0:07:fd:a3:44:cf:26:31\n",
+            "version": "3"
+          }
+        ],
+        "crl_check": false,
+        "ignore_peer_chain": false,
+        "is_federated": true,
+        "name": "pki2",
+        "tenant_ref": "https://100.65.4.53/api/tenant/admin",
+        "url": "https://100.65.4.53/api/pkiprofile/pkiprofile-b2e31ac5-af66-4e32-987a-298535e9737a",
+        "uuid": "pkiprofile-b2e31ac5-af66-4e32-987a-298535e9737a",
+        "validate_only_leaf_crl": true
+      }
+  ]
+}
