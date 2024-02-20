@@ -12,7 +12,7 @@ function get_git_ws {
     echo $git_ws
 }
 
-BRANCH_VERSION_SCRIPT=$SCRIPTPATH/get_branch_version.sh
+BRANCH_VERSION_SCRIPT=$WORKSPACE/get_branch_version.sh
 # Compute base_build_num
 base_build_num=$(cat $(get_git_ws)/base_build_num)
 version_build_num=$(expr "$base_build_num" + "$BUILD_NUMBER")
