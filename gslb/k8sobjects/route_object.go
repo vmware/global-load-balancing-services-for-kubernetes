@@ -15,7 +15,9 @@
 package k8sobjects
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
@@ -37,12 +39,23 @@ func getRouteHostMap() *ObjHostMap {
 // GetRouteMeta returns a trimmed down version of a route
 func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 	gf := gslbutils.GetGlobalFilter()
-	syncVIPsOnly, err := gf.IsClusterSyncVIPOnly(cname)
+	var syncVIPsOnly bool
+	var err error
+	syncVIPsOnly, err = gf.IsClusterSyncVIPOnly(cname)
 	if err != nil {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
 			cname, route.Namespace, route.Name, err)
 	}
-	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(route.Annotations)
+	var vsUUIDs map[string]string
+	var controllerUUID string
+
+	// Parse status field
+	vsUUIDs, controllerUUID, err = parseVSAndControllerUUIDStatus(route.Status, route.Spec.Host)
+	if err != nil {
+		// parse annotations
+		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: parsing Controller annotations", cname, route.Namespace, route.Name)
+		vsUUIDs, controllerUUID, err = parseVSAndControllerAnnotations(route.Annotations)
+	}
 	if err != nil && !syncVIPsOnly {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
 			cname, route.Namespace, route.Name, err)
@@ -95,6 +108,43 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 	metaObj.Paths = pathList
 
 	return metaObj
+}
+
+func parseVSAndControllerUUIDStatus(status routev1.RouteStatus, hostName string) (map[string]string, string, error) {
+	vsUUIDs, controllerUUID := make(map[string]string), ""
+	if len(status.Ingress) == 0 {
+		return vsUUIDs, controllerUUID, fmt.Errorf("empty ingress status field")
+	}
+	for i := 0; i < len(status.Ingress); i++ {
+		if status.Ingress[i].Host == hostName {
+			if len(status.Ingress[i].Conditions) > 0 && status.Ingress[i].Conditions[0].Reason != "" {
+				akoStatusReason := status.Ingress[i].Conditions[0].Reason
+				akoVSControllerUUID := make(map[string]string)
+				err := json.Unmarshal([]byte(akoStatusReason), &akoVSControllerUUID)
+				if err != nil {
+					gslbutils.Debugf("Error in unmarshalling Status reason: %v", akoStatusReason)
+					continue
+				}
+				vsUUIDStr, exists := akoVSControllerUUID[VSAnnotation]
+				if !exists {
+					gslbutils.Debugf("No VS uuid exist for object, Status reason: %v", akoVSControllerUUID)
+					continue
+				}
+				controllerUUID, exists = akoVSControllerUUID[ControllerAnnotation]
+				if !exists {
+					gslbutils.Debugf("No Controller uuid exist for object,  Status reason: %v", akoVSControllerUUID)
+					continue
+				}
+				if err := json.Unmarshal([]byte(vsUUIDStr), &vsUUIDs); err != nil {
+					gslbutils.Debugf("Error in unmarshalling VS UUID : %v", err)
+					continue
+				}
+				//If everything is ok, return from here
+				return vsUUIDs, controllerUUID, nil
+			}
+		}
+	}
+	return vsUUIDs, controllerUUID, fmt.Errorf("no VSUUID Controller-UUID annotations")
 }
 
 // RouteMeta is the metadata for a route. It is the minimal information
