@@ -29,7 +29,6 @@ build-amko:
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
 	go build \
 	-o /go/src/$(PACKAGE_PATH)/bin/$(AMKO_BIN) \
-	-buildvcs=false \
 	-mod=vendor \
 	/go/src/$(AMKO_REL_PATH)
 
@@ -40,7 +39,6 @@ build-amko-federator:
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
 	go build \
 	-o /go/src/$(PACKAGE_PATH)/bin/$(FEDERATOR_BIN) \
-	-buildvcs=false \
 	-mod=vendor \
 	/go/src/$(FEDERATOR_REL_PATH)
 
@@ -51,7 +49,6 @@ build-amko-service-discovery:
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(BUILD_GO_IMG) \
 	go build \
 	-o /go/src/$(PACKAGE_PATH)/bin/$(SERVICE_DISCOVERY_BIN) \
-	-buildvcs=false \
 	-mod=vendor \
 	/go/src/$(SERVICE_DISCOVERY_REL_PATH)
 
