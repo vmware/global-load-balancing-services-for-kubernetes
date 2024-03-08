@@ -5,7 +5,8 @@ set -xe
 BRANCH=$branch
 CI_REGISTRY_PATH=$PVT_DOCKER_REGISTRY/$PVT_DOCKER_REPOSITORY
 
-echo $GIT_COMMIT > $WORKSPACE/HEAD_COMMIT;
+echo $(git rev-parse origin/${branch}) > $WORKSPACE/HEAD_COMMIT;
+cat $WORKSPACE/HEAD_COMMIT
 
 # Function to get GIT workspace root location
 function get_git_ws {
