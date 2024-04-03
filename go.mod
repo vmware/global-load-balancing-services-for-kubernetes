@@ -11,9 +11,9 @@ require (
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 	github.com/prometheus/client_golang v1.17.0
-	github.com/vmware/alb-sdk v0.0.0-20240112090735-d9097a8c6854
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240122111307-04050a54ebfa
-	google.golang.org/protobuf v1.31.0
+	github.com/vmware/alb-sdk v0.0.0-20240327122718-1ca5ba869793
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240401115554-b521678e6ae1
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.28.3
@@ -75,6 +75,7 @@ require (
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
+	sigs.k8s.io/gateway-api v1.0.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/service-apis v0.1.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
