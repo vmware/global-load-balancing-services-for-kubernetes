@@ -111,9 +111,12 @@ matchRules:
 
 8. `sitePersistenceRef`: Provide an Application Persistence Profile ref (pre-created in Avi Controller). This has to be a federated profile. Please follow the steps [here](https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/#outline-of-steps-to-be-taken) to create a federated Application Persistence Profile on the Avi Controller. If no reference is provided, Site Persistence is disabled.
 
+
 9. `poolAlgorithmSettings`: Provide the GslbService pool algorithm settings. Refer to [pool algorithm settings](gslbhostrule.md#pool-algorithm-settings) for details. If this field is absent, the default is assumed as Round Robin algorithm.
 
 10. `downResponse`: Specifies the response to the client query when the GSLB service is DOWN. If this field is absent, the GSLB service will be configured with `GSLB_SERVICE_DOWN_RESPONSE_NONE`. Refer to [down response settings](gslbhostrule.md#down-response-settings) for details.
+
+11. `pkiProfileRef`: Provide an PKI Profile ref (pre-created in Avi Controller).This has to be a federated profile. It will be applied only if sitePersistence is enabled.
 
 ### Notes
 * Only one `GDP` object is allowed.
@@ -125,3 +128,5 @@ matchRules:
 * Site Persistence, if specified, will only be enabled for the GslbServices which have secure ingresses or secure routes as the members and will be disabled for all other cases.
 
 * HTTP Health Monitors can't be used for GslbServices with HTTPS objects as the members.
+
+* If `pkiProfileRef` is not set via GDP or GSLBHostrule but `sitePersistenceRef` is provided AMKO will apply a federated pki profile present on controller since pkiProfile is mandatory with site persistence enabled starting with AVI controller 22.1.3 . GSLB service creation will fail if no federated pki Profile is present on controller.
