@@ -117,5 +117,8 @@ func (c *amkoControlConfig) CreatedByField() string {
 }
 
 func (c *amkoControlConfig) GetAMKOUUID() string {
-	return c.amkoCreatedByField[4:]
+	if len(c.amkoCreatedByField) > 4 {
+		return c.amkoCreatedByField[4:]
+	}
+	return ""
 }
