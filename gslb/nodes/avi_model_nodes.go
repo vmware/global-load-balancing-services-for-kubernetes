@@ -155,7 +155,7 @@ func (hm HealthMonitor) GetHMDescription(gsName string, template *string) []stri
 	descPrefix := CreatedByAMKO + ", gsname: " + gsName
 	desc = append(desc, descPrefix)
 	if hm.Type == NonPathHM {
-		if hm.Name == gslbutils.SystemGslbHealthMonitorPassthrough {
+		if hm.Name == gslbutils.SystemGslbHealthMonitorPassthrough+gslbutils.AMKOControlConfig().GetAMKOUUID() {
 			return []string{CreatedByAMKO}
 		}
 		return desc
@@ -367,7 +367,7 @@ func (v *AviGSObjectGraph) BuildNonPathHmName(gsName string) string {
 func (v *AviGSObjectGraph) buildNonPathHealthMonitorFromObj(port int32, isPassthrough bool, protocol, key string) {
 	hmName := ""
 	if isPassthrough {
-		hmName = gslbutils.SystemGslbHealthMonitorPassthrough
+		hmName = gslbutils.SystemGslbHealthMonitorPassthrough + gslbutils.AMKOControlConfig().GetAMKOUUID()
 	} else {
 		hmName = v.BuildNonPathHmName(v.Name)
 	}
@@ -557,7 +557,7 @@ func (v *AviGSObjectGraph) checkAndUpdateNonPathHealthMonitor(objType string, is
 
 	hmName := ""
 	if isPassthrough {
-		hmName = gslbutils.SystemGslbHealthMonitorPassthrough
+		hmName = gslbutils.SystemGslbHealthMonitorPassthrough + gslbutils.AMKOControlConfig().GetAMKOUUID()
 	} else {
 		hmName = v.BuildNonPathHmName(v.Name)
 	}

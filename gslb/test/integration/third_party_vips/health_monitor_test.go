@@ -285,3 +285,43 @@ func TestHMUpdateLBServices(t *testing.T) {
 		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmRefs, nil, nil, nil, nil, false)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
+
+func TestHMAddPassthroughRoute(t *testing.T) {
+	newGDP, err := BuildAddAndVerifyAppSelectorTestGDP(t)
+	if err != nil {
+		t.Fatalf("error in building, adding and verifying app selector GDP: %v", err)
+	}
+
+	testPrefix := "hm-cir-"
+	routeName := testPrefix + "route"
+	ns := "default"
+	host := testPrefix + ingestion_test.TestDomain1
+	routeIPAddr := "2.2.2.2"
+	routeCluster := OshiftContext
+	path := []string{""}
+
+	t.Cleanup(func() {
+		oshiftDeleteRoute(t, clusterClients[Oshift], routeName, ns)
+		DeleteTestGDP(t, newGDP.Namespace, newGDP.Name)
+	})
+
+	g := gomega.NewGomegaWithT(t)
+
+	routeObj := oshiftAddPassThroughRoute(t, clusterClients[Oshift], routeName, ns, ingestion_test.TestSvc,
+		routeCluster, host, routeIPAddr, path[0], TlsTrue)
+
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+
+	hmName := gslbutils.SystemGslbHealthMonitorPassthrough + gslbutils.AMKOControlConfig().GetAMKOUUID()
+	hmRefs := []string{}
+	hmRefs = append(hmRefs, hmName)
+
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), hmRefs, nil, nil, nil, nil, nil, nil, TlsTrue, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	g.Eventually(func() bool {
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmRefs, nil, nil, nil, nil, TlsTrue)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
