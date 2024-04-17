@@ -117,4 +117,4 @@ To following fields must be used to set the down response,:
 
 ## Caveats:
 * Site Persistence cannot be enabled for the GslbServices which have insecure ingresses or routes as the members.
-* If `pkiProfileRef` is empty but `sitePersistenceRef` is provided AMKO will apply a federated pki profile present on controller since pkiProfile is mandatory with site persistence starting with AVI controller 22.1.3 . GSLB service creation will fail if no federated pki Profile is present on controller.
+* If `pkiProfileRef` is empty but `sitePersistence.enabled` is set to true AMKO will apply a federated pki profile present on controller since pkiProfile is mandatory with site persistence starting with AVI controller 22.1.3 . GSLB service creation will fail if no federated pki Profile is present on controller.
