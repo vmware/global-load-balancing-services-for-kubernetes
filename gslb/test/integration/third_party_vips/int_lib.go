@@ -383,6 +383,34 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 	return newObj
 }
 
+func oshiftAddPassThroughRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname, host,
+	ip, path string, tls bool) *routev1.Route {
+	routeObj := BuildRouteObj(name, ns, svc, cname, host, ip, path, true)
+	if tls {
+		routeObj.Spec.TLS = &routev1.TLSConfig{
+			Termination: routev1.TLSTerminationPassthrough,
+		}
+	}
+	t.Logf("built a route object with name: %s, ns: %s and cname: %s", name, ns, cname)
+	// applying annotations
+	hostname := routeObj.Spec.Host
+	routeObj.Spec.Path = ""
+	routeObj.Annotations = getAnnotations([]string{hostname})
+	_, err := oshiftClient.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't create route obj: %v, err: %v", routeObj, err)
+	}
+	t.Logf("route object successfully created with name: %s, ns: %s, cname: %s", ns, name, cname)
+	patchPayload, _ := json.Marshal(map[string]interface{}{
+		"status": routeObj.Status,
+	})
+	newObj, err := oshiftClient.RouteV1().Routes(ns).Patch(context.TODO(), routeObj.Name, types.MergePatchType, patchPayload, metav1.PatchOptions{}, "status")
+	if err != nil {
+		t.Fatalf("Couldn't update route obj: %v, err: %v", newObj, err)
+	}
+	return newObj
+}
+
 func k8sDeleteIngress(t *testing.T, kc *kubernetes.Clientset, name string, ns string) {
 	err := kc.NetworkingV1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
@@ -946,16 +974,21 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 		t.Fatalf("error in getting annotations from ingress object %v: %v", routeObj.Annotations, err)
 	}
 	hostName := routeObj.Spec.Host
+	isPassThrough := false
 	var tls bool
 	if routeObj.Spec.TLS != nil {
 		tls = true
+		if routeObj.Spec.TLS.Termination == routev1.TLSTerminationPassthrough {
+			isPassThrough = true
+			tls = false
+		}
 	}
 	paths := []string{routeObj.Spec.Path}
 
 	return getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
 		routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[hostName],
 		routeObj.Annotations[k8sobjects.ControllerAnnotation],
-		true, false, tls, paths, weight, priority)
+		true, isPassThrough, tls, paths, weight, priority)
 }
 
 func getTestGSMemberFromMultiPathRoute(t *testing.T, routeObjList []*routev1.Route, cname string,

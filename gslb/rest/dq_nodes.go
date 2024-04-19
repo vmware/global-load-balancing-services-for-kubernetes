@@ -1213,7 +1213,7 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 	}
 
 	// passthrough health monitor is shared across all passthrough GSs and hence, won't be deleted
-	if hmName == gslbutils.SystemGslbHealthMonitorPassthrough {
+	if hmName == gslbutils.SystemGslbHealthMonitorPassthrough+gslbutils.AMKOControlConfig().GetAMKOUUID() {
 		gslbutils.Debugf("key: %s, hmName: %s, msg: won't delete the passthrough health monitor", key, hmName)
 		return nil
 	}
