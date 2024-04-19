@@ -687,7 +687,7 @@ func parseDescription(description string) ([]string, error) {
 }
 
 func ParsePoolAlgorithmSettingsFromPool(gsPool models.GslbPool) *gslbalphav1.PoolAlgorithmSettings {
-	return ParsePoolAlgorithmSettings(gsPool.Algorithm, gsPool.FallbackAlgorithm, &gsPool.ConsistentHashMask)
+	return ParsePoolAlgorithmSettings(gsPool.Algorithm, gsPool.FallbackAlgorithm, gsPool.ConsistentHashMask)
 }
 
 func ParsePoolAlgorithmSettings(algorithm *string, fallbackAlgorithm *string, consistentHashMask *uint32) *gslbalphav1.PoolAlgorithmSettings {
@@ -795,7 +795,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	var persistenceProfileRefPtr *string
 	var pkiProfileRef *string
 	var sitePersistenceRequired bool
-	var ttl uint32
+	var ttl *uint32
 	var gsDownResponse *gslbalphav1.DownResponse
 
 	domainNames := gsObj.DomainNames
@@ -949,7 +949,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 	// calculate the checksum
 	checksum := gslbutils.GetGSLBServiceChecksum(serverList, domainList, memberObjs, hms,
-		persistenceProfileRefPtr, &ttl, poolAlgorithmSettings, gsDownResponse, pkiProfileRef, createdBy)
+		persistenceProfileRefPtr, ttl, poolAlgorithmSettings, gsDownResponse, pkiProfileRef, createdBy)
 	return checksum, gsMembers, memberObjs, hms, gsDownResponse, createdBy, nil
 }
 

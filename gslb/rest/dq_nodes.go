@@ -994,10 +994,10 @@ func buildGsPool(gsMeta *nodes.AviGSObjectGraph, gsPoolMembers []*avimodels.Gslb
 		Members:             gsPoolMembers,
 		Name:                &poolName,
 		Priority:            &priority,
-		MinHealthMonitorsUp: minHealthMonUp,
+		MinHealthMonitorsUp: &minHealthMonUp,
 	}
 	if hashMask != nil {
-		pool.ConsistentHashMask = *hashMask
+		pool.ConsistentHashMask = hashMask
 	}
 	return pool
 }
@@ -1064,7 +1064,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		Groups:                        gslbSvcGroups,
 		HealthMonitorScope:            &healthMonitorScope,
 		IsFederated:                   &isFederated,
-		MinMembers:                    minMembers,
+		MinMembers:                    &minMembers,
 		Name:                          &gsName,
 		PoolAlgorithm:                 &gsAlgorithm,
 		ResolveCname:                  &resolveCname,
@@ -1074,10 +1074,8 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		Description:                   &description,
 	}
 
-	var ttl uint32
 	if gsMeta.TTL != nil {
-		ttl = uint32(*gsMeta.TTL)
-		aviGslbSvc.TTL = ttl
+		aviGslbSvc.TTL = gsMeta.TTL
 	}
 
 	if gsMeta.SitePersistenceRef != nil {
@@ -1114,7 +1112,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 		}
 	} else if len(gsMeta.HmRefs) > 0 {
 		minHmUp := uint32(len(gsMeta.HmRefs) + 1)
-		aviGslbSvc.Groups[0].MinHealthMonitorsUp = minHmUp
+		aviGslbSvc.Groups[0].MinHealthMonitorsUp = &minHmUp
 		// Add the custom health monitors here
 		aviGslbSvc.HealthMonitorRefs = []string{}
 		for _, hmName := range gsMeta.HmRefs {
