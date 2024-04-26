@@ -40,6 +40,8 @@ spec:
 
 3. `sitePersistence`: Enable Site Persistence for client requests. Set the `enabled` flag as `true` and add a `profileRef` for a pre-created Application Persistence Profile created on the Avi Controller. Please follow the steps [here](https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/#outline-of-steps-to-be-taken) to create a federated Application Persistence Profile on the Avi Controller.
 
+   `pkiProfileRef`: Provide an PKI Profile ref (pre-created in Avi Controller).This has to be a federated profile. It will be applied only if sitePersistence is enabled.
+
 **Note** that site persistence is **disabled** on GslbServices created for **insecure** ingresses/routes, irrespective of this field.
 If this field is not provided in `GSLBHostRule`, the site persistence property will be inherited from the GDP object.
 
@@ -115,3 +117,4 @@ To following fields must be used to set the down response,:
 
 ## Caveats:
 * Site Persistence cannot be enabled for the GslbServices which have insecure ingresses or routes as the members.
+* If `pkiProfileRef` is empty but `sitePersistence.enabled` is set to true AMKO will apply a federated pki profile present on controller since pkiProfile is mandatory with site persistence starting with AVI controller 22.1.3 . GSLB service creation will fail if no federated pki Profile is present on controller.
