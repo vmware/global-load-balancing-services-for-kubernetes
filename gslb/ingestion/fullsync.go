@@ -181,7 +181,9 @@ func checkGslbHostRulesAndInitialize() error {
 			continue
 		}
 		gsHostRulesList.BuildAndSetGSHostRulesForFQDN(&gslbHr)
-		updateGSLBHR(&gslbHr, "", GslbHostRuleAccepted)
+		if gslbHr.Status.Status != GslbHostRuleAccepted {
+			updateGSLBHR(&gslbHr, "", GslbHostRuleAccepted)
+		}
 	}
 	return nil
 }
