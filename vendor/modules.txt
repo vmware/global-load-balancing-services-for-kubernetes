@@ -187,10 +187,12 @@ github.com/spf13/pflag
 # github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618
 ## explicit; go 1.13
 github.com/vmware-tanzu/service-apis/apis/v1alpha1pre1
-# github.com/vmware/alb-sdk v0.0.0-20240327122718-1ca5ba869793
+# github.com/vmware/alb-sdk v0.0.0-20240422063246-6f25c71c5791
 ## explicit; go 1.16
+github.com/vmware/alb-sdk/go/clients
 github.com/vmware/alb-sdk/go/models
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240401115554-b521678e6ae1
+github.com/vmware/alb-sdk/go/session
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240426075151-cf4b379fde72
 ## explicit; go 1.21
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
@@ -215,8 +217,6 @@ github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/informers/externalversions/internalinterfaces
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/client/v1beta1/listers/ako/v1beta1
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils
-github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/clients
-github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/third_party/github.com/vmware/alb-sdk/go/session
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
@@ -234,8 +234,8 @@ go.uber.org/zap/zapcore
 # golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 ## explicit; go 1.20
 golang.org/x/exp/maps
-# golang.org/x/net v0.17.0
-## explicit; go 1.17
+# golang.org/x/net v0.23.0
+## explicit; go 1.18
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
@@ -247,12 +247,12 @@ golang.org/x/net/idna
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.15.0
+# golang.org/x/sys v0.18.0
 ## explicit; go 1.18
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.15.0
+# golang.org/x/term v0.18.0
 ## explicit; go 1.18
 golang.org/x/term
 # golang.org/x/text v0.14.0
