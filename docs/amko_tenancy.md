@@ -17,7 +17,7 @@ In this example we will run AMKO in `billing` tenant.
 | `GSLB configuration` | Read access to everything in the GSLB configuration relevant to the tenant |
 | `GSLB services` | Write access to all GSLB services in all tenants to which this user is assigned |
 | `GSLB geolocation database` | Read access to geolocation database |
-* To achieve this AMKO User can be assigned [`amko-tenant`](roles/amko-tenant.json) role in the `billing` tenant.
+* To achieve this AMKO User should be assigned [`amko-tenant`](roles/amko-tenant.json) role in the `billing` tenant and [`amko-admin`](roles/admin-tenant.json) in the admin tenant.
 ### 3. AMKO installation
 
 * In **AMKO**, Set the `configs.tenant` field in values.yaml  to the tenant `billing` created in the earlier steps.
