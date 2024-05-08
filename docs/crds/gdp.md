@@ -38,6 +38,8 @@ spec:
   - my-health-monitor1
 
   sitePersistenceRef: gap-1
+  
+  pkiProfileRef: pki-1
 
   poolAlgorithmSettings:
     lbAlgorithm: GSLB_ALGORITHM_ROUND_ROBIN
