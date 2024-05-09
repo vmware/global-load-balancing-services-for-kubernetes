@@ -110,4 +110,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Changed
   - AKO library has been upgraded. User have to update CRD definitions and AKO to 1.11.1 before upgrading AMKO to 1.11.1.
 
+## AMKO-1.12.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.28, 1.29 and OCP 4.14
+
+### Changed:
+  - PKI Profile used in GSLB Site Persistence can be added via `GlobalDeploymentPolicy` and `GSLBHostRule`
 
