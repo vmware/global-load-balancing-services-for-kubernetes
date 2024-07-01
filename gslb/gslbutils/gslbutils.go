@@ -85,12 +85,12 @@ func ExtractMultiClusterHostRuleKey(key string) (string, string, string, string,
 	return seg[0], seg[1], seg[2], seg[3], seg[4], seg[5], nil
 }
 
-func ExtractGSLBHostRuleKey(key string) (string, string, string, error) {
+func ExtractGSLBHostRuleKey(key string) (string, string, string, string, error) {
 	seg := strings.Split(key, "/")
-	if len(seg) != 3 {
-		return "", "", "", fmt.Errorf("invalid key %s for GSLBHostRule", key)
+	if len(seg) != 4 {
+		return "", "", "", "", fmt.Errorf("invalid key %s for GSLBHostRule", key)
 	}
-	return seg[0], seg[1], seg[2], nil
+	return seg[0], seg[1], seg[2], seg[3], nil
 }
 
 func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
@@ -127,8 +127,8 @@ func GetObjectTypeFromKey(key string) (string, error) {
 	return segments[1], nil
 }
 
-func GSFQDNKey(operation, objType, gsFqdn string) string {
-	return operation + "/" + objType + "/" + gsFqdn
+func GSFQDNKey(operation, objType, gsFqdn, namespace string) string {
+	return operation + "/" + namespace + "/" + objType + "/" + gsFqdn
 }
 
 func SplitMultiClusterObjectName(name string) (string, string, string, error) {
@@ -447,6 +447,19 @@ func GetTenant() string {
 	return gslbLeaderConfig.Tenant
 }
 
+func GetTenantInNamespace(namespace string) string {
+	nsObj, err := utils.GetInformers().NSInformer.Lister().Get(namespace)
+	if err != nil {
+		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, namespace: %s, error :%s", namespace, err.Error())
+		return GetTenant()
+	}
+	tenant, ok := nsObj.Annotations[TenantAnnotation]
+	if !ok || tenant == "" {
+		return GetTenant()
+	}
+	return tenant
+}
+
 var allClusterContexts []string
 
 func AddClusterContext(cc string) {
@@ -743,3 +756,9 @@ func GetDefaultPKI(aviClient *clients.AviClient) *string {
 	}
 	return nil
 }
+
+const (
+	VSAnnotation         = "ako.vmware.com/host-fqdn-vs-uuid-map"
+	ControllerAnnotation = "ako.vmware.com/controller-cluster-uuid"
+	TenantAnnotation     = "ako.vmware.com/tenant"
+)

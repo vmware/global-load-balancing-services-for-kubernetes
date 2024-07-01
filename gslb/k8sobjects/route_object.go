@@ -47,14 +47,14 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 			cname, route.Namespace, route.Name, err)
 	}
 	var vsUUIDs map[string]string
-	var controllerUUID string
+	var controllerUUID, tenant string
 
 	// Parse status field
-	vsUUIDs, controllerUUID, err = parseVSAndControllerUUIDStatus(route.Status, route.Spec.Host)
+	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerUUIDStatus(route.Status, route.Spec.Host)
 	if err != nil {
 		// parse annotations
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: parsing Controller annotations", cname, route.Namespace, route.Name)
-		vsUUIDs, controllerUUID, err = parseVSAndControllerAnnotations(route.Annotations)
+		vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerAnnotations(route.Annotations)
 	}
 	if err != nil && !syncVIPsOnly {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
@@ -79,6 +79,7 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 		TLS:                false,
 		VirtualServiceUUID: vsUUID,
 		ControllerUUID:     controllerUUID,
+		Tenant:             tenant,
 	}
 	metaObj.Labels = make(map[string]string)
 	routeLabels := route.GetLabels()
@@ -110,10 +111,11 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 	return metaObj
 }
 
-func parseVSAndControllerUUIDStatus(status routev1.RouteStatus, hostName string) (map[string]string, string, error) {
+func parseVSAndControllerUUIDStatus(status routev1.RouteStatus, hostName string) (map[string]string, string, string, error) {
 	vsUUIDs, controllerUUID := make(map[string]string), ""
+	tenant := gslbutils.GetTenant()
 	if len(status.Ingress) == 0 {
-		return vsUUIDs, controllerUUID, fmt.Errorf("empty ingress status field")
+		return vsUUIDs, controllerUUID, tenant, fmt.Errorf("empty ingress status field")
 	}
 	for i := 0; i < len(status.Ingress); i++ {
 		if status.Ingress[i].Host == hostName {
@@ -125,12 +127,12 @@ func parseVSAndControllerUUIDStatus(status routev1.RouteStatus, hostName string)
 					gslbutils.Debugf("Error in unmarshalling Status reason: %v", akoStatusReason)
 					continue
 				}
-				vsUUIDStr, exists := akoVSControllerUUID[VSAnnotation]
+				vsUUIDStr, exists := akoVSControllerUUID[gslbutils.VSAnnotation]
 				if !exists {
 					gslbutils.Debugf("No VS uuid exist for object, Status reason: %v", akoVSControllerUUID)
 					continue
 				}
-				controllerUUID, exists = akoVSControllerUUID[ControllerAnnotation]
+				controllerUUID, exists = akoVSControllerUUID[gslbutils.ControllerAnnotation]
 				if !exists {
 					gslbutils.Debugf("No Controller uuid exist for object,  Status reason: %v", akoVSControllerUUID)
 					continue
@@ -139,12 +141,13 @@ func parseVSAndControllerUUIDStatus(status routev1.RouteStatus, hostName string)
 					gslbutils.Debugf("Error in unmarshalling VS UUID : %v", err)
 					continue
 				}
+				tenant, _ = akoVSControllerUUID[gslbutils.TenantAnnotation]
 				//If everything is ok, return from here
-				return vsUUIDs, controllerUUID, nil
+				return vsUUIDs, controllerUUID, tenant, nil
 			}
 		}
 	}
-	return vsUUIDs, controllerUUID, fmt.Errorf("no VSUUID Controller-UUID annotations")
+	return vsUUIDs, controllerUUID, tenant, fmt.Errorf("no VSUUID Controller-UUID annotations")
 }
 
 // RouteMeta is the metadata for a route. It is the minimal information
@@ -163,6 +166,8 @@ type RouteMeta struct {
 	Passthrough        bool
 	VirtualServiceUUID string
 	ControllerUUID     string
+	Tenant             string
+	OldTenant          string
 }
 
 func (route RouteMeta) GetType() string {
@@ -226,6 +231,14 @@ func (route RouteMeta) GetVirtualServiceUUID() string {
 
 func (route RouteMeta) GetControllerUUID() string {
 	return route.ControllerUUID
+}
+
+func (route RouteMeta) GetTenant() string {
+	return route.Tenant
+}
+
+func (route RouteMeta) GetOldTenant() string {
+	return route.OldTenant
 }
 
 func (route RouteMeta) UpdateHostMap(key string) {

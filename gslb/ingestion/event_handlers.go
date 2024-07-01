@@ -224,6 +224,15 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 				fetchedIngHost.Hostname, c.workqueue)
 			continue
 		}
+
+		// check if tenant has changed for ingressHost
+		if ihm.Tenant != newIhm.Tenant {
+			newIhm.OldTenant = ihm.Tenant
+			oper := gslbutils.ObjectDelete
+			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, newIhm.Namespace, newIhm.ObjName,
+				oper, newIhm.Hostname, c.workqueue)
+		}
+
 		// check if the object existed in the acceptedIngStore
 		oper := gslbutils.ObjectAdd
 		if _, ok := acceptedIngStore.GetClusterNSObjectByName(c.name, newIhm.Namespace, newIhm.ObjName); ok {

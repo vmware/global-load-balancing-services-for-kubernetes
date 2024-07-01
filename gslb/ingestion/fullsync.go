@@ -435,7 +435,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 			continue
 		}
 		tenant, hmName := hmKey.Tenant, hmKey.Name
-		gsName, gen, err := avicache.GetGSFromHmName(hmName)
+		gsName, gen, err := avicache.GetGSFromHmName(hmName, tenant)
 		if err != nil {
 			gslbutils.Logf("key: %v, msg: can't get gs name from hm, err : %v", hmKey, err)
 			continue

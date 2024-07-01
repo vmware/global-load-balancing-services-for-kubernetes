@@ -36,6 +36,8 @@ type MetaObject interface {
 	IsPassthrough() bool
 	GetVirtualServiceUUID() string
 	GetControllerUUID() string
+	GetTenant() string
+	GetOldTenant() string
 }
 
 type FilterableObject interface {
@@ -52,8 +54,3 @@ type ObjHostMap struct {
 	HostMap map[string]IPHostname
 	Lock    sync.Mutex
 }
-
-const (
-	VSAnnotation         = "ako.vmware.com/host-fqdn-vs-uuid-map"
-	ControllerAnnotation = "ako.vmware.com/controller-cluster-uuid"
-)
