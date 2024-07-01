@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
@@ -517,7 +516,7 @@ func verifyGSDoesNotExist(t *testing.T, name string) bool {
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
 	weight uint32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(ingObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", ingObj.Annotations, err)
 	}
 	hostName := ingObj.Spec.Rules[0].Host
@@ -540,14 +539,14 @@ func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname st
 	}
 	return getTestGSMember(cname, gslbutils.IngressType, ingObj.Name, ingObj.Namespace,
 		ingObj.Status.LoadBalancer.Ingress[0].IP, vsUUIDs[hostName],
-		ingObj.Annotations[k8sobjects.ControllerAnnotation],
+		ingObj.Annotations[gslbutils.ControllerAnnotation],
 		true, false, tls, paths, weight)
 }
 
 func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname string,
 	weight uint32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(routeObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", routeObj.Annotations, err)
 	}
 	hostName := routeObj.Spec.Host
@@ -559,7 +558,7 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 
 	return getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
 		routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[hostName],
-		routeObj.Annotations[k8sobjects.ControllerAnnotation],
+		routeObj.Annotations[gslbutils.ControllerAnnotation],
 		true, false, tls, paths, weight)
 }
 

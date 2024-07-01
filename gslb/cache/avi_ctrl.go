@@ -35,7 +35,7 @@ var aviClientInstance *utils.AviRestClientPool
 var clientOnce sync.Once
 
 // SharedAviClients initializes a pool of connections to the avi controller
-func SharedAviClients() *utils.AviRestClientPool {
+func SharedAviClients(tenant string) *utils.AviRestClientPool {
 	clientOnce.Do(func() {
 		var err error
 
@@ -44,7 +44,9 @@ func SharedAviClients() *utils.AviRestClientPool {
 			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
 		}
 		os.Setenv("CTRL_VERSION", ctrlCfg.Version)
-		aviClientInstance, _, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "", ctrlCfg.Version, "")
+		userHeaders := utils.SharedCtrlProp().GetCtrlUserHeader()
+		apiScheme := utils.SharedCtrlProp().GetCtrlAPIScheme()
+		aviClientInstance, _, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "", ctrlCfg.Version, "", tenant, apiScheme, userHeaders)
 		if err != nil {
 			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
 		}
@@ -53,7 +55,7 @@ func SharedAviClients() *utils.AviRestClientPool {
 }
 
 func IsAviSiteLeader() (bool, error) {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("admin")
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
 		return false, errors.New("no avi clients initialized")
@@ -181,8 +183,8 @@ func GetGslbLeaderUuid(client *clients.AviClient) (string, error) {
 	return leaderUUID, nil
 }
 
-func GetHMFromName(name string, gdp bool) (*models.HealthMonitor, error) {
-	aviClient := SharedAviClients().AviClient[0]
+func GetHMFromName(name string, gdp bool, tenant string) (*models.HealthMonitor, error) {
+	aviClient := SharedAviClients(tenant).AviClient[0]
 	uri := "api/healthmonitor?name=" + name
 
 	result, err := gslbutils.GetUriFromAvi(uri, aviClient, gdp)

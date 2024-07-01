@@ -966,10 +966,10 @@ func loadClusterAccess(membersKubeConfig string, memberClusters []gslbalphav1.Me
 	return clusterDetails
 }
 
-func isHealthMonitorTemplatePresentInCache(hmName string) bool {
+func isHealthMonitorTemplatePresentInCache(hmName, tenant string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
-	obj, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName})
+	obj, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: tenant, Name: hmName})
 	if !present {
 		return false
 	}
@@ -980,12 +980,13 @@ func isHealthMonitorTemplatePresentInCache(hmName string) bool {
 // Checks whether the template is present in the controller. If present, it adds the contents of the template to the cache which will
 // used for the creation of health monitors. If the template is not present in the controller, the GDP/GSLBHostRule
 // will be rejected.
-func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool) error {
-	if fullSync && isHealthMonitorTemplatePresentInCache(hmTemplate) {
+func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool, namespace string) error {
+	tenant := gslbutils.GetTenantInNamespace(namespace)
+	if fullSync && isHealthMonitorTemplatePresentInCache(hmTemplate, tenant) {
 		gslbutils.Debugf("health monitor template %s present in hm cache", hmTemplate)
 		return nil
 	}
-	hm, err := avictrl.GetHMFromName(hmTemplate, gdp)
+	hm, err := avictrl.GetHMFromName(hmTemplate, gdp, tenant)
 	if err != nil {
 		gslbutils.Errf("Health Monitor Template %s not found", hmTemplate)
 		return fmt.Errorf("health monitor template %s not found", hmTemplate)
@@ -1012,10 +1013,10 @@ func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool)
 		return fmt.Errorf("client request header in health monitor template %s is invalid", hmTemplate)
 	}
 
-	key := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmTemplate}
+	key := avictrl.TenantName{Tenant: tenant, Name: hmTemplate}
 	hmCacheObj := avictrl.AviHmObj{
 		Name:   hmTemplate,
-		Tenant: gslbutils.GetTenant(),
+		Tenant: tenant,
 		UUID:   *hm.UUID,
 		CustomHmSettings: &avictrl.CustomHmSettings{
 			RequestHeader: *hmHTTP.HTTPRequest,
