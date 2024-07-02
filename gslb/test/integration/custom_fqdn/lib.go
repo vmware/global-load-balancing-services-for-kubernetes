@@ -37,9 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
-	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 )
 
@@ -155,6 +153,7 @@ func getAnnotations(hostNames []string) map[string]string {
 	annot := map[string]string{
 		"ako.vmware.com/controller-cluster-uuid": "cluster-XXXXX",
 		"ako.vmware.com/host-fqdn-vs-uuid-map":   "",
+		gslbutils.TenantAnnotation:               "tenant1",
 	}
 
 	hostVS := map[string]string{}
@@ -284,24 +283,6 @@ func BuildAddAndVerifyAppSelectorTestGDP(t *testing.T) (*gdpalphav2.GlobalDeploy
 	return AddAndVerifyTestGDPSuccess(t, gdpObj)
 }
 
-func BuildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
-	expectedKey := ingestion_test.GetIngressKey(op, cname, ns, name, hostname)
-	t.Logf("key: %s, msg: will verify key", expectedKey)
-	passed, errStr := ingestion_test.WaitAndVerify(t, []string{expectedKey}, timeoutExpected, ingestionKeyChan)
-	if !passed {
-		t.Fatalf(errStr)
-	}
-}
-
-func BuildRouteKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
-	expectedKey := ingestion_test.GetRouteKey(op, cname, ns, name)
-	t.Logf("key: %s, msg: will verify key", expectedKey)
-	passed, errStr := ingestion_test.WaitAndVerify(t, []string{expectedKey}, timeoutExpected, ingestionKeyChan)
-	if !passed {
-		t.Fatalf(errStr)
-	}
-}
-
 func GetTestDefaultGDPObject() *gdpalphav2.GlobalDeploymentPolicy {
 	matchRules := gdpalphav2.MatchRules{}
 	matchClusters := []gdpalphav2.ClusterProperty{}
@@ -357,9 +338,9 @@ func AddAndVerifyTestGDPFailure(t *testing.T, gdp *gdpalphav2.GlobalDeploymentPo
 	return newGdpObj, nil
 }
 
-func GetTestGSGraphFromName(t *testing.T, gsName string) *nodes.AviGSObjectGraph {
+func GetTestGSGraphFromName(t *testing.T, gsName, tenant string) *nodes.AviGSObjectGraph {
 	gsList := nodes.SharedAviGSGraphLister()
-	key := gslbutils.GetTenant() + "/" + gsName
+	key := tenant + "/" + gsName
 	found, gsObj := gsList.Get(key)
 	if !found {
 		t.Logf("error in fetching GS for key %s", key)
@@ -388,7 +369,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 		hmTemplate = extraArgs[1].(*string)
 	}
 
-	gs := GetTestGSGraphFromName(t, name)
+	gs := GetTestGSGraphFromName(t, name, tenant)
 	if gs == nil {
 		t.Logf("GS Graph is nil, this is unexpected")
 		return false
@@ -509,15 +490,15 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name, te
 	return true
 }
 
-func verifyGSDoesNotExist(t *testing.T, name string) bool {
-	gs := GetTestGSGraphFromName(t, name)
+func verifyGSDoesNotExist(t *testing.T, name, tenant string) bool {
+	gs := GetTestGSGraphFromName(t, name, tenant)
 	return gs == nil
 }
 
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
 	weight uint32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(ingObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", ingObj.Annotations, err)
 	}
 	hostName := ingObj.Spec.Rules[0].Host
@@ -540,14 +521,14 @@ func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname st
 	}
 	return getTestGSMember(cname, gslbutils.IngressType, ingObj.Name, ingObj.Namespace,
 		ingObj.Status.LoadBalancer.Ingress[0].IP, vsUUIDs[hostName],
-		ingObj.Annotations[k8sobjects.ControllerAnnotation],
+		ingObj.Annotations[gslbutils.ControllerAnnotation],
 		true, false, tls, paths, weight)
 }
 
 func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname string,
 	weight uint32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(routeObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", routeObj.Annotations, err)
 	}
 	hostName := routeObj.Spec.Host
@@ -559,7 +540,7 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 
 	return getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
 		routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[hostName],
-		routeObj.Annotations[k8sobjects.ControllerAnnotation],
+		routeObj.Annotations[gslbutils.ControllerAnnotation],
 		true, false, tls, paths, weight)
 }
 

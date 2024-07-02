@@ -630,6 +630,11 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	avicache.PopulatePkiCache()
 	newCache := avicache.PopulateGSCache(true)
 
+	// Start the informers for the member controllers
+	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.StartNamespaceInformer(stopCh)
+	}
+
 	bootupSync(aviCtrlList, newCache)
 	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "Initial bootup sync completed.")
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
@@ -812,6 +817,7 @@ func Initialize() {
 		AddGSLBHostRuleObj, UpdateGSLBHostRuleObj, DeleteGSLBHostRuleObj)
 
 	gslbhrInformer := gslbInformerFactory.Amko().V1alpha1().GSLBHostRules()
+	gslbutils.SetAMKOCrdInformers(&gslbutils.AMKOCrdInformers{GslbHostruleInformer: gslbhrInformer})
 	go gslbhrInformer.Informer().Run(stopCh)
 
 	go RunControllers(gslbController, gdpCtrl, gslbhrCtrl, stopCh)
@@ -918,7 +924,7 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	if err != nil {
 		return nil, fmt.Errorf("HostRule API not available for cluster: %v", err)
 	}
-
+	gslbutils.SetInformersPerCluster(cluster.clusterName, informerInstance)
 	aviCtrl.hrClientSet = betacrdClient
 	aviCtrl.hrAlphaClientSet = aplhaCrdClient
 	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
@@ -966,10 +972,10 @@ func loadClusterAccess(membersKubeConfig string, memberClusters []gslbalphav1.Me
 	return clusterDetails
 }
 
-func isHealthMonitorTemplatePresentInCache(hmName string) bool {
+func isHealthMonitorTemplatePresentInCache(hmName, tenant string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
-	obj, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName})
+	obj, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: tenant, Name: hmName})
 	if !present {
 		return false
 	}
@@ -980,12 +986,13 @@ func isHealthMonitorTemplatePresentInCache(hmName string) bool {
 // Checks whether the template is present in the controller. If present, it adds the contents of the template to the cache which will
 // used for the creation of health monitors. If the template is not present in the controller, the GDP/GSLBHostRule
 // will be rejected.
-func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool) error {
-	if fullSync && isHealthMonitorTemplatePresentInCache(hmTemplate) {
+func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool, namespace string) error {
+	tenant := gslbutils.GetTenantInNamespace(namespace, gslbutils.LeaderClusterContext)
+	if fullSync && isHealthMonitorTemplatePresentInCache(hmTemplate, tenant) {
 		gslbutils.Debugf("health monitor template %s present in hm cache", hmTemplate)
 		return nil
 	}
-	hm, err := avictrl.GetHMFromName(hmTemplate, gdp)
+	hm, err := avictrl.GetHMFromName(hmTemplate, gdp, tenant)
 	if err != nil {
 		gslbutils.Errf("Health Monitor Template %s not found", hmTemplate)
 		return fmt.Errorf("health monitor template %s not found", hmTemplate)
@@ -1012,10 +1019,10 @@ func validateAndAddHmTemplateToCache(hmTemplate string, gdp bool, fullSync bool)
 		return fmt.Errorf("client request header in health monitor template %s is invalid", hmTemplate)
 	}
 
-	key := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmTemplate}
+	key := avictrl.TenantName{Tenant: tenant, Name: hmTemplate}
 	hmCacheObj := avictrl.AviHmObj{
 		Name:   hmTemplate,
-		Tenant: gslbutils.GetTenant(),
+		Tenant: tenant,
 		UUID:   *hm.UUID,
 		CustomHmSettings: &avictrl.CustomHmSettings{
 			RequestHeader: *hmHTTP.HTTPRequest,

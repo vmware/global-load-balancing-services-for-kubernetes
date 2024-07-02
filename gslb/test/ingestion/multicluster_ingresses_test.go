@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
@@ -47,13 +48,13 @@ func TestMultiClusterIngressCD(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing ingresses")
 	k8sAddMultiClusterIngress(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	// Verify the presence of the object in the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	// should be deleted from the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -75,7 +76,7 @@ func TestMultiClusterIngressCUD(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	ingObj := k8sAddMultiClusterIngress(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	t.Log("Verifying in the accepted store")
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
@@ -87,8 +88,8 @@ func TestMultiClusterIngressCUD(t *testing.T) {
 	allKeys := []string{}
 	t.Log("updating Multi-cluster ingress")
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
-	allKeys = append(allKeys, GetMultiClusterIngressKey("DELETE", cname, ns, ingName, host))
-	allKeys = append(allKeys, GetMultiClusterIngressKey("ADD", cname, ns, ingName, newHost))
+	allKeys = append(allKeys, GetMultiClusterIngressKey("DELETE", cname, ns, ingName, host, tenant))
+	allKeys = append(allKeys, GetMultiClusterIngressKey("ADD", cname, ns, ingName, newHost, tenant))
 	VerifyAllKeys(t, allKeys, false)
 	t.Log("Verifying that the ingress hostname doesn't exist in the accepted store")
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
@@ -96,7 +97,7 @@ func TestMultiClusterIngressCUD(t *testing.T) {
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, newHost, ipAddr)
 
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
 	DeleteTestGDPObj(gdp)
 }
@@ -117,7 +118,7 @@ func TestMultiClusterIngressLabelChange(t *testing.T) {
 	// Add and test ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	ingObj := k8sAddMultiClusterIngress(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	ingObj.Labels["key"] = "value1"
@@ -126,7 +127,7 @@ func TestMultiClusterIngressLabelChange(t *testing.T) {
 
 	// the key should be for DELETE, as we have amended the label on the ingress, which is not
 	// allowed by the GDP object selection criteria
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	// the ihm object should be moved from the accepted to the rejected store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	verifyInMultiClusterIngressStore(g, rejectedIngStore, true, ingName, ns, cname, host, ipAddr)
@@ -135,14 +136,14 @@ func TestMultiClusterIngressLabelChange(t *testing.T) {
 	ingObj.Labels["key"] = "value"
 	ingObj.ResourceVersion = "102"
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	// ihm should be moved from rejected to accepted store now
 	verifyInMultiClusterIngressStore(g, rejectedIngStore, false, ingName, ns, cname, host, ipAddr)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	// delete the ingress and verify
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
 }
@@ -163,13 +164,13 @@ func TestEmptyStatusMultiClusterIngress(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	k8sAddMultiClusterIngressWithoutStatus(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host, tenant)
 	// Verify the presence of the object in the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host, tenant)
 	// should be deleted from the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -191,7 +192,7 @@ func TestStatusChangeToEmptyMultiClusterIngress(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	ingObj := k8sAddMultiClusterIngress(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	// Verify the presence of the object in the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
@@ -199,12 +200,12 @@ func TestStatusChangeToEmptyMultiClusterIngress(t *testing.T) {
 	ingObj.Status.LoadBalancer.Ingress[0].IP = ""
 	ingObj.ResourceVersion = "101"
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, true, "DELETE", cname, ns, ingName, host, tenant)
 	// should be deleted from the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -226,7 +227,7 @@ func TestStatusChangeFromEmptyMultiClusterIngress(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	ingObj := k8sAddMultiClusterIngressWithoutStatus(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, true, "ADD", cname, ns, ingName, host, tenant)
 	// Verify the presence of the object in the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 
@@ -236,12 +237,12 @@ func TestStatusChangeFromEmptyMultiClusterIngress(t *testing.T) {
 	})
 	ingObj.ResourceVersion = "101"
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	// should be deleted from the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -264,18 +265,18 @@ func TestStatusChangeIPAddrMultiClusterIngress(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	ingObj := k8sAddMultiClusterIngress(t, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	ingObj.Status.LoadBalancer.Ingress[0].IP = newIPAddr
 	ingObj.ResourceVersion = "101"
 
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
-	buildMultiClusterIngressKeyAndVerify(t, false, "UPDATE", cname, ns, ingObj.Name, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "UPDATE", cname, ns, ingObj.Name, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, newIPAddr)
 
 	k8sDeleteMultiClusterIngress(t, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, newIPAddr)
 	DeleteTestGDPObj(gdp)
 }
@@ -296,13 +297,13 @@ func TestTLSMultiClusterIngressCD(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	k8sAddTLSMultiClusterIngress(t, fooKubeClient, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	// Verify the presence of the object in the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	k8sDeleteTLSMultiClusterIngress(t, fooKubeClient, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, host, tenant)
 	// should be deleted from the accepted store
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -324,7 +325,7 @@ func TestTLSMultiClusterIngressCUD(t *testing.T) {
 	// Add and test Multi-cluster ingresses
 	t.Log("Adding and testing Multi-cluster ingresses")
 	ingObj := k8sAddTLSMultiClusterIngress(t, fooKubeClient, fooCRDKubeClient, ingName, ns, TestSvc, cname, ingHostIPMap)
-	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host)
+	buildMultiClusterIngressKeyAndVerify(t, false, "ADD", cname, ns, ingName, host, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, host, ipAddr)
 
 	newHost := testPrefix + TestDomain2
@@ -334,15 +335,15 @@ func TestTLSMultiClusterIngressCUD(t *testing.T) {
 
 	allKeys := []string{}
 	k8sUpdateMultiClusterIngress(t, fooCRDKubeClient, ns, cname, ingObj)
-	allKeys = append(allKeys, GetMultiClusterIngressKey("DELETE", cname, ns, ingObj.Name, host))
-	allKeys = append(allKeys, GetMultiClusterIngressKey("ADD", cname, ns, ingObj.Name, newHost))
+	allKeys = append(allKeys, GetMultiClusterIngressKey("DELETE", cname, ns, ingObj.Name, host, tenant))
+	allKeys = append(allKeys, GetMultiClusterIngressKey("ADD", cname, ns, ingObj.Name, newHost, tenant))
 	VerifyAllKeys(t, allKeys, false)
 
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, host, ipAddr)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, true, ingName, ns, cname, newHost, ipAddr)
 
 	k8sDeleteTLSMultiClusterIngress(t, fooKubeClient, fooCRDKubeClient, ingName, ns)
-	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost)
+	buildMultiClusterIngressKeyAndVerify(t, false, "DELETE", cname, ns, ingName, newHost, tenant)
 	verifyInMultiClusterIngressStore(g, acceptedIngStore, false, ingName, ns, cname, newHost, ipAddr)
 	DeleteTestGDPObj(gdp)
 }
@@ -450,6 +451,12 @@ func buildMultiClusterIngressObj(name, ns, svc, cname string, hostIPs map[string
 	labelMap := make(map[string]string)
 	labelMap["key"] = "value"
 	ingObj.Labels = labelMap
+	annot := map[string]string{
+		gslbutils.VSAnnotation:         "",
+		gslbutils.ControllerAnnotation: "",
+		gslbutils.TenantAnnotation:     "tenant1",
+	}
+	ingObj.Annotations = annot
 	return ingObj
 }
 
