@@ -28,6 +28,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 )
 
 const (
@@ -68,6 +69,13 @@ func setUp() {
 	gf.ApplicableClusters = make(map[string]gslbutils.ClusterProperties)
 	gf.ApplicableClusters[FooCluster] = gslbutils.ClusterProperties{SyncVipsOnly: true}
 	gf.ApplicableClusters[BarCluster] = gslbutils.ClusterProperties{SyncVipsOnly: true}
+
+	registeredInformers := []string{
+		utils.NSInformer,
+	}
+	KubeClient := k8sfake.NewSimpleClientset()
+	utils.NewInformers(utils.KubeClientIntf{ClientSet: KubeClient}, registeredInformers)
+
 }
 
 func graphSyncFuncForTest(key interface{}, wg *sync.WaitGroup) error {
@@ -135,6 +143,7 @@ func AddSvcMeta(t *testing.T, name, ns, host, svc, ip, cname string, create bool
 		Cluster:   cname,
 		Port:      80,
 		Protocol:  "TCP",
+		Tenant:    gslbutils.GetTenant(),
 	}
 	acceptedSvcStore.AddOrUpdate(svcMeta, cname, ns, objName)
 	addKeyToIngestionQueue(ns, key)
@@ -158,6 +167,7 @@ func AddIngressMeta(t *testing.T, name, ns, host, svc, ip, cname string, create 
 		ObjName:   objName,
 		Paths:     []string{"/"},
 		TLS:       false,
+		Tenant:    gslbutils.GetTenant(),
 	}
 	acceptedIngStore.AddOrUpdate(ingExample, cname, ns, objName)
 	addKeyToIngestionQueue(ns, key)
@@ -181,6 +191,7 @@ func AddMultiClusterIngressMeta(t *testing.T, name, ns, host, svc, ip, cname str
 		ObjName:   objName,
 		Paths:     []string{"/"},
 		TLS:       false,
+		Tenant:    gslbutils.GetTenant(),
 	}
 	acceptedIngStore.AddOrUpdate(ingExample, cname, ns, objName)
 	addKeyToIngestionQueue(ns, key)
