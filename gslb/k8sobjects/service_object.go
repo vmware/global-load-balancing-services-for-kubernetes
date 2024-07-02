@@ -71,6 +71,8 @@ type SvcMeta struct {
 	Protocol           string
 	VirtualServiceUUID string
 	ControllerUUID     string
+	Tenant             string
+	OldTenant          string
 }
 
 // GetSvcMeta returns a trimmed down version of a svc
@@ -81,7 +83,7 @@ func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
 		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error: %v",
 			cname, svc.Namespace, svc.Name, err)
 	}
-	vsUUIDs, controllerUUID, err := parseVSAndControllerAnnotations(svc.Annotations)
+	vsUUIDs, controllerUUID, tenant, err := parseVSAndControllerAnnotations(svc.Annotations)
 	if err != nil && !syncVIPsOnly {
 		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error in parsing VS and Controller annotations: %v",
 			cname, svc.Namespace, svc.Name, err)
@@ -105,6 +107,7 @@ func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
 		Cluster:            cname,
 		VirtualServiceUUID: vsUUID,
 		ControllerUUID:     controllerUUID,
+		Tenant:             tenant,
 	}
 	metaObj.Labels = make(map[string]string)
 	for key, value := range svc.GetLabels() {
@@ -187,6 +190,14 @@ func (svc SvcMeta) IsPassthrough() bool {
 
 func (svc SvcMeta) GetVirtualServiceUUID() string {
 	return svc.VirtualServiceUUID
+}
+
+func (svc SvcMeta) GetTenant() string {
+	return svc.Tenant
+}
+
+func (svc SvcMeta) GetOldTenant() string {
+	return svc.OldTenant
 }
 
 func (svc SvcMeta) GetControllerUUID() string {

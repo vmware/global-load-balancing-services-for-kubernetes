@@ -33,6 +33,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
@@ -180,6 +182,11 @@ func SetUpAMKOConfigs() {
 	}
 	amkoControlConfig.SetGSLBClientset(gslbClient)
 
+	registeredInformers := []string{
+		utils.NSInformer,
+	}
+	KubeClient := k8sfake.NewSimpleClientset()
+	utils.NewInformers(utils.KubeClientIntf{ClientSet: KubeClient}, registeredInformers)
 	gdpClient, err := gdpcs.NewForConfig(cfgs[ConfigCluster])
 	if err != nil {
 		gslbutils.Errf("error occurred while creating a clientset for gdp: %v", err)

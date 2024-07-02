@@ -40,7 +40,6 @@ import (
 
 	avicache "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
-	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	amkorest "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/rest"
 	ingestion_test "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/test/ingestion"
@@ -940,7 +939,7 @@ func verifyGSMembers(t *testing.T, expectedMembers []nodes.AviGSK8sObj, name str
 func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname string,
 	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(ingObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(ingObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", ingObj.Annotations, err)
 	}
 	hostName := ingObj.Spec.Rules[0].Host
@@ -963,14 +962,14 @@ func getTestGSMemberFromIng(t *testing.T, ingObj *networkingv1.Ingress, cname st
 	}
 	return getTestGSMember(cname, gslbutils.IngressType, ingObj.Name, ingObj.Namespace,
 		ingObj.Status.LoadBalancer.Ingress[0].IP, vsUUIDs[hostName],
-		ingObj.Annotations[k8sobjects.ControllerAnnotation],
+		ingObj.Annotations[gslbutils.ControllerAnnotation],
 		true, false, tls, paths, weight, priority)
 }
 
 func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname string,
 	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(routeObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", routeObj.Annotations, err)
 	}
 	hostName := routeObj.Spec.Host
@@ -987,7 +986,7 @@ func getTestGSMemberFromRoute(t *testing.T, routeObj *routev1.Route, cname strin
 
 	return getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
 		routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[hostName],
-		routeObj.Annotations[k8sobjects.ControllerAnnotation],
+		routeObj.Annotations[gslbutils.ControllerAnnotation],
 		true, isPassThrough, tls, paths, weight, priority)
 }
 
@@ -997,7 +996,7 @@ func getTestGSMemberFromMultiPathRoute(t *testing.T, routeObjList []*routev1.Rou
 
 	for _, routeObj := range routeObjList {
 		vsUUIDs := make(map[string]string)
-		if err := json.Unmarshal([]byte(routeObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+		if err := json.Unmarshal([]byte(routeObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 			t.Fatalf("error in getting annotations from route object %v: %v", routeObj.Annotations, err)
 		}
 		var tls bool
@@ -1006,7 +1005,7 @@ func getTestGSMemberFromMultiPathRoute(t *testing.T, routeObjList []*routev1.Rou
 		}
 		gsMemberList = append(gsMemberList, getTestGSMember(cname, gslbutils.RouteType, routeObj.Name, routeObj.Namespace,
 			routeObj.Status.Ingress[0].Conditions[0].Message, vsUUIDs[routeObj.Spec.Host],
-			routeObj.Annotations[k8sobjects.ControllerAnnotation],
+			routeObj.Annotations[gslbutils.ControllerAnnotation],
 			true, false, tls, []string{routeObj.Spec.Path}, weight, priority))
 	}
 	return gsMemberList
@@ -1015,14 +1014,14 @@ func getTestGSMemberFromMultiPathRoute(t *testing.T, routeObjList []*routev1.Rou
 func getTestGSMemberFromSvc(t *testing.T, svcObj *corev1.Service, cname string,
 	weight int32, priority int32) nodes.AviGSK8sObj {
 	vsUUIDs := make(map[string]string)
-	if err := json.Unmarshal([]byte(svcObj.Annotations[k8sobjects.VSAnnotation]), &vsUUIDs); err != nil {
+	if err := json.Unmarshal([]byte(svcObj.Annotations[gslbutils.VSAnnotation]), &vsUUIDs); err != nil {
 		t.Fatalf("error in getting annotations from ingress object %v: %v", svcObj.Annotations, err)
 	}
 	hostName := svcObj.Status.LoadBalancer.Ingress[0].Hostname
 
 	return getTestGSMember(cname, gslbutils.SvcType, svcObj.Name, svcObj.Namespace,
 		svcObj.Status.LoadBalancer.Ingress[0].IP, vsUUIDs[hostName],
-		svcObj.Annotations[k8sobjects.ControllerAnnotation],
+		svcObj.Annotations[gslbutils.ControllerAnnotation],
 		true, false, false, []string{}, weight, priority)
 }
 
@@ -1124,7 +1123,7 @@ func VerifyGSLBHostRuleStatus(t *testing.T, ns, name, status, errMsg string) {
 }
 
 func GetTestGSFromRestCache(t *testing.T, gsName string) *avicache.AviGSCache {
-	restLayerF := amkorest.NewRestOperations(nil, nil, nil)
+	restLayerF := amkorest.NewRestOperations(nil, nil)
 	gsKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: gsName}
 	key := gslbutils.GetTenant() + "/" + gsName
 	gsObj := restLayerF.GetGSCacheObj(gsKey, key)

@@ -205,7 +205,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 				continue
 			}
 
-			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *hm.Name}
+			k := TenantName{Tenant: getTenantFromTenantRef(*hm.TenantRef), Name: *hm.Name}
 			var monitorPort int32
 			if hm.MonitorPort != nil {
 				monitorPort = *hm.MonitorPort
@@ -234,7 +234,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 			cksum := gslbutils.GetGSLBHmChecksum(*hm.Type, monitorPort, []string{description}, createdBy)
 			hmCacheObj := AviHmObj{
 				Name:             *hm.Name,
-				Tenant:           gslbutils.GetTenant(),
+				Tenant:           getTenantFromTenantRef(*hm.TenantRef),
 				UUID:             *hm.UUID,
 				Port:             monitorPort,
 				CloudConfigCksum: cksum,
@@ -342,7 +342,7 @@ func (s *AviPkiCache) AviPkiCachePopulate(client *clients.AviClient) error {
 				continue
 			}
 
-			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+			k := TenantName{Tenant: getTenantFromTenantRef(*sp.TenantRef), Name: *sp.Name}
 			s.AviPkiCacheAdd(k, &sp)
 			s.AviPkiCacheAddByUUID(*sp.UUID, &sp)
 			gslbutils.Debugf("processed pki profile %s, UUID: %s", *sp.Name, *sp.UUID)
@@ -443,7 +443,7 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 				continue
 			}
 
-			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+			k := TenantName{Tenant: getTenantFromTenantRef(*sp.TenantRef), Name: *sp.Name}
 			s.AviSpCacheAdd(k, &sp)
 			s.AviSpCacheAddByUUID(*sp.UUID, &sp)
 			gslbutils.Debugf("processed site persistence %s, UUID: %s", *sp.Name, *sp.UUID)
@@ -636,10 +636,10 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 			return
 		}
 	}
-	k := TenantName{Tenant: gslbutils.GetTenant(), Name: name}
+	k := TenantName{Tenant: getTenantFromTenantRef(*gsObj.TenantRef), Name: name}
 	gsCacheObj := AviGSCache{
 		Name:             name,
-		Tenant:           gslbutils.GetTenant(),
+		Tenant:           getTenantFromTenantRef(*gsObj.TenantRef),
 		Uuid:             uuid,
 		Members:          gsMembers,
 		K8sObjects:       memberObjs,
@@ -955,8 +955,8 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 // As name is encoded, retreiving information about the Hm becomes difficult
 // Thats why we fetch Hm description for further processing
-func GetHmDescriptionFromName(hmName string) string {
-	aviRestClientPool := SharedAviClients()
+func GetHmDescriptionFromName(hmName, tenant string) string {
+	aviRestClientPool := SharedAviClients(tenant)
 	if len(aviRestClientPool.AviClient) < 1 {
 		return ""
 	}
@@ -1010,8 +1010,8 @@ func GetGSNameFromHmName(hmName string) (string, error) {
 // gen = 1 if the HM name is encoded and the gsname is fetched from its description
 // gen = 2 if the HM name follows the old non encoded naming convention and gsname is fetched from hmname
 // gen = 0 for error
-func GetGSFromHmName(hmName string) (string, int8, error) {
-	hmDesc := GetHmDescriptionFromName(hmName)
+func GetGSFromHmName(hmName, tenant string) (string, int8, error) {
+	hmDesc := GetHmDescriptionFromName(hmName, tenant)
 	hmDescriptionSplit := strings.Split(hmDesc, "gsname: ")
 	if len(hmDescriptionSplit) == 2 {
 		gsNameField := strings.Split(hmDescriptionSplit[1], ",")
@@ -1210,7 +1210,7 @@ type TenantName struct {
 }
 
 func PopulateGSCache(createSharedCache bool) *AviCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	var aviObjCache *AviCache
 	if createSharedCache {
 		aviObjCache = GetAviCache()
@@ -1228,7 +1228,7 @@ func PopulateGSCache(createSharedCache bool) *AviCache {
 }
 
 func PopulateHMCache(createSharedCache bool) *AviHmCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	var aviHmCache *AviHmCache
 	if createSharedCache {
 		aviHmCache = GetAviHmCache()
@@ -1245,7 +1245,7 @@ func PopulateHMCache(createSharedCache bool) *AviHmCache {
 }
 
 func PopulateSPCache() *AviSpCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	aviSpCache := GetAviSpCache()
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviSitePersistenceCachePopulate(aviRestClientPool.AviClient[0])
@@ -1254,7 +1254,7 @@ func PopulateSPCache() *AviSpCache {
 }
 
 func PopulatePkiCache() *AviPkiCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	aviSpCache := GetAviPkiCache()
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviPkiCachePopulate(aviRestClientPool.AviClient[0])
@@ -1266,7 +1266,7 @@ func VerifyVersion() error {
 	gslbutils.Logf("verifying the controller version")
 	version := gslbutils.GetAviConfig().Version
 
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
 		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "No Avi clients initialized.")
@@ -1302,4 +1302,16 @@ func VerifyVersion() error {
 	}
 
 	return nil
+}
+
+func getTenantFromTenantRef(tenantRef string) string {
+	arr := strings.Split(tenantRef, "#")
+	if len(arr) == 2 {
+		return arr[1]
+	}
+	if len(arr) == 1 {
+		arr = strings.Split(tenantRef, "/")
+		return arr[len(arr)-1]
+	}
+	return tenantRef
 }

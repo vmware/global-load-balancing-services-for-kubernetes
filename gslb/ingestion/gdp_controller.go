@@ -341,12 +341,12 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 
 	// Health monitor validity
 	if gdp.Spec.HealthMonitorTemplate != nil {
-		if err := validateAndAddHmTemplateToCache(*gdp.Spec.HealthMonitorTemplate, true, fullSync); err != nil {
+		if err := validateAndAddHmTemplateToCache(*gdp.Spec.HealthMonitorTemplate, true, fullSync, gdp.Namespace); err != nil {
 			return err
 		}
 	} else if len(gdp.Spec.HealthMonitorRefs) != 0 {
 		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
-			if !isHealthMonitorRefValid(hmRef, true, fullSync) {
+			if !isHealthMonitorRefValid(hmRef, true, fullSync, gdp.Namespace) {
 				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
 			}
 		}
@@ -361,7 +361,7 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
 		return fmt.Errorf("empty string as site persistence reference not supported")
 	} else if gdp.Spec.SitePersistenceRef != nil {
-		if !isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync) {
+		if !isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync, gdp.Namespace) {
 			return fmt.Errorf("site persistence ref %s not present", *gdp.Spec.SitePersistenceRef)
 		}
 	}
@@ -370,7 +370,7 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 	if gdp.Spec.PKIProfileRef != nil && *gdp.Spec.PKIProfileRef == "" {
 		return fmt.Errorf("empty string as pki profile reference not supported")
 	} else if gdp.Spec.PKIProfileRef != nil {
-		if !isPKIProfilePresent(*gdp.Spec.PKIProfileRef, true, fullSync) {
+		if !isPKIProfilePresent(*gdp.Spec.PKIProfileRef, true, fullSync, gdp.Namespace) {
 			return fmt.Errorf("pki profile ref %s not present", *gdp.Spec.PKIProfileRef)
 		}
 	}
@@ -718,7 +718,8 @@ func deleteHmTemplateFromCacheIfRequired(oldGdp, newGdp *gdpalphav2.GlobalDeploy
 	if !gslbutils.IsHmTemplateChanged(oldGdp, newGdp) {
 		return false
 	}
-	hmKey := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *oldGdp.Spec.HealthMonitorTemplate}
+	tenant := gslbutils.GetTenantInNamespace(newGdp.Namespace)
+	hmKey := avictrl.TenantName{Tenant: tenant, Name: *oldGdp.Spec.HealthMonitorTemplate}
 	gslbutils.Debugf("hmKey: %v, msg: deleting the hm template from gs hm cache", hmKey)
 	aviHmCache := avictrl.GetAviHmCache()
 	aviHmCache.AviHmCacheDelete(hmKey)
