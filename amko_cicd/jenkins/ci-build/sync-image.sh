@@ -11,7 +11,7 @@ fi
 
 version_tag=$($WORKSPACE/hack/jenkins/get_build_version.sh $JOB_NAME $build_num)
 
-source_image=$PVT_DOCKER_REGISTRY/$PVT_DOCKER_REPOSITORY/$DOCKER_IMAGE_NAME:$version_tag
+source_image=$PVT_DOCKER_REGISTRY/$PVT_DOCKER_REPOSITORY/amko/$branch/$DOCKER_IMAGE_NAME:$version_tag
 
 sudo docker pull $source_image
 
@@ -39,7 +39,7 @@ fi
 
 for registry in "${registries[@]}"
 do
-    target_image="$registry/$PVT_DOCKER_REPOSITORY/$DOCKER_IMAGE_NAME:$version_tag"
+    target_image="$registry/$PVT_DOCKER_REPOSITORY/amko/$branch/$DOCKER_IMAGE_NAME:$version_tag"
     echo "Tagging and pushing to registry: $registry"
     sudo docker tag $source_image $target_image
     sudo docker push $target_image
