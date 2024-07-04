@@ -55,21 +55,21 @@ export DOCKER_CLI_EXPERIMENTAL=enabled
 CI_REGISTRY_IMAGE=$CI_REGISTRY_PATH/amko/$branch/amko
 IMAGE_DIGEST=`sudo docker images $CI_REGISTRY_IMAGE  --digests | grep sha256 | xargs | cut -d " " -f3`
 echo $IMAGE_DIGEST
-docker manifest inspect $CI_REGISTRY_PATH/amko:${build_version} --insecure > amko_manifest.json
+docker manifest inspect $CI_REGISTRY_IMAGE:${build_version} --insecure > amko_manifest.json
 cat amko_manifest.json
 sudo /srp-tools/srp provenance add-output package.oci --set-key=amko-image --action-key=amko-build --name=${CI_REGISTRY_IMAGE}  --digest=${IMAGE_DIGEST} --manifest-path $WORKSPACE/amko_manifest.json --working-dir $WORKSPACE/provenance
 
 CI_REGISTRY_IMAGE=$CI_REGISTRY_PATH/amko/$branch/amko-federator
 IMAGE_DIGEST=`sudo docker images $CI_REGISTRY_IMAGE  --digests | grep sha256 | xargs | cut -d " " -f3`
 echo $IMAGE_DIGEST
-docker manifest inspect $CI_REGISTRY_PATH/amko-federator:${build_version} --insecure > amko_federator_manifest.json
+docker manifest inspect $CI_REGISTRY_IMAGE:${build_version} --insecure > amko_federator_manifest.json
 cat amko_federator_manifest.json
 sudo /srp-tools/srp provenance add-output package.oci --set-key=amko-federator-image --action-key=amko-build --name=${CI_REGISTRY_IMAGE}  --digest=${IMAGE_DIGEST} --manifest-path $WORKSPACE/amko_federator_manifest.json --working-dir $WORKSPACE/provenance
 
 CI_REGISTRY_IMAGE=$CI_REGISTRY_PATH/amko/$branch/amko-service-discovery
 IMAGE_DIGEST=`sudo docker images $CI_REGISTRY_IMAGE  --digests | grep sha256 | xargs | cut -d " " -f3`
 echo $IMAGE_DIGEST
-docker manifest inspect $CI_REGISTRY_PATH/amko-service-discovery:${build_version} --insecure > amko_service_discovery_manifest.json
+docker manifest inspect $CI_REGISTRY_IMAGE:${build_version} --insecure > amko_service_discovery_manifest.json
 cat amko_service_discovery_manifest.json
 sudo /srp-tools/srp provenance add-output package.oci --set-key=amko-service-discovery-image --action-key=amko-build --name=${CI_REGISTRY_IMAGE}  --digest=${IMAGE_DIGEST} --manifest-path $WORKSPACE/amko_service_discovery_manifest.json --working-dir $WORKSPACE/provenance
 
