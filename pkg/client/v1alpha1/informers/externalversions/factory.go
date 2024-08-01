@@ -166,7 +166,7 @@ func (f *sharedInformerFactory) WaitForCacheSync(stopCh <-chan struct{}) map[ref
 	return res
 }
 
-// InternalInformerFor returns the SharedIndexInformer for obj using an internal
+// InformerFor returns the SharedIndexInformer for obj using an internal
 // client.
 func (f *sharedInformerFactory) InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer {
 	f.lock.Lock()
@@ -194,25 +194,25 @@ func (f *sharedInformerFactory) InformerFor(obj runtime.Object, newFunc internal
 //
 // It is typically used like this:
 //
-//   ctx, cancel := context.Background()
-//   defer cancel()
-//   factory := NewSharedInformerFactory(client, resyncPeriod)
-//   defer factory.WaitForStop()    // Returns immediately if nothing was started.
-//   genericInformer := factory.ForResource(resource)
-//   typedInformer := factory.SomeAPIGroup().V1().SomeType()
-//   factory.Start(ctx.Done())          // Start processing these informers.
-//   synced := factory.WaitForCacheSync(ctx.Done())
-//   for v, ok := range synced {
-//       if !ok {
-//           fmt.Fprintf(os.Stderr, "caches failed to sync: %v", v)
-//           return
-//       }
-//   }
+//	ctx, cancel := context.Background()
+//	defer cancel()
+//	factory := NewSharedInformerFactory(client, resyncPeriod)
+//	defer factory.WaitForStop()    // Returns immediately if nothing was started.
+//	genericInformer := factory.ForResource(resource)
+//	typedInformer := factory.SomeAPIGroup().V1().SomeType()
+//	factory.Start(ctx.Done())          // Start processing these informers.
+//	synced := factory.WaitForCacheSync(ctx.Done())
+//	for v, ok := range synced {
+//	    if !ok {
+//	        fmt.Fprintf(os.Stderr, "caches failed to sync: %v", v)
+//	        return
+//	    }
+//	}
 //
-//   // Creating informers can also be created after Start, but then
-//   // Start must be called again:
-//   anotherGenericInformer := factory.ForResource(resource)
-//   factory.Start(ctx.Done())
+//	// Creating informers can also be created after Start, but then
+//	// Start must be called again:
+//	anotherGenericInformer := factory.ForResource(resource)
+//	factory.Start(ctx.Done())
 type SharedInformerFactory interface {
 	internalinterfaces.SharedInformerFactory
 
@@ -239,7 +239,7 @@ type SharedInformerFactory interface {
 	// ForResource gives generic access to a shared informer of the matching type.
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 
-	// InternalInformerFor returns the SharedIndexInformer for obj using an internal
+	// InformerFor returns the SharedIndexInformer for obj using an internal
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 

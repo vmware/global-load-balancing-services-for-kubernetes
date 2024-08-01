@@ -239,7 +239,7 @@ func (restOp *RestOperations) updateGsIfRequired(aviGSGraph *nodes.AviGSObjectGr
 	gslbutils.Debugf("key: %s, GSLBService: %s, oldCksum: %d, newCksum: %d, msg: %s", key, gsName,
 		gsCacheObj.CloudConfigCksum, cksum, "checksums are different for the GSLB Service")
 	// it should be a PUT call
-	operation := restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, true)
+	operation := restOp.AviGSBuild(aviGSGraph, utils.RestPut, gsCacheObj, key, !aviGSGraph.ControlPlaneHmOnly)
 	gslbutils.Debugf(spew.Sprintf("gsKey: %s, operation: %v", gsKey, operation))
 	restOp.ExecuteRestAndPopulateCache(operation, &gsKey, nil, key)
 }
@@ -501,7 +501,7 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 	}
 
 	gslbutils.Logf("key: %s, operation: POST, msg: GS not found in cache", key)
-	operation = restOp.AviGSBuild(aviGSGraph, utils.RestPost, nil, key, true)
+	operation = restOp.AviGSBuild(aviGSGraph, utils.RestPost, nil, key, !aviGSGraph.ControlPlaneHmOnly)
 
 	operation.ObjName = aviGSGraph.Name
 	restOp.ExecuteRestAndPopulateCache(operation, &gsKey, nil, key)
@@ -985,7 +985,10 @@ func buildGsPoolMember(member nodes.AviGSK8sObj, key string) *avimodels.GslbPool
 func buildGsPool(gsMeta *nodes.AviGSObjectGraph, gsPoolMembers []*avimodels.GslbPoolMember, priority uint32, restOp *RestOperations) *avimodels.GslbPool {
 	poolEnabled := true
 	poolName := GsGroupNamePrefix + strconv.Itoa(int(priority))
-	minHealthMonUp := uint32(2)
+	minHealthMonUp := uint32(1)
+	if !gsMeta.ControlPlaneHmOnly {
+		minHealthMonUp = uint32(2)
+	}
 	poolAlgorithm, hashMask, fallback := restOp.getGSPoolAlgorithmSettings(gsMeta)
 	pool := &avimodels.GslbPool{
 		Algorithm:           poolAlgorithm,

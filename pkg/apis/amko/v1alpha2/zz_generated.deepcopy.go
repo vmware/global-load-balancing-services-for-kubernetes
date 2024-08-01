@@ -99,6 +99,11 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.PKIProfileRef != nil {
+		in, out := &in.PKIProfileRef, &out.PKIProfileRef
+		*out = new(string)
+		**out = **in
+	}
 	if in.PoolAlgorithmSettings != nil {
 		in, out := &in.PoolAlgorithmSettings, &out.PoolAlgorithmSettings
 		*out = new(v1alpha1.PoolAlgorithmSettings)
@@ -107,6 +112,11 @@ func (in *GDPSpec) DeepCopyInto(out *GDPSpec) {
 	if in.DownResponse != nil {
 		in, out := &in.DownResponse, &out.DownResponse
 		*out = new(v1alpha1.DownResponse)
+		**out = **in
+	}
+	if in.ControlPlaneHmOnly != nil {
+		in, out := &in.ControlPlaneHmOnly, &out.ControlPlaneHmOnly
+		*out = new(bool)
 		**out = **in
 	}
 	return

@@ -154,6 +154,8 @@ type GSLBHostRuleSpec struct {
 	DownResponse *DownResponse `json:"downResponse,omitempty"`
 	// PublicIP determines the publicip of a cluster where traffic should be routed
 	PublicIP []PublicIPElem `json:"publicIP,omitempty"`
+	// ControlPlaneHmOnly will only enable hm on control plane and would not create data plane HM for GSLB service
+	ControlPlaneHmOnly *bool `json:"controlPlaneHmOnly,omitempty"`
 }
 
 // PoolAlgorithmSettings define a set of properties to select the Gslb Algorithm for a Gslb

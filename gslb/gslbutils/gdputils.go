@@ -98,7 +98,9 @@ type GlobalFilter struct {
 	GslbPoolAlgorithm *gslbalphav1.PoolAlgorithmSettings
 	// Response to the client when the GSLB service is down
 	GslbDownResponse *gslbalphav1.DownResponse
-	Checksum         uint32
+	// ControlPlaneHmOnly will only enable hm on control plane and would not create data plane HM for GSLB service
+	ControlPlaneHmOnly *bool
+	Checksum           uint32
 	// Respective filters for the namespaces.
 	// NSFilterMap map[string]*NSFilter
 	// GlobalLock is locked before accessing any of the filters.
@@ -194,6 +196,13 @@ func (gf *GlobalFilter) GetTTL() *uint32 {
 	return gf.TTL
 }
 
+func (gf *GlobalFilter) GetControlPlaneHmOnlyFlag() *bool {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.ControlPlaneHmOnly
+}
+
 func (gf *GlobalFilter) GetGslbPoolAlgorithm() *gslbalphav1.PoolAlgorithmSettings {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
@@ -225,6 +234,7 @@ func (gf *GlobalFilter) GetCopy() *GlobalFilter {
 		GslbPoolAlgorithm:     gf.GslbPoolAlgorithm,
 		GslbDownResponse:      gf.GslbDownResponse,
 		Checksum:              gf.Checksum,
+		ControlPlaneHmOnly:    gf.ControlPlaneHmOnly,
 	}
 	return &newFilter
 }
@@ -357,6 +367,8 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 
 	gf.GslbDownResponse = gdp.Spec.DownResponse.DeepCopy()
 
+	gf.ControlPlaneHmOnly = gdp.Spec.ControlPlaneHmOnly
+
 	gf.ComputeChecksum()
 	Logf("ns: %s, object: NSFilter, msg: added/changed the global filter", gdp.ObjectMeta.Namespace)
 }
@@ -423,6 +435,9 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	}
 	if gf.TTL != nil {
 		cksum += utils.Hash(utils.Stringify(*gf.TTL))
+	}
+	if gf.ControlPlaneHmOnly != nil {
+		cksum += utils.Hash(utils.Stringify(*gf.ControlPlaneHmOnly))
 	}
 	cksum += getChecksumForPoolAlgorithm(gf.GslbPoolAlgorithm)
 	if gf.HealthMonitorTemplate != nil {
@@ -625,11 +640,24 @@ func IsDownResponseChanged(old, new *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return oldCksum != newCksum
 }
 
+func IsControlPlaneHmOnlyChanged(old, new *gdpv1alpha2.GlobalDeploymentPolicy) bool {
+	if new.Spec.ControlPlaneHmOnly == nil && old.Spec.ControlPlaneHmOnly != nil {
+		return true
+	} else if new.Spec.ControlPlaneHmOnly != nil && old.Spec.ControlPlaneHmOnly == nil {
+		return true
+	} else if new.Spec.ControlPlaneHmOnly != nil && old.Spec.ControlPlaneHmOnly != nil && *new.Spec.ControlPlaneHmOnly != *old.Spec.ControlPlaneHmOnly {
+		return true
+	}
+	return false
+}
+
 func isAllGSPropertyChanged(new, old *gdpv1alpha2.GlobalDeploymentPolicy) bool {
 	return isHmRefsChanged(old, new) || isSitePersistenceChanged(old, new) ||
 		isTTLChanged(old, new) || isGslbPoolAlgorithmChanged(old, new) ||
 		isTrafficWeightChanged(new, old) || IsHmTemplateChanged(old, new) ||
-		IsDownResponseChanged(old, new) || isPkiProfileChanged(old, new)
+		IsDownResponseChanged(old, new) || isPkiProfileChanged(old, new) ||
+		IsControlPlaneHmOnlyChanged(old, new)
+
 }
 
 // UpdateGlobalFilter takes two arguments: the old and the new GDP objects, and verifies
@@ -663,6 +691,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.GslbPoolAlgorithm = nf.GslbPoolAlgorithm
 	gf.HealthMonitorTemplate = nf.HealthMonitorTemplate
 	gf.GslbDownResponse = nf.GslbDownResponse
+	gf.ControlPlaneHmOnly = nf.ControlPlaneHmOnly
 	gf.Checksum = nf.Checksum
 
 	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)
@@ -697,6 +726,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		PkiProfileRef:      nil,
 		GslbPoolAlgorithm:  nil,
 		GslbDownResponse:   nil,
+		ControlPlaneHmOnly: nil,
 	}
 	return gf
 }
