@@ -52,6 +52,9 @@ spec:
               # gslbAlgorithm:
               #   type: string
               #   enum:
+              controlPlaneHmOnly:
+                description: "If this flag is enabled Only control plane health monitoring will be done.Amko will not add or create any data plane health monitors"
+                type: boolean
               healthMonitorRefs:
                 type: array
                 items:

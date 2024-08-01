@@ -24,7 +24,6 @@ import (
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeGSLBConfigs struct {
 	ns   string
 }
 
-var gslbconfigsResource = schema.GroupVersionResource{Group: "amko.vmware.com", Version: "v1alpha1", Resource: "gslbconfigs"}
+var gslbconfigsResource = v1alpha1.SchemeGroupVersion.WithResource("gslbconfigs")
 
-var gslbconfigsKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha1", Kind: "GSLBConfig"}
+var gslbconfigsKind = v1alpha1.SchemeGroupVersion.WithKind("GSLBConfig")
 
 // Get takes name of the gSLBConfig, and returns the corresponding gSLBConfig object, and an error if there is any.
 func (c *FakeGSLBConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.GSLBConfig, err error) {

@@ -26,18 +26,19 @@ import (
 )
 
 type GSHostRules struct {
-	GSFqdn            string
-	HmRefs            []string
-	HmTemplate        *string
-	SitePersistence   *gslbhralphav1.SitePersistence
-	TTL               *uint32
-	TrafficSplit      []gslbhralphav1.TrafficSplitElem
-	PublicIP          []gslbhralphav1.PublicIPElem
-	ThirdPartyMembers []gslbhralphav1.ThirdPartyMember
-	GslbPoolAlgorithm *gslbhralphav1.PoolAlgorithmSettings
-	GslbDownResponse  *gslbhralphav1.DownResponse
-	Checksum          uint32
-	Lock              *sync.RWMutex
+	GSFqdn             string
+	HmRefs             []string
+	HmTemplate         *string
+	SitePersistence    *gslbhralphav1.SitePersistence
+	TTL                *uint32
+	TrafficSplit       []gslbhralphav1.TrafficSplitElem
+	PublicIP           []gslbhralphav1.PublicIPElem
+	ThirdPartyMembers  []gslbhralphav1.ThirdPartyMember
+	GslbPoolAlgorithm  *gslbhralphav1.PoolAlgorithmSettings
+	GslbDownResponse   *gslbhralphav1.DownResponse
+	ControlPlaneHmOnly *bool
+	Checksum           uint32
+	Lock               *sync.RWMutex
 }
 
 func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
@@ -78,6 +79,11 @@ func (in *GSHostRules) DeepCopyInto(out *GSHostRules) {
 	if in.HmTemplate != nil {
 		in, out := &in.HmTemplate, &out.HmTemplate
 		*out = new(string)
+		**out = **in
+	}
+	if in.ControlPlaneHmOnly != nil {
+		in, out := &in.ControlPlaneHmOnly, &out.ControlPlaneHmOnly
+		*out = new(bool)
 		**out = **in
 	}
 	out.Lock = new(sync.RWMutex)
@@ -124,6 +130,9 @@ func (ghr *GSHostRules) CalculateAndSetChecksum() {
 	if ghr.HmTemplate != nil {
 		cksum += utils.Hash(*ghr.HmTemplate)
 	}
+	if ghr.ControlPlaneHmOnly != nil {
+		cksum += utils.Hash(utils.Stringify(*ghr.ControlPlaneHmOnly))
+	}
 
 	cksum += utils.Hash(utils.Stringify(ghr.HmRefs)) +
 		utils.Hash(sitePersistence) +
@@ -148,7 +157,8 @@ func (ghr *GSHostRules) GetChecksum() uint32 {
 func GetGSHostRuleForGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule) *GSHostRules {
 	gslbhrSpec := gslbhr.Spec.DeepCopy()
 	gsHostRules := GSHostRules{
-		GSFqdn: gslbhrSpec.Fqdn,
+		GSFqdn:             gslbhrSpec.Fqdn,
+		ControlPlaneHmOnly: gslbhrSpec.ControlPlaneHmOnly,
 	}
 	if gslbhrSpec.SitePersistence != nil {
 		gsHostRules.SitePersistence = &gslbhralphav1.SitePersistence{

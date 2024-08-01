@@ -24,7 +24,6 @@ import (
 	v1alpha1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeGSLBHostRules struct {
 	ns   string
 }
 
-var gslbhostrulesResource = schema.GroupVersionResource{Group: "amko.vmware.com", Version: "v1alpha1", Resource: "gslbhostrules"}
+var gslbhostrulesResource = v1alpha1.SchemeGroupVersion.WithResource("gslbhostrules")
 
-var gslbhostrulesKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha1", Kind: "GSLBHostRule"}
+var gslbhostrulesKind = v1alpha1.SchemeGroupVersion.WithKind("GSLBHostRule")
 
 // Get takes name of the gSLBHostRule, and returns the corresponding gSLBHostRule object, and an error if there is any.
 func (c *FakeGSLBHostRules) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.GSLBHostRule, err error) {
