@@ -201,12 +201,12 @@ func TestDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, nil, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, tenant, nil, nil, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmNames, nil, nil, nil, path, tls)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, tenant, hmNames, nil, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
@@ -250,7 +250,7 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, nil, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, tenant, nil, nil, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	// update the ingress object with an empty status field
@@ -260,19 +260,19 @@ func TestEmptyStatusDefaultIngressAndRoutes(t *testing.T) {
 	expectedMembers = []nodes.AviGSK8sObj{getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10)}
 	t.Logf("verifying the GS to have only 1 member as route")
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, nil, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, tenant, nil, nil, nil, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hmNames := BuildTestHmNames(host, path, false)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmNames, nil, nil, nil, path, tls)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, tenant, hmNames, nil, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
 // Add an ingress with default secret, a route and a GDP object with
 // site persistence reference. UT verifies whether the site persistence
 // is configured in the GS.
-func TestIngressWithDefaultSecretAndRoutes(t *testing.T) {
+func TestIngressWithDefaultSecretAndRoutesAndTenantUpdate(t *testing.T) {
 
 	sitePersistenceRef := "gap-1"
 
@@ -305,6 +305,7 @@ func TestIngressWithDefaultSecretAndRoutes(t *testing.T) {
 		k8sDeleteIngress(t, clusterClients[K8s], ingName, ns)
 		oshiftDeleteRoute(t, clusterClients[Oshift], routeName, ns)
 		DeleteTestGDP(t, newGDP.Namespace, newGDP.Name)
+		UpdateTenantInNamespace(tenant, "default")
 	})
 
 	initMiddlewares(t)
@@ -322,11 +323,21 @@ func TestIngressWithDefaultSecretAndRoutes(t *testing.T) {
 	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
 
 	g.Eventually(func() bool {
-		return verifyGSMembers(t, expectedMembers, host, gslbutils.GetTenant(), nil, nil, &sitePersistenceRef, nil, nil, nil, path, tls, nil)
+		return verifyGSMembers(t, expectedMembers, host, tenant, nil, nil, &sitePersistenceRef, nil, nil, nil, path, tls, nil)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 
 	hmNames := BuildTestHmNames(host, path, tls)
 	g.Eventually(func() bool {
-		return verifyGSMembersInRestLayer(t, expectedMembers, host, gslbutils.GetTenant(), hmNames, &sitePersistenceRef, nil, nil, path, tls)
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, tenant, hmNames, &sitePersistenceRef, nil, nil, path, tls)
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	newtenant := "tenant2"
+	UpdateTenantInNamespace(newtenant, "default")
+	updateTenantInIngAndRoute(t, clusterClients[K8s], newtenant, ingObj, routeObj)
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, host, newtenant, nil, nil, &sitePersistenceRef, nil, nil, nil, path, tls, nil)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	g.Eventually(func() bool {
+		return verifyGSMembersInRestLayer(t, expectedMembers, host, newtenant, hmNames, &sitePersistenceRef, nil, nil, path, tls)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
 }

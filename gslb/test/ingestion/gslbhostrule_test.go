@@ -75,6 +75,7 @@ func TestGSLBHostRuleInvalidThirdPartyMember(t *testing.T) {
 
 func TestGSLBHostRuleValidSitePersistence(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrsp := &gslbalphav1.SitePersistence{
 		Enabled:    true,
 		ProfileRef: "test-profile-ref",
@@ -90,6 +91,7 @@ func TestGSLBHostRuleValidSitePersistence(t *testing.T) {
 
 func TestGSLBHostRuleInvalidSitePersistence(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrsp := &gslbalphav1.SitePersistence{
 		Enabled:    true,
 		ProfileRef: "test-profile-ref-" + mockaviserver.InvalidObjectNameSuffix,
@@ -105,6 +107,7 @@ func TestGSLBHostRuleInvalidSitePersistence(t *testing.T) {
 
 func TestGSLBHostRuleValidPkiProfile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	pkiProfile := "pki"
 	gslbhrsp := &gslbalphav1.SitePersistence{
 		Enabled:       true,
@@ -122,6 +125,7 @@ func TestGSLBHostRuleValidPkiProfile(t *testing.T) {
 
 func TestGSLBHostRuleInvalidPkiProfile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	pkiProfile := "pki3"
 	gslbhrsp := &gslbalphav1.SitePersistence{
 		Enabled:       true,
@@ -138,6 +142,7 @@ func TestGSLBHostRuleInvalidPkiProfile(t *testing.T) {
 }
 func TestGSLBHostRuleValidHealthMonitors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrHealthMonitorRefs := []string{"test-health-monitor"}
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = gslbhrHealthMonitorRefs
@@ -150,6 +155,7 @@ func TestGSLBHostRuleValidHealthMonitors(t *testing.T) {
 
 func TestGSLBHostRuleInvalidHealthMonitors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrHealthMonitorRefs := []string{"test-hm-" + mockaviserver.InvalidObjectNameSuffix}
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = gslbhrHealthMonitorRefs
@@ -162,6 +168,7 @@ func TestGSLBHostRuleInvalidHealthMonitors(t *testing.T) {
 
 func TestGSLBHostRuleValidHealthMonitorTemplate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = nil
 	gslbhrHealthMonitorTemplate := "System-GSLB-HTTPS"
@@ -175,6 +182,7 @@ func TestGSLBHostRuleValidHealthMonitorTemplate(t *testing.T) {
 
 func TestGSLBHostRuleInvalidHealthMonitorTemplate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = nil
 	gslbhrHealthMonitorTemplate := "test-hm-" + mockaviserver.InvalidObjectNameSuffix
@@ -188,6 +196,7 @@ func TestGSLBHostRuleInvalidHealthMonitorTemplate(t *testing.T) {
 
 func TestGSLBHostRuleBothHmRefAndHmTemplate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	addGDPAndGSLBForIngress(t)
 	gslbhrObj := getTestGSLBHRObject(gslbhrTestObjName, gslbhrTestNamespace, gslbhrTestFqdn)
 	gslbhrObj.Spec.HealthMonitorRefs = []string{"test-health-monitor"}
 	gslbhrHealthMonitorTemplate := "System-GSLB-HTTPS"

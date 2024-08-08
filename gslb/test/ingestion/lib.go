@@ -221,9 +221,12 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	fooInformersArg[containerutils.INFORMERS_AKO_CLIENT] = fooCRDKubeClient
 	fooInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer}
+	fooRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer, containerutils.NSInformer}
 	fooInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{ClientSet: fooKubeClient}, fooRegisteredInformers, fooInformersArg)
 	fooCtrl := gslbingestion.GetGSLBMemberController("cluster1", fooInformerInstance, nil)
+	gslbutils.SetInformersPerCluster("cluster1", fooInformerInstance)
+
+	fooCtrl.StartNamespaceInformer(testStopCh)
 	fooCtrl.Start(testStopCh)
 	fooCtrl.SetupEventHandlers(gslbingestion.K8SInformers{Cs: fooKubeClient})
 
@@ -236,44 +239,46 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	barInformersArg[containerutils.INFORMERS_AKO_CLIENT] = barCRDKubeClient
 	barInformersArg[containerutils.INFORMERS_INSTANTIATE_ONCE] = false
 
-	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer}
+	barRegisteredInformers := []string{containerutils.RouteInformer, containerutils.IngressInformer, containerutils.ServiceInformer, containerutils.MultiClusterIngressInformer, containerutils.NSInformer}
 	barInformerInstance := containerutils.NewInformers(containerutils.KubeClientIntf{ClientSet: barKubeClient}, barRegisteredInformers, barInformersArg)
+	gslbutils.SetInformersPerCluster("cluster2", barInformerInstance)
 	barCtrl := gslbingestion.GetGSLBMemberController("cluster2", barInformerInstance, nil)
+	barCtrl.StartNamespaceInformer(testStopCh)
 	barCtrl.Start(testStopCh)
 	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{Cs: barKubeClient})
 	return nil
 }
 
-func GetIngressKey(op, cname, ns, name, host string) string {
-	return op + "/" + gslbutils.IngressType + "/" + cname + "/" + ns + "/" + name + "/" + host
+func GetIngressKey(op, cname, ns, name, host, tenant string) string {
+	return op + "/" + gslbutils.IngressType + "/" + cname + "/" + ns + "/" + name + "/" + host + "/" + tenant
 }
 
-func GetMultiClusterIngressKey(op, cname, ns, name, host string) string {
-	return op + "/" + gslbutils.MCIType + "/" + cname + "/" + ns + "/" + name + "/" + host
+func GetMultiClusterIngressKey(op, cname, ns, name, host, tenant string) string {
+	return op + "/" + gslbutils.MCIType + "/" + cname + "/" + ns + "/" + name + "/" + host + "/" + tenant
 }
 
-func buildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
-	actualKey := GetIngressKey(op, cname, ns, name, hostname)
+func buildIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname, tenant string) {
+	actualKey := GetIngressKey(op, cname, ns, name, hostname, tenant)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)
 	}
 }
 
-func buildMultiClusterIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname string) {
-	actualKey := GetMultiClusterIngressKey(op, cname, ns, name, hostname)
+func buildMultiClusterIngressKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, hostname, tenant string) {
+	actualKey := GetMultiClusterIngressKey(op, cname, ns, name, hostname, tenant)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)
 	}
 }
 
-func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string,
+func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, tenant string,
 	hostIPs map[string]string) {
 
 	keys := []string{}
 	for host := range hostIPs {
-		newKey := GetIngressKey(op, cname, ns, name, host)
+		newKey := GetIngressKey(op, cname, ns, name, host, tenant)
 		keys = append(keys, newKey)
 	}
 	for range keys {
@@ -285,24 +290,24 @@ func buildIngMultiHostKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname
 	}
 }
 
-func GetSvcKey(op, cname, ns, name string) string {
-	return op + "/" + gslbutils.SvcType + "/" + cname + "/" + ns + "/" + name
+func GetSvcKey(op, cname, ns, name, tenant string) string {
+	return op + "/" + gslbutils.SvcType + "/" + cname + "/" + ns + "/" + name + "/" + tenant
 }
 
-func buildSvcKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
-	actualKey := GetSvcKey(op, cname, ns, name)
+func buildSvcKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, tenant string) {
+	actualKey := GetSvcKey(op, cname, ns, name, tenant)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)
 	}
 }
 
-func GetRouteKey(op, cname, ns, name string) string {
-	return op + "/" + gslbutils.RouteType + "/" + cname + "/" + ns + "/" + name
+func GetRouteKey(op, cname, ns, name, tenant string) string {
+	return op + "/" + gslbutils.RouteType + "/" + cname + "/" + ns + "/" + name + "/" + tenant
 }
 
-func buildRouteKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name string) {
-	actualKey := GetRouteKey(op, cname, ns, name)
+func buildRouteKeyAndVerify(t *testing.T, timeoutExpected bool, op, cname, ns, name, tenant string) {
+	actualKey := GetRouteKey(op, cname, ns, name, tenant)
 	passed, errStr := waitAndVerify(t, []string{actualKey}, timeoutExpected)
 	if !passed {
 		t.Fatal(errStr)
@@ -318,6 +323,7 @@ func addGDPAndGSLBForIngress(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	addGSLBTestConfigObject(gc, ingestion.InitializeGSLBMemberClusters)
 	gslbutils.AddClusterContext("cluster1")
 	gslbutils.AddClusterContext("cluster2")
+	gslbutils.LeaderClusterContext = "cluster1"
 
 	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(true, false)

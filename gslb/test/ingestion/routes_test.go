@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
@@ -69,7 +70,12 @@ func buildRouteObj(name, ns, svc, cname, host, ip string, withStatus bool) *rout
 	labelMap := make(map[string]string)
 	labelMap["key"] = "value"
 	routeObj.Labels = labelMap
-
+	annot := map[string]string{
+		gslbutils.VSAnnotation:         "",
+		gslbutils.ControllerAnnotation: "",
+		gslbutils.TenantAnnotation:     "admin",
+	}
+	routeObj.Annotations = annot
 	return routeObj
 }
 
@@ -152,13 +158,13 @@ func TestBasicRouteCD(t *testing.T) {
 
 	t.Log("adding and testing route")
 	ocAddRoute(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 	// verify the presence of the route in the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 
 	DeleteTestGDPObj(gdp)
 }
@@ -176,7 +182,7 @@ func TestBasicRouteCUD(t *testing.T) {
 
 	t.Log("adding and testing route")
 	route := ocAddRoute(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 	// verify the presence of the route in the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
@@ -186,11 +192,11 @@ func TestBasicRouteCUD(t *testing.T) {
 
 	t.Log("updating route")
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, route)
-	buildRouteKeyAndVerify(t, false, "UPDATE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "UPDATE", cname, ns, routeName, "admin")
 
 	// delete and verify
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 
 	DeleteTestGDPObj(gdp)
 }
@@ -208,26 +214,26 @@ func TestBasicRouteLabelChange(t *testing.T) {
 	// add and test routes
 	t.Log("adding and testing routes")
 	routeObj := ocAddRoute(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 
 	routeObj.Labels["key"] = "value1"
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, routeObj)
 
 	// the key should be for delete, as we have amended the label on the route
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, ipAddr)
 	verifyInRouteStore(g, rejectedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
 	// update it again, and allow it to pass
 	routeObj.Labels["key"] = "value"
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, routeObj)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 	verifyInRouteStore(g, rejectedRouteStore, false, routeName, ns, cname, host, ipAddr)
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
 	// delete the route and verify
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 	DeleteTestGDPObj(gdp)
 }
 
@@ -243,13 +249,13 @@ func TestEmptyStatusRoute(t *testing.T) {
 	// Add and test ingresses
 	t.Log("adding and testing route")
 	ocAddRouteWithoutStatus(t, fooOshiftClient, routeName, ns, TestSvc, cname, host)
-	buildRouteKeyAndVerify(t, true, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, true, "ADD", cname, ns, routeName, "admin")
 	// Verify the presence of the object in the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, "", "")
 
 	// delete and verify
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, true, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, true, "DELETE", cname, ns, routeName, "admin")
 	// should be deleted from the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, "", "")
 	DeleteTestGDPObj(gdp)
@@ -269,19 +275,19 @@ func TestStatusChangeToEmptyRoute(t *testing.T) {
 	// add and test routes
 	t.Log("adding and testing routes")
 	routeObj := ocAddRoute(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 	// verify the object in the accepted store as well
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
 	routeObj.Status.Ingress[0].Conditions[0].Message = ""
 	routeObj.Status.Ingress[0].Host = ""
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, routeObj)
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, true, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, true, "DELETE", cname, ns, routeName, "admin")
 	// should be deleted from the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -301,7 +307,7 @@ func TestStatusChangeFromEmptyRoute(t *testing.T) {
 	// add and test routes
 	t.Log("adding and testing routes")
 	routeObj := ocAddRouteWithoutStatus(t, fooOshiftClient, routeName, ns, TestSvc, cname, host)
-	buildRouteKeyAndVerify(t, true, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, true, "ADD", cname, ns, routeName, "admin")
 
 	// verify the presence of the object in the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, ipAddr)
@@ -317,12 +323,12 @@ func TestStatusChangeFromEmptyRoute(t *testing.T) {
 	}
 	t.Log("updating route to have non-empty status field")
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, routeObj)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 	// should be deleted from the accepted store
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
@@ -343,16 +349,16 @@ func TestStatusChangeIPAddrRoute(t *testing.T) {
 	// add and test routes
 	t.Log("adding and testing routes")
 	routeObj := ocAddRoute(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
-	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, "admin")
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, ipAddr)
 
 	routeObj.Status.Ingress[0].Conditions[0].Message = newIPAddr
 	ocUpdateRoute(t, fooOshiftClient, ns, cname, routeObj)
-	buildRouteKeyAndVerify(t, false, "UPDATE", cname, ns, routeObj.Name)
+	buildRouteKeyAndVerify(t, false, "UPDATE", cname, ns, routeObj.Name, "admin")
 	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, host, newIPAddr)
 
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
-	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, "admin")
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, newIPAddr)
 	DeleteTestGDPObj(gdp)
 }

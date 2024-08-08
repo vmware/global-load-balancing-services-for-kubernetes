@@ -95,26 +95,30 @@ func getTLSHosts(ingress *networkingv1.Ingress) []string {
 	return tlsHosts
 }
 
-func parseVSAndControllerAnnotations(annotations map[string]string) (map[string]string, string, error) {
+func parseVSAndControllerAnnotations(annotations map[string]string) (map[string]string, string, string, error) {
 	vsUUIDs, controllerUUID := make(map[string]string), ""
-	if len(annotations) == 0 {
-		return vsUUIDs, controllerUUID, fmt.Errorf("empty annotations")
+	tenant, exists := annotations[gslbutils.TenantAnnotation]
+	if !exists {
+		gslbutils.Debugf("No tenant annotation exist for object, annotations: %v", annotations)
+		tenant = gslbutils.GetTenant()
 	}
-	vsAnnotations, exists := annotations[VSAnnotation]
+	if len(annotations) == 0 {
+		return vsUUIDs, controllerUUID, tenant, fmt.Errorf("empty annotations")
+	}
+	vsAnnotations, exists := annotations[gslbutils.VSAnnotation]
 	if !exists {
 		gslbutils.Debugf("No VS Annotations exist for object, annotations: %v", annotations)
-		return vsUUIDs, controllerUUID, fmt.Errorf("no VS UUID annotations for this object: %v", annotations)
+		return vsUUIDs, controllerUUID, tenant, fmt.Errorf("no VS UUID annotations for this object: %v", annotations)
 	}
-	controllerUUID, exists = annotations[ControllerAnnotation]
+	controllerUUID, exists = annotations[gslbutils.ControllerAnnotation]
 	if !exists {
 		gslbutils.Debugf("No Controller Annotation exist for object, annotations: %v", annotations)
-		return vsUUIDs, controllerUUID, fmt.Errorf("no Controller UUID annotation for this object: %v", annotations)
+		return vsUUIDs, controllerUUID, tenant, fmt.Errorf("no Controller UUID annotation for this object: %v", annotations)
 	}
 	if err := json.Unmarshal([]byte(vsAnnotations), &vsUUIDs); err != nil {
-		return vsUUIDs, controllerUUID, fmt.Errorf("error in unmarshalling VS annotations: %v", err)
+		return vsUUIDs, controllerUUID, tenant, fmt.Errorf("error in unmarshalling VS annotations: %v", err)
 	}
-
-	return vsUUIDs, controllerUUID, nil
+	return vsUUIDs, controllerUUID, tenant, nil
 }
 
 // GetIngressHostMeta returns a ingress split into its backends
@@ -134,9 +138,9 @@ func GetIngressHostMeta(ingress *networkingv1.Ingress, cname string) []IngressHo
 			cname, ingress.Namespace, ingress.Name, err)
 	}
 	var vsUUIDs map[string]string
-	var controllerUUID string
+	var controllerUUID, tenant string
 
-	vsUUIDs, controllerUUID, err = parseVSAndControllerAnnotations(ingress.Annotations)
+	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerAnnotations(ingress.Annotations)
 	if err != nil && !syncVIPsOnly {
 		// Note that the ingress key will still be published to graph layer, but the key
 		// won't be processed, this is just to maintain the ingress information as part
@@ -164,6 +168,7 @@ func GetIngressHostMeta(ingress *networkingv1.Ingress, cname string) []IngressHo
 			TLS:                false,
 			VirtualServiceUUID: vsUUID,
 			ControllerUUID:     controllerUUID,
+			Tenant:             tenant,
 		}
 		metaObj.Paths = make([]string, 0)
 		metaObj.Labels = make(map[string]string)
@@ -195,6 +200,7 @@ type IngressHostMeta struct {
 	Labels             map[string]string
 	Paths              []string
 	TLS                bool
+	Tenant             string
 }
 
 func (ing IngressHostMeta) GetType() string {
@@ -262,6 +268,10 @@ func (ing IngressHostMeta) GetControllerUUID() string {
 	return ing.ControllerUUID
 }
 
+func (ing IngressHostMeta) GetTenant() string {
+	return ing.Tenant
+}
+
 func (ing IngressHostMeta) IngressHostInList(ihmList []IngressHostMeta) (IngressHostMeta, bool) {
 	var ihm IngressHostMeta
 	for _, ihm = range ihmList {
@@ -283,7 +293,7 @@ func (ing IngressHostMeta) GetIngressHostCksum() uint32 {
 	cksum += utils.Hash(ing.Cluster) + utils.Hash(ing.Namespace) +
 		utils.Hash(ing.IngName) + utils.Hash(ing.Hostname) +
 		utils.Hash(ing.IPAddr) + utils.Hash(utils.Stringify(paths)) +
-		utils.Hash(ing.VirtualServiceUUID) + utils.Hash(ing.ControllerUUID)
+		utils.Hash(ing.VirtualServiceUUID) + utils.Hash(ing.ControllerUUID) + utils.Hash(ing.Tenant)
 	return cksum
 }
 

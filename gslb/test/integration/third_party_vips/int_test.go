@@ -33,6 +33,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
@@ -114,7 +116,12 @@ func SetUpClients() {
 			Name: AviSystemNS,
 		},
 	}
+	annot := map[string]string{
+		gslbutils.TenantAnnotation: Tenant,
+	}
+	ns.Annotations = annot
 	clusterClients[ConfigCluster].CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
+	UpdateTenantInNamespace(tenant, "default")
 	oc, err := oshiftclient.NewForConfig(cfgs[Oshift])
 	if err != nil {
 		gslbutils.Errf("error occurred while fetching the openshift client: %v", err)
@@ -181,6 +188,11 @@ func SetUpAMKOConfigs() {
 	}
 	amkoControlConfig.SetGSLBClientset(gslbClient)
 
+	registeredInformers := []string{
+		utils.NSInformer,
+	}
+	KubeClient := k8sfake.NewSimpleClientset()
+	utils.NewInformers(utils.KubeClientIntf{ClientSet: KubeClient}, registeredInformers)
 	gdpClient, err := gdpcs.NewForConfig(cfgs[ConfigCluster])
 	if err != nil {
 		gslbutils.Errf("error occurred while creating a clientset for gdp: %v", err)
@@ -213,6 +225,7 @@ func SetUpAMKOConfigs() {
 
 	gslbhrInformer := gslbInformerFactory.Amko().V1alpha1().GSLBHostRules()
 	go gslbhrInformer.Informer().Run(stopCh)
+	gslbutils.SetAMKOCrdInformers(&gslbutils.AMKOCrdInformers{GslbHostruleInformer: gslbhrInformer})
 
 	go ingestion.RunControllers(gslbController, gdpCtrl, gslbhrCtrl, stopCh)
 }
@@ -235,6 +248,7 @@ func GetTestEnvClustersAsGslbMembers(arg1 string, arg2 []gslbalphav1.MemberClust
 		gslbutils.Logf("test cluster: %s, informers set up", c.GetClusterContextName())
 		memberClusterList = append(memberClusterList, member)
 	}
+	gslbutils.LeaderClusterContext = K8sContext
 	return memberClusterList, nil
 }
 

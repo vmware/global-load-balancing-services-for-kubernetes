@@ -59,9 +59,9 @@ func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cna
 			cname, mci.Namespace, mci.Name, err)
 	}
 	var vsUUIDs map[string]string
-	var controllerUUID string
+	var controllerUUID, tenant string
 
-	vsUUIDs, controllerUUID, err = parseVSAndControllerAnnotations(mci.ObjectMeta.Annotations)
+	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerAnnotations(mci.ObjectMeta.Annotations)
 	if err != nil && !syncVIPsOnly {
 		// Note that the ingress key will still be published to graph layer, but the key
 		// won't be processed, this is just to maintain the ingress information as part
@@ -89,6 +89,7 @@ func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cna
 		TLS:                false,
 		VirtualServiceUUID: vsUUID,
 		ControllerUUID:     controllerUUID,
+		Tenant:             tenant,
 	}
 	metaObj.Paths = make([]string, 0)
 	metaObj.Labels = make(map[string]string)
@@ -158,6 +159,7 @@ type MultiClusterIngressHostMeta struct {
 	Labels             map[string]string
 	Paths              []string
 	TLS                bool
+	Tenant             string
 }
 
 func (mciHostMeta MultiClusterIngressHostMeta) GetType() string {
@@ -225,6 +227,10 @@ func (mciHostMeta MultiClusterIngressHostMeta) GetControllerUUID() string {
 	return mciHostMeta.ControllerUUID
 }
 
+func (mciHostMeta MultiClusterIngressHostMeta) GetTenant() string {
+	return mciHostMeta.Tenant
+}
+
 func (mciHostMeta MultiClusterIngressHostMeta) GetIngressHostCksum() uint32 {
 	var cksum uint32
 	for lblKey, lblValue := range mciHostMeta.Labels {
@@ -236,7 +242,8 @@ func (mciHostMeta MultiClusterIngressHostMeta) GetIngressHostCksum() uint32 {
 	cksum += utils.Hash(mciHostMeta.Cluster) + utils.Hash(mciHostMeta.Namespace) +
 		utils.Hash(mciHostMeta.IngName) + utils.Hash(mciHostMeta.Hostname) +
 		utils.Hash(mciHostMeta.IPAddr) + utils.Hash(utils.Stringify(paths)) +
-		utils.Hash(mciHostMeta.VirtualServiceUUID) + utils.Hash(mciHostMeta.ControllerUUID)
+		utils.Hash(mciHostMeta.VirtualServiceUUID) + utils.Hash(mciHostMeta.ControllerUUID) +
+		utils.Hash(mciHostMeta.Tenant)
 	return cksum
 }
 

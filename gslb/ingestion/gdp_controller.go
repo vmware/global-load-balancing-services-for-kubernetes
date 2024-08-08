@@ -209,9 +209,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 						cname, objType, objName, err)
 					continue
 				}
-
+				fetchedObj, _ := rejectedObjStore.GetClusterNSObjectByName(cname,
+					ns, sname)
+				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname, tenant)
 				k8swq[bkt].AddRateLimited(key)
 				gslbutils.Logf("cluster: %s, ns: %s, objType:%s, name: %s, key: %s, msg: added DELETE obj key",
 					cname, ns, objType, sname, key)
@@ -225,8 +227,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 					gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
 					continue
 				}
+				fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+					ns, sname)
+				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname, tenant)
 				k8swq[bkt].AddRateLimited(key)
 				gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added key",
 					cname, ns, objType, sname, key)
@@ -243,8 +248,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 				if c != cname {
 					continue
 				}
+				fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+					ns, sname)
+				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname, tenant)
 				k8swq[bkt].AddRateLimited(key)
 				gslbutils.Logf("cluster: %s, ns: %s, objtype: %s, name: %s, key: %s, msg: added key",
 					cname, ns, objType, sname, key)
@@ -266,8 +274,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 					gslbutils.Errf("objName: %s, msg: processing error, %s", objName, err)
 					continue
 				}
+				fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+					ns, sname)
+				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
-				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, sname)
+				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, sname, tenant)
 				k8swq[bkt].AddRateLimited(key)
 				gslbutils.Logf("cluster: %s, ns: %s, objtype:%s, name: %s, key: %s, msg: added ADD obj key",
 					cname, ns, objType, sname, key)
@@ -341,12 +352,12 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 
 	// Health monitor validity
 	if gdp.Spec.HealthMonitorTemplate != nil {
-		if err := validateAndAddHmTemplateToCache(*gdp.Spec.HealthMonitorTemplate, true, fullSync); err != nil {
+		if err := validateAndAddHmTemplateToCache(*gdp.Spec.HealthMonitorTemplate, true, fullSync, gdp.Namespace); err != nil {
 			return err
 		}
 	} else if len(gdp.Spec.HealthMonitorRefs) != 0 {
 		for _, hmRef := range gdp.Spec.HealthMonitorRefs {
-			if !isHealthMonitorRefValid(hmRef, true, fullSync) {
+			if !isHealthMonitorRefValid(hmRef, true, fullSync, gdp.Namespace) {
 				return fmt.Errorf("health monitor ref %s is invalid", hmRef)
 			}
 		}
@@ -361,7 +372,7 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 	if gdp.Spec.SitePersistenceRef != nil && *gdp.Spec.SitePersistenceRef == "" {
 		return fmt.Errorf("empty string as site persistence reference not supported")
 	} else if gdp.Spec.SitePersistenceRef != nil {
-		if !isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync) {
+		if !isSitePersistenceProfilePresent(*gdp.Spec.SitePersistenceRef, true, fullSync, gdp.Namespace) {
 			return fmt.Errorf("site persistence ref %s not present", *gdp.Spec.SitePersistenceRef)
 		}
 	}
@@ -370,7 +381,7 @@ func GDPSanityChecks(gdp *gdpalphav2.GlobalDeploymentPolicy, fullSync bool) erro
 	if gdp.Spec.PKIProfileRef != nil && *gdp.Spec.PKIProfileRef == "" {
 		return fmt.Errorf("empty string as pki profile reference not supported")
 	} else if gdp.Spec.PKIProfileRef != nil {
-		if !isPKIProfilePresent(*gdp.Spec.PKIProfileRef, true, fullSync) {
+		if !isPKIProfilePresent(*gdp.Spec.PKIProfileRef, true, fullSync, gdp.Namespace) {
 			return fmt.Errorf("pki profile ref %s not present", *gdp.Spec.PKIProfileRef)
 		}
 	}
@@ -442,10 +453,13 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 			if cluster != cname || namespace != ns {
 				continue
 			}
+			fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+				ns, sname)
+			tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 			acceptedObjStore.DeleteClusterNSObj(cname, ns, sname)
 			// publish the delete keys for these objects
 			bkt := utils.Bkt(ns, numWorkers)
-			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cluster, namespace, sname)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cluster, namespace, sname, tenant)
 			k8swq[bkt].AddRateLimited(key)
 			gslbutils.Logf("cluster: %s, ns: %s, objType: %s, name: %s, key: %s, msg: added DELETE obj key", cluster, namespace,
 				objType, sname, key)
@@ -718,7 +732,8 @@ func deleteHmTemplateFromCacheIfRequired(oldGdp, newGdp *gdpalphav2.GlobalDeploy
 	if !gslbutils.IsHmTemplateChanged(oldGdp, newGdp) {
 		return false
 	}
-	hmKey := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *oldGdp.Spec.HealthMonitorTemplate}
+	tenant := gslbutils.GetTenantInNamespace(newGdp.Namespace, gslbutils.LeaderClusterContext)
+	hmKey := avictrl.TenantName{Tenant: tenant, Name: *oldGdp.Spec.HealthMonitorTemplate}
 	gslbutils.Debugf("hmKey: %v, msg: deleting the hm template from gs hm cache", hmKey)
 	aviHmCache := avictrl.GetAviHmCache()
 	aviHmCache.AviHmCacheDelete(hmKey)

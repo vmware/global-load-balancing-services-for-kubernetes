@@ -35,6 +35,7 @@ import (
 	"github.com/vmware/alb-sdk/go/session"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
+	gslbhrinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/amko/v1alpha1"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +48,19 @@ import (
 // InformersPerCluster is the number of informers per cluster
 var InformersPerCluster *utils.AviCache
 
+// LeaderClusterContext is the leader cluster where amko is deployed
+var LeaderClusterContext string
+
+type AMKOCrdInformers struct {
+	GslbHostruleInformer gslbhrinformers.GSLBHostRuleInformer
+}
+
+var AMKOCrdInformer *AMKOCrdInformers
+
 func SetInformersPerCluster(clusterName string, info *utils.Informers) {
+	if InformersPerCluster == nil {
+		InformersPerCluster = utils.NewAviCache()
+	}
 	InformersPerCluster.AviCacheAdd(clusterName, info)
 }
 
@@ -60,8 +73,17 @@ func GetInformersPerCluster(clusterName string) *utils.Informers {
 	return info.(*utils.Informers)
 }
 
-func MultiClusterKey(operation, objType, clusterName, ns, objName string) string {
-	compositeObjName := clusterName + "/" + ns + "/" + objName
+func SetAMKOCrdInformers(amkoCrdInformer *AMKOCrdInformers) {
+	AMKOCrdInformer = amkoCrdInformer
+
+}
+
+func GetAMKOCRDInformer() *AMKOCrdInformers {
+	return AMKOCrdInformer
+}
+
+func MultiClusterKey(operation, objType, clusterName, ns, objName, tenant string) string {
+	compositeObjName := clusterName + "/" + ns + "/" + objName + "/" + tenant
 	return MultiClusterKeyWithObjName(operation, objType, compositeObjName)
 }
 
@@ -73,8 +95,8 @@ func GSLBHostRuleKey(operation, objType, objName string) string {
 	return MultiClusterKeyWithObjName(operation, objType, objName)
 }
 
-func MultiClusterKeyForHostRule(operation, objType, clusterName, ns, objName, lfqdn, gfqdn string) string {
-	return MultiClusterKeyWithObjName(operation, objType, clusterName+"/"+ns+"/"+objName+"/"+lfqdn+"/"+gfqdn)
+func MultiClusterKeyForHostRule(operation, objType, clusterName, ns, objName, lfqdn, gfqdn, tenant string) string {
+	return MultiClusterKeyWithObjName(operation, objType, clusterName+"/"+ns+"/"+objName+"/"+lfqdn+"/"+gfqdn+"/"+tenant)
 }
 
 func ExtractMultiClusterHostRuleKey(key string) (string, string, string, string, string, string, error) {
@@ -85,33 +107,33 @@ func ExtractMultiClusterHostRuleKey(key string) (string, string, string, string,
 	return seg[0], seg[1], seg[2], seg[3], seg[4], seg[5], nil
 }
 
-func ExtractGSLBHostRuleKey(key string) (string, string, string, error) {
+func ExtractGSLBHostRuleKey(key string) (string, string, string, string, string, error) {
 	seg := strings.Split(key, "/")
-	if len(seg) != 3 {
-		return "", "", "", fmt.Errorf("invalid key %s for GSLBHostRule", key)
+	if len(seg) != 5 {
+		return "", "", "", "", "", fmt.Errorf("invalid key %s for GSLBHostRule", key)
 	}
-	return seg[0], seg[1], seg[2], nil
+	return seg[0], seg[1], seg[2], seg[3], seg[4], nil
 }
 
-func ExtractMultiClusterKey(key string) (string, string, string, string, string) {
+func ExtractMultiClusterKey(key string) (string, string, string, string, string, string) {
 	segments := strings.Split(key, "/")
-	var operation, objType, cluster, ns, name, hostname string
+	var operation, objType, cluster, ns, name, hostname, tenant string
 	if segments[1] == IngressType ||
 		segments[1] == MCIType {
 		if len(segments) == IngMultiClusterKeyLen {
-			operation, objType, cluster, ns, name, hostname = segments[0], segments[1], segments[2], segments[3], segments[4], segments[5]
+			operation, objType, cluster, ns, name, hostname, tenant = segments[0], segments[1], segments[2], segments[3], segments[4], segments[5], segments[6]
 			name += "/" + hostname
 		} else if len(segments) == HostRuleKeyLen {
-			operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]+"/"+segments[5]
+			operation, objType, cluster, ns, name, tenant = segments[0], segments[1], segments[2], segments[3], segments[4]+"/"+segments[5], segments[7]
 		}
 	} else if len(segments) == MultiClusterKeyLen {
-		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
+		operation, objType, cluster, ns, name, tenant = segments[0], segments[1], segments[2], segments[3], segments[4], segments[5]
 	} else if len(segments) == GSFQDNKeyLen {
 		operation, objType, name = segments[0], segments[1], segments[2]
 	} else if len(segments) == HostRuleKeyLen {
-		operation, objType, cluster, ns, name = segments[0], segments[1], segments[2], segments[3], segments[4]
+		operation, objType, cluster, ns, name, tenant = segments[0], segments[1], segments[2], segments[3], segments[4], segments[7]
 	}
-	return operation, objType, cluster, ns, name
+	return operation, objType, cluster, ns, name, tenant
 }
 
 // sname for ingress is ingName/hostname
@@ -127,8 +149,8 @@ func GetObjectTypeFromKey(key string) (string, error) {
 	return segments[1], nil
 }
 
-func GSFQDNKey(operation, objType, gsFqdn string) string {
-	return operation + "/" + objType + "/" + gsFqdn
+func GSFQDNKey(operation, objType, gsFqdn, namespace, tenant string) string {
+	return operation + "/" + objType + "/" + namespace + "/" + tenant + "/" + gsFqdn
 }
 
 func SplitMultiClusterObjectName(name string) (string, string, string, error) {
@@ -299,8 +321,8 @@ func GetGSLBHmChecksum(hmType string, port int32, description []string, createdB
 	return checksum
 }
 
-func GetAviAdminTenantRef() string {
-	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/?name=" + GetTenant()
+func GetTenantRef(tenant string) string {
+	return "https://" + os.Getenv("GSLB_CTRL_IPADDRESS") + "/api/tenant/?name=" + tenant
 }
 
 // GSLBConfigObj is global and is initialized only once
@@ -445,6 +467,28 @@ func GetAviConfig() AviControllerConfig {
 
 func GetTenant() string {
 	return gslbLeaderConfig.Tenant
+}
+
+func GetTenantInNamespace(namespace, cname string) string {
+	nsObj, err := GetInformersPerCluster(cname).NSInformer.Lister().Get(namespace)
+	if err != nil {
+		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, namespace: %s, error :%s", namespace, err.Error())
+		return GetTenant()
+	}
+	tenant, ok := nsObj.Annotations[TenantAnnotation]
+	if !ok || tenant == "" {
+		return GetTenant()
+	}
+	return tenant
+}
+func GetTenantInNamespaceAnnotation(namespace, cname string) string {
+	nsObj, err := GetInformersPerCluster(cname).NSInformer.Lister().Get(namespace)
+	if err != nil {
+		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, namespace: %s, error :%s", namespace, err.Error())
+		return GetTenant()
+	}
+	tenant, _ := nsObj.Annotations[TenantAnnotation]
+	return tenant
 }
 
 var allClusterContexts []string
@@ -743,3 +787,9 @@ func GetDefaultPKI(aviClient *clients.AviClient) *string {
 	}
 	return nil
 }
+
+const (
+	VSAnnotation         = "ako.vmware.com/host-fqdn-vs-uuid-map"
+	ControllerAnnotation = "ako.vmware.com/controller-cluster-uuid"
+	TenantAnnotation     = "ako.vmware.com/tenant-name"
+)
