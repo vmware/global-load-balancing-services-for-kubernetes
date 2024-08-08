@@ -484,66 +484,8 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 				return
 			}
 			if oldNS.ResourceVersion != ns.ResourceVersion {
-				oldTenant, oldExists := oldNS.Annotations[gslbutils.TenantAnnotation]
-				if !oldExists {
-					oldTenant = gslbutils.GetTenant()
-				}
-				newTenant, newExists := ns.Annotations[gslbutils.TenantAnnotation]
-				if !newExists {
-					newTenant = gslbutils.GetTenant()
-				}
-				if oldTenant != newTenant {
-					gslbHostRules, err := gslbutils.GetAMKOCRDInformer().GslbHostruleInformer.Lister().GSLBHostRules(ns.Name).List(labels.Set(nil).AsSelector())
-					if err != nil {
-						gslbutils.Errf("Unable to list GslbHostRules :%s", err.Error())
-					} else {
-						for _, gslbHostRule := range gslbHostRules {
-							err = ValidateGSLBHostRule(gslbHostRule, false)
-							if err != nil {
-								gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gslbHostRule.ObjectMeta.Name, err.Error())
-								// check if previous GSLB host rule was accepted, if yes, we need to add a delete key if this new object is rejected
-								if gslbHostRule.Status.Status == GslbHostRuleAccepted {
-									updateGSLBHR(gslbHostRule, err.Error(), GslbHostRuleRejected)
-									gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gslbHostRule.ObjectMeta.Name, err.Error())
-									deleteObjsForGSHostRule(gslbHostRule, c.workqueue, numWorkers, oldTenant)
-								}
-							} else {
-								if gslbHostRule.Status.Status != GslbHostRuleRejected {
-									//remove the gslbhostrule association with  model with old tenant
-									gsHostRuleList := gslbutils.GetGSHostRulesList()
-									gsHostRuleList.DeleteGSHostRulesForFQDN(gslbHostRule.Spec.Fqdn)
-									gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: GSLB Host Rule deleted for fqdn",
-										gslbHostRule.Namespace, gslbHostRule.Name, gslbHostRule.Spec.Fqdn)
-									// push the delete key for this fqdn
-									key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbHostRule.Spec.Fqdn, gslbHostRule.Namespace, oldTenant)
-									gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key",
-										gslbHostRule.ObjectMeta.Namespace, gslbHostRule.Spec.Fqdn, key)
-									nodes.OperateOnGSLBHostRule(key)
-								}
-								//add key for processing of gslbhostrule with new tenant
+				applyGSLBHostruleOnTenantchange(numWorkers, c, oldNS, ns)
 
-								gsHostRulesList := gslbutils.GetGSHostRulesList()
-								gsFqdnHostRules := gsHostRulesList.GetGSHostRulesForFQDN(gslbHostRule.Spec.Fqdn)
-								if gsFqdnHostRules == nil {
-									// no GSLBHostRule exists for this FQDN, add a new one
-									gsHostRulesList.BuildAndSetGSHostRulesForFQDN(gslbHostRule)
-								} else {
-									// there's an existing GSLBHostRule for this FQDN, reject this
-									updateGSLBHR(gslbHostRule, "there's an existing GSLBHostRule for the same FQDN", GslbHostRuleRejected)
-									continue
-								}
-								gslbutils.Logf("ns: %s, gslbhostrule: %s, msg: %s", gslbHostRule.ObjectMeta.Namespace, gslbHostRule.ObjectMeta.Name,
-									"GSLBHostRule object added")
-								// push the gsFqdn key to graph layer
-								bkt := utils.Bkt(gslbHostRule.Spec.Fqdn, numWorkers)
-								key := gslbutils.GSFQDNKey(gslbutils.ObjectAdd, gslbutils.GSFQDNType, gslbHostRule.Spec.Fqdn, gslbHostRule.Namespace, newTenant)
-								c.workqueue[bkt].AddRateLimited(key)
-								gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed ADD key",
-									gslbHostRule.ObjectMeta.Namespace, gslbHostRule.Spec.Fqdn, key)
-							}
-						}
-					}
-				}
 				oldNSMeta := k8sobjects.GetNSMeta(oldNS, c.name)
 				newNSMeta := k8sobjects.GetNSMeta(ns, c.name)
 				if !newNSMeta.UpdateFilter(oldNSMeta) {
@@ -570,6 +512,69 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 		},
 	}
 	return ingressEventHandler
+}
+
+func applyGSLBHostruleOnTenantchange(numWorkers uint32, c *GSLBMemberController, oldNS, ns *corev1.Namespace) {
+	oldTenant, oldExists := oldNS.Annotations[gslbutils.TenantAnnotation]
+	if !oldExists {
+		oldTenant = gslbutils.GetTenant()
+	}
+	newTenant, newExists := ns.Annotations[gslbutils.TenantAnnotation]
+	if !newExists {
+		newTenant = gslbutils.GetTenant()
+	}
+	if oldTenant != newTenant {
+		gslbHostRules, err := gslbutils.GetAMKOCRDInformer().GslbHostruleInformer.Lister().GSLBHostRules(ns.Name).List(labels.Set(nil).AsSelector())
+		if err != nil {
+			gslbutils.Errf("Unable to list GslbHostRules :%s", err.Error())
+		} else {
+			for _, gslbHostRule := range gslbHostRules {
+				err = ValidateGSLBHostRule(gslbHostRule, false)
+				if err != nil {
+					gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gslbHostRule.ObjectMeta.Name, err.Error())
+					// check if previous GSLB host rule was accepted, if yes, we need to add a delete key if this new object is rejected
+					if gslbHostRule.Status.Status == GslbHostRuleAccepted {
+						updateGSLBHR(gslbHostRule, err.Error(), GslbHostRuleRejected)
+						gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", gslbHostRule.ObjectMeta.Name, err.Error())
+						deleteObjsForGSHostRule(gslbHostRule, c.workqueue, numWorkers, oldTenant)
+					}
+				} else {
+					if gslbHostRule.Status.Status != GslbHostRuleRejected {
+						//remove the gslbhostrule association with  model with old tenant
+						gsHostRuleList := gslbutils.GetGSHostRulesList()
+						gsHostRuleList.DeleteGSHostRulesForFQDN(gslbHostRule.Spec.Fqdn)
+						gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: GSLB Host Rule deleted for fqdn",
+							gslbHostRule.Namespace, gslbHostRule.Name, gslbHostRule.Spec.Fqdn)
+						// push the delete key for this fqdn
+						key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbHostRule.Spec.Fqdn, gslbHostRule.Namespace, oldTenant)
+						gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key",
+							gslbHostRule.ObjectMeta.Namespace, gslbHostRule.Spec.Fqdn, key)
+						nodes.OperateOnGSLBHostRule(key)
+					}
+					//add key for processing of gslbhostrule with new tenant
+
+					gsHostRulesList := gslbutils.GetGSHostRulesList()
+					gsFqdnHostRules := gsHostRulesList.GetGSHostRulesForFQDN(gslbHostRule.Spec.Fqdn)
+					if gsFqdnHostRules == nil {
+						// no GSLBHostRule exists for this FQDN, add a new one
+						gsHostRulesList.BuildAndSetGSHostRulesForFQDN(gslbHostRule)
+					} else {
+						// there's an existing GSLBHostRule for this FQDN, reject this
+						updateGSLBHR(gslbHostRule, "there's an existing GSLBHostRule for the same FQDN", GslbHostRuleRejected)
+						continue
+					}
+					gslbutils.Logf("ns: %s, gslbhostrule: %s, msg: %s", gslbHostRule.ObjectMeta.Namespace, gslbHostRule.ObjectMeta.Name,
+						"GSLBHostRule object added")
+					// push the gsFqdn key to graph layer
+					bkt := utils.Bkt(gslbHostRule.Spec.Fqdn, numWorkers)
+					key := gslbutils.GSFQDNKey(gslbutils.ObjectAdd, gslbutils.GSFQDNType, gslbHostRule.Spec.Fqdn, gslbHostRule.Namespace, newTenant)
+					c.workqueue[bkt].AddRateLimited(key)
+					gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed ADD key",
+						gslbHostRule.ObjectMeta.Namespace, gslbHostRule.Spec.Fqdn, key)
+				}
+			}
+		}
+	}
 }
 
 func ReApplyObjectsOnHostRule(hr *akov1beta1.HostRule, add bool, cname, lfqdn, gfqdn string, numWorkers uint32,
