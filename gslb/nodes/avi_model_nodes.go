@@ -104,6 +104,7 @@ type AviGSK8sObj struct {
 	VirtualServiceUUID string
 	ControllerUUID     string
 	SyncVIPOnly        bool
+	Tenant             string
 }
 
 func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
@@ -126,6 +127,7 @@ func (gsk8sObj AviGSK8sObj) getCopy() AviGSK8sObj {
 		SyncVIPOnly:        gsk8sObj.SyncVIPOnly,
 		IsPassthrough:      gsk8sObj.IsPassthrough,
 		PublicIP:           gsk8sObj.PublicIP,
+		Tenant:             gsk8sObj.Tenant,
 	}
 	return obj
 }
@@ -279,7 +281,7 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 		if gsMember.ObjType == gslbutils.ThirdPartyMemberType {
 			continue
 		}
-		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name)
+		memberObjs = append(memberObjs, gsMember.ObjType+"/"+gsMember.Cluster+"/"+gsMember.Namespace+"/"+gsMember.Name+"/"+gsMember.Tenant)
 	}
 
 	hmNames := []string{}
@@ -483,7 +485,7 @@ func (v *AviGSObjectGraph) buildAndAttachHealthMonitorsFromObj(obj AviGSK8sObj, 
 	}
 } */
 
-func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj bool, tls bool) {
+func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj bool, tls bool, tenant string) {
 	v.Lock.Lock()
 	defer v.Lock.Unlock()
 
@@ -502,7 +504,7 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj
 		return
 	}
 	v.Name = gsFqdn
-	v.Tenant = gslbutils.GetTenant()
+	v.Tenant = tenant
 	v.RetryCount = gslbutils.DefaultRetryCount
 	v.CalculateChecksum()
 }
@@ -524,7 +526,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 
 	// The GSLB service will be put into the admin tenant
 	v.Name = gsFqdn
-	v.Tenant = gslbutils.GetTenant()
+	v.Tenant = memberObjs[0].Tenant
 	v.MemberObjs = memberObjs
 	v.RetryCount = gslbutils.DefaultRetryCount
 
@@ -789,6 +791,8 @@ func (v *AviGSObjectGraph) GetMemberObjs() []AviGSK8sObj {
 		objs[idx].Weight = v.MemberObjs[idx].Weight
 		objs[idx].Priority = v.MemberObjs[idx].Priority
 		objs[idx].ObjType = v.MemberObjs[idx].ObjType
+		objs[idx].Tenant = v.MemberObjs[idx].Tenant
+
 	}
 	return objs
 }
@@ -818,6 +822,7 @@ func (v *AviGSObjectGraph) GetUniqueMemberObjs() []AviGSK8sObj {
 			VirtualServiceUUID: memberObj.VirtualServiceUUID,
 			SyncVIPOnly:        memberObj.SyncVIPOnly,
 			PublicIP:           memberObj.PublicIP,
+			Tenant:             memberObj.Tenant,
 		})
 		memberVips = append(memberVips, memberObj.IPAddr)
 	}
@@ -933,6 +938,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 		SyncVIPOnly:        syncVIPOnly,
 		IsPassthrough:      metaObj.IsPassthrough(),
 		TLS:                tls,
+		Tenant:             metaObj.GetTenant(),
 	}, nil
 }
 

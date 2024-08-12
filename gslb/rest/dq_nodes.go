@@ -51,14 +51,13 @@ var restLayer *RestOperations
 var restOnce sync.Once
 
 type RestOperations struct {
-	cache             *avicache.AviCache
-	hmCache           *avicache.AviHmCache
-	aviRestPoolClient *utils.AviRestClientPool
+	cache   *avicache.AviCache
+	hmCache *avicache.AviHmCache
 }
 
-func NewRestOperations(cache *avicache.AviCache, hmCache *avicache.AviHmCache, aviRestPoolClient *utils.AviRestClientPool) *RestOperations {
+func NewRestOperations(cache *avicache.AviCache, hmCache *avicache.AviHmCache) *RestOperations {
 	restOnce.Do(func() {
-		restLayer = &RestOperations{cache: cache, hmCache: hmCache, aviRestPoolClient: aviRestPoolClient}
+		restLayer = &RestOperations{cache: cache, hmCache: hmCache}
 	})
 	return restLayer
 }
@@ -261,7 +260,7 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 					gslbutils.Errf("key: %s, msg: couldn't build a rest operation for health monitor, returning", key)
 					return errors.New("couldn't build a rest operation")
 				}
-				hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName}
+				hmKey := avicache.TenantName{Tenant: gsKey.Tenant, Name: hmName}
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
 					if !strings.Contains(op.Err.Error(), "Health monitor with this Name and Tenant ref already exists") {
@@ -270,7 +269,7 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 					}
 					// AMKO's UUID has changed, in that case do a GET and PUT operation on health monitor
 					// to update the health monitor with new UUID.
-					hm, err := avicache.GetHMFromName(hmName, false)
+					hm, err := avicache.GetHMFromName(hmName, false, gsKey.Tenant)
 					if err != nil {
 						gslbutils.Errf("Health Monitor %s not found", hmName)
 						return fmt.Errorf("health monitor %s not found", hmName)
@@ -289,7 +288,7 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 						gslbutils.Errf("key: %s, msg: couldn't build a rest operation for health monitor, returning", key)
 						return errors.New("couldn't build a rest operation")
 					}
-					hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName}
+					hmKey := avicache.TenantName{Tenant: gsKey.Tenant, Name: hmName}
 					restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 					if op.Err != nil {
 						gslbutils.Errf("key: %s, hmKey: %v, msg: error while performing rest operation", key, hmKey)
@@ -309,7 +308,7 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 	if len(toBeDelPathHms) != 0 {
 		// we have to delete path based HMs for these paths
 		for _, hmName := range toBeDelPathHms {
-			err := restOp.deleteHmIfRequired(gsCacheObj.Name, gslbutils.GetTenant(), key, gsCacheObj, gsKey, hmName)
+			err := restOp.deleteHmIfRequired(gsCacheObj.Name, gsCacheObj.Tenant, key, gsCacheObj, gsKey, hmName)
 			if err != nil {
 				// the key has been already published to the retry queue for an error event, so just return
 				return errors.New("couldn't build a rest operation")
@@ -331,7 +330,7 @@ func (restOp *RestOperations) createOrDeletePathHm(aviGSGraph *nodes.AviGSObject
 				gslbutils.Errf("key: %s, msg: couldn't build a rest operation for health monitor, returning", key)
 				return errors.New("couldn't build a rest operation")
 			}
-			hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName}
+			hmKey := avicache.TenantName{Tenant: gsCacheObj.Tenant, Name: hmName}
 			restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 			if op.Err != nil {
 				gslbutils.Errf("key: %s, hmKey: %v, msg: error while performing rest operation", key, hmKey)
@@ -347,7 +346,7 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 	hms := GetHMCacheObjFromGSCache(gsCacheObj)
 	if len(hms) != 0 {
 		hm := hms[0]
-		hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: hm.Name}
+		hmKey := avicache.TenantName{Tenant: gsCacheObj.Tenant, Name: hm.Name}
 		hmCksum := aviGSGraph.GetHmChecksum(aviGSGraph.Hm.GetHMDescription(aviGSGraph.Name, aviGSGraph.HmTemplate))
 		gslbutils.Debugf(spew.Sprintf("key: %s, hmKey: %v, aviGSGraph: %v, hmChecksum: %d, hmCloudConfigChecksum: %d, msg: will check if hm needs to change",
 			key, hmKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
@@ -360,7 +359,7 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 				return op.Err
 			}
 			if gslbutils.HMCreatedByAMKO(hm.Name) {
-				op = restOp.AviGsHmDel(hm.UUID, gslbutils.GetTenant(), key, hm.Name)
+				op = restOp.AviGsHmDel(hm.UUID, gsCacheObj.Tenant, key, hm.Name)
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
 					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
@@ -393,7 +392,7 @@ func (restOp *RestOperations) createOrUpdateNonPathHm(aviGSGraph *nodes.AviGSObj
 			gslbutils.Errf("key: %s, error in building avi hm object, won't retry", key)
 			return errors.New("error in building avi hm object")
 		}
-		hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: op.ObjName}
+		hmKey := avicache.TenantName{Tenant: gsCacheObj.Tenant, Name: op.ObjName}
 		restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 		if op.Err != nil {
 			gslbutils.Errf("key: %s, hmKey: %v, error in rest operation: %v", key, hmKey, op)
@@ -483,8 +482,8 @@ func (restOp *RestOperations) RestOperation(gsName, tenant string, aviGSGraph *n
 				key, gsKey, *aviGSGraph, hmCksum, hm.CloudConfigCksum))
 			if hm.CloudConfigCksum != hmCksum {
 				// delete hm, create new hm and update gs
-				hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: aviGSGraph.Hm.Name}
-				op := restOp.AviGsHmDel(hm.UUID, gslbutils.GetTenant(), key, hm.Name)
+				hmKey := avicache.TenantName{Tenant: gsCacheObj.Tenant, Name: aviGSGraph.Hm.Name}
+				op := restOp.AviGsHmDel(hm.UUID, gsCacheObj.Tenant, key, hm.Name)
 				restOp.ExecuteRestAndPopulateCache(op, nil, &hmKey, key)
 				if op.Err != nil {
 					gslbutils.Errf("key: %s, hmKey: %s, error in rest operation: %v", key, hmKey, op)
@@ -511,7 +510,8 @@ func AviRestOperateWrapper(restOp *RestOperations, aviClient *clients.AviClient,
 	restTimeoutChan := make(chan error, 1)
 
 	go func() {
-		err := restOp.aviRestPoolClient.AviRestOperate(aviClient, []*utils.RestOp{operation})
+
+		err := avicache.SharedAviClients(operation.Tenant).AviRestOperate(aviClient, []*utils.RestOp{operation})
 		restTimeoutChan <- err
 	}()
 
@@ -530,9 +530,15 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 	// given GS everytime.
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, queue: %d, msg: processing in rest queue", key, bkt)
-
-	if len(restOp.aviRestPoolClient.AviClient) > 0 {
-		aviClient := restOp.aviRestPoolClient.AviClient[bkt]
+	var tenant string
+	if gsKey != nil {
+		tenant = gsKey.Tenant
+	} else if hmKey != nil {
+		tenant = hmKey.Tenant
+	}
+	aviRestPoolClient := avicache.SharedAviClients(tenant)
+	if len(aviRestPoolClient.AviClient) > 0 {
+		aviClient := aviRestPoolClient.AviClient[bkt]
 		err := AviRestOperateWrapper(restOp, aviClient, operation)
 		gslbutils.Debugf("key: %s, queue: %d, msg: avi rest operate wrapper response, %v", key, bkt, err)
 		if err != nil {
@@ -583,14 +589,15 @@ func (restOp *RestOperations) ExecuteRestAndPopulateCache(operation *utils.RestO
 }
 
 func (restOp *RestOperations) handleErrAndUpdateCacheForHm(errCode int, hmKey avicache.TenantName, key string) {
-	if len(restOp.aviRestPoolClient.AviClient) <= 0 {
+	aviRestPoolClient := avicache.SharedAviClients(hmKey.Tenant)
+	if len(aviRestPoolClient.AviClient) <= 0 {
 		gslbutils.Errf("invalid avi pool client configuration in restOp, key: %s", key)
 		return
 	}
 
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, queue: %d, msg: handling error and updating cache", key, bkt)
-	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+	aviclient := aviRestPoolClient.AviClient[bkt]
 
 	switch errCode {
 	case 409:
@@ -613,14 +620,15 @@ func (restOp *RestOperations) handleErrAndUpdateCacheForHm(errCode int, hmKey av
 }
 
 func (restOp *RestOperations) handleErrAndUpdateCacheForGS(errCode int, gsKey avicache.TenantName, key string) {
-	if len(restOp.aviRestPoolClient.AviClient) <= 0 {
+	aviRestPoolClient := avicache.SharedAviClients(gsKey.Tenant)
+	if len(aviRestPoolClient.AviClient) <= 0 {
 		gslbutils.Errf("invalid avi pool client configuration in restOp, key: %s", key)
 		return
 	}
 
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, queue: %d, msg: handling error and updating cache", key, bkt)
-	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+	aviclient := aviRestPoolClient.AviClient[bkt]
 
 	switch errCode {
 	case 409:
@@ -798,7 +806,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 	hmProto := gsMeta.Hm.HMProtocol
 	isFederated := true
 	allowDup := true
-	tenantRef := gslbutils.GetAviAdminTenantRef()
+	tenantRef := gslbutils.GetTenantRef(gsMeta.Tenant)
 	description := ""
 	sendInterval := int32(10)
 	receiveTimeout := int32(4)
@@ -834,7 +842,7 @@ func (restOp *RestOperations) AviGsHmBuild(gsMeta *nodes.AviGSObjectGraph, restM
 		if gsMeta.HmTemplate != nil {
 			gslbutils.Debugf("key: %s, pathHm: %s, msg: health monitor template is getting used", key, pathHm)
 			aviHmCache := avicache.GetAviHmCache()
-			aviHmIntf, ok := aviHmCache.AviHmCacheGet(avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: *gsMeta.HmTemplate})
+			aviHmIntf, ok := aviHmCache.AviHmCacheGet(avicache.TenantName{Tenant: gsMeta.Tenant, Name: *gsMeta.HmTemplate})
 			if !ok {
 				gslbutils.Errf("key: %s, pathHm: %s, msg: HM template not found in cache", key, pathHm)
 				return nil
@@ -1048,7 +1056,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 	minMembers := uint32(0)
 	gsName := gsMeta.Name
 	resolveCname := false
-	tenantRef := gslbutils.GetAviAdminTenantRef()
+	tenantRef := gslbutils.GetTenantRef(gsMeta.Tenant)
 	useEdnsClientSubnet := true
 	wildcardMatch := false
 	// description field needs references
@@ -1090,7 +1098,7 @@ func (restOp *RestOperations) AviGSBuild(gsMeta *nodes.AviGSObjectGraph, restMet
 			pkiProfileRef := "/api/pkiprofile?name=" + *gsMeta.PkiProfileRef
 			aviGslbSvc.PkiProfileRef = &pkiProfileRef
 		} else {
-			aviGslbSvc.PkiProfileRef = gslbutils.GetDefaultPKI(cache.SharedAviClients().AviClient[0])
+			aviGslbSvc.PkiProfileRef = gslbutils.GetDefaultPKI(cache.SharedAviClients(gsMeta.Tenant).AviClient[0])
 		}
 	} else {
 		sitePersistenceEnabled := false
@@ -1208,7 +1216,8 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, hmName: %s, queue: %d, msg: deleting HM object", key, hmName, bkt)
-	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+	aviRestPoolClient := avicache.SharedAviClients(gsKey.Tenant)
+	aviclient := aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
 		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderErr)
@@ -1220,7 +1229,7 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 		gslbutils.Debugf("key: %s, hmName: %s, msg: won't delete the passthrough health monitor", key, hmName)
 		return nil
 	}
-	hmCacheObjIntf, found := restOp.hmCache.AviHmCacheGet(avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName})
+	hmCacheObjIntf, found := restOp.hmCache.AviHmCacheGet(avicache.TenantName{Tenant: gsKey.Tenant, Name: hmName})
 	if !found {
 		gslbutils.Warnf("key: %s, gsKey: %v, msg: health monitor object not found in the hm cache, can't delete",
 			key, gsKey)
@@ -1235,7 +1244,7 @@ func (restOp *RestOperations) deleteHmIfRequired(gsName, tenant, key string, gsC
 			key, gsKey, hmCacheObj)
 		return errors.New("hm cache object malformed")
 	}
-	hmKey := avicache.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName}
+	hmKey := avicache.TenantName{Tenant: gsKey.Tenant, Name: hmName}
 	operation := restOp.AviGsHmDel(hmCacheObj.UUID, hmCacheObj.Tenant, key, hmCacheObj.Name)
 	restOps = operation
 	err := AviRestOperateWrapper(restOp, aviclient, restOps)
@@ -1265,7 +1274,8 @@ func (restOp *RestOperations) deleteGSOper(gsCacheObj *avicache.AviGSCache, tena
 	var restOps *utils.RestOp
 	bkt := utils.Bkt(key, gslbutils.NumRestWorkers)
 	gslbutils.Logf("key: %s, queue: %d, msg: deleting GS object", key, bkt)
-	aviclient := restOp.aviRestPoolClient.AviClient[bkt]
+	aviRestPoolClient := avicache.SharedAviClients(tenant)
+	aviclient := aviRestPoolClient.AviClient[bkt]
 	if !gslbutils.IsControllerLeader() {
 		gslbutils.Errf("key: %s, msg: %s", key, "can't execute rest operation, as controller is not a leader")
 		gslbutils.UpdateGSLBConfigStatus(ControllerNotLeaderErr)
@@ -1525,8 +1535,7 @@ func SyncFromNodesLayer(key interface{}, wg *sync.WaitGroup) error {
 	}
 	cache := avicache.GetAviCache()
 	hmCache := avicache.GetAviHmCache()
-	aviclient := avicache.SharedAviClients()
-	restLayerF := NewRestOperations(cache, hmCache, aviclient)
+	restLayerF := NewRestOperations(cache, hmCache)
 	gslbutils.Debugf("key: %s, msg: processing for key in rest layer", key)
 	restLayerF.DqNodes(keyStr)
 	gslbutils.Debugf("key: %s, msg: processing for key is done in rest layer", key)

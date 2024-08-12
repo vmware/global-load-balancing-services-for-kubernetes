@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -161,7 +162,7 @@ func (h *AviHmCache) AviHmCachePopulate(client *clients.AviClient,
 
 func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...string) error {
 	var nextPageURI string
-	uri := "/api/healthmonitor?page_size=100"
+	uri := "/api/healthmonitor?include_name&page_size=100"
 
 	matchCreatedBy := gslbutils.AMKOControlConfig().CreatedByField()
 
@@ -205,7 +206,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 				continue
 			}
 
-			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *hm.Name}
+			k := TenantName{Tenant: getTenantFromTenantRef(*hm.TenantRef), Name: *hm.Name}
 			var monitorPort int32
 			if hm.MonitorPort != nil {
 				monitorPort = *hm.MonitorPort
@@ -234,7 +235,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 			cksum := gslbutils.GetGSLBHmChecksum(*hm.Type, monitorPort, []string{description}, createdBy)
 			hmCacheObj := AviHmObj{
 				Name:             *hm.Name,
-				Tenant:           gslbutils.GetTenant(),
+				Tenant:           getTenantFromTenantRef(*hm.TenantRef),
 				UUID:             *hm.UUID,
 				Port:             monitorPort,
 				CloudConfigCksum: cksum,
@@ -308,7 +309,7 @@ func (s *AviPkiCache) AviPkiCacheGetByUUID(uuid string) (interface{}, bool) {
 func (s *AviPkiCache) AviPkiCachePopulate(client *clients.AviClient) error {
 	var nextPageURI string
 	baseURI := "/api/pkiprofile"
-	uri := baseURI + "?page_size=100"
+	uri := baseURI + "?include_name&page_size=100"
 
 	// parse all pages with PKI Profile till we hit the last page
 	for {
@@ -342,7 +343,7 @@ func (s *AviPkiCache) AviPkiCachePopulate(client *clients.AviClient) error {
 				continue
 			}
 
-			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+			k := TenantName{Tenant: getTenantFromTenantRef(*sp.TenantRef), Name: *sp.Name}
 			s.AviPkiCacheAdd(k, &sp)
 			s.AviPkiCacheAddByUUID(*sp.UUID, &sp)
 			gslbutils.Debugf("processed pki profile %s, UUID: %s", *sp.Name, *sp.UUID)
@@ -409,7 +410,7 @@ func (s *AviSpCache) AviSpCacheGetByUUID(uuid string) (interface{}, bool) {
 func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) error {
 	var nextPageURI string
 	baseURI := "/api/applicationpersistenceprofile"
-	uri := baseURI + "?page_size=100"
+	uri := baseURI + "?include_name&page_size=100"
 
 	// parse all pages with Health monitors till we hit the last page
 	for {
@@ -443,7 +444,7 @@ func (s *AviSpCache) AviSitePersistenceCachePopulate(client *clients.AviClient) 
 				continue
 			}
 
-			k := TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+			k := TenantName{Tenant: getTenantFromTenantRef(*sp.TenantRef), Name: *sp.Name}
 			s.AviSpCacheAdd(k, &sp)
 			s.AviSpCacheAddByUUID(*sp.UUID, &sp)
 			gslbutils.Debugf("processed site persistence %s, UUID: %s", *sp.Name, *sp.UUID)
@@ -547,7 +548,7 @@ func (c *AviCache) AviCacheDelete(k interface{}) {
 
 func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...string) {
 	var nextPageURI string
-	uri := "/api/gslbservice?page_size=100"
+	uri := "/api/gslbservice?include_name&page_size=100"
 	createdBy := gslbutils.AmkoUser
 	createdByChanged := false
 
@@ -558,7 +559,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 	// existing GSs with the new created_by field.
 	for {
 		if len(gsname) == 1 {
-			uri = "/api/gslbservice?name=" + gsname[0]
+			uri = "/api/gslbservice?include_name&name=" + gsname[0]
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
@@ -636,10 +637,10 @@ func parseGSObject(c *AviCache, gsObj models.GslbService, gsname []string) {
 			return
 		}
 	}
-	k := TenantName{Tenant: gslbutils.GetTenant(), Name: name}
+	k := TenantName{Tenant: getTenantFromTenantRef(*gsObj.TenantRef), Name: name}
 	gsCacheObj := AviGSCache{
 		Name:             name,
-		Tenant:           gslbutils.GetTenant(),
+		Tenant:           getTenantFromTenantRef(*gsObj.TenantRef),
 		Uuid:             uuid,
 		Members:          gsMembers,
 		K8sObjects:       memberObjs,
@@ -822,11 +823,7 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 	hmRefs := gsObj.HealthMonitorRefs
 	for _, hmRef := range hmRefs {
-		hmRefSplit := strings.Split(hmRef, "/api/healthmonitor/")
-		if len(hmRefSplit) != 2 {
-			return 0, nil, memberObjs, nil, gsDownResponse, createdBy, errors.New("health monitor name is absent in health monitor ref: " + hmRefs[0])
-		}
-		hmUUID := hmRefSplit[1]
+		hmUUID := ExtractUuid(hmRef, "healthmonitor-.*.#")
 		hmCache := GetAviHmCache()
 		hmObjIntf, found := hmCache.AviHmCacheGetByUUID(hmUUID)
 		if !found {
@@ -845,50 +842,41 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 	sitePersistenceRequired = *gsObj.SitePersistenceEnabled
 	if sitePersistenceRequired && gsObj.ApplicationPersistenceProfileRef != nil {
 		// find out the name of the profile
-		refSplit := strings.Split(*gsObj.ApplicationPersistenceProfileRef, "/applicationpersistenceprofile/")
-		if len(refSplit) == 2 {
-			spCache := GetAviSpCache()
-			sp, present := spCache.AviSpCacheGetByUUID(refSplit[1])
-			if present {
-				spObj, ok := sp.(*models.ApplicationPersistenceProfile)
-				if ok {
-					persistenceProfileRef = *spObj.Name
-					persistenceProfileRefPtr = &persistenceProfileRef
-				} else {
-					gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: stored site persistence not in right format",
-						*gsObj.Name, *gsObj.ApplicationPersistenceProfileRef)
-				}
+		refUUID := ExtractUuid(*gsObj.ApplicationPersistenceProfileRef, "applicationpersistenceprofile-.*.#")
+		spCache := GetAviSpCache()
+		sp, present := spCache.AviSpCacheGetByUUID(refUUID)
+		if present {
+			spObj, ok := sp.(*models.ApplicationPersistenceProfile)
+			if ok {
+				persistenceProfileRef = *spObj.Name
+				persistenceProfileRefPtr = &persistenceProfileRef
 			} else {
-				gslbutils.Warnf("gsName: %s, fetchedRef: %s, uuid: %s, msg: site persistence not present in cache by UUID",
-					*gsObj.Name, *gsObj.ApplicationPersistenceProfileRef, refSplit[1])
+				gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: stored site persistence not in right format",
+					*gsObj.Name, *gsObj.ApplicationPersistenceProfileRef)
 			}
 		} else {
-			gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: wrong format for site persistence ref", *gsObj.Name,
-				*gsObj.ApplicationPersistenceProfileRef)
+			gslbutils.Warnf("gsName: %s, fetchedRef: %s, uuid: %s, msg: site persistence not present in cache by UUID",
+				*gsObj.Name, *gsObj.ApplicationPersistenceProfileRef, refUUID)
 		}
+
 	}
 
 	if sitePersistenceRequired && gsObj.PkiProfileRef != nil {
 		// find out the name of the profile
-		refSplit := strings.Split(*gsObj.PkiProfileRef, "/pkiprofile/")
-		if len(refSplit) == 2 {
-			spCache := GetAviPkiCache()
-			sp, present := spCache.AviPkiCacheGetByUUID(refSplit[1])
-			if present {
-				spObj, ok := sp.(*models.PKIprofile)
-				if ok {
-					pkiProfileRef = spObj.Name
-				} else {
-					gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: stored pki profile not in right format",
-						*gsObj.Name, *gsObj.PkiProfileRef)
-				}
+		refUUID := ExtractUuid(*gsObj.PkiProfileRef, "pkiprofile-.*.#")
+		spCache := GetAviPkiCache()
+		sp, present := spCache.AviPkiCacheGetByUUID(refUUID)
+		if present {
+			spObj, ok := sp.(*models.PKIprofile)
+			if ok {
+				pkiProfileRef = spObj.Name
 			} else {
-				gslbutils.Warnf("gsName: %s, fetchedRef: %s, uuid: %s, msg: pki profile not present in cache by UUID",
-					*gsObj.Name, *gsObj.PkiProfileRef, refSplit[1])
+				gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: stored pki profile not in right format",
+					*gsObj.Name, *gsObj.PkiProfileRef)
 			}
 		} else {
-			gslbutils.Warnf("gsName: %s, fetchedRef: %s, msg: wrong format for pki profile ref", *gsObj.Name,
-				*gsObj.PkiProfileRef)
+			gslbutils.Warnf("gsName: %s, fetchedRef: %s, uuid: %s, msg: pki profile not present in cache by UUID",
+				*gsObj.Name, *gsObj.PkiProfileRef, refUUID)
 		}
 	}
 	ttl = gsObj.TTL
@@ -955,8 +943,8 @@ func GetDetailsFromAviGSLBFormatted(gsObj models.GslbService) (uint32, []GSMembe
 
 // As name is encoded, retreiving information about the Hm becomes difficult
 // Thats why we fetch Hm description for further processing
-func GetHmDescriptionFromName(hmName string) string {
-	aviRestClientPool := SharedAviClients()
+func GetHmDescriptionFromName(hmName, tenant string) string {
+	aviRestClientPool := SharedAviClients(tenant)
 	if len(aviRestClientPool.AviClient) < 1 {
 		return ""
 	}
@@ -1010,8 +998,8 @@ func GetGSNameFromHmName(hmName string) (string, error) {
 // gen = 1 if the HM name is encoded and the gsname is fetched from its description
 // gen = 2 if the HM name follows the old non encoded naming convention and gsname is fetched from hmname
 // gen = 0 for error
-func GetGSFromHmName(hmName string) (string, int8, error) {
-	hmDesc := GetHmDescriptionFromName(hmName)
+func GetGSFromHmName(hmName, tenant string) (string, int8, error) {
+	hmDesc := GetHmDescriptionFromName(hmName, tenant)
 	hmDescriptionSplit := strings.Split(hmDesc, "gsname: ")
 	if len(hmDescriptionSplit) == 2 {
 		gsNameField := strings.Split(hmDescriptionSplit[1], ",")
@@ -1210,7 +1198,7 @@ type TenantName struct {
 }
 
 func PopulateGSCache(createSharedCache bool) *AviCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	var aviObjCache *AviCache
 	if createSharedCache {
 		aviObjCache = GetAviCache()
@@ -1228,7 +1216,7 @@ func PopulateGSCache(createSharedCache bool) *AviCache {
 }
 
 func PopulateHMCache(createSharedCache bool) *AviHmCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	var aviHmCache *AviHmCache
 	if createSharedCache {
 		aviHmCache = GetAviHmCache()
@@ -1245,7 +1233,7 @@ func PopulateHMCache(createSharedCache bool) *AviHmCache {
 }
 
 func PopulateSPCache() *AviSpCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	aviSpCache := GetAviSpCache()
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviSitePersistenceCachePopulate(aviRestClientPool.AviClient[0])
@@ -1254,7 +1242,7 @@ func PopulateSPCache() *AviSpCache {
 }
 
 func PopulatePkiCache() *AviPkiCache {
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	aviSpCache := GetAviPkiCache()
 	if len(aviRestClientPool.AviClient) > 0 {
 		aviSpCache.AviPkiCachePopulate(aviRestClientPool.AviClient[0])
@@ -1266,7 +1254,7 @@ func VerifyVersion() error {
 	gslbutils.Logf("verifying the controller version")
 	version := gslbutils.GetAviConfig().Version
 
-	aviRestClientPool := SharedAviClients()
+	aviRestClientPool := SharedAviClients("*")
 	if len(aviRestClientPool.AviClient) < 1 {
 		gslbutils.Errf("no avi clients initialized, returning")
 		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeWarning, gslbutils.AMKOShutdown, "No Avi clients initialized.")
@@ -1302,4 +1290,35 @@ func VerifyVersion() error {
 	}
 
 	return nil
+}
+
+func ExtractUuid(word, pattern string) string {
+	r, _ := regexp.Compile(pattern)
+	result := r.FindAllString(word, -1)
+	if len(result) == 1 {
+		return result[0][:len(result[0])-1]
+	}
+	utils.AviLog.Debugf("Uid extraction not successful from: %s, will retry without hash pattern", word)
+	return ExtractUuidWithoutHash(word, pattern[:len(pattern)-1])
+}
+
+func ExtractUuidWithoutHash(word, pattern string) string {
+	r, _ := regexp.Compile(pattern)
+	result := r.FindAllString(word, -1)
+	if len(result) == 1 {
+		return result[0][:len(result[0])]
+	}
+	return ""
+}
+
+func getTenantFromTenantRef(tenantRef string) string {
+	arr := strings.Split(tenantRef, "#")
+	if len(arr) == 2 {
+		return arr[1]
+	}
+	if len(arr) == 1 {
+		arr = strings.Split(tenantRef, "/")
+		return arr[len(arr)-1]
+	}
+	return tenantRef
 }
