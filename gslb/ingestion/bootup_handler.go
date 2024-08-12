@@ -195,6 +195,7 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 	if amkoCluster.Spec.IsLeader {
 		currentLeader = true
 		gslbutils.Logf("AMKOCluster object found and AMKO would start as leader")
+		gslbutils.LeaderClusterContext = amkoCluster.Spec.ClusterContext
 	} else {
 		gslbutils.Logf("AMKOCluster object found and AMKO would start as follower")
 		return false, nil
@@ -213,7 +214,6 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 		gslbutils.Warnf("some member cluster contexts couldn't be fetched: %s, will ignore these", federator.GetClusterErrMsg(errClusters))
 	}
 	gslbutils.Logf("memberClusters list found from amkoCluster object: %v", memberClusters)
-
 	_, errClusters, err = federator.ValidateMemberClusters(context.TODO(), memberClusters, amkoCluster.Spec.Version)
 	if err != nil {
 		return false, fmt.Errorf("error in validating the member clusters: %v", err)

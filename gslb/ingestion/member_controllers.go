@@ -49,6 +49,7 @@ type GSLBMemberController struct {
 	hrAlphaClientSet *ahrcs.Clientset
 	workqueue        []workqueue.RateLimitingInterface
 	recorder         *gslbutils.EventRecorder
+	cacheSyncParam   []cache.InformerSynced
 }
 
 // GetAviController sets config for an AviController
@@ -265,49 +266,50 @@ func DeleteFromHostRuleStore(hrStore *store.ClusterStore,
 }
 
 func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
-	var cacheSyncParam []cache.InformerSynced
 
 	if c.informers.IngressInformer != nil {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting Ingress informer")
 		go c.informers.IngressInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.IngressInformer.Informer().HasSynced)
+		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.IngressInformer.Informer().HasSynced)
 	}
 
 	if c.informers.RouteInformer != nil {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting route informer")
 		go c.informers.RouteInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.RouteInformer.Informer().HasSynced)
+		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.RouteInformer.Informer().HasSynced)
 	}
 
 	if c.informers.ServiceInformer != nil {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting service informer")
 		go c.informers.ServiceInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.ServiceInformer.Informer().HasSynced)
-	}
-
-	if c.informers.NSInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting namespace informer")
-		go c.informers.NSInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.NSInformer.Informer().HasSynced)
+		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.ServiceInformer.Informer().HasSynced)
 	}
 
 	if c.hrInformer != nil {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting hostrule informer")
 		hrInformer := *c.hrInformer
 		go hrInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, hrInformer.Informer().HasSynced)
+		c.cacheSyncParam = append(c.cacheSyncParam, hrInformer.Informer().HasSynced)
 	}
 
 	if c.informers.MultiClusterIngressInformer != nil {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting multi-cluster ingress informer")
 		go c.informers.MultiClusterIngressInformer.Informer().Run(stopCh)
-		cacheSyncParam = append(cacheSyncParam, c.informers.MultiClusterIngressInformer.Informer().HasSynced)
+		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.MultiClusterIngressInformer.Informer().HasSynced)
 	}
 
-	if !cache.WaitForCacheSync(stopCh, cacheSyncParam...) {
+	if !cache.WaitForCacheSync(stopCh, c.cacheSyncParam...) {
 		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 	} else {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "caches synced")
+	}
+}
+
+func (c *GSLBMemberController) StartNamespaceInformer(stopCh <-chan struct{}) {
+	if c.informers.NSInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting namespace informer")
+		go c.informers.NSInformer.Informer().Run(stopCh)
+		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.NSInformer.Informer().HasSynced)
 	}
 }
 

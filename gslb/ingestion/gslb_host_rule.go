@@ -75,26 +75,27 @@ func updateGSLBHR(gslbhr *gslbhralphav1.GSLBHostRule, msg string, status string)
 	}
 }
 
-func isSitePersistenceRefPresentInCache(spName string) bool {
+func isSitePersistenceRefPresentInCache(spName, tenant string) bool {
 	aviSpCache := avictrl.GetAviSpCache()
 
-	_, present := aviSpCache.AviSpCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: spName})
+	_, present := aviSpCache.AviSpCacheGet(avictrl.TenantName{Tenant: tenant, Name: spName})
 	return present
 }
-func isPKIRefPresentInCache(spName string) bool {
+func isPKIRefPresentInCache(spName, tenant string) bool {
 	aviSpCache := avictrl.GetAviPkiCache()
 
-	_, present := aviSpCache.AviPkiCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: spName})
+	_, present := aviSpCache.AviPkiCacheGet(avictrl.TenantName{Tenant: tenant, Name: spName})
 	return present
 }
 
-func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool) bool {
-	if fullSync && isSitePersistenceRefPresentInCache(profileName) {
+func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool, namespace string) bool {
+	tenant := gslbutils.GetTenantInNamespace(namespace, gslbutils.LeaderClusterContext)
+	if fullSync && isSitePersistenceRefPresentInCache(profileName, tenant) {
 		gslbutils.Debugf("site persistence ref %s present in site persistence cache", profileName)
 		return true
 	}
 	// Check if the profile mentioned in gslbHostRule are present as application persistence profile on the gslb leader
-	aviClient := avictrl.SharedAviClients().AviClient[0]
+	aviClient := avictrl.SharedAviClients(tenant).AviClient[0]
 	uri := "api/applicationpersistenceprofile?name=" + profileName
 
 	// for gdp objects, we need to infinitely retry
@@ -124,7 +125,7 @@ func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool
 		gslbutils.Errf("incomplete site persistence ref unmarshalled %s", utils.Stringify(sp))
 		return false
 	}
-	k := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+	k := avictrl.TenantName{Tenant: tenant, Name: *sp.Name}
 	spCache := avictrl.GetAviSpCache()
 	spCache.AviSpCacheAdd(k, &sp)
 	spCache.AviSpCacheAddByUUID(*sp.UUID, &sp)
@@ -132,13 +133,15 @@ func isSitePersistenceProfilePresent(profileName string, gdp bool, fullSync bool
 	return true
 }
 
-func isPKIProfilePresent(profileName string, gdp bool, fullSync bool) bool {
-	if fullSync && isPKIRefPresentInCache(profileName) {
+func isPKIProfilePresent(profileName string, gdp bool, fullSync bool, namespace string) bool {
+	tenant := gslbutils.GetTenantInNamespace(namespace, gslbutils.LeaderClusterContext)
+	if fullSync && isPKIRefPresentInCache(profileName, tenant) {
 		gslbutils.Debugf("pki %s present in pkiProfile cache", profileName)
 		return true
 	}
 	// Check if the profile mentioned in gslbHostRule is present as pki profile on the gslb leader
-	aviClient := avictrl.SharedAviClients().AviClient[0]
+
+	aviClient := avictrl.SharedAviClients(tenant).AviClient[0]
 	uri := "api/pkiprofile?name=" + profileName
 
 	// for gdp objects, we need to infinitely retry
@@ -168,7 +171,7 @@ func isPKIProfilePresent(profileName string, gdp bool, fullSync bool) bool {
 		gslbutils.Errf("incomplete pki profile ref unmarshalled %s", utils.Stringify(sp))
 		return false
 	}
-	k := avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: *sp.Name}
+	k := avictrl.TenantName{Tenant: tenant, Name: *sp.Name}
 	spCache := avictrl.GetAviPkiCache()
 	spCache.AviPkiCacheAdd(k, &sp)
 	spCache.AviPkiCacheAddByUUID(*sp.UUID, &sp)
@@ -237,10 +240,10 @@ func isGslbPoolAlgorithmValid(algoSettings *gslbhralphav1.PoolAlgorithmSettings)
 	}
 }
 
-func isHealthMonitorRefPresentInCache(hmName string) bool {
+func isHealthMonitorRefPresentInCache(hmName, tenant string) bool {
 	aviHmCache := avictrl.GetAviHmCache()
 
-	_, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: gslbutils.GetTenant(), Name: hmName})
+	_, present := aviHmCache.AviHmCacheGet(avictrl.TenantName{Tenant: tenant, Name: hmName})
 	return present
 }
 
@@ -249,12 +252,13 @@ func isHealthMonitorRefPresentInCache(hmName string) bool {
 // If not, return false.
 // For non-full sync cases, the hm ref will be fetched from the GSLB leader and verified. The HM
 // cache won't be checked for such cases.
-func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
-	if fullSync && isHealthMonitorRefPresentInCache(refName) {
+func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool, namespace string) bool {
+	tenant := gslbutils.GetTenantInNamespace(namespace, gslbutils.LeaderClusterContext)
+	if fullSync && isHealthMonitorRefPresentInCache(refName, tenant) {
 		gslbutils.Debugf("health monitor %s present in hm cache", refName)
 		return true
 	}
-	hm, err := avictrl.GetHMFromName(refName, gdp)
+	hm, err := avictrl.GetHMFromName(refName, gdp, tenant)
 	if err != nil {
 		return false
 	}
@@ -267,7 +271,8 @@ func isHealthMonitorRefValid(refName string, gdp bool, fullSync bool) bool {
 
 func isThirdPartyMemberSitePresent(gslbhr *gslbhralphav1.GSLBHostRule, siteName string) bool {
 	// Verify the presence of the third party member sites on the gslb leader
-	aviClient := avictrl.SharedAviClients().AviClient[0]
+	tenant := gslbutils.GetTenant()
+	aviClient := avictrl.SharedAviClients(tenant).AviClient[0]
 	uri := "api/gslb"
 	result, err := gslbutils.GetUriFromAvi(uri, aviClient, false)
 	if err != nil {
@@ -332,12 +337,12 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	sitePersistence := gslbhrSpec.SitePersistence
 	if sitePersistence != nil {
 		sitePersistenceProfileName := sitePersistence.ProfileRef
-		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync) {
+		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync, gslbhr.Namespace) {
 			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
 			return fmt.Errorf(errmsg)
 		}
 		if sitePersistence.PKIProfileRef != nil {
-			if !isPKIProfilePresent(*sitePersistence.PKIProfileRef, false, fullSync) {
+			if !isPKIProfilePresent(*sitePersistence.PKIProfileRef, false, fullSync, gslbhr.Namespace) {
 				errmsg = "PKI Profile " + *sitePersistence.PKIProfileRef + " error for " + gslbhrName + " GSLBHostRule"
 				return fmt.Errorf(errmsg)
 			}
@@ -379,13 +384,13 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	}
 
 	if gslbhrSpec.HealthMonitorTemplate != nil {
-		if err := validateAndAddHmTemplateToCache(*gslbhrSpec.HealthMonitorTemplate, false, fullSync); err != nil {
+		if err := validateAndAddHmTemplateToCache(*gslbhrSpec.HealthMonitorTemplate, false, fullSync, gslbhr.Namespace); err != nil {
 			return err
 		}
 	} else {
 		healthMonitorRefs := gslbhrSpec.HealthMonitorRefs
 		for _, ref := range healthMonitorRefs {
-			if !isHealthMonitorRefValid(ref, false, fullSync) {
+			if !isHealthMonitorRefValid(ref, false, fullSync, gslbhr.Namespace) {
 				errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
 				return fmt.Errorf(errmsg)
 			}
@@ -434,7 +439,8 @@ func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface
 		"GSLBHostRule object added")
 	// push the gsFqdn key to graph layer
 	bkt := utils.Bkt(gsFqdn, numWorkers)
-	key := gslbutils.GSFQDNKey(gslbutils.ObjectAdd, gslbutils.GSFQDNType, gsFqdn)
+	tenant := gslbutils.GetTenantInNamespace(gslbhr.Namespace, gslbutils.LeaderClusterContext)
+	key := gslbutils.GSFQDNKey(gslbutils.ObjectAdd, gslbutils.GSFQDNType, gsFqdn, gslbhr.Namespace, tenant)
 	k8swq[bkt].AddRateLimited(key)
 	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed ADD key",
 		gslbhr.ObjectMeta.Namespace, gsFqdn, key)
@@ -449,13 +455,14 @@ func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRu
 	// however, before deleting the older mapping, need to check if the older GSLB HR
 	// was accepted or rejected. If rejected, no need to delete the previous GSLB HR for
 	// this FQDN. If accepted, delete the GSLB HR for the old fqdn.
+	tenant := gslbutils.GetTenantInNamespace(oldGslbhr.Namespace, gslbutils.LeaderClusterContext)
 	if oldGslbhr.Status.Status == GslbHostRuleAccepted {
 		gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: deleted entry for GS Host Rules",
 			oldGslbhr.Namespace, oldGslbhr.Name, oldGslbhr.Spec.Fqdn)
 		gsHostRulesList.DeleteGSHostRulesForFQDN(oldGslbhr.Spec.Fqdn)
 		// push the old gsFqdn key to graph layer
 		bkt := utils.Bkt(oldGslbhr.Spec.Fqdn, numWorkers)
-		key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, oldGslbhr.Spec.Fqdn)
+		key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, oldGslbhr.Spec.Fqdn, oldGslbhr.Namespace, tenant)
 		k8swq[bkt].AddRateLimited(key)
 		gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key",
 			oldGslbhr.ObjectMeta.Namespace, oldGslbhr.Spec.Fqdn, key)
@@ -468,7 +475,7 @@ func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRu
 		newGslbhr.Name, newGslbhr.Spec.Fqdn)
 	// push the new gsFqdn key to graph layer
 	bkt := utils.Bkt(newGslbhr.Spec.Fqdn, numWorkers)
-	key := gslbutils.GSFQDNKey(gslbutils.ObjectAdd, gslbutils.GSFQDNType, newGslbhr.Spec.Fqdn)
+	key := gslbutils.GSFQDNKey(gslbutils.ObjectAdd, gslbutils.GSFQDNType, newGslbhr.Spec.Fqdn, newGslbhr.Namespace, tenant)
 	k8swq[bkt].AddRateLimited(key)
 	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed ADD key", newGslbhr.ObjectMeta.Namespace,
 		newGslbhr.Spec.Fqdn, key)
@@ -490,8 +497,9 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 		gslbutils.Errf("Error in accepting GSLB Host Rule %s : %s", newGslbhr.ObjectMeta.Name, err.Error())
 		// check if previous GSLB host rule was accepted, if yes, we need to add a delete key if this new
 		// object is rejected
+		tenant := gslbutils.GetTenantInNamespace(newGslbhr.Namespace, gslbutils.LeaderClusterContext)
 		if oldGslbhr.Status.Status == GslbHostRuleAccepted {
-			deleteObjsForGSHostRule(oldGslbhr, k8swq, numWorkers)
+			deleteObjsForGSHostRule(oldGslbhr, k8swq, numWorkers, tenant)
 		}
 		return
 	}
@@ -521,7 +529,8 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 		newGslbhr.Name, newGslbhr.Spec.Fqdn)
 	// push the gs fqdn key
 	bkt := utils.Bkt(newGslbhr.Spec.Fqdn, numWorkers)
-	key := gslbutils.GSFQDNKey(gslbutils.ObjectUpdate, gslbutils.GSFQDNType, newGslbhr.Spec.Fqdn)
+	tenant := gslbutils.GetTenantInNamespace(newGslbhr.Namespace, gslbutils.LeaderClusterContext)
+	key := gslbutils.GSFQDNKey(gslbutils.ObjectUpdate, gslbutils.GSFQDNType, newGslbhr.Spec.Fqdn, newGslbhr.Namespace, tenant)
 	k8swq[bkt].AddRateLimited(key)
 	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed UPDATE key",
 		newGslbhr.ObjectMeta.Namespace, newGslbhr.Spec.Fqdn, key)
@@ -541,20 +550,21 @@ func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterf
 		gslbhr.Namespace, gslbhr.Name, gslbhr.Spec.Fqdn)
 	// push the delete key for this fqdn
 	bkt := utils.Bkt(gslbhr.Spec.Fqdn, numWorkers)
-	key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbhr.Spec.Fqdn)
+	tenant := gslbutils.GetTenantInNamespace(gslbhr.Namespace, gslbutils.LeaderClusterContext)
+	key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbhr.Spec.Fqdn, gslbhr.Namespace, tenant)
 	k8swq[bkt].AddRateLimited(key)
 	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key",
 		gslbhr.ObjectMeta.Namespace, gslbhr.Spec.Fqdn, key)
 }
 
-func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, tenant string) {
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	gsHostRuleList.DeleteGSHostRulesForFQDN(gslbhr.Spec.Fqdn)
 	gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: GSLB Host Rule deleted for fqdn",
 		gslbhr.Namespace, gslbhr.Name, gslbhr.Spec.Fqdn)
 	// push the delete key for this fqdn
 	bkt := utils.Bkt(gslbhr.Spec.Fqdn, numWorkers)
-	key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbhr.Spec.Fqdn)
+	key := gslbutils.GSFQDNKey(gslbutils.ObjectDelete, gslbutils.GSFQDNType, gslbhr.Spec.Fqdn, gslbhr.Namespace, tenant)
 	k8swq[bkt].AddRateLimited(key)
 	gslbutils.Logf("ns: %s, gsFqdn: %s, key: %s, msg: pushed DELETE key", gslbhr.ObjectMeta.Namespace,
 		gslbhr.Spec.Fqdn, key)

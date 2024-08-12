@@ -17,6 +17,7 @@ package ingestion
 import (
 	"context"
 	"errors"
+	"strings"
 
 	akov1alpha1 "github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/apis/ako/v1alpha1"
 
@@ -258,6 +259,7 @@ func resyncMemberCluster() {
 		}
 	}
 	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.StartNamespaceInformer(stopCh)
 		aviCtrl.Start(stopCh)
 	}
 	clusterSync(aviCtrlList, cache.GetAviCache())
@@ -372,29 +374,36 @@ func GenerateModels(gsCache *avicache.AviCache) {
 	acceptedLBSvcStore := store.GetAcceptedLBSvcStore()
 	acceptedRouteStore := store.GetAcceptedRouteStore()
 	acceptedMultiClusterIngStore := store.GetAcceptedMultiClusterIngressStore()
-
 	ingList := acceptedIngStore.GetAllClusterNSObjects()
 	for _, ingName := range ingList {
+		ing := strings.Split(ingName, "/")
+		tenant := gslbutils.GetTenantInNamespace(ing[1], ing[0])
 		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
-			gslbutils.IngressType, ingName))
+			gslbutils.IngressType, ingName+"/"+tenant))
 	}
 
 	svcList := acceptedLBSvcStore.GetAllClusterNSObjects()
 	for _, svcName := range svcList {
+		ing := strings.Split(svcName, "/")
+		tenant := gslbutils.GetTenantInNamespace(ing[1], ing[0])
 		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
-			gslbutils.SvcType, svcName))
+			gslbutils.SvcType, svcName+"/"+tenant))
 	}
 
 	routeList := acceptedRouteStore.GetAllClusterNSObjects()
 	for _, routeName := range routeList {
+		ing := strings.Split(routeName, "/")
+		tenant := gslbutils.GetTenantInNamespace(ing[1], ing[0])
 		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
-			gslbutils.RouteType, routeName))
+			gslbutils.RouteType, routeName+"/"+tenant))
 	}
 
 	multiClusterIngList := acceptedMultiClusterIngStore.GetAllClusterNSObjects()
 	for _, ingName := range multiClusterIngList {
+		ing := strings.Split(ingName, "/")
+		tenant := gslbutils.GetTenantInNamespace(ing[1], ing[0])
 		nodes.DequeueIngestion(gslbutils.MultiClusterKeyWithObjName(gslbutils.ObjectAdd,
-			gslbutils.MCIType, ingName))
+			gslbutils.MCIType, ingName+"/"+tenant))
 	}
 
 	gslbutils.Logf("keys for GS graphs published to layer 3")
@@ -435,7 +444,7 @@ func GenerateModels(gsCache *avicache.AviCache) {
 			continue
 		}
 		tenant, hmName := hmKey.Tenant, hmKey.Name
-		gsName, gen, err := avicache.GetGSFromHmName(hmName)
+		gsName, gen, err := avicache.GetGSFromHmName(hmName, tenant)
 		if err != nil {
 			gslbutils.Logf("key: %v, msg: can't get gs name from hm, err : %v", hmKey, err)
 			continue

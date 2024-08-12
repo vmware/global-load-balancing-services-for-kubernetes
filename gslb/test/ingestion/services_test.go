@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	gslbingestion "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/ingestion"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
@@ -64,14 +65,14 @@ func TestBasicSvcCD(t *testing.T) {
 	// Add and test service
 	t.Log("Adding and testing service")
 	K8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, corev1.ServiceTypeLoadBalancer)
-	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName, "admin")
 
 	// Verify the presence of the object in the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, true, svcName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
-	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName, "admin")
 
 	// should be deleted from the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, false, svcName, ns, cname, host, ipAddr)
@@ -88,7 +89,7 @@ func TestSvcWithoutHostInStatus(t *testing.T) {
 	// Add and test service
 	t.Log("Adding and testing service")
 	K8sAddSvc(t, fooKubeClient, svcName, ns, cname, "", "", corev1.ServiceTypeLoadBalancer)
-	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName, "admin")
 	DeleteTestGDPObj(gdp)
 }
 
@@ -110,7 +111,7 @@ func TestSvcWithLabelNotSelected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error in creating service: %v", err)
 	}
-	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName, "admin")
 	DeleteTestGDPObj(gdp)
 }
 
@@ -131,7 +132,7 @@ func TestBasicSvcCUD(t *testing.T) {
 	// Add and test service
 	t.Log("Adding and testing service")
 	svcObj := K8sAddSvc(t, fooKubeClient, svcName, ns, cname, host1, ipAddr1, corev1.ServiceTypeLoadBalancer)
-	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName, "admin")
 
 	// Verify the presence of the object in the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, true, svcName, ns, cname, host1, ipAddr1)
@@ -140,12 +141,12 @@ func TestBasicSvcCUD(t *testing.T) {
 	svcObj.Status.LoadBalancer.Ingress[0].IP = ipAddr2
 	svcObj.ResourceVersion = "101"
 	K8sUpdateSvc(t, fooKubeClient, ns, cname, svcObj)
-	buildSvcKeyAndVerify(t, false, "UPDATE", cname, ns, svcObj.Name)
+	buildSvcKeyAndVerify(t, false, "UPDATE", cname, ns, svcObj.Name, "admin")
 	verifyInSvcStore(g, acceptedSvcStore, true, svcName, ns, cname, host2, ipAddr2)
 
 	// delete and verify
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
-	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName, "admin")
 
 	// should be deleted from the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, false, svcName, ns, cname, host2, ipAddr2)
@@ -166,7 +167,7 @@ func TestSvcToNoHost(t *testing.T) {
 	// Add and test service
 	t.Log("Adding and testing service")
 	svcObj := K8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, corev1.ServiceTypeLoadBalancer)
-	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName, "admin")
 
 	// Verify the presence of the object in the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, true, svcName, ns, cname, host, ipAddr)
@@ -174,12 +175,12 @@ func TestSvcToNoHost(t *testing.T) {
 	svcObj.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{}
 	svcObj.ResourceVersion = "101"
 	K8sUpdateSvc(t, fooKubeClient, ns, cname, svcObj)
-	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcObj.Name)
+	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcObj.Name, "admin")
 	verifyInSvcStore(g, acceptedSvcStore, false, svcName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
-	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName, "admin")
 	DeleteTestGDPObj(gdp)
 }
 
@@ -197,7 +198,7 @@ func TestSvcToDiffLabel(t *testing.T) {
 	// Add and test service
 	t.Log("Adding and testing service")
 	svcObj := K8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, corev1.ServiceTypeLoadBalancer)
-	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "ADD", cname, ns, svcName, "admin")
 
 	// Verify the presence of the object in the accepted store
 	verifyInSvcStore(g, acceptedSvcStore, true, svcName, ns, cname, host, ipAddr)
@@ -205,13 +206,13 @@ func TestSvcToDiffLabel(t *testing.T) {
 	svcObj.ObjectMeta.Labels["key"] = "value1"
 	svcObj.ResourceVersion = "101"
 	K8sUpdateSvc(t, fooKubeClient, ns, cname, svcObj)
-	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcObj.Name)
+	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcObj.Name, "admin")
 	verifyInSvcStore(g, acceptedSvcStore, false, svcName, ns, cname, host, ipAddr)
 	verifyInSvcStore(g, rejectedSvcStore, true, svcName, ns, cname, host, ipAddr)
 
 	// delete and verify
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
-	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, false, "DELETE", cname, ns, svcName, "admin")
 	verifyInSvcStore(g, rejectedSvcStore, false, svcName, ns, cname, host, ipAddr)
 	DeleteTestGDPObj(gdp)
 }
@@ -229,7 +230,7 @@ func TestNonLBSvcCD(t *testing.T) {
 	// Add and test service
 	t.Log("Adding and testing service")
 	K8sAddSvc(t, fooKubeClient, svcName, ns, cname, host, ipAddr, "ClusterIP")
-	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName)
+	buildSvcKeyAndVerify(t, true, "ADD", cname, ns, svcName, "admin")
 
 	// delete the service
 	K8sDeleteSvc(t, fooKubeClient, svcName, ns)
@@ -269,6 +270,12 @@ func BuildSvcObj(name, ns, cname, host, ip string, withStatus bool, svcType core
 	labelMap := make(map[string]string)
 	labelMap["key"] = "value"
 	svcObj.Labels = labelMap
+	annot := map[string]string{
+		gslbutils.VSAnnotation:         "",
+		gslbutils.ControllerAnnotation: "",
+		gslbutils.TenantAnnotation:     "admin",
+	}
+	svcObj.Annotations = annot
 	return svcObj
 }
 
