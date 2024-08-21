@@ -24,7 +24,6 @@ import (
 	v1alpha2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeGlobalDeploymentPolicies struct {
 	ns   string
 }
 
-var globaldeploymentpoliciesResource = schema.GroupVersionResource{Group: "amko.vmware.com", Version: "v1alpha2", Resource: "globaldeploymentpolicies"}
+var globaldeploymentpoliciesResource = v1alpha2.SchemeGroupVersion.WithResource("globaldeploymentpolicies")
 
-var globaldeploymentpoliciesKind = schema.GroupVersionKind{Group: "amko.vmware.com", Version: "v1alpha2", Kind: "GlobalDeploymentPolicy"}
+var globaldeploymentpoliciesKind = v1alpha2.SchemeGroupVersion.WithKind("GlobalDeploymentPolicy")
 
 // Get takes name of the globalDeploymentPolicy, and returns the corresponding globalDeploymentPolicy object, and an error if there is any.
 func (c *FakeGlobalDeploymentPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.GlobalDeploymentPolicy, err error) {

@@ -21,6 +21,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
+
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -224,6 +226,7 @@ type AviGSObjectGraph struct {
 	TTL                *uint32
 	GslbPoolAlgorithm  *gslbalphav1.PoolAlgorithmSettings
 	GslbDownResponse   *gslbalphav1.DownResponse
+	ControlPlaneHmOnly bool
 	Lock               *sync.RWMutex
 }
 
@@ -282,19 +285,22 @@ func (v *AviGSObjectGraph) CalculateChecksum() {
 	}
 
 	hmNames := []string{}
-	if len(v.HmRefs) == 0 {
-		if v.Hm.Name != "" {
-			hmNames = append(hmNames, v.Hm.Name)
+	if !v.ControlPlaneHmOnly {
+		if len(v.HmRefs) == 0 {
+			if v.Hm.Name != "" {
+				hmNames = append(hmNames, v.Hm.Name)
+			} else {
+				hmNames = v.GetHmPathNamesList()
+			}
 		} else {
-			hmNames = v.GetHmPathNamesList()
+			hmNames = make([]string, len(v.HmRefs))
+			copy(hmNames, v.HmRefs)
 		}
-	} else {
-		hmNames = make([]string, len(v.HmRefs))
-		copy(hmNames, v.HmRefs)
 	}
 
 	v.GraphChecksum = gslbutils.GetGSLBServiceChecksum(memberAddrs, v.DomainNames, memberObjs, hmNames,
 		v.SitePersistenceRef, v.TTL, v.GslbPoolAlgorithm, v.GslbDownResponse, v.PkiProfileRef, gslbutils.AMKOControlConfig().CreatedByField())
+	v.GraphChecksum += utils.Hash(utils.Stringify(v.ControlPlaneHmOnly))
 }
 
 // GetMemberRouteList returns a list of member objects
@@ -489,7 +495,7 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj
 		v.RetryCount = gslbutils.DefaultRetryCount
 		// Attach the hms created by amko in case of a GSLB hostrule update and
 		// health monitor is not previously created by amko.
-		if (v.HmTemplate == nil || len(v.HmRefs) == 0) && v.Hm.Name == "" {
+		if (v.HmTemplate == nil || len(v.HmRefs) == 0) && v.Hm.Name == "" && !v.ControlPlaneHmOnly {
 			// Build the list of health monitors
 			v.buildHmPathList()
 			v.buildAndAttachHealthMonitorsFromObj(v.MemberObjs[0], key)
@@ -527,7 +533,7 @@ func (v *AviGSObjectGraph) ConstructAviGSGraph(gsFqdn, key string, memberObjs []
 	// set the GS properties according to the GSLBHostRule or GDP
 	setGSLBPropertiesForGS(gsFqdn, v, true, memberObjs[0].TLS)
 
-	if v.HmRefs == nil || len(v.HmRefs) == 0 {
+	if (v.HmRefs == nil || len(v.HmRefs) == 0) && !v.ControlPlaneHmOnly {
 		// Build the list of health monitors
 		v.buildHmPathList()
 		v.buildAndAttachHealthMonitorsFromObj(memberObjs[0], key)
@@ -655,7 +661,7 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 		}
 		gslbutils.Debugf("gsName: %s, msg: updating member for type %s", v.Name, newMember.ObjType)
 		v.MemberObjs[idx] = newMember
-		if v.HmRefs == nil || len(v.HmRefs) == 0 {
+		if (v.HmRefs == nil || len(v.HmRefs) == 0) && !v.ControlPlaneHmOnly {
 			// update the health monitor(s)
 			if newMember.ObjType == gslbutils.SvcType || newMember.IsPassthrough {
 				v.checkAndUpdateNonPathHealthMonitor(newMember.ObjType, newMember.IsPassthrough)
@@ -673,7 +679,7 @@ func (v *AviGSObjectGraph) AddUpdateGSMember(newMember AviGSK8sObj) bool {
 	}
 
 	v.MemberObjs = append(v.MemberObjs, newMember)
-	if v.HmRefs == nil || len(v.HmRefs) == 0 {
+	if (v.HmRefs == nil || len(v.HmRefs) == 0) && !v.ControlPlaneHmOnly {
 		// update the health monitors if hm refs is not nil or non-zero
 		if newMember.ObjType == gslbutils.SvcType || newMember.IsPassthrough {
 			v.checkAndUpdateNonPathHealthMonitor(newMember.ObjType, newMember.IsPassthrough)
@@ -732,13 +738,15 @@ func (v *AviGSObjectGraph) DeleteMember(cname, ns, name, objType string) {
 			// this is a passthrough member
 			isPassthrough = true
 		}
-		if member.ObjType == gslbutils.SvcType || isPassthrough {
+		if (member.ObjType == gslbutils.SvcType || isPassthrough) && !v.ControlPlaneHmOnly {
 			v.checkAndUpdateNonPathHealthMonitor(member.ObjType, isPassthrough)
 			return
 		}
 	}
 	// if no members are services, then they must be routes/ingresses, so update the HM if required
-	v.updateGSHmPathListAndProtocol()
+	if !v.ControlPlaneHmOnly {
+		v.updateGSHmPathListAndProtocol()
+	}
 }
 
 func (v *AviGSObjectGraph) IsHmTypeCustom(hmName string) bool {
@@ -829,12 +837,13 @@ func (v *AviGSObjectGraph) GetCopy() *AviGSObjectGraph {
 	copy(domainNames, v.DomainNames)
 
 	gsObjCopy := AviGSObjectGraph{
-		Name:          v.Name,
-		Tenant:        v.Tenant,
-		DomainNames:   domainNames,
-		GraphChecksum: v.GraphChecksum,
-		RetryCount:    v.RetryCount,
-		Hm:            v.Hm.getCopy(),
+		Name:               v.Name,
+		Tenant:             v.Tenant,
+		DomainNames:        domainNames,
+		GraphChecksum:      v.GraphChecksum,
+		RetryCount:         v.RetryCount,
+		Hm:                 v.Hm.getCopy(),
+		ControlPlaneHmOnly: v.ControlPlaneHmOnly,
 	}
 	var ttl uint32
 	if v.TTL != nil {
