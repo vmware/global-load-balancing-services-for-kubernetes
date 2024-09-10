@@ -12,7 +12,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 	github.com/prometheus/client_golang v1.17.0
 	github.com/vmware/alb-sdk v0.0.0-20240619053936-3103500da639
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240621074433-756d124a591e
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0

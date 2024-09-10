@@ -462,8 +462,8 @@ github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618 h1:ZLkxM
 github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618/go.mod h1:afqpDk9He9v+/qWix0RRotm3RNyni4Lmc1y9geDCPuo=
 github.com/vmware/alb-sdk v0.0.0-20240619053936-3103500da639 h1:UaTxFP5LeiSOlLEyHC9kmYuzdZWmvYpPB7jevg+ASNw=
 github.com/vmware/alb-sdk v0.0.0-20240619053936-3103500da639/go.mod h1:fuRb4saDY/xy/UMeMvyKYmcplNknEL9ysaqYSw7reNE=
-github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240621074433-756d124a591e h1:9BXPQ9VrftHpLruVgL/MInIJ2JgOOmn3pDul20386bQ=
-github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240621074433-756d124a591e/go.mod h1:OYFWfOG6sHCDgYgMafq/Rcm3haP0q+9ZCUh0GGyVhCA=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746 h1:WjqHHnk/w9PblhJAGzCAnDt+CtmlyOQZw0XO7dSoPek=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746/go.mod h1:OYFWfOG6sHCDgYgMafq/Rcm3haP0q+9ZCUh0GGyVhCA=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=

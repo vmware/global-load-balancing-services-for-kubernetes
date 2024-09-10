@@ -698,7 +698,7 @@ func GetUriFromAvi(uri string, aviClient *clients.AviClient, infiniteRetry bool)
 	var err error
 
 	for i := 0; ; i++ {
-		result, err = aviClient.AviSession.GetCollectionRaw(uri)
+		result, err = aviClient.AviSession.GetCollectionRaw(utils.GetUriEncoded(uri))
 		if err == nil {
 			return &result, nil
 		}
