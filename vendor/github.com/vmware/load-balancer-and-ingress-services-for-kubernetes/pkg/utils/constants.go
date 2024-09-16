@@ -29,6 +29,7 @@ const (
 	SecretInformer                = "SecretInformer"
 	NodeInformer                  = "NodeInformer"
 	EndpointInformer              = "EndpointInformer"
+	EndpointSlicesInformer        = "EndpointSlicesInformer"
 	ConfigMapInformer             = "ConfigMapInformer"
 	MultiClusterIngressInformer   = "MultiClusterIngressInformer"
 	ServiceImportInformer         = "ServiceImportInformer"
@@ -44,6 +45,7 @@ const (
 	LoadBalancer                  = "LoadBalancer"
 	Pod                           = "Pod"
 	Endpoints                     = "Endpoints"
+	Endpointslices                = "Endpointslices"
 	Ingress                       = "Ingress"
 	IngressClass                  = "IngressClass"
 	OshiftRoute                   = "OshiftRoute"
@@ -117,4 +119,8 @@ const (
 	renewDeadline = 10 * time.Second
 	retryPeriod   = 2 * time.Second
 	leaseLockName = "ako-lease-lock"
+
+	// Constants used in Gateway context
+	WILDCARD         = "*"
+	FQDN_LABEL_REGEX = "([a-z0-9-]{1,})"
 )

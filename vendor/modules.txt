@@ -192,7 +192,7 @@ github.com/vmware-tanzu/service-apis/apis/v1alpha1pre1
 github.com/vmware/alb-sdk/go/clients
 github.com/vmware/alb-sdk/go/models
 github.com/vmware/alb-sdk/go/session
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240621074433-756d124a591e
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746
 ## explicit; go 1.21
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
