@@ -859,11 +859,23 @@ func InformersToRegister(oclient *oshiftclient.Clientset, kclient *kubernetes.Cl
 	_, err = oclient.RouteV1().Routes("").List(context.TODO(), metav1.ListOptions{TimeoutSeconds: &informerTimeout})
 	gslbutils.Debugf("cluster: %s, msg: checking if cluster has a route informer %v", cname, err)
 	if err == nil {
-		// Openshift cluster with route support, we will just add service informer
+		// Openshift cluster with route support, we will just add route informer
 		allInformers = append(allInformers, utils.RouteInformer)
 	} else {
-		// Kubernetes cluster
-		allInformers = append(allInformers, utils.IngressInformer)
+		apiList, err := oclient.DiscoveryClient.ServerGroups()
+		if err != nil {
+			gslbutils.Errf("can't access the DiscoveryClient api for cluster %s, error : %v", cname, err)
+			return allInformers, err
+		} else {
+			apiGroups := apiList.Groups
+			for _, apiGroup := range apiGroups {
+				if apiGroup.Name == "route.openshift.io" {
+					gslbutils.Errf("can't access the openshift routes api for cluster %s, error : %v", cname, err)
+					return allInformers, err
+				}
+			}
+			allInformers = append(allInformers, utils.IngressInformer)
+		}
 	}
 
 	if utils.IsMultiClusterIngressEnabled() {
