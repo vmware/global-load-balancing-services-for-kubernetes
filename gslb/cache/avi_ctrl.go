@@ -30,28 +30,35 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
-var aviClientInstance *utils.AviRestClientPool
-
-var clientOnce sync.Once
+var aviClientInstanceMap sync.Map
 
 // SharedAviClients initializes a pool of connections to the avi controller
 func SharedAviClients(tenant string) *utils.AviRestClientPool {
-	clientOnce.Do(func() {
-		var err error
+	aviClientInstance, ok := aviClientInstanceMap.Load(tenant)
+	if ok {
+		return aviClientInstance.(*utils.AviRestClientPool)
+	}
+	var err error
+	ctrlCfg := gslbutils.GetAviConfig()
+	if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" || ctrlCfg.Version == "" {
+		utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
+	}
+	os.Setenv("CTRL_VERSION", ctrlCfg.Version)
+	userHeaders := utils.SharedCtrlProp().GetCtrlUserHeader()
+	apiScheme := utils.SharedCtrlProp().GetCtrlAPIScheme()
 
-		ctrlCfg := gslbutils.GetAviConfig()
-		if ctrlCfg.Username == "" || ctrlCfg.Password == "" || ctrlCfg.IPAddr == "" || ctrlCfg.Version == "" {
-			utils.AviLog.Fatal("AVI Controller information is missing, update them in kubernetes secret or via environment variable.")
-		}
-		os.Setenv("CTRL_VERSION", ctrlCfg.Version)
-		userHeaders := utils.SharedCtrlProp().GetCtrlUserHeader()
-		apiScheme := utils.SharedCtrlProp().GetCtrlAPIScheme()
-		aviClientInstance, _, err = utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "", ctrlCfg.Version, "", tenant, apiScheme, userHeaders)
-		if err != nil {
-			utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
-		}
-	})
-	return aviClientInstance
+	aviRestClientPool, _, err := utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "", ctrlCfg.Version, "", tenant, apiScheme, userHeaders)
+	if err != nil {
+		utils.AviLog.Errorf("AVI Controller Initialization failed, %s", err)
+		return nil
+	}
+	// set the tenant and controller version in avisession obj
+	for _, client := range aviRestClientPool.AviClient {
+		SetVersion := session.SetVersion(ctrlCfg.Version)
+		SetVersion(client.AviSession)
+	}
+	aviClientInstanceMap.Store(tenant, aviRestClientPool)
+	return aviRestClientPool
 }
 
 func IsAviSiteLeader() (bool, error) {
