@@ -10,7 +10,7 @@ GSLB - Load balancing across instances of the application that have been deploye
 AMKO is aware of the following object types:
 - Kubernetes
   * Ingress
-  * Service type load balancer
+  * Service type load balancer 
 
 - Openshift
   * Routes
