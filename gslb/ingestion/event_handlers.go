@@ -122,13 +122,16 @@ func AddLBSvcEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 						fetchedSvc.Name, gslbutils.ObjectDelete, fetchedSvc.Hostname, fetchedSvc.Tenant, c.workqueue)
 					return
 				}
-				oldSvcMeta, ok := k8sobjects.GetSvcMeta(oldSvc, c.name)
-				// check if tenant has changed for service
-				if ok && oldSvcMeta.Tenant != svcMeta.Tenant {
-					oper := gslbutils.ObjectDelete
-					publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, oldSvcMeta.Namespace, oldSvcMeta.Name,
-						oper, oldSvcMeta.Hostname, oldSvcMeta.Tenant, c.workqueue)
+				if fetchedObj, ok := acceptedLBSvcStore.GetClusterNSObjectByName(c.name, oldSvc.ObjectMeta.Namespace, oldSvc.ObjectMeta.Name); ok {
+					fetchedSvc := fetchedObj.(k8sobjects.SvcMeta)
+					// check if tenant has changed for service
+					if fetchedSvc.Tenant != svcMeta.Tenant {
+						oper := gslbutils.ObjectDelete
+						publishKeyToGraphLayer(numWorkers, gslbutils.SvcType, c.name, fetchedSvc.Namespace, fetchedSvc.Name,
+							oper, fetchedSvc.Hostname, fetchedSvc.Tenant, c.workqueue)
+					}
 				}
+
 				AddOrUpdateLBSvcStore(acceptedLBSvcStore, svc, c.name)
 				// If the svc was already part of rejected store, we need to remove
 				// this svc from the rejected store.
@@ -192,14 +195,15 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 		newIhm, found := ihm.IngressHostInList(newIngMetaObjs)
 		if !found {
 			// ingressHost doesn't exist anymore, delete this ingressHost object
-			_, isAccepted := acceptedIngStore.GetClusterNSObjectByName(c.name, ihm.Namespace,
+			fetchedObj, isAccepted := acceptedIngStore.GetClusterNSObjectByName(c.name, ihm.Namespace,
 				ihm.ObjName)
 			DeleteFromIngressStore(acceptedIngStore, ihm, c.name)
 			DeleteFromIngressStore(rejectedIngStore, ihm, c.name)
 			// If part of accepted store, only then publish the delete key
 			if isAccepted {
+				fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
 				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name,
-					ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, ihm.Hostname, ihm.Tenant, c.workqueue)
+					ihm.Namespace, ihm.ObjName, gslbutils.ObjectDelete, ihm.Hostname, fetchedIngHost.Tenant, c.workqueue)
 			}
 			continue
 		}
@@ -234,17 +238,19 @@ func filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8sobjects.Ingr
 			continue
 		}
 
-		// check if tenant has changed for ingressHost
-		if ihm.Tenant != newIhm.Tenant {
-			oper := gslbutils.ObjectDelete
-			publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, newIhm.Namespace, newIhm.ObjName,
-				oper, newIhm.Hostname, ihm.Tenant, c.workqueue)
-		}
-
 		// check if the object existed in the acceptedIngStore
 		oper := gslbutils.ObjectAdd
-		if _, ok := acceptedIngStore.GetClusterNSObjectByName(c.name, newIhm.Namespace, newIhm.ObjName); ok {
-			oper = gslbutils.ObjectUpdate
+		if fetchedObj, ok := acceptedIngStore.GetClusterNSObjectByName(c.name, newIhm.Namespace, newIhm.ObjName); ok {
+			fetchedIngHost := fetchedObj.(k8sobjects.IngressHostMeta)
+			// check if tenant has changed for ingressHost
+			if fetchedIngHost.Tenant != newIhm.Tenant {
+				oper = gslbutils.ObjectDelete
+				publishKeyToGraphLayer(numWorkers, gslbutils.IngressType, c.name, fetchedIngHost.Namespace, fetchedIngHost.ObjName,
+					oper, fetchedIngHost.Hostname, fetchedIngHost.Tenant, c.workqueue)
+				oper = gslbutils.ObjectAdd
+			} else {
+				oper = gslbutils.ObjectUpdate
+			}
 		}
 		// ingHost passed through the filter, need to send an update key
 		// if the ingHost was already part of rejected store, we need to move this ingHost
@@ -302,6 +308,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			// Don't add this ingr if there's no status field present or no IP is allocated in this
 			// status field
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
+			gslbutils.Logf(utils.Stringify(ingressHostMetaObjs))
 			filterAndAddIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers, false)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -312,6 +319,7 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			}
 			// Delete from all ingress stores
 			ingressHostMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
+			gslbutils.Logf(utils.Stringify(ingressHostMetaObjs))
 			deleteIngressMeta(ingressHostMetaObjs, c, acceptedIngStore, rejectedIngStore, numWorkers)
 		},
 		UpdateFunc: func(old, curr interface{}) {
@@ -324,6 +332,8 @@ func AddIngressEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Re
 			if oldIngr.ResourceVersion != ingr.ResourceVersion {
 				oldIngMetaObjs := k8sobjects.GetIngressHostMeta(oldIngr, c.name)
 				newIngMetaObjs := k8sobjects.GetIngressHostMeta(ingr, c.name)
+				gslbutils.Logf(utils.Stringify(oldIngMetaObjs))
+				gslbutils.Logf(utils.Stringify(newIngMetaObjs))
 				filterAndUpdateIngressMeta(oldIngMetaObjs, newIngMetaObjs, c, acceptedIngStore, rejectedIngStore,
 					numWorkers)
 			}
@@ -347,6 +357,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 				return
 			}
 			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
+			gslbutils.Logf(utils.Stringify(routeMeta))
 			if !filter.ApplyFilter(filter.FilterArgs{
 				Cluster: c.name,
 				Obj:     routeMeta,
@@ -370,6 +381,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			present := DeleteFromRouteStore(acceptedRouteStore, route, c.name)
 			DeleteFromRouteStore(rejectedRouteStore, route, c.name)
 			routeMeta := k8sobjects.GetRouteMeta(route, c.name)
+			gslbutils.Logf(utils.Stringify(routeMeta))
 			if present {
 				publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, route.ObjectMeta.Namespace,
 					route.ObjectMeta.Name, gslbutils.ObjectDelete, routeMeta.Hostname, routeMeta.Tenant, c.workqueue)
@@ -380,6 +392,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 			route := curr.(*routev1.Route)
 			if oldRoute.ResourceVersion != route.ResourceVersion {
 				routeMeta := k8sobjects.GetRouteMeta(route, c.name)
+				gslbutils.Logf(utils.Stringify(routeMeta))
 				if _, ok := gslbutils.RouteGetIPAddr(route); !ok || !filter.ApplyFilter(filter.FilterArgs{
 					Cluster: c.name,
 					Obj:     routeMeta,
@@ -403,16 +416,19 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 						fetchedRoute.Name, gslbutils.ObjectDelete, fetchedRoute.Hostname, fetchedRoute.Tenant, c.workqueue)
 					return
 				}
-				oldRouteMeta := k8sobjects.GetRouteMeta(oldRoute, c.name)
-				// check if tenant has changed for route
-				if oldRouteMeta.Tenant != routeMeta.Tenant {
-					oper := gslbutils.ObjectDelete
-					publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, oldRouteMeta.Namespace, oldRouteMeta.Name,
-						oper, oldRouteMeta.Hostname, oldRouteMeta.Tenant, c.workqueue)
-				}
 				op := gslbutils.ObjectUpdate
-				if _, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name, route.GetObjectMeta().GetNamespace(),
-					route.GetObjectMeta().GetName()); !ok {
+				if fetchedObj, ok := acceptedRouteStore.GetClusterNSObjectByName(c.name, route.GetObjectMeta().GetNamespace(),
+					route.GetObjectMeta().GetName()); ok {
+					fetchedRoute := fetchedObj.(k8sobjects.RouteMeta)
+					gslbutils.Logf(utils.Stringify(fetchedRoute))
+					// check if tenant has changed for route
+					if fetchedRoute.Tenant != routeMeta.Tenant {
+						oper := gslbutils.ObjectDelete
+						publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, fetchedRoute.Namespace, fetchedRoute.Name,
+							oper, fetchedRoute.Hostname, fetchedRoute.Tenant, c.workqueue)
+						op = gslbutils.ObjectAdd
+					}
+				} else {
 					op = gslbutils.ObjectAdd
 				}
 				AddOrUpdateRouteStore(acceptedRouteStore, route, c.name)
@@ -994,15 +1010,16 @@ func filterAndUpdateMultiClusterIngressMeta(oldIngMetaObjs, newIngMetaObjs []k8s
 				fetchedIngHost.Hostname, fetchedIngHost.Tenant, c.workqueue)
 			continue
 		}
-		// check if tenant has changed for service
-		if mcihm.Tenant != newMCIhm.Tenant {
-			oper := gslbutils.ObjectDelete
-			publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, mcihm.Namespace, mcihm.ObjName,
-				oper, mcihm.Hostname, mcihm.Tenant, c.workqueue)
-		}
 		// check if the object existed in the acceptedIngStore
 		oper := gslbutils.ObjectAdd
-		if _, ok := acceptedStore.GetClusterNSObjectByName(c.name, newMCIhm.Namespace, newMCIhm.ObjName); ok {
+		if fetchedObj, ok := acceptedStore.GetClusterNSObjectByName(c.name, newMCIhm.Namespace, newMCIhm.ObjName); ok {
+			fetchedIngHost := fetchedObj.(k8sobjects.MultiClusterIngressHostMeta)
+			// check if tenant has changed for service
+			if fetchedIngHost.Tenant != newMCIhm.Tenant {
+				oper := gslbutils.ObjectDelete
+				publishKeyToGraphLayer(numWorkers, gslbutils.RouteType, c.name, fetchedIngHost.Namespace, fetchedIngHost.ObjName,
+					oper, fetchedIngHost.Hostname, fetchedIngHost.Tenant, c.workqueue)
+			}
 			oper = gslbutils.ObjectUpdate
 		}
 		// ingHost passed through the filter, need to send an update key

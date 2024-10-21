@@ -62,6 +62,12 @@ func GetHostMetaForMultiClusterIngress(mci *akov1alpha1.MultiClusterIngress, cna
 	var controllerUUID, tenant string
 
 	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerAnnotations(mci.ObjectMeta.Annotations)
+	namespaceTenant := gslbutils.GetTenantInNamespaceAnnotation(mci.Namespace, cname)
+	if tenant != namespaceTenant {
+		if namespaceTenant == "" {
+			tenant = gslbutils.GetTenant()
+		}
+	}
 	if err != nil && !syncVIPsOnly {
 		// Note that the ingress key will still be published to graph layer, but the key
 		// won't be processed, this is just to maintain the ingress information as part
