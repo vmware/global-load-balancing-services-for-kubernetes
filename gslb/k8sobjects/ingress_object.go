@@ -141,6 +141,15 @@ func GetIngressHostMeta(ingress *networkingv1.Ingress, cname string) []IngressHo
 	var controllerUUID, tenant string
 
 	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerAnnotations(ingress.Annotations)
+	namespaceTenant := gslbutils.GetTenantInNamespaceAnnotation(ingress.Namespace, cname)
+	gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, tenant:%s, namespaceTenant %s ",
+		cname, ingress.Namespace, ingress.Name, tenant, namespaceTenant)
+	if tenant != namespaceTenant {
+		if namespaceTenant == "" {
+			gslbutils.Logf("setting tenant to admin")
+			tenant = gslbutils.GetTenant()
+		}
+	}
 	if err != nil && !syncVIPsOnly {
 		// Note that the ingress key will still be published to graph layer, but the key
 		// won't be processed, this is just to maintain the ingress information as part
