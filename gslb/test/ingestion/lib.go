@@ -15,9 +15,12 @@
 package ingestion
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gdpalphav2 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha2"
@@ -53,6 +56,7 @@ const (
 	TestDomain4 = "host4.avi.com"
 	TestNS      = "test-def"
 	TestSvc     = "foo-svc"
+	Tenant      = "tenant1"
 )
 
 func getTestGSLBObject() *gslbalphav1.GSLBConfig {
@@ -229,7 +233,16 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	fooCtrl.StartNamespaceInformer(testStopCh)
 	fooCtrl.Start(testStopCh)
 	fooCtrl.SetupEventHandlers(gslbingestion.K8SInformers{Cs: fooKubeClient})
-
+	ns := corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+	annot := map[string]string{
+		gslbutils.TenantAnnotation: Tenant,
+	}
+	ns.Annotations = annot
+	fooKubeClient.CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
 	// Initialize a bar kube client
 	barKubeClient = k8sfake.NewSimpleClientset()
 	barOshiftClient = oshiftfake.NewSimpleClientset()
@@ -246,6 +259,7 @@ func addGSLBTestConfigObject(obj interface{}, f ingestion.InitializeGSLBMemberCl
 	barCtrl.StartNamespaceInformer(testStopCh)
 	barCtrl.Start(testStopCh)
 	barCtrl.SetupEventHandlers(gslbingestion.K8SInformers{Cs: barKubeClient})
+	barKubeClient.CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
 	return nil
 }
 
@@ -324,7 +338,6 @@ func addGDPAndGSLBForIngress(t *testing.T) *gdpalphav2.GlobalDeploymentPolicy {
 	gslbutils.AddClusterContext("cluster1")
 	gslbutils.AddClusterContext("cluster2")
 	gslbutils.LeaderClusterContext = "cluster1"
-
 	ingestionQ := containerutils.SharedWorkQueue().GetQueueByName(containerutils.ObjectIngestionLayer)
 	gdp := getTestGDPObject(true, false)
 	gslbingestion.AddGDPObj(gdp, ingestionQ.Workqueue, 2, false)

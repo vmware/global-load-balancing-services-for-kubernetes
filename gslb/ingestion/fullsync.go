@@ -56,7 +56,8 @@ func fetchAndApplyAllIngresses(c *GSLBMemberController, nsList *corev1.Namespace
 	}
 	for _, ing := range ingList {
 		ihms := k8sobjects.GetIngressHostMeta(ing, c.GetName())
-		filterAndAddIngressMeta(ihms, c, acceptedIngStore, rejectedIngStore, 0, true)
+		namespaceTenant := gslbutils.GetTenantInNamespaceAnnotation(ing.Namespace, c.GetName())
+		filterAndAddIngressMeta(ihms, c, acceptedIngStore, rejectedIngStore, 0, true, namespaceTenant)
 	}
 }
 
@@ -79,6 +80,9 @@ func fetchAndApplyAllServices(c *GSLBMemberController, nsList *corev1.NamespaceL
 			if !ok {
 				gslbutils.Logf("cluster: %s, namespace: %s, svc: %s, msg: couldn't get meta object for service",
 					c.GetName(), namespace.Name, svc.Name)
+				continue
+			}
+			if !gslbutils.CheckTenant(svc.Namespace, c.GetName(), svcMeta.Tenant) {
 				continue
 			}
 			if !filter.ApplyFilter(filter.FilterArgs{
@@ -111,6 +115,9 @@ func fetchAndApplyAllRoutes(c *GSLBMemberController, nsList *corev1.NamespaceLis
 			if routeMeta.IPAddr == "" || routeMeta.Hostname == "" {
 				gslbutils.Debugf("cluster: %s, ns: %s, route: %s, msg: %s", c.name, routeMeta.Namespace,
 					routeMeta.Name, "rejected ADD route because IP address/hostname not found in status field")
+				continue
+			}
+			if !gslbutils.CheckTenant(route.Namespace, c.GetName(), routeMeta.Tenant) {
 				continue
 			}
 			if !filter.ApplyFilter(filter.FilterArgs{
@@ -146,7 +153,8 @@ func fetchAndApplyAllMultiClusterIngresses(c *GSLBMemberController, nsList *core
 	}
 	for _, mci := range mciList {
 		ihms := k8sobjects.GetHostMetaForMultiClusterIngress(mci, c.GetName())
-		filterAndAddMultiClusterIngressMeta(ihms, c, acceptedStore, rejectedStore, 0, true)
+		namespaceTenant := gslbutils.GetTenantInNamespaceAnnotation(mci.Namespace, c.name)
+		filterAndAddMultiClusterIngressMeta(ihms, c, acceptedStore, rejectedStore, 0, true, namespaceTenant)
 	}
 }
 

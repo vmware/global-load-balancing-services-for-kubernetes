@@ -56,6 +56,12 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: parsing Controller annotations", cname, route.Namespace, route.Name)
 		vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerAnnotations(route.Annotations)
 	}
+	namespaceTenant := gslbutils.GetTenantInNamespaceAnnotation(route.Namespace, cname)
+	if namespaceTenant == "" {
+		tenant = gslbutils.GetTenant()
+		gslbutils.Debugf("cluster: %s, ns: %s, ingress: %s, tenant:%s, namespaceTenant %s ",
+			cname, route.Namespace, route.Name, tenant, namespaceTenant)
+	}
 	if err != nil && !syncVIPsOnly {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because of error: %v",
 			cname, route.Namespace, route.Name, err)
