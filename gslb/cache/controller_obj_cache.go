@@ -126,7 +126,11 @@ func (h *AviHmCache) AviHmCacheGetHmsForGS(tenant, gsName string) []interface{} 
 			continue
 		}
 		hmObj := v.(*AviHmObj)
-		if strings.Contains(hmObj.Description, gsName) {
+		descPrefix := nodes.CreatedByAMKO + ", gsname: " + gsName
+		if hmObj.Type == nodes.PathHM {
+			descPrefix = descPrefix + ", path: "
+		}
+		if strings.Contains(hmObj.Description, descPrefix) {
 			hmObjs = append(hmObjs, v)
 		} else if strings.Contains(hmKey.Name, gsName) {
 			// if hmname follows the old non encoded naming convention, hmname will contain the gsname
