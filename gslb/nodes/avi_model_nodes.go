@@ -878,6 +878,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 
 	weight := int32(-1)
 	priority := int32(-1)
+	publicIP := ""
 	cname := metaObj.GetCluster()
 	ns := metaObj.GetNamespace()
 	objType := metaObj.GetType()
@@ -902,7 +903,12 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 	if priority == -1 {
 		priority = int32(GetObjTrafficPriority(ns, cname))
 	}
-
+	// determine the GS member's PublicIP
+	for _, c := range ghRules.PublicIP {
+		if c.Cluster == cname {
+			publicIP = c.IP
+		}
+	}
 	paths, err := metaObj.GetPaths()
 	if err != nil {
 		// for LB type services and passthrough routes
@@ -938,6 +944,7 @@ func BuildGSMemberObjFromMeta(metaObj k8sobjects.MetaObject, gsFqdn string, gsDo
 		SyncVIPOnly:        syncVIPOnly,
 		IsPassthrough:      metaObj.IsPassthrough(),
 		TLS:                tls,
+		PublicIP:           publicIP,
 		Tenant:             metaObj.GetTenant(),
 	}, nil
 }

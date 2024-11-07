@@ -938,6 +938,65 @@ func TestGSLBHostRuleWithPublicIPUpdate(t *testing.T) {
 	verifyMembers(nil)
 }
 
+func TestGSLBHostRuleWithPublicIPAndIngressUpdate(t *testing.T) {
+	testPrefix := "gdp-gslbhr-algo-"
+	gslbHRName := "test-gslb-hr"
+	hmRefs := []string{"my-hm1"}
+	sp := "gap-1"
+	ttl := 10
+	gdpPa := gslbalphav1.PoolAlgorithmSettings{
+		LBAlgorithm: "GSLB_ALGORITHM_ROUND_ROBIN",
+	}
+	addTestGDPWithProperties(t, hmRefs, nil, &ttl, &sp, nil, &gdpPa)
+	ingObj, routeObj := addIngressAndRouteObjects(t, testPrefix)
+	verifyMembers := func(publicIP []gslbalphav1.PublicIPElem, expectedMembers []nodes.AviGSK8sObj) {
+		if publicIP != nil {
+			for i := 0; i < len(publicIP); i++ {
+				expectedMembers[i].PublicIP = publicIP[i].IP
+			}
+		}
+		g := gomega.NewGomegaWithT(t)
+		g.Eventually(func() bool {
+			return verifyGSMembers(t, expectedMembers, routeObj.Spec.Host, tenant, hmRefs, nil, &sp, nil,
+				&ttl, nil, defaultPath, TlsTrue, nil)
+		}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+	}
+	hostName := routeObj.Spec.Host
+	oldObj := addGSLBHostRule(t, gslbHRName, gslbutils.AVISystem, hostName, hmRefs, nil, nil, &ttl,
+		ingestion.GslbHostRuleAccepted, "")
+	gslbhostrulepip := []gslbalphav1.PublicIPElem{
+		{Cluster: K8sContext, IP: "10.20.30.40"},
+		{Cluster: OshiftContext, IP: "10.20.40.50"}}
+	newObj := getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.PublicIP = gslbhostrulepip
+	//update hostrule to add public IP
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+	var expectedMembers []nodes.AviGSK8sObj
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+	verifyMembers(gslbhostrulepip, expectedMembers)
+
+	k8sDeleteIngress(t, clusterClients[K8s], ingObj.Name, ingObj.Namespace)
+	deletek8sSecret(t, clusterClients[K8s], ingObj.Namespace, "test-secret")
+	expectedMembers = []nodes.AviGSK8sObj{}
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+	verifyMembers([]gslbalphav1.PublicIPElem{gslbhostrulepip[1]}, expectedMembers)
+
+	ingIPAddr := "10.10.100.1"
+	ingHostIPMap := map[string]string{hostName: ingIPAddr}
+	k8sAddIngress(t, clusterClients[K8s], ingObj.Name, ingObj.Namespace, ingestion_test.TestSvc, ingCluster,
+		ingHostIPMap, defaultPath, TlsTrue, false)
+	expectedMembers = []nodes.AviGSK8sObj{}
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1, 10))
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1, 10))
+	verifyMembers(gslbhostrulepip, expectedMembers)
+	newObj = getGSLBHostRule(t, oldObj.Name, oldObj.Namespace)
+	newObj.Spec.PublicIP = nil
+	// update hostrule to remove publicip
+	updateGSLBHostRule(t, newObj, ingestion.GslbHostRuleAccepted, "")
+	verifyMembers(nil, expectedMembers)
+}
+
 func TestGSLBHostRuleWithPriorityUpdate(t *testing.T) {
 	testPrefix := "gdp-gslbhr-algo-"
 	gslbHRName := "test-gslb-hr"
