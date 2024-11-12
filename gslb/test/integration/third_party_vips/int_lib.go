@@ -386,11 +386,15 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 
 func updateTenantInIngAndRoute(t *testing.T, kc *kubernetes.Clientset, tenant string, ing *networkingv1.Ingress, route *routev1.Route) {
 	ing.Annotations[gslbutils.TenantAnnotation] = tenant
-	route.Annotations[gslbutils.TenantAnnotation] = tenant
 	_, err := kc.NetworkingV1().Ingresses(ing.Namespace).Update(context.TODO(), ing, metav1.UpdateOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't update route obj: %v, err: %v", ing, err)
+		t.Fatalf("Couldn't update ingress obj: %v, err: %v", ing, err)
 	}
+	route, err = oshiftClient.RouteV1().Routes(route.Namespace).Get(context.TODO(), route.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error in getting route: %v", err)
+	}
+	route.Annotations[gslbutils.TenantAnnotation] = tenant
 	_, err = oshiftClient.RouteV1().Routes(route.Namespace).Update(context.TODO(), route, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't update route obj: %v, err: %v", route, err)
@@ -404,6 +408,14 @@ func UpdateTenantInNamespace(tenant, ns string) {
 	for idx := range cfgs {
 		def, _ := clusterClients[idx].CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{})
 		def.Annotations = annot
+		clusterClients[idx].CoreV1().Namespaces().Update(context.TODO(), def, metav1.UpdateOptions{})
+	}
+}
+
+func RemoveTenantInNamespace(ns string) {
+	for idx := range cfgs {
+		def, _ := clusterClients[idx].CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{})
+		def.Annotations = nil
 		clusterClients[idx].CoreV1().Namespaces().Update(context.TODO(), def, metav1.UpdateOptions{})
 	}
 }

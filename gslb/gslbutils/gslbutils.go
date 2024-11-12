@@ -491,6 +491,15 @@ func GetTenantInNamespaceAnnotation(namespace, cname string) string {
 	return tenant
 }
 
+func CheckTenant(namespace, cname, tenant string) bool {
+	namespaceTenant := GetTenantInNamespaceAnnotation(namespace, cname)
+	if namespaceTenant != "" && tenant != namespaceTenant {
+		Logf("cluster: %s, nstenant: %s, tenant: %s, msg: %s\n", cname, namespaceTenant, tenant, "rejected object because object tenant is not same as namespace tenant")
+		return false
+	}
+	return true
+}
+
 var allClusterContexts []string
 
 func AddClusterContext(cc string) {

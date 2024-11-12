@@ -83,6 +83,10 @@ func GetSvcMeta(svc *corev1.Service, cname string) (SvcMeta, bool) {
 			cname, svc.Namespace, svc.Name, err)
 	}
 	vsUUIDs, controllerUUID, tenant, err := parseVSAndControllerAnnotations(svc.Annotations)
+	namespaceTenant := gslbutils.GetTenantInNamespaceAnnotation(svc.Namespace, cname)
+	if namespaceTenant == "" {
+		tenant = gslbutils.GetTenant()
+	}
 	if err != nil && !syncVIPsOnly {
 		gslbutils.Logf("cluster: %s, ns: %s, service: %s, msg: skipping service because of error in parsing VS and Controller annotations: %v",
 			cname, svc.Namespace, svc.Name, err)
