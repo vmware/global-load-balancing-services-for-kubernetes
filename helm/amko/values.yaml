@@ -168,3 +168,6 @@ mountPath: "/log"
 logFile: "amko.log"
 
 federatorLogFile: "amko-federator.log"
+
+secret:
+  annotations: {}
