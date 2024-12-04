@@ -42,3 +42,14 @@ fi
 set -e
 
 sudo sed -i --regexp-extended "s/^(\s*)(appVersion\s*:\s*latest\s*$)/\1appVersion: $build_version/" $target_path/Chart.yaml
+
+#Save ako images as tarball
+sudo docker save -o amko.tar amko:latest
+sudo cp -r amko.tar $target_path/
+
+sudo docker save -o amko-federator.tar amko-federator:latest
+sudo cp -r amko-federator.tar $target_path/
+
+sudo docker save -o amko-service-discovery.tar amko-service-discovery:latest
+sudo cp -r amko-service-discovery.tar $target_path/
+echo "Docker image tar files generated and stored succssfully..."
