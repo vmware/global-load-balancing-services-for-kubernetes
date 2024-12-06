@@ -46,10 +46,14 @@ sudo sed -i --regexp-extended "s/^(\s*)(appVersion\s*:\s*latest\s*$)/\1appVersio
 #Save ako images as tarball
 sudo docker save -o amko.tar amko:latest
 sudo cp -r amko.tar $target_path/
+sudo chmod 744 $target_path/amko.tar
 
 sudo docker save -o amko-federator.tar amko-federator:latest
 sudo cp -r amko-federator.tar $target_path/
+sudo chmod 744 $target_path/amko-federator.tar
 
 sudo docker save -o amko-service-discovery.tar amko-service-discovery:latest
 sudo cp -r amko-service-discovery.tar $target_path/
+sudo chmod 744 $target_path/amko-service-discovery.tar
+
 echo "Docker image tar files generated and stored succssfully..."
