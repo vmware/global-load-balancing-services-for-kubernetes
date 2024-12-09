@@ -30,7 +30,7 @@ sudo mkdir -p $target_path
 
 #collecting source provenance data
 PRODUCT_NAME="Avi Multi Kubernetes Operator"
-JENKINS_INSTANCE=$(echo $JENKINS_URL | sed -E 's/^\s*.*:\/\///g' | sed -E 's/:.*//g')
+JENKINS_INSTANCE=$(echo $JENKINS_URL | sed -E 's/^\s*.*:\/\///g' | sed -E 's/\///g')
 COMP_UID="uid.obj.build.jenkins(instance='$JENKINS_INSTANCE',job_name='$JOB_NAME',build_number='$BUILD_NUMBER')"
 provenance_source_file="$WORKSPACE/provenance/source.json"
 
