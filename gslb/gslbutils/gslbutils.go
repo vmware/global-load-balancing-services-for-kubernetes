@@ -190,6 +190,9 @@ func SplitMultiClusterNS(name string) (string, string, error) {
 
 func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 	hostname := route.Spec.Host
+	if hostname == "" {
+		hostname = GetHostnameforSubdomain(route.Spec.Subdomain)
+	}
 	// Return true if the IP address is present in an route's status field, else return false
 	routeStatus := route.Status
 	for _, ingr := range routeStatus.Ingress {
@@ -215,6 +218,21 @@ func RouteGetIPAddr(route *routev1.Route) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func GetHostnameforSubdomain(subdomain string) string {
+	defaultdomain := GetGlobalFilter().GetDefaultDomain()
+	if defaultdomain == nil {
+		return ""
+	}
+	if subdomain == "" || *defaultdomain == "" {
+		return ""
+	}
+	if strings.HasPrefix(*defaultdomain, ".") {
+		return subdomain + *defaultdomain
+	} else {
+		return subdomain + "." + *defaultdomain
+	}
 }
 
 type IngressHostIP struct {
