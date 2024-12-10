@@ -363,9 +363,8 @@ github.com/onsi/gomega v1.8.1/go.mod h1:Ho0h+IUsWyvy1OpqCwxlQ/21gkhVunqlU8fDGcoT
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.27.10 h1:naR28SdDFlqrG6kScpT8VWpu1xWY5nJRCF3XaYyBjhI=
 github.com/onsi/gomega v1.27.10/go.mod h1:RsS8tutOdbdgzbPtzzATp12yT7kM5I5aElG3evPbQ0M=
+github.com/openshift/api v0.0.0-20201019163320-c6a5ec25f267 h1:d6qOoblJz8DjQ44PRT0hYt3qLqJ/Lnvipk1vXr0gpfo=
 github.com/openshift/api v0.0.0-20201019163320-c6a5ec25f267/go.mod h1:RDvBcRQMGLa3aNuDuejVBbTEQj/2i14NXdpOLqbNBvM=
-github.com/openshift/api v3.9.0+incompatible h1:fJ/KsefYuZAjmrr3+5U9yZIZbTOpVkDDLDLFresAeYs=
-github.com/openshift/api v3.9.0+incompatible/go.mod h1:dh9o4Fs58gpFXGSYfnVxGR9PnV53I8TW84pQaJDdGiY=
 github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc h1:aeVqf+NL5rNq1uM2jvIfSQiWodd5OJ5o90ayju+vdeM=
 github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc/go.mod h1:yZ3u8vgWC19I9gbDMRk8//9JwG/0Sth6v7C+m6R8HXs=
@@ -462,8 +461,8 @@ github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618 h1:ZLkxM
 github.com/vmware-tanzu/service-apis v0.0.0-20200901171416-461d35e58618/go.mod h1:afqpDk9He9v+/qWix0RRotm3RNyni4Lmc1y9geDCPuo=
 github.com/vmware/alb-sdk v0.0.0-20240619053936-3103500da639 h1:UaTxFP5LeiSOlLEyHC9kmYuzdZWmvYpPB7jevg+ASNw=
 github.com/vmware/alb-sdk v0.0.0-20240619053936-3103500da639/go.mod h1:fuRb4saDY/xy/UMeMvyKYmcplNknEL9ysaqYSw7reNE=
-github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746 h1:WjqHHnk/w9PblhJAGzCAnDt+CtmlyOQZw0XO7dSoPek=
-github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746/go.mod h1:OYFWfOG6sHCDgYgMafq/Rcm3haP0q+9ZCUh0GGyVhCA=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20241128140134-4606ef823783 h1:fo4QuXqKFz21XmzzopJv6I8pwpws+QyXKjGGrxab4YE=
+github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20241128140134-4606ef823783/go.mod h1:coCKZFNoB2f5GzuS/Ks5Zt8cBC+oBGZryvkzm/wfBxo=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
