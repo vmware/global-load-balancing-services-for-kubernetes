@@ -100,7 +100,9 @@ type GlobalFilter struct {
 	GslbDownResponse *gslbalphav1.DownResponse
 	// ControlPlaneHmOnly will only enable hm on control plane and would not create data plane HM for GSLB service
 	ControlPlaneHmOnly *bool
-	Checksum           uint32
+	// DefaultDomain will be used to generate hostname if openshift route uses subdomain
+	DefaultDomain *string
+	Checksum      uint32
 	// Respective filters for the namespaces.
 	// NSFilterMap map[string]*NSFilter
 	// GlobalLock is locked before accessing any of the filters.
@@ -203,6 +205,13 @@ func (gf *GlobalFilter) GetControlPlaneHmOnlyFlag() *bool {
 	return gf.ControlPlaneHmOnly
 }
 
+func (gf *GlobalFilter) GetDefaultDomain() *string {
+	gf.GlobalLock.RLock()
+	defer gf.GlobalLock.RUnlock()
+
+	return gf.DefaultDomain
+}
+
 func (gf *GlobalFilter) GetGslbPoolAlgorithm() *gslbalphav1.PoolAlgorithmSettings {
 	gf.GlobalLock.RLock()
 	defer gf.GlobalLock.RUnlock()
@@ -235,6 +244,7 @@ func (gf *GlobalFilter) GetCopy() *GlobalFilter {
 		GslbDownResponse:      gf.GslbDownResponse,
 		Checksum:              gf.Checksum,
 		ControlPlaneHmOnly:    gf.ControlPlaneHmOnly,
+		DefaultDomain:         gf.DefaultDomain,
 	}
 	return &newFilter
 }
@@ -369,6 +379,7 @@ func (gf *GlobalFilter) AddToFilter(gdp *gdpv1alpha2.GlobalDeploymentPolicy) {
 
 	gf.ControlPlaneHmOnly = gdp.Spec.ControlPlaneHmOnly
 
+	gf.DefaultDomain = gdp.Spec.DefaultDomain
 	gf.ComputeChecksum()
 	Logf("ns: %s, object: NSFilter, msg: added/changed the global filter", gdp.ObjectMeta.Namespace)
 }
@@ -438,6 +449,9 @@ func (gf *GlobalFilter) ComputeChecksum() {
 	}
 	if gf.ControlPlaneHmOnly != nil {
 		cksum += utils.Hash(utils.Stringify(*gf.ControlPlaneHmOnly))
+	}
+	if gf.DefaultDomain != nil {
+		cksum += utils.Hash(*gf.DefaultDomain)
 	}
 	cksum += getChecksumForPoolAlgorithm(gf.GslbPoolAlgorithm)
 	if gf.HealthMonitorTemplate != nil {
@@ -692,6 +706,7 @@ func (gf *GlobalFilter) UpdateGlobalFilter(oldGDP, newGDP *gdpv1alpha2.GlobalDep
 	gf.HealthMonitorTemplate = nf.HealthMonitorTemplate
 	gf.GslbDownResponse = nf.GslbDownResponse
 	gf.ControlPlaneHmOnly = nf.ControlPlaneHmOnly
+	gf.DefaultDomain = nf.DefaultDomain
 	gf.Checksum = nf.Checksum
 
 	clustersToBeSynced := isSyncTypeChanged(newGDP, oldGDP)
@@ -727,6 +742,7 @@ func GetNewGlobalFilter() *GlobalFilter {
 		GslbPoolAlgorithm:  nil,
 		GslbDownResponse:   nil,
 		ControlPlaneHmOnly: nil,
+		DefaultDomain:      nil,
 	}
 	return gf
 }

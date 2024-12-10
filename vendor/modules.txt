@@ -144,8 +144,8 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift/api v3.9.0+incompatible
-## explicit
+# github.com/openshift/api v0.0.0-20201019163320-c6a5ec25f267
+## explicit; go 1.15
 github.com/openshift/api/route/v1
 # github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 ## explicit; go 1.13
@@ -192,7 +192,7 @@ github.com/vmware-tanzu/service-apis/apis/v1alpha1pre1
 github.com/vmware/alb-sdk/go/clients
 github.com/vmware/alb-sdk/go/models
 github.com/vmware/alb-sdk/go/session
-# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746
+# github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20241128140134-4606ef823783
 ## explicit; go 1.21
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api
 github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/api/models
