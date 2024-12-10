@@ -125,6 +125,9 @@ func getTestGDPObject(appLabelReq, nsLabelReq bool) *gdpalphav2.GlobalDeployment
 		ObjectMeta: gdpMeta,
 		Spec:       gdpSpec,
 	}
+	var defaultDomain string
+	defaultDomain = TestDomain1
+	gdp.Spec.DefaultDomain = &defaultDomain
 	return &gdp
 }
 

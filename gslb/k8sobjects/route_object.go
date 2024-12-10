@@ -48,9 +48,13 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 	}
 	var vsUUIDs map[string]string
 	var controllerUUID, tenant string
+	hostname := route.Spec.Host
+	if hostname == "" {
+		hostname = gslbutils.GetHostnameforSubdomain(route.Spec.Subdomain)
+	}
 
 	// Parse status field
-	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerUUIDStatus(route.Status, route.Spec.Host)
+	vsUUIDs, controllerUUID, tenant, err = parseVSAndControllerUUIDStatus(route.Status, hostname)
 	if err != nil {
 		// parse annotations
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: parsing Controller annotations", cname, route.Namespace, route.Name)
@@ -70,16 +74,16 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: skipping route because either VS UUID or controller UUID missing from annotations: %v",
 			cname, route.Namespace, route.Name, route.Annotations)
 	}
-	vsUUID, ok := vsUUIDs[route.Spec.Host]
+	vsUUID, ok := vsUUIDs[hostname]
 	if !ok && !syncVIPsOnly {
 		gslbutils.Logf("cluster: %s, ns: %s, route: %s, msg: hostname %s is missing from VS UUID annotations",
-			cname, route.Namespace, route.Name, route.Spec.Host)
+			cname, route.Namespace, route.Name, hostname)
 	}
 	ipAddr, _ := gslbutils.RouteGetIPAddr(route)
 	metaObj := RouteMeta{
 		Name:               route.Name,
 		Namespace:          route.ObjectMeta.Namespace,
-		Hostname:           route.Spec.Host,
+		Hostname:           hostname,
 		IPAddr:             ipAddr,
 		Cluster:            cname,
 		TLS:                false,
@@ -92,7 +96,6 @@ func GetRouteMeta(route *routev1.Route, cname string) RouteMeta {
 	for key, value := range routeLabels {
 		metaObj.Labels[key] = value
 	}
-
 	if route.Spec.TLS != nil {
 		// for passthrough routes, only set the port and protocol
 		if route.Spec.TLS.Termination == gslbutils.PassthroughRoute {

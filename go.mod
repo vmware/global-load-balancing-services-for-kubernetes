@@ -8,11 +8,11 @@ require (
 	github.com/google/uuid v1.3.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.10
-	github.com/openshift/api v3.9.0+incompatible
+	github.com/openshift/api v0.0.0-20201019163320-c6a5ec25f267
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 	github.com/prometheus/client_golang v1.17.0
 	github.com/vmware/alb-sdk v0.0.0-20240619053936-3103500da639
-	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20240909104351-9ae7aeee7746
+	github.com/vmware/load-balancer-and-ingress-services-for-kubernetes v0.0.0-20241128140134-4606ef823783
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0

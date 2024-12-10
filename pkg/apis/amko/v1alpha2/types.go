@@ -61,6 +61,7 @@ type GDPSpec struct {
 	PoolAlgorithmSettings *gslbalphav1.PoolAlgorithmSettings `json:"poolAlgorithmSettings,omitempty"`
 	DownResponse          *gslbalphav1.DownResponse          `json:"downResponse,omitempty"`
 	ControlPlaneHmOnly    *bool                              `json:"controlPlaneHmOnly,omitempty"`
+	DefaultDomain         *string                            `json:"defaultDomain,omitempty"`
 }
 
 // ClusterProperty specifies all the properties required for a Cluster. Cluster is the cluster
