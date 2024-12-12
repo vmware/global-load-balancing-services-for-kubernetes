@@ -69,6 +69,9 @@ spec:
                 type: string
               pkiProfileRef:
                 type: string
+              defaultDomain:
+                description: "It will be used to generate hostname for openshift route if openshift route uses subdomain instead of host field"
+                type: string
               poolAlgorithmSettings:
                 description: "Algorithm settings to be specified for Gslb Service pool"
                 type: object

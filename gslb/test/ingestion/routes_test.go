@@ -88,6 +88,18 @@ func ocAddRoute(t *testing.T, oc *oshiftfake.Clientset, name, ns, svc, cname, ho
 	return routeObj
 }
 
+func ocAddRouteWithSubDomain(t *testing.T, oc *oshiftfake.Clientset, name, ns, svc, cname, host, ip string) *routev1.Route {
+	routeObj := buildRouteObj(name, ns, svc, cname, host, ip, true)
+	routeObj.Spec.Host = ""
+	routeObj.Spec.Subdomain = host
+	routeObj.Status.Ingress[0].Host = host + "." + TestDomain1
+	_, err := oc.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("error in creating route: %v", err)
+	}
+	return routeObj
+}
+
 func ocAddRouteWithoutStatus(t *testing.T, oc *oshiftfake.Clientset, name, ns, svc, cname, host string) *routev1.Route {
 	routeObj := buildRouteObj(name, ns, svc, cname, host, "", false)
 	_, err := oc.RouteV1().Routes(ns).Create(context.TODO(), routeObj, metav1.CreateOptions{})
@@ -360,5 +372,61 @@ func TestStatusChangeIPAddrRoute(t *testing.T) {
 	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
 	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, tenant)
 	verifyInRouteStore(g, acceptedRouteStore, false, routeName, ns, cname, host, newIPAddr)
+	DeleteTestGDPObj(gdp)
+}
+
+func TestBasicRoutewithSubdomainCD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "rcd"
+	routeName := testPrefix + "def-route"
+	ns := "default"
+	host := testPrefix
+	ipAddr := "10.10.20.20"
+	cname := "cluster1"
+	hostname := host + "." + TestDomain1
+	gdp := addGDPAndGSLBForIngress(t)
+	t.Log("adding and testing route")
+	ocAddRouteWithSubDomain(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, tenant)
+	// verify the presence of the route in the accepted store
+	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, hostname, ipAddr)
+
+	// delete and verify
+	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, tenant)
+
+	DeleteTestGDPObj(gdp)
+}
+
+func TestBasicRouteWithsubdomainCUD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testPrefix := "rcud-"
+	routeName := testPrefix + "def-route"
+	ns := "default"
+	host := testPrefix
+	ipAddr := "10.10.20.20"
+	cname := "cluster1"
+	hostname := host + "." + TestDomain1
+	gdp := addGDPAndGSLBForIngress(t)
+
+	t.Log("adding and testing route")
+	route := ocAddRouteWithSubDomain(t, fooOshiftClient, routeName, ns, TestSvc, cname, host, ipAddr)
+	buildRouteKeyAndVerify(t, false, "ADD", cname, ns, routeName, tenant)
+	// verify the presence of the route in the accepted store
+	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, hostname, ipAddr)
+
+	newHost := testPrefix + TestDomain2
+	route.Spec.Host = newHost
+	route.Status.Ingress[0].Host = newHost
+
+	t.Log("updating route")
+	ocUpdateRoute(t, fooOshiftClient, ns, cname, route)
+	buildRouteKeyAndVerify(t, false, "UPDATE", cname, ns, routeName, tenant)
+	verifyInRouteStore(g, acceptedRouteStore, true, routeName, ns, cname, newHost, ipAddr)
+
+	// delete and verify
+	ocDeleteRoute(t, fooOshiftClient, routeName, ns)
+	buildRouteKeyAndVerify(t, false, "DELETE", cname, ns, routeName, tenant)
+
 	DeleteTestGDPObj(gdp)
 }
