@@ -13,6 +13,8 @@ spec:
   sitePersistence:
     enabled: true
     profileRef: "gap-1"  # only enabled for secure ingresses/routes
+    pkiProfileRef: "pki-1"
+    
   thirdPartyMembers:
   - site: non-avi-site
     vip: 10.10.10.10
