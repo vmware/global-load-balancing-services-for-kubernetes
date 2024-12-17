@@ -234,6 +234,49 @@ func TestHRCreateUnsetIncludeAliases(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
 }
 
+// Update ingress,route to passthrough
+func TestHRCreatePassThroughRouteAndIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	ingObj, routeObj := Initialize(t, "hr-", hmRefs)
+
+	// create a host rule for the ingress object's hostname with includeAliases = false, verify GS member
+	k8sHr := getHostRuleWithAliasesForCustomFqdn(hrNameK8s, ingCluster, ingObj.Namespace, ingObj.Spec.Rules[0].Host, gfqdn,
+		gslbutils.HostRuleAccepted, nil, false)
+	createHostRule(t, K8s, k8sHr)
+
+	defaultDomainNames := []string{gfqdn}
+	expectedMembers = append(expectedMembers, getTestGSMemberFromIng(t, ingObj, ingCluster, 1))
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, gfqdn, tenant, hmRefs, nil, nil, defaultDomainNames)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// create a host rule for the route object's hostname with includeAliases = false, verify GS members
+	ocHr := getHostRuleWithAliasesForCustomFqdn(hrNameOC, routeCluster, routeObj.Namespace, routeObj.Spec.Host, gfqdn,
+		gslbutils.HostRuleAccepted, nil, false)
+	createHostRule(t, Oshift, ocHr)
+
+	expectedMembers = append(expectedMembers, getTestGSMemberFromRoute(t, routeObj, routeCluster, 1))
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, expectedMembers, gfqdn, tenant, hmRefs, nil, nil, defaultDomainNames)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	// Update Ingress to Passthrough
+	ingObj.Annotations[gslbutils.PassthroughAnnotation] = "true"
+	k8sUpdateIngress(t, clusterClients[K8s], ingObj)
+	g.Eventually(func() bool {
+		return verifyGSMembers(t, []nodes.AviGSK8sObj{expectedMembers[1]}, gfqdn, tenant, hmRefs, nil, nil, defaultDomainNames)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+
+	//Update Route To Passthrough
+	routeObj.Spec.TLS = &routev1.TLSConfig{
+		Termination: routev1.TLSTerminationPassthrough,
+	}
+	oshiftUpdateRoute(t, routeObj)
+	g.Eventually(func() bool {
+		return verifyGSDoesNotExist(t, gfqdn, tenant)
+	}, 5*time.Second, 1*time.Second).Should(gomega.Equal(true))
+}
+
 // Create host rules and remove all aliases
 func TestHRRemoveAliases(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

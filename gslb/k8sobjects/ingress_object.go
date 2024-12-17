@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -152,6 +153,12 @@ func GetIngressHostMeta(ingress *networkingv1.Ingress, cname string) []IngressHo
 		gslbutils.Logf("cluster: %s, ns: %s, ingress: %s, msg: skipping ingress because controller UUID absent in annotations",
 			cname, ingress.Namespace, ingress.Name)
 	}
+	passThroughEnabled := false
+	if gslbutils.GetCustomFqdnMode() {
+		if val, found := ingress.Annotations[gslbutils.PassthroughAnnotation]; found {
+			passThroughEnabled = strings.EqualFold(val, "true")
+		}
+	}
 	for _, hip := range hostIPList {
 		vsUUID, ok := vsUUIDs[hip.Hostname]
 		if !ok && !syncVIPsOnly {
@@ -169,6 +176,7 @@ func GetIngressHostMeta(ingress *networkingv1.Ingress, cname string) []IngressHo
 			VirtualServiceUUID: vsUUID,
 			ControllerUUID:     controllerUUID,
 			Tenant:             tenant,
+			Passthrough:        passThroughEnabled,
 		}
 		metaObj.Paths = make([]string, 0)
 		metaObj.Labels = make(map[string]string)
@@ -201,6 +209,7 @@ type IngressHostMeta struct {
 	Paths              []string
 	TLS                bool
 	Tenant             string
+	Passthrough        bool
 }
 
 func (ing IngressHostMeta) GetType() string {
@@ -257,7 +266,7 @@ func (ing IngressHostMeta) GetTLS() (bool, error) {
 }
 
 func (ing IngressHostMeta) IsPassthrough() bool {
-	return false
+	return ing.Passthrough
 }
 
 func (ing IngressHostMeta) GetVirtualServiceUUID() string {
@@ -293,7 +302,7 @@ func (ing IngressHostMeta) GetIngressHostCksum() uint32 {
 	cksum += utils.Hash(ing.Cluster) + utils.Hash(ing.Namespace) +
 		utils.Hash(ing.IngName) + utils.Hash(ing.Hostname) +
 		utils.Hash(ing.IPAddr) + utils.Hash(utils.Stringify(paths)) +
-		utils.Hash(ing.VirtualServiceUUID) + utils.Hash(ing.ControllerUUID) + utils.Hash(ing.Tenant)
+		utils.Hash(ing.VirtualServiceUUID) + utils.Hash(ing.ControllerUUID) + utils.Hash(ing.Tenant) + utils.Hash(utils.Stringify(ing.Passthrough))
 	return cksum
 }
 
@@ -331,6 +340,11 @@ func (ihm IngressHostMeta) ApplyFilter() bool {
 	selectedByGDP := ihm.ApplyGDPSelector()
 	if selectedByGDP {
 		if gslbutils.GetCustomFqdnMode() {
+			if ihm.IsPassthrough() {
+				gslbutils.Debugf("cluster: %s, ns: %s, ingress host: %s, msg: passthrough ingress not supported in customfqdn mode",
+					ihm.Cluster, ihm.Namespace, ihm.Hostname)
+				return false
+			}
 			_, err := fqdnMap.GetGlobalFqdnForLocalFqdn(ihm.Cluster, ihm.Hostname)
 			if err != nil {
 				gslbutils.Debugf("cluster: %s, ns: %s, ingress host: %s, msg: error in fetching global fqdn: %v",
