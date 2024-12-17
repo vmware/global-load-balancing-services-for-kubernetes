@@ -225,6 +225,13 @@ func k8sAddIngress(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname 
 	return ingObj
 }
 
+func k8sUpdateIngress(t *testing.T, kc *kubernetes.Clientset, ingObj *networkingv1.Ingress) {
+	_, err := kc.NetworkingV1().Ingresses(ingObj.Namespace).Update(context.TODO(), ingObj, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("failed to update ingress: %v\n", err)
+	}
+}
+
 func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname, host,
 	ip string, tls bool) *routev1.Route {
 	routeObj := BuildRouteObj(name, ns, svc, cname, host, ip, true)
@@ -258,6 +265,12 @@ func oshiftAddRoute(t *testing.T, kc *kubernetes.Clientset, name, ns, svc, cname
 	return newObj
 }
 
+func oshiftUpdateRoute(t *testing.T, route *routev1.Route) {
+	_, err := oshiftClient.RouteV1().Routes(route.Namespace).Update(context.TODO(), route, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't update route %v", err)
+	}
+}
 func k8sDeleteIngress(t *testing.T, kc *kubernetes.Clientset, name string, ns string) {
 	err := kc.NetworkingV1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
