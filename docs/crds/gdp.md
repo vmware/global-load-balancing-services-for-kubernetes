@@ -40,7 +40,10 @@ spec:
   sitePersistenceRef: gap-1
 
   poolAlgorithmSettings:
-    lbAlgorithm: GSLB_ALGORITHM_ROUND_ROBIN
+    lbAlgorithm: GSLB_ALGORITHM_ROUND_ROBIN  
+
+  controlPlaneHmOnly: false
+
 ```
 1. `namespace`: namespace of this object must be `avi-system`.
 2. `matchRules`: This allows users to select objects using either application labels (configured as labels on Ingress/Route objects) or via namespace labels (configured as labels on the namespace objects). `matchRules` are defined as:
@@ -118,12 +121,14 @@ matchRules:
 
 11. `pkiProfileRef`: Provide an PKI Profile ref (pre-created in Avi Controller).This has to be a federated profile. It will be applied only if sitePersistence is enabled.
 
+12. `controlPlaneHmOnly`: If this boolean flag is set to `true`, only control plane health monitoring will be done. AMKO will not add any `healthMonitorRefs` or create any data plane health monitors. It is `false` by default.
+
 ### Notes
 * Only one `GDP` object is allowed.
 
 * If using `helm install`, a `GDP` object is created by picking up values from `values.yaml` file. User can then edit this GDP object to modify their selection of objects.
 
-* `trafficSplit`, `ttl`, `sitePersistence` and `healthMonitorRefs` provided in the GDP object are applicable on all the GslbServices. These properties, however, can be overridden via `GSLBHostRule` created for a GslbService. More details [here](gslbhostrule.md).
+* `trafficSplit`, `ttl`, `sitePersistence`, `controlPlaneHmOnly` and `healthMonitorRefs` provided in the GDP object are applicable on all the GslbServices. These properties, however, can be overridden via `GSLBHostRule` created for a GslbService. More details [here](gslbhostrule.md).
 
 * Site Persistence, if specified, will only be enabled for the GslbServices which have secure ingresses or secure routes as the members and will be disabled for all other cases.
 

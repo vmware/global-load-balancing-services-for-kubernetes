@@ -33,6 +33,7 @@ spec:
   - cluster: oshift
     ip: 170.11.1.1
   ttl: 30
+  controlPlaneHmOnly: false
 ```
 1. `namespace`: namespace of this object must be `avi-system`.
 
@@ -73,6 +74,9 @@ If this field is not provided in `GSLBHostRule`, the site persistence property w
 10. `poolAlgorithmSettings`: Override the default GslbService algorithm provided in the GDP object. Refer to [pool algorithm settings](#pool-algorithm-settings) for details. If this field is absent, GDP's pool algorithm's settings apply on this GslbService.
 
 11. `downResponse`: Specifies the response to the client query when the GSLB service is DOWN. If this field is absent, GDP's down response settings would get applied on the GslbService. Refer to [down response settings](#down-response-settings) for details.
+
+12. `controlPlaneHmOnly`: If this boolean flag is set to `true`, only control plane health monitoring will be done. AMKO will not add any `healthMonitorRefs` or create any data plane health monitors. It is `false` by default.
+
 
 ## Pool Algorithm Settings
 The pool algorithm settings for GslbService(s) can be specified via the `GDP` or a `GSLBHostRule` objects. The GslbService uses the algorithm settings to distribute the traffic accordingly. To set the required settings, following fields must be used:
