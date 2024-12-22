@@ -284,6 +284,11 @@ func (route RouteMeta) ApplyFilter() bool {
 	selectedByGDP := route.ApplyGDPSelector()
 	if selectedByGDP {
 		if gslbutils.GetCustomFqdnMode() {
+			if route.IsPassthrough() {
+				gslbutils.Debugf("cluster: %s, ns: %s, route host: %s, msg: passthrough route not supported in customfqdn mode",
+					route.Cluster, route.Namespace, route.Hostname)
+				return false
+			}
 			_, err := fqdnMap.GetGlobalFqdnForLocalFqdn(route.Cluster, route.Hostname)
 			if err != nil {
 				gslbutils.Debugf("cluster: %s, ns: %s, route host: %s, msg: error in fetching global fqdn: %v",

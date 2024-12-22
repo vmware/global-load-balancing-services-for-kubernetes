@@ -816,7 +816,8 @@ func GetDefaultPKI(aviClient *clients.AviClient) *string {
 }
 
 const (
-	VSAnnotation         = "ako.vmware.com/host-fqdn-vs-uuid-map"
-	ControllerAnnotation = "ako.vmware.com/controller-cluster-uuid"
-	TenantAnnotation     = "ako.vmware.com/tenant-name"
+	VSAnnotation          = "ako.vmware.com/host-fqdn-vs-uuid-map"
+	ControllerAnnotation  = "ako.vmware.com/controller-cluster-uuid"
+	TenantAnnotation      = "ako.vmware.com/tenant-name"
+	PassthroughAnnotation = "passthrough.ako.vmware.com/enabled"
 )
