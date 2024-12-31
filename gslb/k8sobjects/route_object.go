@@ -285,7 +285,7 @@ func (route RouteMeta) ApplyFilter() bool {
 	if selectedByGDP {
 		if gslbutils.GetCustomFqdnMode() {
 			if route.IsPassthrough() {
-				gslbutils.Debugf("cluster: %s, ns: %s, route host: %s, msg: passthrough route not supported in customfqdn mode",
+				gslbutils.Logf("cluster: %s, ns: %s, route host: %s, msg: passthrough route not supported in customfqdn mode",
 					route.Cluster, route.Namespace, route.Hostname)
 				return false
 			}

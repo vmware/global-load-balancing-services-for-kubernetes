@@ -341,7 +341,7 @@ func (ihm IngressHostMeta) ApplyFilter() bool {
 	if selectedByGDP {
 		if gslbutils.GetCustomFqdnMode() {
 			if ihm.IsPassthrough() {
-				gslbutils.Debugf("cluster: %s, ns: %s, ingress host: %s, msg: passthrough ingress not supported in customfqdn mode",
+				gslbutils.Logf("cluster: %s, ns: %s, ingress host: %s, msg: passthrough ingress not supported in customfqdn mode",
 					ihm.Cluster, ihm.Namespace, ihm.Hostname)
 				return false
 			}
