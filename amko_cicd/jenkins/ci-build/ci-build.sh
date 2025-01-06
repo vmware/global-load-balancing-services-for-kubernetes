@@ -2,8 +2,8 @@
 
 set -xe
 
-export GOLANG_SRC_REPO=${PVT_DOCKER_REGISTRY}/golang:latest
-export PHOTON_SRC_REPO=${PVT_DOCKER_REGISTRY}/photon:5.0
+export GOLANG_SRC_REPO=${PVT_DOCKER_REGISTRY}/dockerhub-proxy-cache/library/golang:latest
+export PHOTON_SRC_REPO=${PVT_DOCKER_REGISTRY}/dockerhub-proxy-cache/library/photon:5.0
 
 make build
 
