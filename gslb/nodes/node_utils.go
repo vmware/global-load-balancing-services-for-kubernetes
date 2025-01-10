@@ -19,8 +19,6 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
@@ -97,7 +95,6 @@ func setGSLBPropertiesForGS(gsFqdn string, gsGraph *AviGSObjectGraph, newObj boo
 		gsGraph.ControlPlaneHmOnly = *gf.GetControlPlaneHmOnlyFlag()
 	}
 	if !gsGraph.ControlPlaneHmOnly {
-		gslbutils.Logf(utils.Stringify(gsGraph.ControlPlaneHmOnly))
 		if gsRuleExists && gsRule.HmRefs != nil && len(gsRule.HmRefs) != 0 {
 			gsGraph.HmRefs = make([]string, len(gsRule.HmRefs))
 			copy(gsGraph.HmRefs, gsRule.HmRefs)

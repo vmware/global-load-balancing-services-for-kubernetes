@@ -304,7 +304,7 @@ func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 				} else {
 					gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
 						c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
-					return
+					continue
 				}
 			}
 		}
