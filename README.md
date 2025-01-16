@@ -20,16 +20,16 @@ AMKO is aware of the following object types:
 For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Kubernetes     | 1.23-1.27   |
+| Kubernetes     | 1.25-1.29   |
 | AKO            | 1.12.1       |
-| AVI Controller | 21.1.6 - 30.1.1 |
+| AVI Controller | 22.1.3 - 30.2.1 |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
-| Openshift      | 4.10-4.13    |
+| Openshift      | 4.12-4.14    |
 | AKO            | 1.12.1       |
-| AVI Controller | 21.1.6 - 30.1.1 |
+| AVI Controller | 22.1.3 - 30.2.1 |
 
 #### Pre-requisites
 To kick-start AMKO, we need:
@@ -159,7 +159,7 @@ kubectl apply -f <output_dir>/amko/crds/
 helm list -n avi-system
 
 NAME          	NAMESPACE 	REVISION	UPDATED                             	    STATUS  	CHART    	APP VERSION
-amko-1598451370 avi-system	1       	2023-06-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.10.1	1.10.1
+amko-1598451370 avi-system	1       	2023-12-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.11.1	1.11.1
 ```
 
 *Step4*
