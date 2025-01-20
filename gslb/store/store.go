@@ -22,8 +22,6 @@ import (
 	"sync"
 
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
-
-	filter "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filter"
 )
 
 // Cluster Routes store for all the route objects.
@@ -39,15 +37,13 @@ var (
 	HostRuleStore                    *ClusterStore
 	AcceptedMultiClusterIngressStore *ClusterStore
 	RejectedMultiClusterIngressStore *ClusterStore
+	NamespaceToTenantStore           *ObjectStore
 )
 
 type ClusterStore struct {
 	ClusterObjectMap map[string]*ObjectStore
 	ClusterLock      sync.RWMutex
 }
-
-// Filterfn is a type of a function used to filter out objects.
-type Filterfn func(filter.FilterArgs) bool
 
 var acceptedOnce sync.Once
 
@@ -159,6 +155,16 @@ func GetHostRuleStore() *ClusterStore {
 	return HostRuleStore
 }
 
+var NamespaceToTenantOnce sync.Once
+
+// GetNamespaceToTenantStore initializes and returns a new NamespaceToTenantStore.
+func GetNamespaceToTenantStore() *ObjectStore {
+	NamespaceToTenantOnce.Do(func() {
+		NamespaceToTenantStore = NewObjectStore()
+	})
+	return NamespaceToTenantStore
+}
+
 // NewClusterStore initializes and returns a new cluster store.
 func NewClusterStore() *ClusterStore {
 	clusterStore := &ClusterStore{}
@@ -204,48 +210,6 @@ func (clusterStore *ClusterStore) GetAllClusters() []string {
 		allClusters = append(allClusters, cname)
 	}
 	return allClusters
-}
-
-// GetAllFilteredClusterNSObjects gets the list of all accepted and rejected
-// objects which pass the filter function applyFilter.
-func (clusterStore *ClusterStore) GetAllFilteredClusterNSObjects(applyFilter Filterfn) ([]string, []string) {
-	var acceptedList, rejectedList []string
-	clusterStore.ClusterLock.RLock()
-	defer clusterStore.ClusterLock.RUnlock()
-	for cname, clusterMap := range clusterStore.ClusterObjectMap {
-		nsObjListAcc, nsObjListRej := clusterMap.GetAllFilteredNSObjects(applyFilter, cname)
-		for _, nsObj := range nsObjListAcc {
-			// Prefix the cluster name to the ns+obj name
-			acceptedList = append(acceptedList, cname+"/"+nsObj)
-		}
-		for _, nsObj := range nsObjListRej {
-			rejectedList = append(rejectedList, cname+"/"+nsObj)
-		}
-	}
-	return acceptedList, rejectedList
-}
-
-// GetAllFilteredClusterNSObjectsForCluster gets the list of all accepted and rejected
-// objects which pass the filter function applyFilter for a specified cluster.
-func (clusterStore *ClusterStore) GetAllFilteredObjectsForClusterFqdn(applyFilter Filterfn, cluster string,
-	gfqdn string) ([]string, []string) {
-	var acceptedList, rejectedList []string
-	clusterStore.ClusterLock.RLock()
-	defer clusterStore.ClusterLock.RUnlock()
-	for cname, clusterMap := range clusterStore.ClusterObjectMap {
-		if cname != cluster {
-			continue
-		}
-		nsObjListAcc, nsObjListRej := clusterMap.GetAllFilteredNSObjectsForFqdn(applyFilter, cname, gfqdn)
-		for _, nsObj := range nsObjListAcc {
-			// Prefix the cluster name to the ns+obj name
-			acceptedList = append(acceptedList, cname+"/"+nsObj)
-		}
-		for _, nsObj := range nsObjListRej {
-			rejectedList = append(rejectedList, cname+"/"+nsObj)
-		}
-	}
-	return acceptedList, rejectedList
 }
 
 func (clusterStore *ClusterStore) GetAllClusterNSObjects() []string {
@@ -373,65 +337,6 @@ func (store *ObjectStore) AddOrUpdate(key, objName string, obj interface{}) {
 	objStore.AddOrUpdate(objName, obj)
 }
 
-func (store *ObjectStore) GetAllFilteredNamespaces(applyFilter Filterfn) ([]string, []string) {
-	store.NSLock.RLock()
-	defer store.NSLock.RUnlock()
-	var acceptedList, rejectedList []string
-
-	for cluster, clusterNSMap := range store.NSObjectMap {
-		nsListAcc, nsListRej := clusterNSMap.GetAllFilteredObjects(applyFilter, cluster)
-		for _, ns := range nsListAcc {
-			// Prefix a cluster name to the list of objects
-			acceptedList = append(acceptedList, cluster+"/"+ns)
-		}
-		for _, ns := range nsListRej {
-			// Prefix a cluster name to the list of objects
-			rejectedList = append(rejectedList, cluster+"/"+ns)
-		}
-	}
-	return acceptedList, rejectedList
-}
-
-// GetAllFilteredNSObjects fetches all the objects from Object Map Store and prefixes
-// the namespace to it.
-func (store *ObjectStore) GetAllFilteredNSObjects(applyFilter Filterfn,
-	cname string) ([]string, []string) {
-	store.NSLock.RLock()
-	defer store.NSLock.RUnlock()
-	var acceptedList, rejectedList []string
-	for ns, nsObjMap := range store.NSObjectMap {
-		objListAcc, objListRej := nsObjMap.GetAllFilteredObjects(applyFilter, cname)
-		for _, obj := range objListAcc {
-			// Prefixes a namespace to the list of objects
-			acceptedList = append(acceptedList, ns+"/"+obj)
-		}
-		for _, obj := range objListRej {
-			// Prefix a namespace to the list of the objects
-			rejectedList = append(rejectedList, ns+"/"+obj)
-		}
-	}
-	return acceptedList, rejectedList
-}
-
-func (store *ObjectStore) GetAllFilteredNSObjectsForFqdn(applyFilter Filterfn,
-	cname string, fqdn string) ([]string, []string) {
-	store.NSLock.RLock()
-	defer store.NSLock.RUnlock()
-	var acceptedList, rejectedList []string
-	for ns, nsObjMap := range store.NSObjectMap {
-		objListAcc, objListRej := nsObjMap.GetAllFilteredObjectsForFqdn(applyFilter, cname, fqdn)
-		for _, obj := range objListAcc {
-			// Prefixes a namespace to the list of objects
-			acceptedList = append(acceptedList, ns+"/"+obj)
-		}
-		for _, obj := range objListRej {
-			// Prefix a namespace to the list of the objects
-			rejectedList = append(rejectedList, ns+"/"+obj)
-		}
-	}
-	return acceptedList, rejectedList
-}
-
 func (store *ObjectStore) GetAllNSObjects() []string {
 	nsObjs := []string{}
 	store.NSLock.RLock()
@@ -535,40 +440,4 @@ func (o *ObjectMapStore) GetAllObjectNames() []string {
 	// TODO (sudswas): Pass a copy instead of the reference
 	return objNameList
 
-}
-
-// GetAllFilteredObjects returns a list of all the objects which pass the filter function "applyFilter".
-func (o *ObjectMapStore) GetAllFilteredObjects(applyFilter Filterfn, cname string) ([]string, []string) {
-	o.ObjLock.RLock()
-	defer o.ObjLock.RUnlock()
-	var acceptedList, rejectedList []string
-	for objName, obj := range o.ObjectMap {
-		if applyFilter(filter.FilterArgs{
-			Obj:     obj,
-			Cluster: cname,
-		}) {
-			acceptedList = append(acceptedList, objName)
-		} else {
-			rejectedList = append(rejectedList, objName)
-		}
-	}
-	return acceptedList, rejectedList
-}
-
-func (o *ObjectMapStore) GetAllFilteredObjectsForFqdn(applyFilter Filterfn, cname string, fqdn string) ([]string, []string) {
-	o.ObjLock.RLock()
-	defer o.ObjLock.RUnlock()
-	var acceptedList, rejectedList []string
-	for objName, obj := range o.ObjectMap {
-		if applyFilter(filter.FilterArgs{
-			Obj:     obj,
-			Cluster: cname,
-			GFqdn:   fqdn,
-		}) {
-			acceptedList = append(acceptedList, objName)
-		} else {
-			rejectedList = append(rejectedList, objName)
-		}
-	}
-	return acceptedList, rejectedList
 }

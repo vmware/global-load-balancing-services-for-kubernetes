@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	avictrl "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filterstore"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -196,7 +197,7 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 		// If we have objects in the accepted store, each one has to be passed through
 		// the filter again. If any object fails to pass through the filter, we need to
 		// add DELETE keys for them.
-		acceptedList, rejectedList := acceptedObjStore.GetAllFilteredClusterNSObjects(filter.ApplyFilter)
+		acceptedList, rejectedList := filterstore.GetAllFilteredClusterNSObjects(filter.ApplyFilter, acceptedObjStore)
 		if len(rejectedList) != 0 {
 			gslbutils.Logf("ObjList: %v, msg: %s", rejectedList, "obj list will be deleted")
 			// Since, these objects are now rejected, they have to be moved to
@@ -264,7 +265,7 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 		// If we have objects in the rejected store, each one has to be passed through
 		// the filter again. If any object passes through the filter, we need to add ADD
 		// keys for them.
-		acceptedList, _ := rejectedObjStore.GetAllFilteredClusterNSObjects(filter.ApplyFilter)
+		acceptedList, _ := filterstore.GetAllFilteredClusterNSObjects(filter.ApplyFilter, rejectedObjStore)
 		if len(acceptedList) != 0 {
 			gslbutils.Logf("ObjList: %v, msg: %s", acceptedList, "object list will be added")
 			MoveObjs(acceptedList, rejectedObjStore, acceptedObjStore, objKey)
@@ -503,7 +504,7 @@ func applyAndUpdateNamespaces() {
 
 	// first move from acceptedStore to rejectedStore
 	gslbutils.Logf("applying filter on all rejected namespaces")
-	_, rejectedList := acceptedNSStore.GetAllFilteredNamespaces(filter.ApplyFilter)
+	_, rejectedList := filterstore.GetAllFilteredNamespaces(filter.ApplyFilter, acceptedNSStore)
 	if len(rejectedList) != 0 {
 		gslbutils.Logf("objList: %v, msg: obj list will be deleted", rejectedList)
 		MoveNSObjs(rejectedList, acceptedNSStore, rejectedNSStore)
@@ -525,7 +526,7 @@ func applyAndUpdateNamespaces() {
 		}
 	}
 
-	acceptedList, _ := rejectedNSStore.GetAllFilteredNamespaces(filter.ApplyFilter)
+	acceptedList, _ := filterstore.GetAllFilteredNamespaces(filter.ApplyFilter, rejectedNSStore)
 	if len(acceptedList) != 0 {
 		gslbutils.Logf("objList: %v, msg: obj list will be added", acceptedList)
 		MoveNSObjs(acceptedList, rejectedNSStore, acceptedNSStore)
@@ -538,7 +539,7 @@ func applyAndRejectNamespaces(gf *gslbutils.GlobalFilter, gdp *gdpalphav2.Global
 	rejectedNSStore := store.GetRejectedNSStore()
 
 	// Since, we have just deleted a GDP object, we need to just check the acceptedNSStore
-	acceptedList, _ := acceptedNSStore.GetAllFilteredNamespaces(filter.ApplyFilter)
+	acceptedList, _ := filterstore.GetAllFilteredNamespaces(filter.ApplyFilter, acceptedNSStore)
 	if len(acceptedList) == 0 {
 		gslbutils.Logf("accepted list of namespaces is empty, nothing to be done")
 		return
@@ -553,7 +554,7 @@ func applyAndAcceptNamespaces() {
 
 	// Since, we have just added a fresh GDP object, all the previous namespaces will be in rejected store
 	// so, apply and move the objects from rejected store
-	acceptedList, rejectedList := rejectedNSStore.GetAllFilteredNamespaces(filter.ApplyFilter)
+	acceptedList, rejectedList := filterstore.GetAllFilteredNamespaces(filter.ApplyFilter, rejectedNSStore)
 	if len(rejectedList) == 0 {
 		gslbutils.Logf("rejected list of namespaces is empty, nothing to be done")
 		return

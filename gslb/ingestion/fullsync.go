@@ -261,13 +261,22 @@ func resyncMemberCluster() {
 			gslbutils.Warnf("error initializing member cluster %s: %s", cluster.clusterName, err)
 			continue
 		}
+		selectedNamespaces, err := aviCtrl.informers.ClientSet.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Warnf("cluster: %s, error in fetching namespaces, %s", aviCtrl.name, err.Error())
+			continue
+		}
+		nt := store.GetNamespaceToTenantStore()
+		for _, ns := range selectedNamespaces.Items {
+			tenant, _ := ns.Annotations[gslbutils.TenantAnnotation]
+			nt.AddOrUpdate(aviCtrl.name, ns.Name, tenant)
+		}
 		delete(pendingClusters, cluster)
 		if aviCtrl != nil {
 			aviCtrlList = append(aviCtrlList, aviCtrl)
 		}
 	}
 	for _, aviCtrl := range aviCtrlList {
-		aviCtrl.StartNamespaceInformer(stopCh)
 		aviCtrl.Start(stopCh)
 	}
 	clusterSync(aviCtrlList, cache.GetAviCache())

@@ -41,8 +41,13 @@ func GSGraphHandler(w http.ResponseWriter, r *http.Request) {
 
 	names, ok := r.URL.Query()["name"]
 	if ok {
-		name := names[0]
-		tenName := gslbutils.GetTenant() + "/" + name
+		tenant, exists := r.URL.Query()["tenant"]
+		var tenName string
+		if !exists {
+			tenName = gslbutils.GetTenant() + "/" + names[0]
+		} else {
+			tenName = tenant[0] + "/" + names[0]
+		}
 		_, aviGS := agl.Get(tenName)
 		if aviGS == nil {
 			WriteToResponse(w, nil)
