@@ -39,6 +39,8 @@ spec:
 
   sitePersistenceRef: gap-1
 
+  pkiProfileRef: pki-1
+
   poolAlgorithmSettings:
     lbAlgorithm: GSLB_ALGORITHM_ROUND_ROBIN  
 
@@ -122,6 +124,14 @@ matchRules:
 11. `pkiProfileRef`: Provide an PKI Profile ref (pre-created in Avi Controller).This has to be a federated profile. It will be applied only if sitePersistence is enabled.
 
 12. `controlPlaneHmOnly`: If this boolean flag is set to `true`, only control plane health monitoring will be done. AMKO will not add any `healthMonitorRefs` or create any data plane health monitors. It is `false` by default.
+
+13. `defaultDomain`: It will be used to generate hostname for openshift route if openshift route uses subdomain instead of host field. 
+  
+    ```yaml
+    defaultDomain: "avi.internal"
+    ```
+
+For example, if `spec.subdomain` for an OpenShift route is **my_route-my_namespace** and `defaultDomain` is specified as **avi.internal**, then FQDN for the GS will be **my_route-my_namespace.avi.internal**. if `spec.host` field is not empty then FQDN is derived only from `spec.host` field.
 
 ### Notes
 * Only one `GDP` object is allowed.
