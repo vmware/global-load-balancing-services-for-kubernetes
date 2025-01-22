@@ -32,6 +32,7 @@ import (
 	avictrl "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/cache"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/gslbutils"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
+	store "github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 
 	gouuid "github.com/google/uuid"
 	oshiftclient "github.com/openshift/client-go/route/clientset/versioned"
@@ -630,11 +631,19 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	avicache.PopulatePkiCache()
 	newCache := avicache.PopulateGSCache(true)
 
-	// Start the informers for the member controllers
+	nt := store.GetNamespaceToTenantStore()
 	for _, aviCtrl := range aviCtrlList {
-		aviCtrl.StartNamespaceInformer(stopCh)
+		// get all namespaces
+		selectedNamespaces, err := aviCtrl.informers.ClientSet.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("cluster: %s, error in fetching namespaces, %s", aviCtrl.name, err.Error())
+			return err
+		}
+		for _, ns := range selectedNamespaces.Items {
+			tenant, _ := ns.Annotations[gslbutils.TenantAnnotation]
+			nt.AddOrUpdate(aviCtrl.name, ns.Name, tenant)
+		}
 	}
-
 	bootupSync(aviCtrlList, newCache)
 	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "Initial bootup sync completed.")
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)

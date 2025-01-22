@@ -279,8 +279,8 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 		return
 	}
 	if metaObj.GetTenant() != gslbutils.GetTenantInNamespaceAnnotation(ns, cname) {
-		gslbutils.Errf("key: %s, msg: %s", key, "tenant mismatch found for the object")
 		if metaObj.GetTenant() != gslbutils.GetTenant() {
+			gslbutils.Warnf("key: %s, msg: %s", key, "tenant mismatch found for the object")
 			return
 		}
 	}

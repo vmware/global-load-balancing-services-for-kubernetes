@@ -17,6 +17,7 @@ package ingestion
 import (
 	"fmt"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/filterstore"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/k8sobjects"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/nodes"
 	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
@@ -501,6 +502,7 @@ func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, 
 func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.ResourceEventHandler {
 	acceptedNSStore := store.GetAcceptedNSStore()
 	rejectedNSStore := store.GetRejectedNSStore()
+	namespaceTenantStore := store.GetNamespaceToTenantStore()
 
 	gslbutils.Logf("Adding Namespace handler")
 	ingressEventHandler := cache.ResourceEventHandlerFuncs{
@@ -511,6 +513,8 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 				return
 			}
 			nsMeta := k8sobjects.GetNSMeta(ns, c.name)
+			tenant, _ := ns.Annotations[gslbutils.TenantAnnotation]
+			namespaceTenantStore.AddOrUpdate(c.name, ns.Name, tenant)
 			if !filter.ApplyFilter(filter.FilterArgs{
 				Obj:     nsMeta,
 				Cluster: c.name,
@@ -537,6 +541,7 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 			DeleteNamespacedObjsFromAllStores(c.workqueue, numWorkers, nsMeta)
 			DeleteFromNSStore(acceptedNSStore, ns, c.name)
 			DeleteFromNSStore(rejectedNSStore, ns, c.name)
+			namespaceTenantStore.DeleteNSObj(c.name, ns.Name)
 		},
 		UpdateFunc: func(old, curr interface{}) {
 			oldNS, okOld := old.(*corev1.Namespace)
@@ -546,6 +551,9 @@ func AddNamespaceEventHandler(numWorkers uint32, c *GSLBMemberController) cache.
 				return
 			}
 			if oldNS.ResourceVersion != ns.ResourceVersion {
+				tenant, _ := ns.Annotations[gslbutils.TenantAnnotation]
+				gslbutils.Debugf("cluster: %s, namespace: %s, tenant: %s", c.name, ns.Name, tenant)
+				namespaceTenantStore.AddOrUpdate(c.name, ns.Name, tenant)
 				applyGSLBHostruleOnTenantchange(numWorkers, c, oldNS, ns)
 
 				oldNSMeta := k8sobjects.GetNSMeta(oldNS, c.name)
@@ -660,12 +668,12 @@ func ReApplyObjectsOnHostRule(hr *akov1beta1.HostRule, add bool, cname, lfqdn, g
 			if gslbutils.GetCustomFqdnMode() && rejectedStore != nil {
 				// If customFQDN is true - all are objects are in rejectedStore as all are
 				//     rejected if no Hostrule for them is found (i.e., no global to local mapping)
-				acceptedList, _ = rejectedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn)
+				acceptedList, _ = filterstore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn, rejectedStore)
 				MoveObjs(acceptedList, rejectedStore, acceptedStore, objKey)
 			} else if !gslbutils.GetCustomFqdnMode() && acceptedStore != nil {
 				// is customFQDN is false - objects are accepted and in accepted store,
 				//     rejected store has objects rejected based on filter
-				acceptedList, _ = acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn)
+				acceptedList, _ = filterstore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn, acceptedStore)
 			}
 			if len(acceptedList) != 0 {
 				gslbutils.Logf("ObjList: %v, msg: %s", acceptedList, "object list will be added")
@@ -697,7 +705,7 @@ func ReApplyObjectsOnHostRule(hr *akov1beta1.HostRule, add bool, cname, lfqdn, g
 			}
 		}
 		if !add && acceptedStore.ClusterObjectMap != nil {
-			acceptedList, rejectedList := acceptedStore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn)
+			acceptedList, rejectedList := filterstore.GetAllFilteredObjectsForClusterFqdn(filter.ApplyFqdnMapFilter, cname, primaryFqdn, acceptedStore)
 			if len(rejectedList) != 0 {
 				filteredRejectedList, err := filterObjListBasedOnFqdn(acceptedStore, rejectedList, hr.Spec.VirtualHost.Fqdn, o)
 				if err != nil {

@@ -284,7 +284,7 @@ func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
 		go c.informers.ServiceInformer.Informer().Run(stopCh)
 		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.ServiceInformer.Informer().HasSynced)
 	}
-
+	c.StartNamespaceInformer(stopCh)
 	if c.hrInformer != nil {
 		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting hostrule informer")
 		hrInformer := *c.hrInformer

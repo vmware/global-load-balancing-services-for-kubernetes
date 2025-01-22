@@ -34,6 +34,7 @@ import (
 	"github.com/vmware/alb-sdk/go/models"
 	"github.com/vmware/alb-sdk/go/session"
 
+	"github.com/vmware/global-load-balancing-services-for-kubernetes/gslb/store"
 	gslbalphav1 "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/apis/amko/v1alpha1"
 	gslbhrinformers "github.com/vmware/global-load-balancing-services-for-kubernetes/pkg/client/v1alpha1/informers/externalversions/amko/v1alpha1"
 
@@ -488,25 +489,24 @@ func GetTenant() string {
 }
 
 func GetTenantInNamespace(namespace, cname string) string {
-	nsObj, err := GetInformersPerCluster(cname).NSInformer.Lister().Get(namespace)
-	if err != nil {
-		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, namespace: %s, error :%s", namespace, err.Error())
+	tenant, exists := store.GetNamespaceToTenantStore().GetNSObjectByName(cname, namespace)
+	if !exists {
+		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, cluster: %s, namespace: %s", cname, namespace)
 		return GetTenant()
 	}
-	tenant, ok := nsObj.Annotations[TenantAnnotation]
-	if !ok || tenant == "" {
+	if tenant.(string) == "" {
 		return GetTenant()
 	}
-	return tenant
+	return tenant.(string)
 }
+
 func GetTenantInNamespaceAnnotation(namespace, cname string) string {
-	nsObj, err := GetInformersPerCluster(cname).NSInformer.Lister().Get(namespace)
-	if err != nil {
-		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, namespace: %s, error :%s", namespace, err.Error())
+	tenant, exists := store.GetNamespaceToTenantStore().GetNSObjectByName(cname, namespace)
+	if !exists {
+		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, cluster: %s, namespace: %s", cname, namespace)
 		return GetTenant()
 	}
-	tenant, _ := nsObj.Annotations[TenantAnnotation]
-	return tenant
+	return tenant.(string)
 }
 
 func CheckTenant(namespace, cname, tenant string) bool {
