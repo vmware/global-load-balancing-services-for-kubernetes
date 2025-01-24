@@ -555,6 +555,7 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 	uri := "/api/gslbservice?include_name&page_size=100"
 	createdBy := gslbutils.AmkoUser
 	createdByChanged := false
+	aviuri := ""
 
 	// Parse all the pages with GSLB services till we hit the last page
 	// First fetch all GSs with created_by=gslbutils.AmkoUser, if no GSs were found,
@@ -563,13 +564,15 @@ func (c *AviCache) AviObjGSCachePopulate(client *clients.AviClient, gsname ...st
 	// existing GSs with the new created_by field.
 	for {
 		if len(gsname) == 1 {
-			uri = "/api/gslbservice?include_name&name=" + gsname[0]
+			aviuri = "/api/gslbservice?include_name&name=" + gsname[0] + "&created_by=" + createdBy
 		} else if nextPageURI != "" {
-			uri = nextPageURI
+			aviuri = nextPageURI
+		} else {
+			aviuri = uri + "&created_by=" + createdBy
 		}
-		result, err := gslbutils.GetUriFromAvi(uri+"&created_by="+createdBy, client, false)
+		result, err := gslbutils.GetUriFromAvi(aviuri, client, false)
 		if err != nil {
-			gslbutils.Warnf("object: AviCache, msg: GS get URI %s returned error: %s", uri, err)
+			gslbutils.Warnf("object: AviCache, msg: GS get URI %s returned error: %s", aviuri, err)
 			return
 		}
 
