@@ -166,14 +166,14 @@ func (h *AviHmCache) AviHmCachePopulate(client *clients.AviClient,
 
 func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...string) error {
 	var nextPageURI string
-	uri := "/api/healthmonitor?include_name&page_size=100"
+	uri := "/api/healthmonitor?include_name&page_size=100&is_federated=true"
 
 	matchCreatedBy := gslbutils.AMKOControlConfig().CreatedByField()
 
 	// parse all pages with Health monitors till we hit the last page
 	for {
 		if len(hmname) == 1 {
-			uri = "/api/healthmonitor?name=" + hmname[0]
+			uri = "/api/healthmonitor?name=" + hmname[0] + "&is_federated=true"
 		} else if nextPageURI != "" {
 			uri = nextPageURI
 		}
@@ -183,7 +183,7 @@ func (h *AviHmCache) AviHmObjCachePopulate(client *clients.AviClient, hmname ...
 		// 3. HMs created by other AMKO instances
 		// Category 1 and 2 HMs are the ones that we need to store in the cache. Category 3 HMs
 		// must be ignored and not stored in the HM cache.
-		result, err := gslbutils.GetUriFromAvi(uri+"&is_federated=true", client, false)
+		result, err := gslbutils.GetUriFromAvi(uri, client, false)
 		if err != nil {
 			return errors.New("object: AviCache, msg: HealthMonitor get URI " + uri + " returned error: " + err.Error())
 		}
