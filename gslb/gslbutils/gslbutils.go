@@ -489,22 +489,25 @@ func GetTenant() string {
 }
 
 func GetTenantInNamespace(namespace, cname string) string {
-	tenant, exists := store.GetNamespaceToTenantStore().GetNSObjectByName(cname, namespace)
-	if !exists {
-		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, cluster: %s, namespace: %s", cname, namespace)
+	tenant := GetTenantInNamespaceAnnotation(namespace, cname)
+	if tenant == "" {
 		return GetTenant()
 	}
-	if tenant.(string) == "" {
-		return GetTenant()
-	}
-	return tenant.(string)
+	return tenant
 }
 
 func GetTenantInNamespaceAnnotation(namespace, cname string) string {
-	tenant, exists := store.GetNamespaceToTenantStore().GetNSObjectByName(cname, namespace)
+	namespaceTenantStore := store.GetNamespaceToTenantStore()
+	tenant, exists := namespaceTenantStore.GetNSObjectByName(cname, namespace)
 	if !exists {
-		utils.AviLog.Warnf("Failed to GET the namespace details falling back to the default tenant, cluster: %s, namespace: %s", cname, namespace)
-		return GetTenant()
+		nsObj, err := GetInformersPerCluster(cname).ClientSet.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+		if err != nil {
+			utils.AviLog.Errorf("Failed to GET the namespace details falling back to the default tenant, cluster: %s, namespace: %s", cname, namespace)
+			return GetTenant()
+		}
+		tenant, _ := nsObj.Annotations[TenantAnnotation]
+		namespaceTenantStore.AddOrUpdate(cname, namespace, tenant)
+		return tenant
 	}
 	return tenant.(string)
 }
