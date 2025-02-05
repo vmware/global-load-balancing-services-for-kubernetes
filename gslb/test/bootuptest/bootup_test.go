@@ -406,6 +406,13 @@ var _ = Describe("AMKO bootup Validation", func() {
 	amkoCluster1 := getTestAMKOClusterObj(Cluster1, true)
 	amkoCluster2 := getTestAMKOClusterObj(Cluster2, true)
 
+	Context("when there is no member cluster", func() {
+		Specify("AMKO Should not boot up", func() {
+			ok, _ := ingestion.HandleBootup(cfg1)
+			Expect(ok).Should(BeFalse())
+		})
+	})
+
 	Context("Both Member clusters are leaders", func() {
 		Specify("AMKO Should not boot up", func() {
 			By("Checking AMKOCLuster object fields of all member clusters")
