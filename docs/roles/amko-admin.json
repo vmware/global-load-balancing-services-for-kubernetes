@@ -1,0 +1,106 @@
+{
+    "name": "amko-admin",
+    "allow_unlabelled_access": true,
+    "privileges": [
+      {
+        "resource": "PERMISSION_VIRTUALSERVICE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_POOL",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_POOLGROUP",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_GSLBSERVICE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_GSLB",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_CLOUD",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_SERVICEENGINE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_SERVICEENGINEGROUP",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_NETWORK",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_GSLBGEODBPROFILE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_APPLICATIONPERSISTENCEPROFILE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_HEALTHMONITOR",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_DNSPOLICY",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_SSLKEYANDCERTIFICATE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_SSLPROFILE",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_PKIPROFILE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_CERTIFICATEMANAGEMENTPROFILE",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_VSDATASCRIPTSET",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_ERRORPAGEPROFILE",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_ERRORPAGEBODY",
+        "type": "WRITE_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_TENANT",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_TENANT_SYSTEM_CONFIGURATION",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_SYSTEMCONFIGURATION",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_CONTROLLER",
+        "type": "READ_ACCESS"
+      },
+      {
+        "resource": "PERMISSION_CONTROLLERSITE",
+        "type": "READ_ACCESS"
+      }
+    ]
+  }
