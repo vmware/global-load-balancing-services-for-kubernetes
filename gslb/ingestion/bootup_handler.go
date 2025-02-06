@@ -184,8 +184,8 @@ func HandleBootup(cfg *restclient.Config) (bool, error) {
 	}
 
 	if len(amkoClusterList.Items) == 0 {
-		gslbutils.Logf("No AMKOCluster object found, AMKO would start as leader")
-		return true, nil
+		gslbutils.Logf("No AMKOCluster object found, rebooting AMKO")
+		return false, fmt.Errorf("No AMKOCluster object was found")
 	}
 	if len(amkoClusterList.Items) > 1 {
 		return false, fmt.Errorf("only one AMKOClusterObject allowed per cluster")

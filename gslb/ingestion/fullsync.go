@@ -287,6 +287,7 @@ func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 
 	acceptedNSStore := store.GetAcceptedNSStore()
 	rejectedNSStore := store.GetRejectedNSStore()
+	gsDomainNameMap := gslbutils.GetDomainNameMap()
 
 	for _, c := range ctrlList {
 		gslbutils.Logf("syncing for cluster %s", c.GetName())
@@ -295,26 +296,31 @@ func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
 			continue
 		}
 
-		if gslbutils.GetCustomFqdnMode() {
-			hostRules, err := c.hrClientSet.AkoV1beta1().HostRules("").List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				gslbutils.Errf("cluster: %s, error in fetching hostrules, %s", c.name, err.Error())
-				return
-			}
-			for _, hr := range hostRules.Items {
-				if isHostRuleAcceptable(&hr) {
-					gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
-					lFqdn := hr.Spec.VirtualHost.Fqdn
+		hostRules, err := c.hrClientSet.AkoV1beta1().HostRules("").List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			gslbutils.Errf("cluster: %s, error in fetching hostrules, %s", c.name, err.Error())
+			return
+		}
+		for _, hr := range hostRules.Items {
+			if isHostRuleAcceptable(&hr) {
+				gFqdn := hr.Spec.VirtualHost.Gslb.Fqdn
+				lFqdn := hr.Spec.VirtualHost.Fqdn
+				if gslbutils.GetCustomFqdnMode() {
 					fqdnMap := gslbutils.GetFqdnMap()
 					fqdnMap.AddUpdateToFqdnMapping(gFqdn, lFqdn, c.name)
 					gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, lfqdn: %s, msg: %s",
 						c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Spec.VirtualHost.Fqdn,
 						"added a mapping for lFqdn to gFqdn")
+					if hr.Spec.VirtualHost.Gslb.IncludeAliases == true {
+						gsDomainNameMap.AddUpdateGSToDomainNameMapping(gFqdn, c.name, hr.Spec.VirtualHost.Aliases)
+					}
 				} else {
-					gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
-						c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
-					continue
+					gsDomainNameMap.AddUpdateGSToDomainNameMapping(lFqdn, c.name, hr.Spec.VirtualHost.Aliases)
 				}
+			} else {
+				gslbutils.Debugf("cluster: %s, namespace: %s, hostRule: %s, gsFqdn: %s, status: %s, msg: host rule object not in acceptable state",
+					c.name, hr.Namespace, hr.Name, hr.Spec.VirtualHost.Gslb.Fqdn, hr.Status.Status)
+				continue
 			}
 		}
 		// get all namespaces
