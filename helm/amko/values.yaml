@@ -8,6 +8,10 @@ image:
   repository: projects.registry.vmware.com/ako/amko
   pullPolicy: IfNotPresent
 
+# Setting this will add imagePullSecrets to the statefulset for AMKO. Required if using secure private container image registry for AMKO image.
+#imagePullSecrets:
+#  - name: regcred
+
 # Configs related to AMKO Federator
 federation:
   # image repository
