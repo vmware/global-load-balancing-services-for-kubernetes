@@ -35,6 +35,10 @@ spec:
     ip: 170.11.1.1
   ttl: 30
   controlPlaneHmOnly: false
+  downResponse:
+    type: GSLB_SERVICE_DOWN_RESPONSE_NONE
+  poolAlgorithmSettings:
+    lbAlgorithm: GSLB_ALGORITHM_ROUND_ROBIN
 ```
 1. `fqdn`: FQDN of the GslbService.
 

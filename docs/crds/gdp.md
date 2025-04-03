@@ -46,6 +46,11 @@ spec:
 
   controlPlaneHmOnly: false
 
+  defaultDomain: "avi.internal"
+
+  downResponse: 
+    type: GSLB_SERVICE_DOWN_RESPONSE_NONE
+
 ```
 1. `namespace`: namespace of this object must be `avi-system`.
 2. `matchRules`: This allows users to select objects using either application labels (configured as labels on Ingress/Route objects) or via namespace labels (configured as labels on the namespace objects). `matchRules` are defined as:
