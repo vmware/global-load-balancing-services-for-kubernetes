@@ -495,7 +495,7 @@ func (v *AviGSObjectGraph) UpdateAviGSGraphWithGSFqdn(key, gsFqdn string, newObj
 		v.RetryCount = gslbutils.DefaultRetryCount
 		// Attach the hms created by amko in case of a GSLB hostrule update and
 		// health monitor is not previously created by amko.
-		if (v.HmTemplate == nil || len(v.HmRefs) == 0) && v.Hm.Name == "" && !v.ControlPlaneHmOnly {
+		if (v.HmRefs == nil || len(v.HmRefs) == 0) && v.Hm.Name == "" && !v.ControlPlaneHmOnly {
 			// Build the list of health monitors
 			v.buildHmPathList()
 			v.buildAndAttachHealthMonitorsFromObj(v.MemberObjs[0], key)
