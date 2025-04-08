@@ -208,6 +208,7 @@ helm upgrade amko-1598451370 oci://projects.registry.vmware.com/ako/helm-charts/
 | `gdpConfig.sitePersistenceRef`                         | Reference for a federated application persistence profile created on the Avi Controller | Nil                                   |
 | `gdpConfig.poolAlgorithmSettings`   | Pool algorithm settings to be used by the GslbServices for traffic distribution across pool members. See [pool algorithm settings](docs/crds/gslbhostrule.md#pool-algorithm-settings) to configure the appropriate settings. |          GSLB_ALGORITHM_ROUND_ROBIN         |
 | `gdpConfig.downResponse`   | Type of response to the client query when the GSLB service is DOWN |          Nil         |
+| `imagePullSecrets` | Specify the pull secrets for the secure private container image registry that has the AMKO image | `Empty List` |
 
 
 #### Custom resources
