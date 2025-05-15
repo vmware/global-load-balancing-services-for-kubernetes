@@ -124,4 +124,7 @@ const (
 
 	// Default secret constants
 	DefaultSecretEnabled = "ako.vmware.com/enable-tls"
+
+	// X-Avi-Headers
+	XAviUserAgentHeader = "X-Avi-UserAgent"
 )
