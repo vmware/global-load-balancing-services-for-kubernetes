@@ -104,7 +104,7 @@ func IsKubePathSet() bool {
 type K8sClusterConfig struct {
 	name      string
 	informers *containerutils.Informers
-	workqueue []workqueue.RateLimitingInterface
+	workqueue []workqueue.RateLimitingInterface // nolint:staticcheck
 }
 
 // InitK8sClusterConfig initializes a kubernetes cluster client and informers.
@@ -183,7 +183,7 @@ func (k8sCluster *K8sClusterConfig) GetSvcFromInformer(ns, svcName string) (*cor
 	return svc.DeepCopy(), nil
 }
 
-func (k8sCluster *K8sClusterConfig) GetWorkqueue() []workqueue.RateLimitingInterface {
+func (k8sCluster *K8sClusterConfig) GetWorkqueue() []workqueue.RateLimitingInterface { //nolint:staticcheck
 	return k8sCluster.workqueue
 }
 
@@ -230,7 +230,7 @@ func GetSvcInfoFromSharedClusters(cname, ns, svc string) (*corev1.Service, error
 	return sharedClusterList[cname].GetSvcFromInformer(ns, svc)
 }
 
-func GetWorkqueueForCluster(cname string) []workqueue.RateLimitingInterface {
+func GetWorkqueueForCluster(cname string) []workqueue.RateLimitingInterface { //nolint:staticcheck
 	return sharedClusterList[cname].GetWorkqueue()
 }
 

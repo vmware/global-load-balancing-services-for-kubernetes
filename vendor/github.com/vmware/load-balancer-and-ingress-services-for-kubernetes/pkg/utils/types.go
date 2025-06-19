@@ -210,15 +210,21 @@ type K8ValidNamespaces struct {
 }
 
 type AviObjectMarkers struct {
-	Namespace        string
-	Host             []string
-	InfrasettingName string
-	ServiceName      string
-	Path             []string
-	Port             string
-	Protocol         string
-	IngressName      []string
-	GatewayName      string
+	Namespace          string
+	Host               []string
+	InfrasettingName   string
+	ServiceName        string
+	Path               []string
+	Port               string
+	Protocol           string
+	IngressName        []string
+	GatewayName        string
+	GatewayNamespace   string
+	HTTPRouteName      string
+	HTTPRouteNamespace string
+	HTTPRouteRuleName  string
+	BackendName        string
+	BackendNs          string
 }
 
 /*
@@ -303,6 +309,7 @@ type WebSyncError struct {
 func (e *WebSyncError) Error() string         { return fmt.Sprintf("Error during %s: %v", e.Operation, e.Err) }
 func (e *SkipSyncError) Error() string        { return e.Msg }
 func (e *WebSyncError) GetWebAPIError() error { return e.Err }
+func (e *WebSyncError) Unwrap() error         { return e.Err }
 
 var CloudName string
 

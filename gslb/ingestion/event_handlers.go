@@ -491,7 +491,7 @@ func AddRouteEventHandler(numWorkers uint32, c *GSLBMemberController) cache.Reso
 	return routeEventHandler
 }
 
-func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, op, hostname, tenant string, wq []workqueue.RateLimitingInterface) {
+func publishKeyToGraphLayer(numWorkers uint32, objType, cname, namespace, name, op, hostname, tenant string, wq []workqueue.RateLimitingInterface) { //nolint:staticcheck
 	key := gslbutils.MultiClusterKey(op, objType, cname, namespace, name, tenant)
 	bkt := containerutils.Bkt(namespace, numWorkers)
 	wq[bkt].AddRateLimited(key)
@@ -648,7 +648,7 @@ func applyGSLBHostruleOnTenantchange(numWorkers uint32, c *GSLBMemberController,
 }
 
 func ReApplyObjectsOnHostRule(hr *akov1beta1.HostRule, add bool, cname, lfqdn, gfqdn string, numWorkers uint32,
-	k8swq []workqueue.RateLimitingInterface) {
+	k8swq []workqueue.RateLimitingInterface) { //nolint:staticcheck
 
 	// primaryFqdn -> this is the fqdn chosen as the GSName
 	primaryFqdn := lfqdn

@@ -47,7 +47,7 @@ type GSLBMemberController struct {
 	hrInformer       *hrinformer.HostRuleInformer
 	hrClientSet      *hrcs.Clientset
 	hrAlphaClientSet *ahrcs.Clientset
-	workqueue        []workqueue.RateLimitingInterface
+	workqueue        []workqueue.RateLimitingInterface //nolint:staticcheck
 	recorder         *gslbutils.EventRecorder
 	cacheSyncParam   []cache.InformerSynced
 }

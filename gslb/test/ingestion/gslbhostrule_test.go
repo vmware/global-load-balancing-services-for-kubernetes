@@ -22,10 +22,12 @@ const (
 	gslbhrTestFqdn      = "mygslbhr.avi.internal"
 )
 
-func AddDelSomething(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func AddDelSomething(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32) {
 }
 
-func UpdateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func UpdateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32) {
 }
 
 func TestGSLBHostRuleController(t *testing.T) {

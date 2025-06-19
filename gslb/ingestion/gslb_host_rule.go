@@ -47,9 +47,11 @@ const (
 	GslbHostRuleRejected = "Rejected"
 )
 
-type AddDelGSLBHostRulefn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
+type AddDelGSLBHostRulefn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32)
 
-type UpdateGSLBHostRulefn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
+type UpdateGSLBHostRulefn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32)
 
 type GSLBHostRuleController struct {
 	kubeclientset   kubernetes.Interface
@@ -324,7 +326,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	var errmsg string
 	if gslbhrSpec.Fqdn == "" {
 		errmsg = "GSFqdn missing for " + gslbhrName + " GSLBHostRule"
-		return fmt.Errorf(errmsg)
+		return fmt.Errorf("%s", errmsg)
 	}
 
 	// There are 3 conditions for site persistence:
@@ -339,12 +341,12 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 		sitePersistenceProfileName := sitePersistence.ProfileRef
 		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync, gslbhr.Namespace) {
 			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 		if sitePersistence.PKIProfileRef != nil {
 			if !isPKIProfilePresent(*sitePersistence.PKIProfileRef, false, fullSync, gslbhr.Namespace) {
 				errmsg = "PKI Profile " + *sitePersistence.PKIProfileRef + " error for " + gslbhrName + " GSLBHostRule"
-				return fmt.Errorf(errmsg)
+				return fmt.Errorf("%s", errmsg)
 			}
 		}
 	}
@@ -352,29 +354,29 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	if ok, err := isGslbPoolAlgorithmValid(gslbhrSpec.PoolAlgorithmSettings); !ok {
 		errmsg := "Invalid Pool Algorithm: " + err.Error()
 		updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
-		return fmt.Errorf(errmsg)
+		return fmt.Errorf("%s", errmsg)
 	}
 
 	thirdPartyMembers := gslbhrSpec.ThirdPartyMembers
 	for _, tpmember := range thirdPartyMembers {
 		if vip := net.ParseIP(tpmember.VIP); vip == nil {
 			errmsg := "Invalid VIP for thirdPartyMember site " + tpmember.Site + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 		if !isThirdPartyMemberSitePresent(gslbhr, tpmember.Site) {
 			errmsg = "ThirdPartyMember site " + tpmember.Site + " does not exist for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 	}
 	// PublicIP checks
 	for _, ip := range gslbhrSpec.PublicIP {
 		if !gslbutils.IsClusterContextPresent(ip.Cluster) {
 			errmsg := "cluster " + ip.Cluster + " in Public IP  not present in GSLBConfig"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 		if net.ParseIP(ip.IP) == nil {
 			errmsg := "Invalid IP for site " + ip.Cluster + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 	}
 	// HM template and reference cannot be specified together
@@ -392,7 +394,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 		for _, ref := range healthMonitorRefs {
 			if !isHealthMonitorRefValid(ref, false, fullSync, gslbhr.Namespace) {
 				errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
-				return fmt.Errorf(errmsg)
+				return fmt.Errorf("%s", errmsg)
 			}
 		}
 	}
@@ -408,7 +410,8 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	return nil
 }
 
-func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32) {
 	gslbhr, ok := obj.(*gslbhralphav1.GSLBHostRule)
 	if !ok {
 		gslbutils.Errf("object added is not of type GSLB Host Rule")
@@ -446,7 +449,7 @@ func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface
 		gslbhr.ObjectMeta.Namespace, gsFqdn, key)
 }
 
-func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface,
+func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
 	numWorkers uint32, gsHostRulesList *gslbutils.GSFqdnHostRules) {
 
 	gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: fqdn changed from %s -> %s",
@@ -481,7 +484,8 @@ func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRu
 		newGslbhr.Spec.Fqdn, key)
 }
 
-func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32) {
 	oldGslbhr := old.(*gslbhralphav1.GSLBHostRule)
 	newGslbhr := new.(*gslbhralphav1.GSLBHostRule)
 
@@ -536,7 +540,8 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 		newGslbhr.ObjectMeta.Namespace, newGslbhr.Spec.Fqdn, key)
 }
 
-func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
+func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32) {
 	gslbhr := obj.(*gslbhralphav1.GSLBHostRule)
 
 	// check if the GSLB Host Rule was previously rejected
@@ -557,7 +562,8 @@ func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterf
 		gslbhr.ObjectMeta.Namespace, gslbhr.Spec.Fqdn, key)
 }
 
-func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, tenant string) {
+func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+	numWorkers uint32, tenant string) {
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	gsHostRuleList.DeleteGSHostRulesForFQDN(gslbhr.Spec.Fqdn)
 	gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: GSLB Host Rule deleted for fqdn",

@@ -338,7 +338,7 @@ type MCIController struct {
 	mciClientset  mcics.Interface
 	mciLister     mcilisters.MultiClusterIngressLister
 	mciSynced     cache.InformerSynced
-	workqueue     workqueue.RateLimitingInterface
+	workqueue     workqueue.RateLimitingInterface //nolint:staticcheck
 	recorder      record.EventRecorder
 }
 
@@ -366,8 +366,9 @@ func InitializeMCIController(kubeClient *kubernetes.Clientset, mciClient *mcics.
 		mciClientset:  mciClient,
 		mciLister:     mciInformer.Lister(),
 		mciSynced:     mciInformer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "mci"),
-		recorder:      recorder,
+		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), //nolint:staticcheck
+			"mci"),
+		recorder: recorder,
 	}
 	gslbutils.Logf("object: MCIController, msg: setting up event handlers")
 	mciInformer.Informer().AddEventHandler(MCIEventHandlers(2, clusterList))
