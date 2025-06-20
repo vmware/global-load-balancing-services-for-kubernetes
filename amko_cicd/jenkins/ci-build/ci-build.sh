@@ -2,8 +2,11 @@
 
 set -xe
 
-export GOLANG_SRC_REPO=${PVT_DOCKER_REGISTRY}/dockerhub-proxy-cache/library/golang:latest
-export PHOTON_SRC_REPO=${PVT_DOCKER_REGISTRY}/dockerhub-proxy-cache/library/photon:5.0
+export GOLANG_SRC_REPO=avi-alb-docker-virtual.packages.vcfd.broadcom.net/golang:latest
+export PHOTON_SRC_REPO=avi-alb-docker-virtual.packages.vcfd.broadcom.net/photon:5.0
+
+export PATH=$PATH:/usr/local/go/bin
+go version
 
 make build
 
