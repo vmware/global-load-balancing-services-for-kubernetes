@@ -12,6 +12,10 @@ if [ "$SRP_UPDATE" = true ]; then
 fi
 
 echo "--- Start of Build Steps ---"
+
+export PATH=$PATH:/usr/local/go/bin
+go version
+
 # Setting GO related variables for VMware's GOPROXY artifactory
 go env -w GOPROXY=https://packages.vcfd.broadcom.net/artifactory/proxy-golang-remote
 go env -w GOSUMDB=https://packages.vcfd.broadcom.net/artifactory/go-gosumdb-remote
