@@ -53,17 +53,14 @@ const (
 
 // GDPAddfn is a type of function which handles an add or a delete of a GDP
 // object
-type GDPAddfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, fullSync bool)
+type GDPAddfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, fullSync bool)
 
 // GDPUpdfn is a function type which handles an update of a GDP object.
-type GDPUpdfn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32)
+type GDPUpdfn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
 
 // GDPDelfn is a type of function which handles an add or a delete of a GDP
 // object
-type GDPDelfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32)
+type GDPDelfn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
 
 // GDPController defines the members required to hold an instance of a controller
 // handling GDP events.
@@ -185,8 +182,7 @@ func GetObjTypeStores(objType string) (string, *store.ClusterStore, *store.Clust
 	return objKey, acceptedObjStore, rejectedObjStore, nil
 }
 
-func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32,
+func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32,
 	trafficWeightChanged bool, clustersToBeSynced []string) {
 
 	var cname, ns, sname string
@@ -439,8 +435,7 @@ func filterExists(f *gslbutils.GlobalFilter) bool {
 	return false
 }
 
-func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, cname, ns string) {
+func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, cname, ns string) {
 	gslbutils.Logf("ns: %s, objType: %s, msg: checking if objects need to be deleted", ns, objType)
 	objKey, acceptedObjStore, rejectedObjStore, err := GetObjTypeStores(objType)
 	if err != nil {
@@ -488,16 +483,14 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 	}
 }
 
-func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, nsMeta k8sobjects.NSMeta) {
+func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, nsMeta k8sobjects.NSMeta) {
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gslbutils.MCIType, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 }
 
-func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, allGSPropertyChanged bool,
+func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, allGSPropertyChanged bool,
 	clustersToBeSynced []string) {
 	writeChangedObjToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
 	writeChangedObjToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, allGSPropertyChanged, clustersToBeSynced)
@@ -573,8 +566,7 @@ func applyAndAcceptNamespaces() {
 
 // AddGDPObj creates a new GlobalFilter if not present on the first GDP object. Subsequent
 // adds for GDP objects must fail as only one GDP object is allowed globally.
-func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, fullSync bool) {
+func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, fullSync bool) {
 	gdp, ok := obj.(*gdpalphav2.GlobalDeploymentPolicy)
 	if !ok {
 		gslbutils.Errf("object added is not of type GDP")
@@ -627,8 +619,7 @@ func AddGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolin
 // all the previously accepted and rejected objects. Hence, those are re-evaluated
 // and added or deleted based on whether or not, they pass the new fitler objects.
 // TODO: Optimize the filter process a bit more based on how the filters are processed.
-func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	oldGdp := old.(*gdpalphav2.GlobalDeploymentPolicy)
 	newGdp := new.(*gdpalphav2.GlobalDeploymentPolicy)
 	if oldGdp.ObjectMeta.ResourceVersion == newGdp.ObjectMeta.ResourceVersion {
@@ -669,8 +660,7 @@ func UpdateGDPObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface,
 // object is deleted, the previously accepted and rejected objects need to pass through
 // this filter again to find out which filter is applicable, the global one or the
 // local one.
-func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func DeleteGDPObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gdp := obj.(*gdpalphav2.GlobalDeploymentPolicy)
 	gslbutils.Logf("ns: %s, gdp: %s, msg: %s", gdp.ObjectMeta.Namespace, gdp.ObjectMeta.Name,
 		"deleted GDP object")

@@ -47,11 +47,9 @@ const (
 	GslbHostRuleRejected = "Rejected"
 )
 
-type AddDelGSLBHostRulefn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32)
+type AddDelGSLBHostRulefn func(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
 
-type UpdateGSLBHostRulefn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32)
+type UpdateGSLBHostRulefn func(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32)
 
 type GSLBHostRuleController struct {
 	kubeclientset   kubernetes.Interface
@@ -410,8 +408,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	return nil
 }
 
-func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gslbhr, ok := obj.(*gslbhralphav1.GSLBHostRule)
 	if !ok {
 		gslbutils.Errf("object added is not of type GSLB Host Rule")
@@ -449,7 +446,7 @@ func AddGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface
 		gslbhr.ObjectMeta.Namespace, gsFqdn, key)
 }
 
-func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
+func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface,
 	numWorkers uint32, gsHostRulesList *gslbutils.GSFqdnHostRules) {
 
 	gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: fqdn changed from %s -> %s",
@@ -484,8 +481,7 @@ func handleGSLBHostRuleFQDNUpdate(oldGslbhr, newGslbhr *gslbhralphav1.GSLBHostRu
 		newGslbhr.Spec.Fqdn, key)
 }
 
-func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	oldGslbhr := old.(*gslbhralphav1.GSLBHostRule)
 	newGslbhr := new.(*gslbhralphav1.GSLBHostRule)
 
@@ -540,8 +536,7 @@ func UpdateGSLBHostRuleObj(old, new interface{}, k8swq []workqueue.RateLimitingI
 		newGslbhr.ObjectMeta.Namespace, newGslbhr.Spec.Fqdn, key)
 }
 
-func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 	gslbhr := obj.(*gslbhralphav1.GSLBHostRule)
 
 	// check if the GSLB Host Rule was previously rejected
@@ -562,8 +557,7 @@ func DeleteGSLBHostRuleObj(obj interface{}, k8swq []workqueue.RateLimitingInterf
 		gslbhr.ObjectMeta.Namespace, gslbhr.Spec.Fqdn, key)
 }
 
-func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, tenant string) {
+func deleteObjsForGSHostRule(gslbhr *gslbhralphav1.GSLBHostRule, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, tenant string) {
 	gsHostRuleList := gslbutils.GetGSHostRulesList()
 	gsHostRuleList.DeleteGSHostRulesForFQDN(gslbhr.Spec.Fqdn)
 	gslbutils.Logf("ns: %s, gslbHostRule: %s, gsFqdn: %s, msg: GSLB Host Rule deleted for fqdn",

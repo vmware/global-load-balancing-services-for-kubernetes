@@ -49,7 +49,7 @@ type ServiceImportController struct {
 	siClientset   sics.Interface
 	siLister      silisters.ServiceImportLister
 	siSynced      cache.InformerSynced
-	workqueue     workqueue.RateLimitingInterface //nolint:staticcheck
+	workqueue     workqueue.RateLimitingInterface
 	recorder      record.EventRecorder
 	Informer      cache.SharedIndexInformer
 }
@@ -72,10 +72,9 @@ func InitializeServiceImportController(kubeClient *kubernetes.Clientset, siClien
 		siClientset:   siClient,
 		siLister:      siInformer.Lister(),
 		siSynced:      siInformer.Informer().HasSynced,
-		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), //nolint:staticcheck
-			"si"),
-		recorder: recorder,
-		Informer: siInformer.Informer(),
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "si"),
+		recorder:      recorder,
+		Informer:      siInformer.Informer(),
 	}
 
 	siInformer.Informer().AddIndexers(cache.Indexers{

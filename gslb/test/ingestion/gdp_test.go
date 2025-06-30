@@ -48,20 +48,17 @@ func TestGDPNewController(t *testing.T) {
 }
 
 // addSomething is a dummy function used to initialize the GDP controller
-func addSomething(obj interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32, fullSync bool) {
+func addSomething(obj interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32, fullSync bool) {
 
 }
 
 // updateSomething is a dummy function used to initialize the GDP controller
-func updateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func updateSomething(old, new interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 
 }
 
 // deleteSomething is a dummy function used to initialize the GDP controller
-func deleteSomething(old interface{}, k8swq []workqueue.RateLimitingInterface, //nolint:staticcheck
-	numWorkers uint32) {
+func deleteSomething(old interface{}, k8swq []workqueue.RateLimitingInterface, numWorkers uint32) {
 
 }
 

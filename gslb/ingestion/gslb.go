@@ -134,7 +134,7 @@ type GSLBConfigController struct {
 	gslbclientset gslbcs.Interface
 	gslbLister    gslblisters.GSLBConfigLister
 	gslbSynced    cache.InformerSynced
-	workqueue     workqueue.RateLimitingInterface //nolint:staticcheck
+	workqueue     workqueue.RateLimitingInterface
 }
 
 func (gslbController *GSLBConfigController) Cleanup() {
@@ -193,8 +193,7 @@ func GetNewController(kubeclientset kubernetes.Interface, gslbclientset gslbcs.I
 		gslbclientset: gslbclientset,
 		gslbLister:    gslbInformer.Lister(),
 		gslbSynced:    gslbInformer.Informer().HasSynced,
-		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), //nolint:staticcheck
-			"gslb-configs"),
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gslb-configs"),
 	}
 	gslbutils.Logf("object: GSLBConfigController, msg: %s", "setting up event handlers")
 	// Event handler for when GSLB Config change
