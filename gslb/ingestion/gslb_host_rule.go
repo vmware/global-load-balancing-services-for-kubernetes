@@ -324,7 +324,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	var errmsg string
 	if gslbhrSpec.Fqdn == "" {
 		errmsg = "GSFqdn missing for " + gslbhrName + " GSLBHostRule"
-		return fmt.Errorf(errmsg)
+		return fmt.Errorf("%s", errmsg)
 	}
 
 	// There are 3 conditions for site persistence:
@@ -339,12 +339,12 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 		sitePersistenceProfileName := sitePersistence.ProfileRef
 		if sitePersistence.Enabled && !isSitePersistenceProfilePresent(sitePersistenceProfileName, false, fullSync, gslbhr.Namespace) {
 			errmsg = "SitePersistence Profile " + sitePersistenceProfileName + " error for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 		if sitePersistence.PKIProfileRef != nil {
 			if !isPKIProfilePresent(*sitePersistence.PKIProfileRef, false, fullSync, gslbhr.Namespace) {
 				errmsg = "PKI Profile " + *sitePersistence.PKIProfileRef + " error for " + gslbhrName + " GSLBHostRule"
-				return fmt.Errorf(errmsg)
+				return fmt.Errorf("%s", errmsg)
 			}
 		}
 	}
@@ -352,29 +352,29 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 	if ok, err := isGslbPoolAlgorithmValid(gslbhrSpec.PoolAlgorithmSettings); !ok {
 		errmsg := "Invalid Pool Algorithm: " + err.Error()
 		updateGSLBHR(gslbhr, errmsg, GslbHostRuleRejected)
-		return fmt.Errorf(errmsg)
+		return fmt.Errorf("%s", errmsg)
 	}
 
 	thirdPartyMembers := gslbhrSpec.ThirdPartyMembers
 	for _, tpmember := range thirdPartyMembers {
 		if vip := net.ParseIP(tpmember.VIP); vip == nil {
 			errmsg := "Invalid VIP for thirdPartyMember site " + tpmember.Site + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 		if !isThirdPartyMemberSitePresent(gslbhr, tpmember.Site) {
 			errmsg = "ThirdPartyMember site " + tpmember.Site + " does not exist for " + gslbhrName + " GSLBHostRule"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 	}
 	// PublicIP checks
 	for _, ip := range gslbhrSpec.PublicIP {
 		if !gslbutils.IsClusterContextPresent(ip.Cluster) {
 			errmsg := "cluster " + ip.Cluster + " in Public IP  not present in GSLBConfig"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 		if net.ParseIP(ip.IP) == nil {
 			errmsg := "Invalid IP for site " + ip.Cluster + "," + gslbhrName + " GSLBHostRule (expecting IP address)"
-			return fmt.Errorf(errmsg)
+			return fmt.Errorf("%s", errmsg)
 		}
 	}
 	// HM template and reference cannot be specified together
@@ -392,7 +392,7 @@ func ValidateGSLBHostRule(gslbhr *gslbhralphav1.GSLBHostRule, fullSync bool) err
 		for _, ref := range healthMonitorRefs {
 			if !isHealthMonitorRefValid(ref, false, fullSync, gslbhr.Namespace) {
 				errmsg = "Health Monitor Ref " + ref + " error for " + gslbhrName + " GSLBHostRule"
-				return fmt.Errorf(errmsg)
+				return fmt.Errorf("%s", errmsg)
 			}
 		}
 	}

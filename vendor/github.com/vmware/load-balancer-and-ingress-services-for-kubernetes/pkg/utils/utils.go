@@ -17,6 +17,7 @@ package utils
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"math/rand"
 	"net"
@@ -296,6 +297,8 @@ func ExtractNamespaceObjectName(key string) (string, string) {
 	segments := strings.Split(key, "/")
 	if len(segments) == 2 {
 		return segments[0], segments[1]
+	} else if len(segments) == 3 {
+		return segments[0], fmt.Sprintf("%s/%s", segments[1], segments[2])
 	}
 	return "", ""
 }
@@ -314,6 +317,25 @@ func HasElem(s interface{}, elem interface{}) bool {
 	}
 
 	return false
+}
+
+func HasElemWithName(s interface{}, elem interface{}) int {
+	arrV := reflect.ValueOf(s)
+
+	if arrV.Kind() == reflect.Slice {
+		for i := 0; i < arrV.Len(); i++ {
+			// Important - Panics if slice element points to an unexported struct field
+			// see https://golang.org/pkg/reflect/#Value.Interface
+			elemV := arrV.Index(i)
+			elemInterface := elemV.Interface()
+			elemName := reflect.Indirect(reflect.ValueOf(elemInterface)).FieldByName("Name")
+			if elemName.IsValid() && elemName.String() == reflect.Indirect(reflect.ValueOf(elem)).FieldByName("Name").String() {
+				return i
+			}
+		}
+	}
+
+	return -1
 }
 
 func ObjKey(obj interface{}) string {
@@ -453,13 +475,22 @@ func GetAdvancedL4() bool {
 	return false
 }
 
+// Wrapper function for AKO running in either VDS
+// or VCF (WCP with NSX).
+func IsWCP() bool {
+	if GetAdvancedL4() || IsVCFCluster() {
+		return true
+	}
+	return false
+}
+
 // GetAKONamespace returns the namespace of AKO pod.
-// In AdvancedL4 Mode this is vmware-system-ako
+// In WCP Mode this is vmware-system-ako
 // In all other cases this is the namespace in which the
 // statefulset runs.
 func GetAKONamespace() string {
 	akoNS := os.Getenv(POD_NAMESPACE)
-	if GetAdvancedL4() {
+	if IsWCP() {
 		akoNS = VMWARE_SYSTEM_AKO
 	}
 	return akoNS
