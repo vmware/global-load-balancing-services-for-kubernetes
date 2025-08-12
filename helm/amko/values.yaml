@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: projects.registry.vmware.com/ako/amko
+  repository: projects.packages.broadcom.com/ako/amko
   pullPolicy: IfNotPresent
 
 # Setting this will add imagePullSecrets to the statefulset for AMKO. Required if using secure private container image registry for AMKO image.
@@ -16,12 +16,12 @@ image:
 federation:
   # image repository
   image:
-    repository: projects.registry.vmware.com/ako/amko-federator
+    repository: projects.packages.broadcom.com/ako/amko-federator
     pullPolicy: IfNotPresent
   # cluster context where AMKO is going to be deployed
-  currentCluster: ""
+  currentCluster: "cluster1-admin"
   # Set to true if AMKO on this cluster is the leader
-  currentClusterIsLeader: false
+  currentClusterIsLeader: true
   # member clusters to federate the GSLBConfig and GDP objects on, if the
   # current cluster context is part of this list, the federator will ignore it
   memberClusters:
@@ -41,7 +41,7 @@ multiClusterIngress:
 
 configs:
   gslbLeaderController: ""
-  controllerVersion: "20.1.4"
+  controllerVersion: "31.1.1"
   tenant: "admin"
   memberClusters:
     - clusterContext: "cluster1-admin"
@@ -113,7 +113,7 @@ globalDeploymentPolicy:
 
   # Uncomment below to specify a Site Persistence profile ref. By default, Site Persistence is disabled.
   # Also, note that, Site Persistence is only applicable on secure ingresses/routes and ignored
-  # for all other cases. Follow https://avinetworks.com/docs/20.1/gslb-site-cookie-persistence/ to create
+  # for all other cases. Follow https://techdocs.broadcom.com/us/en/vmware-security-load-balancing/avi-load-balancer/avi-load-balancer/31-1/vmware-avi-load-balancer-gslb-guide/avi-gslb-architecture-and-terminologies/gslb-site-persistence/gslb-site-cookie-persistence.html to create
   # a Site persistence profile.
   # sitePersistenceRef: gap-1
 
