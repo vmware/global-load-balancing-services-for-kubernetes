@@ -134,9 +134,9 @@ kubectl delete ns avi-system
 
 * Upgrade all follower AMKO instances before the leader instance. Federation of configuration changes will be temporarily disrupted due to version mismatch. It is advised not to modify the GSLBconfig and GDP objects until leader AMKO is upgraded.
 
-* Upgrade Leader AMKO now and once amko pod reboots federation will resume and features from the upgraded AMKO version will be available for cluster objects.
+* Upgrade Leader AMKO now and once amko pod reboots, federation will resume and features from the upgraded AMKO version will be available for cluster objects.
 
-* While AKO and AMKO are in a major version mismatch it is advised to not annotate namespaces with tenant since AMKO which is in old version will create and update GSLB services in the configured tenant in GSLBConfig .
+* While AKO and AMKO are in a major version mismatch it is advised not to annotate namespaces with tenant since AMKO which is in old version will create and update GSLB services in the configured tenant in GSLBConfig .
 
 Follow these steps if you are upgrading from an older AMKO release.
 
