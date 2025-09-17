@@ -214,7 +214,11 @@ func GetSvcKey(op string, svc k8sobjects.SvcMeta) string {
 func verifyGsGraph(t *testing.T, metaObj k8sobjects.MetaObject, present bool, nMembers int, memberCheck bool) {
 	g := gomega.NewGomegaWithT(t)
 
-	modelName := "admin" + "/" + nodes.DeriveGSLBServiceName(metaObj.GetHostname(), "")
+	gsName, err := nodes.DeriveGSLBServiceName(metaObj.GetHostname(), "")
+	if err != nil {
+		t.Fatalf("Failed to derive GSLB service name: %v", err)
+	}
+	modelName := "admin" + "/" + gsName
 	ok, aviModelIntf := nodes.SharedAviGSGraphLister().Get(modelName)
 	if present == false {
 		g.Expect(ok).To(gomega.Equal(present))
