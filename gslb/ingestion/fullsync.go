@@ -276,10 +276,20 @@ func resyncMemberCluster() {
 			aviCtrlList = append(aviCtrlList, aviCtrl)
 		}
 	}
+	// Start informers and wait for cache sync
 	for _, aviCtrl := range aviCtrlList {
 		aviCtrl.Start(stopCh)
+		gslbutils.Logf("cluster: %s, msg: informer caches synced for resync", aviCtrl.GetName())
 	}
+
+	// Perform cluster sync
 	clusterSync(aviCtrlList, cache.GetAviCache())
+
+	// Setup event handlers after sync is complete
+	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.SetupEventHandlers(K8SInformers{Cs: aviCtrl.informers.ClientSet})
+		gslbutils.Logf("cluster: %s, msg: event handlers configured for resync", aviCtrl.GetName())
+	}
 }
 
 func clusterSync(ctrlList []*GSLBMemberController, gsCache *avicache.AviCache) {
