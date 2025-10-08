@@ -631,6 +631,13 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	avicache.PopulatePkiCache()
 	newCache := avicache.PopulateGSCache(true)
 
+	// Start informers WITHOUT event handlers
+	gslbutils.Logf("starting informers for all member clusters without event handlers")
+	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.Start(stopCh)
+		gslbutils.Logf("cluster: %s, msg: informers started and caches synced", aviCtrl.GetName())
+	}
+
 	nt := store.GetNamespaceToTenantStore()
 	for _, aviCtrl := range aviCtrlList {
 		// get all namespaces
@@ -644,9 +651,19 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 			nt.AddOrUpdate(aviCtrl.name, ns.Name, tenant)
 		}
 	}
+
+	// Perform initial full sync while informers are running (but no event handlers yet)
+	gslbutils.Logf("performing initial boot-up sync with active informers")
 	bootupSync(aviCtrlList, newCache)
 	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "Initial bootup sync completed.")
 	gslbutils.UpdateGSLBConfigStatus(BootupSyncEndMsg)
+
+	// Setup event handlers after initial sync is complete
+	gslbutils.Logf("setting up event handlers for all member clusters")
+	for _, aviCtrl := range aviCtrlList {
+		aviCtrl.SetupEventHandlers(K8SInformers{Cs: aviCtrl.informers.ClientSet})
+		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.AMKOClusterReady, "Event handlers active for cluster %s", aviCtrl.GetName())
+	}
 
 	// Initialize a periodic worker running full sync
 	resyncNodesWorker := gslbutils.NewFullSyncThread(time.Duration(cacheRefreshInterval))
@@ -666,12 +683,6 @@ func AddGSLBConfigObject(obj interface{}, initializeGSLBMemberClusters Initializ
 	gslbutils.SetGSLBConfig(true)
 	gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.GSLBConfigValidation, "GSLB Configuration validated and accepted.")
 	gslbutils.UpdateGSLBConfigStatus(AcceptedMsg)
-
-	// Start the informers for the member controllers
-	for _, aviCtrl := range aviCtrlList {
-		aviCtrl.Start(stopCh)
-		gslbutils.AMKOControlConfig().PodEventf(corev1.EventTypeNormal, gslbutils.AMKOClusterReady, "Started listening on object updates in cluster %s", aviCtrl.GetName())
-	}
 
 	// Set the workers for the node/graph layer
 	// During test mode, the graph layer workers are already initialized
@@ -948,7 +959,8 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	gslbutils.SetInformersPerCluster(cluster.clusterName, informerInstance)
 	aviCtrl.hrClientSet = betacrdClient
 	aviCtrl.hrAlphaClientSet = aplhaCrdClient
-	aviCtrl.SetupEventHandlers(K8SInformers{Cs: clients[cluster.clusterName]})
+	// NOTE: Event handlers are NOT set up here - they will be set up after boot-up sync
+	// This follows AKO's pattern of separating informer startup from event handler registration
 	return &aviCtrl, nil
 }
 

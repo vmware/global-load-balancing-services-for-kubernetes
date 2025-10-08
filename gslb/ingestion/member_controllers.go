@@ -136,10 +136,11 @@ func DeleteFromMultiClusterIngressStore(clusterIngStore *store.ClusterStore,
 }
 
 // SetupEventHandlers sets up event handlers for the controllers of the member clusters.
-// They define the ingress/route event handlers and start the informers as well.
+// This is called AFTER informers have started and initial boot-up sync is complete.
+// Following AKO pattern: informers start first, then full sync, then event handlers.
 func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	cs := k8sinfo.Cs
-	gslbutils.Logf("k8scontroller: %s, msg: %s", c.name, "creating event broadcaster")
+	gslbutils.Logf("cluster: %s, msg: setting up event handlers after boot-up sync", c.name)
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(containerutils.AviLog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: cs.CoreV1().Events("")})
@@ -149,42 +150,47 @@ func (c *GSLBMemberController) SetupEventHandlers(k8sinfo K8SInformers) {
 	numWorkers := k8sQueue.NumWorkers
 
 	if c.informers.IngressInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: adding Ingress event handlers", c.name)
 		ingressEventHandler := AddIngressEventHandler(numWorkers, c)
 		c.informers.IngressInformer.Informer().AddEventHandler(ingressEventHandler)
 	}
+
 	if c.informers.RouteInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: adding Route event handlers", c.name)
 		routeEventHandler := AddRouteEventHandler(numWorkers, c)
 		c.informers.RouteInformer.Informer().AddEventHandler(routeEventHandler)
 	}
 
 	if c.informers.ServiceInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: adding Service event handlers", c.name)
 		lbsvcEventHandler := AddLBSvcEventHandler(numWorkers, c)
 		c.informers.ServiceInformer.Informer().AddEventHandler(lbsvcEventHandler)
 	}
 
 	if c.informers.NSInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: adding Namespace event handlers", c.name)
 		nsEventHandler := AddNamespaceEventHandler(numWorkers, c)
 		c.informers.NSInformer.Informer().AddEventHandler(nsEventHandler)
 	}
 
 	if c.hrInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: adding HostRule event handlers", c.name)
 		hrInformer := *c.hrInformer
 		hrEventHandler := AddHostRuleEventHandler(numWorkers, c)
 		hrInformer.Informer().AddEventHandler(hrEventHandler)
 	}
 
-	// Add event handler for mci objects
 	if c.informers.MultiClusterIngressInformer != nil {
+		gslbutils.Logf("cluster: %s, msg: adding MultiClusterIngress event handlers", c.name)
 		mciEventHandler := AddMultiClusterIngressEventHandler(numWorkers, c)
 		c.informers.MultiClusterIngressInformer.Informer().AddEventHandler(mciEventHandler)
 	}
+
+	gslbutils.Logf("cluster: %s, msg: all event handlers configured successfully", c.name)
 }
 
 func isSvcTypeLB(svc *corev1.Service) bool {
-	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
-		return true
-	}
-	return false
+	return svc.Spec.Type == corev1.ServiceTypeLoadBalancer
 }
 
 // AddOrUpdateLBSvcStore traverses through the cluster store for cluster name cname,
@@ -265,43 +271,50 @@ func DeleteFromHostRuleStore(hrStore *store.ClusterStore,
 	hrStore.DeleteClusterNSObj(cname, hr.Namespace, hr.Spec.VirtualHost.Fqdn)
 }
 
+// Start starts all informers for this member cluster and waits for cache sync.
+// Following AKO pattern: Start informers first, wait for cache sync,
+// event handlers will be added separately after boot-up sync completes.
 func (c *GSLBMemberController) Start(stopCh <-chan struct{}) {
+	gslbutils.Logf("cluster: %s, msg: starting all informers (without event handlers)", c.name)
 
 	if c.informers.IngressInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting Ingress informer")
+		gslbutils.Logf("cluster: %s, msg: starting Ingress informer", c.name)
 		go c.informers.IngressInformer.Informer().Run(stopCh)
 		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.IngressInformer.Informer().HasSynced)
 	}
 
 	if c.informers.RouteInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting route informer")
+		gslbutils.Logf("cluster: %s, msg: starting Route informer", c.name)
 		go c.informers.RouteInformer.Informer().Run(stopCh)
 		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.RouteInformer.Informer().HasSynced)
 	}
 
 	if c.informers.ServiceInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting service informer")
+		gslbutils.Logf("cluster: %s, msg: starting Service informer", c.name)
 		go c.informers.ServiceInformer.Informer().Run(stopCh)
 		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.ServiceInformer.Informer().HasSynced)
 	}
+
 	c.StartNamespaceInformer(stopCh)
+
 	if c.hrInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting hostrule informer")
+		gslbutils.Logf("cluster: %s, msg: starting HostRule informer", c.name)
 		hrInformer := *c.hrInformer
 		go hrInformer.Informer().Run(stopCh)
 		c.cacheSyncParam = append(c.cacheSyncParam, hrInformer.Informer().HasSynced)
 	}
 
 	if c.informers.MultiClusterIngressInformer != nil {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "starting multi-cluster ingress informer")
+		gslbutils.Logf("cluster: %s, msg: starting MultiClusterIngress informer", c.name)
 		go c.informers.MultiClusterIngressInformer.Informer().Run(stopCh)
 		c.cacheSyncParam = append(c.cacheSyncParam, c.informers.MultiClusterIngressInformer.Informer().HasSynced)
 	}
 
+	gslbutils.Logf("cluster: %s, msg: waiting for all informer caches to sync", c.name)
 	if !cache.WaitForCacheSync(stopCh, c.cacheSyncParam...) {
-		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
+		runtime.HandleError(fmt.Errorf("cluster: %s, timed out waiting for informer caches to sync", c.name))
 	} else {
-		gslbutils.Logf("cluster: %s, msg: %s", c.name, "caches synced")
+		gslbutils.Logf("cluster: %s, msg: all informer caches synced successfully", c.name)
 	}
 }
 
