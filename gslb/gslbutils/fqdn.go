@@ -78,8 +78,8 @@ func (glFqdn *globalToLocalFqdn) AddUpdateToFqdnMapping(gFqdn, lFqdn, cname stri
 }
 
 func (glFqdn *globalToLocalFqdn) DeleteFromFqdnMapping(gFqdn, lFqdn, cname string) {
-	glFqdn.lock.RLock()
-	defer glFqdn.lock.RUnlock()
+	glFqdn.lock.Lock()
+	defer glFqdn.lock.Unlock()
 
 	lFqdnList, ok := glFqdn.globalToLocalMap[gFqdn]
 	if !ok {
@@ -114,7 +114,9 @@ func (glFqdn *globalToLocalFqdn) GetLocalFqdnsForGlobalFqdn(gFqdn string) ([]Loc
 	if !ok {
 		return []LocalFqdn{}, fmt.Errorf("no local fqdns for gFqdn %s", gFqdn)
 	}
-	return fqdnList, nil
+	result := make([]LocalFqdn, len(fqdnList))
+	copy(result, fqdnList)
+	return result, nil
 }
 
 func (glFqdn *globalToLocalFqdn) GetGlobalFqdnForLocalFqdn(cname, lFqdn string) (string, error) {
