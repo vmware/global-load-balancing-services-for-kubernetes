@@ -210,8 +210,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 						cname, objType, objName, err)
 					continue
 				}
-				fetchedObj, _ := rejectedObjStore.GetClusterNSObjectByName(cname,
+				fetchedObj, ok := rejectedObjStore.GetClusterNSObjectByName(cname,
 					ns, sname)
+				if !ok || fetchedObj == nil {
+					continue
+				}
 				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
 				key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cname, ns, sname, tenant)
@@ -228,8 +231,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 					gslbutils.Errf("msg: couldn't split the key: %s, error, %s", objName, err)
 					continue
 				}
-				fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+				fetchedObj, ok := acceptedObjStore.GetClusterNSObjectByName(cname,
 					ns, sname)
+				if !ok || fetchedObj == nil {
+					continue
+				}
 				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
 				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname, tenant)
@@ -249,8 +255,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 				if c != cname {
 					continue
 				}
-				fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+				fetchedObj, ok := acceptedObjStore.GetClusterNSObjectByName(cname,
 					ns, sname)
+				if !ok || fetchedObj == nil {
+					continue
+				}
 				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
 				key := gslbutils.MultiClusterKey(gslbutils.ObjectUpdate, objKey, cname, ns, sname, tenant)
@@ -275,8 +284,11 @@ func writeChangedObjToQueue(objType string, k8swq []workqueue.RateLimitingInterf
 					gslbutils.Errf("objName: %s, msg: processing error, %s", objName, err)
 					continue
 				}
-				fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+				fetchedObj, ok := acceptedObjStore.GetClusterNSObjectByName(cname,
 					ns, sname)
+				if !ok || fetchedObj == nil {
+					continue
+				}
 				tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 				bkt := utils.Bkt(ns, numWorkers)
 				key := gslbutils.MultiClusterKey(gslbutils.ObjectAdd, objKey, cname, ns, sname, tenant)
@@ -454,8 +466,11 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 			if cluster != cname || namespace != ns {
 				continue
 			}
-			fetchedObj, _ := acceptedObjStore.GetClusterNSObjectByName(cname,
+			fetchedObj, ok := acceptedObjStore.GetClusterNSObjectByName(cname,
 				ns, sname)
+			if !ok || fetchedObj == nil {
+				continue
+			}
 			tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
 			acceptedObjStore.DeleteClusterNSObj(cname, ns, sname)
 			// publish the delete keys for these objects
