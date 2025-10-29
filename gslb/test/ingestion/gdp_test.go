@@ -521,7 +521,7 @@ func TestGDPSelectNoClusters(t *testing.T) {
 		// Have to verify for all keys, since no order is guaranteed
 		passed, errStr := waitAndVerify(t, allKeys, true)
 		if !passed {
-			t.Fatalf(errStr)
+			t.Fatalf("%s", errStr)
 		}
 	}
 
@@ -605,7 +605,7 @@ func VerifyAllKeys(t *testing.T, allKeys []string, timeoutExpected bool) {
 		// Have to verify for all keys, since no order is guaranteed
 		passed, errStr := waitAndVerify(t, allKeys, timeoutExpected)
 		if !passed {
-			t.Fatalf(errStr)
+			t.Fatalf("%s", errStr)
 		}
 	}
 }

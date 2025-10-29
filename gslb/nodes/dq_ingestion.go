@@ -28,17 +28,17 @@ import (
 	"github.com/vmware/load-balancer-and-ingress-services-for-kubernetes/pkg/utils"
 )
 
-func DeriveGSLBServiceName(hostname, cname string) string {
+func DeriveGSLBServiceName(hostname, cname string) (string, error) {
 	if !gslbutils.GetCustomFqdnMode() {
-		return hostname
+		return hostname, nil
 	}
 	fqdnMapping := gslbutils.GetFqdnMap()
 	gsFqdn, err := fqdnMapping.GetGlobalFqdnForLocalFqdn(cname, hostname)
 	if err != nil {
 		gslbutils.Debugf("hostname: %s, msg: no global fqdn for this hostname", hostname)
-		return hostname
+		return "", err
 	}
-	return gsFqdn
+	return gsFqdn, nil
 }
 
 func DeriveGSLBServiceDomainNames(gsName string) []string {
@@ -284,7 +284,11 @@ func AddUpdateObjOperation(key, cname, ns, objType, objName string, wq *utils.Wo
 			return
 		}
 	}
-	gsName := DeriveGSLBServiceName(metaObj.GetHostname(), metaObj.GetCluster())
+	gsName, err := DeriveGSLBServiceName(metaObj.GetHostname(), metaObj.GetCluster())
+	if err != nil {
+		gslbutils.Errf("key: %s, msg: failed to derive GSLB service name: %v", key, err)
+		return
+	}
 	gsDomainNames := DeriveGSLBServiceDomainNames(gsName)
 	UpdateMemberFqdnMapping(metaObj, metaObj.GetHostname(), gsName)
 	modelName := metaObj.GetTenant() + "/" + gsName

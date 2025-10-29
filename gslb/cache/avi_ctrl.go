@@ -45,6 +45,7 @@ func SharedAviClients(tenant string) *utils.AviRestClientPool {
 	}
 	os.Setenv("CTRL_VERSION", ctrlCfg.Version)
 	userHeaders := utils.SharedCtrlProp().GetCtrlUserHeader()
+	userHeaders[gslbutils.XAviUserAgentHeader] = "AMKO"
 	apiScheme := utils.SharedCtrlProp().GetCtrlAPIScheme()
 
 	aviRestClientPool, _, err := utils.NewAviRestClientPool(gslbutils.NumRestWorkers, ctrlCfg.IPAddr, ctrlCfg.Username, ctrlCfg.Password, "", ctrlCfg.Version, "", tenant, apiScheme, userHeaders)
