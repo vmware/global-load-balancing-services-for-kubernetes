@@ -729,6 +729,8 @@ func Initialize() {
 			gslbutils.LogAndPanic("object: main, msg: " + err.Error() + ", error building kubeconfig")
 		}
 	}
+	cfg.QPS = 100
+	cfg.Burst = 100
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		gslbutils.LogAndPanic("error building kubernetes clientset: " + err.Error())
@@ -911,7 +913,8 @@ func InitializeMemberCluster(cfg *restclient.Config, cluster KubeClusterDetails,
 	clients map[string]*kubernetes.Clientset) (*GSLBMemberController, error) {
 
 	informersArg := make(map[string]interface{})
-
+	cfg.QPS = 100
+	cfg.Burst = 100
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error in creating kubernetes clientset: %v", err)
