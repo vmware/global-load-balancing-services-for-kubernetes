@@ -11,7 +11,7 @@ WORKDIR $GOPATH/src/$BUILD_PATH
 RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -o $GOPATH/bin/amko-federator -buildvcs=false -mod=vendor $BUILD_PATH/federator/
 
 FROM ${photon_src_repo}
-RUN yum install -y tar.x86_64
+RUN yum install -y tar.x86_64 && yum clean all
 COPY --from=build /go/bin/amko-federator .
 ENTRYPOINT [ "./amko-federator" ]
 
