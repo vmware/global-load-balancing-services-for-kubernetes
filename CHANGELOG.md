@@ -110,4 +110,24 @@ All notable changes to this project will be documented in this file. The format 
 ### Changed
   - AKO library has been upgraded. User have to update CRD definitions and AKO to 1.11.1 before upgrading AMKO to 1.11.1.
 
+## AMKO-1.12.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.28, 1.29 and OCP 4.14
+
+### Changed:
+  - PKI Profile used in GSLB Site Persistence can be added via `GlobalDeploymentPolicy` and `GSLBHostRule`
+
+## AMKO-1.13.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.31 and OCP 4.17
+  - AMKO now support multitenancy at namespace level. This feature allows AMKO to map each namespace in Kubernetes/OpenShift cluster uniquely to a tenant in Avi.
+  - AMKO now supports OpenShift Routes with `spec.subdomain` field using the [`defaultDomain`](https://github.com/vmware/global-load-balancing-services-for-kubernetes/blob/release-1.13.1/docs/crds/gdp.md?plain=1#L128) field in GDP object.
+  - AMKO now has ability to support only control plane health monitoring.
+
+### Bugs fixed:
+  - Fixed an issue where AMKO was not adding a new GS poolmember if GSLBHostrule was defined with publicIP
+  - Improved logic to remove stale health monitors created by AMKO
+
 
