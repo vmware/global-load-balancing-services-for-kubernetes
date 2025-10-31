@@ -21,14 +21,14 @@ For Kubernetes clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Kubernetes     | 1.27-1.31   |
-| AKO            | 2.1.1       |
+| AKO            | 2.2.1       |
 | AVI Controller | 22.1.3 - 31.1.1 |
 
 For openshift clusters:
 | **Components** | **Version** |
 | -------------- | ----------- |
 | Openshift      | 4.14-4.17    |
-| AKO            | 2.1.1       |
+| AKO            | 2.2.1       |
 | AVI Controller | 22.1.3 - 31.1.1 |
 
 #### Pre-requisites
@@ -70,22 +70,22 @@ Following steps have to be executed on all member clusters:
 
 2. Search the available charts for AMKO:
    ```
-   $ helm show chart oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.1.1
+   $ helm show chart oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.2.1
 
-   Pulled: projects.registry.vmware.com/ako/helm-charts/amko:2.1.1
+   Pulled: projects.registry.vmware.com/ako/helm-charts/amko:2.2.1
    Digest: sha256:xyxyxxyxyx
    apiVersion: v2
-   appVersion: 2.1.1
+   appVersion: 2.2.1
    description: A helm chart for Avi Kubernetes Operator
    name: amko
    type: application
-   version: 2.1.1
+   version: 2.2.1
    ```
 
 3. Use the `values.yaml` from this repository to provide values related to Avi configuration. To get the values.yaml for a release, run the following command
 
    ```
-   helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.1.1 > values.yaml
+   helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.2.1 > values.yaml
 
    ```
    Values and their corresponding index can be found [here](#parameters)
@@ -97,14 +97,14 @@ Following steps have to be executed on all member clusters:
 
 5. Install AMKO:
    ```
-   $ helm install --generate-name oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.1.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
+   $ helm install --generate-name oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.2.1 -f /path/to/values.yaml  --set configs.gsllbLeaderController=<leader_controller_ip> --namespace=avi-system
    ```
 6. Check the installation:
    ```
    $ helm list -n avi-system
 
    NAME           	NAMESPACE 	REVISION	UPDATED                                	STATUS  	CHART                 	APP VERSION
-   amko-1598451370	avi-system	1       	2023-10-14 11:16:21.889538175 +0000 UTC	deployed	amko-2.1.1	            2.1.1
+   amko-1598451370	avi-system	1       	2023-10-14 11:16:21.889538175 +0000 UTC	deployed	amko-2.2.1	            2.2.1
    ```
 
 #### Troubleshooting and Log collection
@@ -153,7 +153,7 @@ helm repo update amko
 Helm does not upgrade the CRDs during a release upgrade. Before you upgrade a release, run the following command to download and upgrade the CRDs:
 
 ```
-helm template oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.1.1 --include-crds --output-dir <output_dir>
+helm template oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.2.1 --include-crds --output-dir <output_dir>
 ```
 
 This will save the helm files to an output directory which will contain the CRDs corresponding to the AMKO version.
@@ -169,15 +169,15 @@ kubectl apply -f <output_dir>/amko/crds/
 helm list -n avi-system
 
 NAME          	NAMESPACE 	REVISION	UPDATED                             	    STATUS  	CHART    	APP VERSION
-amko-1598451370 avi-system	1       	2024-06-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.12.1	1.12.1
+amko-1598451370 avi-system	1       	2024-06-19 10:00:31.609195757 +0000 UTC	    deployed	amko-1.12.2.1.12.1
 ```
 
 *Step4*
 
-Get the values.yaml for the AMKO version 2.1.1 and edit the values as per the requirement.
+Get the values.yaml for the AMKO version 2.2.1 and edit the values as per the requirement.
 
 ```
-helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.1.1 > values.yaml
+helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --version 2.2.1 > values.yaml
 
 ```
 
@@ -186,7 +186,7 @@ helm show values oci://projects.registry.vmware.com/ako/helm-charts/amko --versi
 Upgrade the helm chart
 
 ```
-helm upgrade amko-1598451370 oci://projects.registry.vmware.com/ako/helm-charts/amko -f /path/to/values.yaml --version 2.1.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
+helm upgrade amko-1598451370 oci://projects.registry.vmware.com/ako/helm-charts/amko -f /path/to/values.yaml --version 2.2.1 --set configs.gslbLeaderController=<IP or Hostname> --set gslbLeaderCredentials.password=<username> --set gslbLeaderCredentials.username=<username> --namespace=avi-system
 
 ```
 
