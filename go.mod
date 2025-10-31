@@ -1,12 +1,10 @@
 module github.com/vmware/global-load-balancing-services-for-kubernetes
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.24.6
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/golang/glog v1.0.0
+	github.com/golang/glog v1.2.5
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.36.1
