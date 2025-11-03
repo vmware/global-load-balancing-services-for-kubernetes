@@ -131,3 +131,10 @@ All notable changes to this project will be documented in this file. The format 
   - Improved logic to remove stale health monitors created by AMKO
 
 
+## AMKO-2.1.1
+
+### Added:
+  - AMKO now claims support for Kubernetes 1.34 and OCP 4.18
+
+### Bugs fixed:
+  - Fixed an issue where AMKO was not able to validate `GSLBHostRule` CR with avi references ending with the string "login" in name
