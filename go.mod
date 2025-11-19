@@ -79,3 +79,12 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+exclude (
+	github.com/coreos/etcd v3.3.15+incompatible
+	github.com/coreos/go-etcd v2.0.0+incompatible
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/emicklei/go-restful v2.9.5+incompatible
+	go.mongodb.org/mongo-driver v1.1.2
+	gopkg.in/resty.v1 v1.12.0
+)
