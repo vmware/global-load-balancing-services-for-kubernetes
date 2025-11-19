@@ -81,10 +81,17 @@ require (
 )
 
 exclude (
+	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6
+	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/emicklei/go-restful v2.9.5+incompatible
+	github.com/hashicorp/golang-lru v0.5.1
+	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/hcl v1.0.0
+	go.mongodb.org/mongo-driver v1.0.3
+	go.mongodb.org/mongo-driver v1.1.1
 	go.mongodb.org/mongo-driver v1.1.2
 	gopkg.in/resty.v1 v1.12.0
 )
