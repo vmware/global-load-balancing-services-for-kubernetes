@@ -87,6 +87,7 @@ exclude (
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/emicklei/go-restful v2.9.5+incompatible
+	github.com/hashicorp/golang-lru v0.5.0
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/hcl v1.0.0
