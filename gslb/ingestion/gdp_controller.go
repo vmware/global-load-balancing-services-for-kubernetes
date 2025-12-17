@@ -46,6 +46,16 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+// objectDeletionInfo holds information about an object to be deleted
+// This is used in the two-pass deletion approach to collect all necessary
+// data before any deletion occurs
+type objectDeletionInfo struct {
+	cluster   string
+	namespace string
+	name      string
+	tenant    string
+}
+
 const (
 	AlreadyExistsErr = "a GDP object already exists, can't add another"
 	GDPSuccess       = "success"
@@ -454,8 +464,18 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 		gslbutils.Errf("objtype error: %s", err.Error())
 		return
 	}
+
 	if acceptedObjStore != nil {
+		// ============================================================
+		// PASS 1: Collect all object information including tenant
+		// This ensures we have all necessary data before any deletion
+		// ============================================================
+		var objectsToDelete []objectDeletionInfo
+
 		objs := acceptedObjStore.GetAllClusterNSObjects()
+		gslbutils.Debugf("cluster: %s, ns: %s, objType: %s, msg: found %d objects in snapshot",
+			cname, ns, objType, len(objs))
+
 		for _, objName := range objs {
 			cluster, namespace, sname, err := splitName(objType, objName)
 			if err != nil {
@@ -466,21 +486,60 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 			if cluster != cname || namespace != ns {
 				continue
 			}
-			fetchedObj, ok := acceptedObjStore.GetClusterNSObjectByName(cname,
-				ns, sname)
+
+			// Fetch object to get tenant information NOW, before any deletion
+			// This is the key difference: we collect all info in first pass
+			fetchedObj, ok := acceptedObjStore.GetClusterNSObjectByName(cname, ns, sname)
 			if !ok || fetchedObj == nil {
+				gslbutils.Debugf("cluster: %s, ns: %s, objType: %s, name: %s, msg: object not found in store during collection phase, may have been deleted by individual handler",
+					cluster, namespace, objType, sname)
 				continue
 			}
+
+			// Extract and store tenant information
 			tenant := fetchedObj.(k8sobjects.MetaObject).GetTenant()
-			acceptedObjStore.DeleteClusterNSObj(cname, ns, sname)
-			// publish the delete keys for these objects
-			bkt := utils.Bkt(ns, numWorkers)
-			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey, cluster, namespace, sname, tenant)
+			objectsToDelete = append(objectsToDelete, objectDeletionInfo{
+				cluster:   cluster,
+				namespace: namespace,
+				name:      sname,
+				tenant:    tenant,
+			})
+
+			gslbutils.Debugf("cluster: %s, ns: %s, objType: %s, name: %s, tenant: %s, msg: collected object info for deletion",
+				cluster, namespace, objType, sname, tenant)
+		}
+
+		gslbutils.Logf("cluster: %s, ns: %s, objType: %s, msg: collected %d objects for deletion",
+			cname, ns, objType, len(objectsToDelete))
+
+		// ============================================================
+		// PASS 2: Delete objects and publish keys
+		// At this point, we have all the tenant information we need,
+		// even if objects are deleted by individual handlers between passes
+		// ============================================================
+		for _, objInfo := range objectsToDelete {
+			// Delete from store (may already be deleted by individual handler, that's OK)
+			// The store's DeleteClusterNSObj is idempotent
+			_, ok := acceptedObjStore.DeleteClusterNSObj(objInfo.cluster, objInfo.namespace, objInfo.name)
+			if !ok {
+				gslbutils.Debugf("cluster: %s, ns: %s, objType: %s, name: %s, msg: object already deleted from store (likely by individual handler)",
+					objInfo.cluster, objInfo.namespace, objType, objInfo.name)
+			} else {
+				gslbutils.Debugf("cluster: %s, ns: %s, objType: %s, name: %s, msg: deleted object from store",
+					objInfo.cluster, objInfo.namespace, objType, objInfo.name)
+			}
+
+			// Publish the delete key - we have all the info we need regardless of deletion status
+			bkt := utils.Bkt(objInfo.namespace, numWorkers)
+			key := gslbutils.MultiClusterKey(gslbutils.ObjectDelete, objKey,
+				objInfo.cluster, objInfo.namespace, objInfo.name, objInfo.tenant)
 			k8swq[bkt].AddRateLimited(key)
-			gslbutils.Logf("cluster: %s, ns: %s, objType: %s, name: %s, key: %s, msg: added DELETE obj key", cluster, namespace,
-				objType, sname, key)
+
+			gslbutils.Logf("cluster: %s, ns: %s, objType: %s, name: %s, tenant: %s, key: %s, msg: added DELETE obj key",
+				objInfo.cluster, objInfo.namespace, objType, objInfo.name, objInfo.tenant, key)
 		}
 	}
+
 	if rejectedObjStore != nil {
 		objs := rejectedObjStore.GetAllClusterNSObjects()
 		for _, objName := range objs {
@@ -499,10 +558,14 @@ func deleteNamespacedObjsAndWriteToQueue(objType string, k8swq []workqueue.RateL
 }
 
 func DeleteNamespacedObjsFromAllStores(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, nsMeta k8sobjects.NSMeta) {
+	gslbutils.Logf("cluster: %s, ns: %s, msg: starting namespace deletion for all object types", nsMeta.Cluster, nsMeta.Name)
+
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.RouteObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.LBSvcObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gdpalphav2.IngressObj, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
 	deleteNamespacedObjsAndWriteToQueue(gslbutils.MCIType, k8swq, numWorkers, nsMeta.Cluster, nsMeta.Name)
+
+	gslbutils.Logf("cluster: %s, ns: %s, msg: completed namespace deletion for all object types", nsMeta.Cluster, nsMeta.Name)
 }
 
 func WriteChangedObjsToQueue(k8swq []workqueue.RateLimitingInterface, numWorkers uint32, allGSPropertyChanged bool,
