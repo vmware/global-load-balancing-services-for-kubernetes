@@ -1,3 +1,5 @@
 bin
 kubebuilder
 .golangci-bin/
+coverage_*.out
+coverage.html
