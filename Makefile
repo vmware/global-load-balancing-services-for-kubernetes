@@ -12,6 +12,19 @@ AMKO_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cm
 FEDERATOR_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/federator
 SERVICE_DISCOVERY_REL_PATH=github.com/vmware/global-load-balancing-services-for-kubernetes/cmd/service_discovery
 GOLANG_UT_IMAGE=golang:bullseye
+K8S_VERSION=1.24.2
+
+## Location to install envtest dependencies to (separate from bin/ which is owned by root via docker builds)
+LOCALBIN ?= $(PWD)/kubebuilder
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+## Tool Binaries
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+
+## Tool Versions
+ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
+ENVTEST_ASSETS_DIR=$(LOCALBIN)
 
 ifdef GOLANG_SRC_REPO
 	BUILD_GO_IMG=$(GOLANG_SRC_REPO)
@@ -136,7 +149,7 @@ docker: amko-docker amko-federator-docker amko-service-discovery-docker
 .PHONY: ingestion_test
 ingestion_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/ingestion -failfast -coverprofile=coverage_ingestion.out -coverpkg=./...
@@ -144,7 +157,7 @@ ingestion_test:
 .PHONY: graph_test
 graph_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/graph -failfast -coverprofile=coverage_graph.out -coverpkg=./...
@@ -152,7 +165,7 @@ graph_test:
 .PHONY: rest_test
 rest_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/restlayer -failfast -coverprofile=coverage_rest.out -coverpkg=./...
@@ -160,8 +173,8 @@ rest_test:
 .PHONY: federator_test
 federator_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
-	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
+	-e ACK_GINKGO_DEPRECATIONS=$(K8S_VERSION) \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./federator/controllers -ginkgo.v -coverprofile=coverage_federator.out -coverpkg=./...
@@ -169,8 +182,8 @@ federator_test:
 .PHONY: bootup_test
 bootup_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
-	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
+	-e ACK_GINKGO_DEPRECATIONS=$(K8S_VERSION) \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/bootuptest -ginkgo.v -ginkgo.seed=1624910766 -coverprofile=coverage_bootup.out -coverpkg=./...
@@ -178,8 +191,8 @@ bootup_test:
 .PHONY: custom_fqdn_test
 custom_fqdn_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
-	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
+	-e ACK_GINKGO_DEPRECATIONS=$(K8S_VERSION) \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/integration/custom_fqdn -failfast -coverprofile=coverage_custom_fqdn.out -coverpkg=./...
@@ -187,8 +200,8 @@ custom_fqdn_test:
 .PHONY: third_party_vips_test
 third_party_vips_test:
 	sudo docker run \
-	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/bin" \
-	-e ACK_GINKGO_DEPRECATIONS=1.24.2 \
+	-e KUBEBUILDER_ASSETS="/go/src/$(PACKAGE_PATH)/kubebuilder/k8s/$(K8S_VERSION)-linux-amd64" \
+	-e ACK_GINKGO_DEPRECATIONS=$(K8S_VERSION) \
 	-w=/go/src/$(PACKAGE_PATH) \
 	-v $(PWD):/go/src/$(PACKAGE_PATH) $(GOLANG_UT_IMAGE) \
 	$(GOTEST) -v -mod=vendor ./gslb/test/integration/third_party_vips -failfast -coverprofile=coverage_third_party_vips.out -coverpkg=./...
@@ -196,11 +209,33 @@ third_party_vips_test:
 .PHONY: int_test
 int_test: federator_test bootup_test custom_fqdn_test third_party_vips_test
 
-K8S_VERSION=1.24.2
-URL=https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${K8S_VERSION}-linux-amd64.tar.gz
-envtest_setup:
-	curl -sSLo /tmp/envtest-bins.tar.gz ${URL}
-	tar -zvxf /tmp/envtest-bins.tar.gz -C $(PWD)
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+envtest_setup: envtest ## Download the binaries required for ENVTEST in the local bin directory.
+	@echo "Setting up envtest binaries for Kubernetes version $(K8S_VERSION)..."
+	@$(ENVTEST) use $(K8S_VERSION) --bin-dir $(ENVTEST_ASSETS_DIR) -p path || { \
+		echo "Error: Failed to set up envtest binaries for version $(K8S_VERSION)."; \
+		exit 1; \
+	}
+
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary
+# $2 - package url which can be installed
+# $3 - specific version of package
+define go-install-tool
+@[ -f "$(1)-$(3)" ] || { \
+set -e; \
+package=$(2)@$(3) ;\
+echo "Downloading $${package}" ;\
+rm -f $(1) || true ;\
+GOBIN=$(LOCALBIN) go install $${package} ;\
+mv $(1) $(1)-$(3) ;\
+} ;\
+ln -sf $(1)-$(3) $(1)
+endef
 
 .PHONY: test
 test: envtest_setup int_test ingestion_test graph_test rest_test
